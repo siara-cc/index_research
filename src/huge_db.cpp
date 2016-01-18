@@ -1,5 +1,3 @@
-#include "db.h"
-#include "rs.h"
 #include <stdlib.h>
 #include <time.h>
 #include <sys/time.h>
@@ -17,13 +15,26 @@ using namespace std;
 void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
-    for (long i = 0; i < 164000; i++) {
-        itoa(rand(), k, 10);
-        itoa(rand(), k + strlen(k), 10);
-        itoa(rand(), k + strlen(k), 10);
+    srand(time(NULL));
+    for (long l = 0; l < 164000; l++) {
+        long r = rand() * rand();
+        for (int b = 0; b < 4; b++) {
+            char c = (r >> (24 - b * 8));
+            k[b * 2] = 48 + (c >> 4);
+            k[b * 2 + 1] = 48 + (c & 0x0F);
+        }
+        r = rand() * rand();
+        for (int b = 4; b < 8; b++) {
+            char c = (r >> (24 - (b - 4) * 8));
+            k[b * 2] = 48 + (c >> 4);
+            k[b * 2 + 1] = 48 + (c & 0x0F);
+        }
+        k[16] = 0;
         itoa(rand(), v, 10);
         itoa(rand(), v + strlen(v), 10);
         itoa(rand(), v + strlen(v), 10);
+        if (l == 0)
+            cout << "key:" << k << endl;
         m.insert(pair<string, string>(k, v));
     }
 }
@@ -67,7 +78,8 @@ int main() {
     gettimeofday(&start, NULL);
     it = m.begin();
     for (; it != m.end(); ++it) {
-        art_insert(&at, (unsigned char*) it->first.c_str(), it->first.length(), (void *) it->second.c_str());
+        art_insert(&at, (unsigned char*) it->first.c_str(), it->first.length(),
+                (void *) it->second.c_str());
     }
     gettimeofday(&stop, NULL);
     cout << "ART Insert Time:" << timedifference_msec(start, stop) << endl;
