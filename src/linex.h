@@ -19,20 +19,18 @@ private:
     } block_data;
     int binarySearchLeaf(char *key, int key_len);
     int binarySearchNode(char *key, int key_len);
-    void updateParentsRecursively(Node node, Comparable first);
 public:
     linex_block();
     bool isLeaf();
     void setLeaf(byte isLeaf);
     bool isFull(int kv_len);
-    linex_block *getParent();
-    void setParent(linex_block *p);
     int filledSize();
     linex_block *getChild(int pos);
     int binarySearch(char *key, int key_len);
-    linex_block *addData(int *pIdx, char *key, int key_len, char *value,
-            int value_len, int lastSearchPos[], int level);
-    int getData(int pos, char *data);
+    void addData(int idx, char *key, int key_len, char *value,
+            int value_len);
+    char *getKey(int pos, int *plen);
+    char *getData(int pos, int *plen);
 };
 
 class linex {
@@ -48,7 +46,7 @@ private:
 public:
     linex();
     long size();
-    int get(char *key, int key_len, char *value);
+    char *get(char *key, int key_len, int *pValueLen);
     void put(char *key, int key_len, char *value, int value_len);
 };
 

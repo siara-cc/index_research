@@ -4,7 +4,7 @@ void linex::put(char *key, int key_len, char *value, int value_len) {
     // isPut = true;
     int lastSearchPos[numLevels];
     if (root->filledSize() == 0) {
-        root->addData(0, key, key_len, value, value_len, lastSearchPos, 0);
+        root->addData(0, key, key_len, value, value_len);
         total_size++;
     } else {
         int pos = 0;
@@ -42,125 +42,23 @@ linex_block *linex::recursiveSearch(char *key, int key_len, linex_block *node,
     return node;
 }
 
-int linex::get(char *key, int key_len, char *value) {
+char *linex::get(char *key, int key_len, int *pValueLen) {
     int lastSearchPos[numLevels];
     int pos = -1;
     linex_block *foundNode = recursiveSearch(key, key_len, root, lastSearchPos,
             &pos);
     if (pos < 0)
-        return 0;
-    return foundNode->getData(pos, value);
+        return null;
+    return foundNode->getData(pos, pValueLen);
 }
 
-linex_block *linex_block::addData(int *pIdx, char *key, int key_len,
-        char *value, int value_len, int lastInsertPos[], int level) {
-    if (isFull(key_len + value_len)) {
-        linex_block *newnode = new linex_block();
-        if (!isLeaf())
-            newnode->setLeaf(false);
-        int halfKVLen = BLK_SIZE - block_data.hdr.kv_last_pos + 1;
-        halfKVLen /= 2;
-        int kvLen = 0;
-        int *kvIdx = sizeof(block_data.hdr);
-        for (int i = filledSize() - 1; i >= 0; i++) {
-            int keyLen = block_data.buf[kvIdx[i]];
-            keyLen++;
-            int valueLen = block_data.buf[kvIdx[i] + keyLen];
-            valueLen++;
-            kvLen += keyLen;
-            kvLen += valueLen;
-            if (kvLen > halfKVLen) {
-                newnode->block_data.hdr.filledSize = filledSize() - i;
-                break;
-            } else {
-                memcpy(
-                        newnode->block_data.buf
-                                + newnode->block_data.hdr.kv_last_pos - kvLen,
-                        block_data.buf + kvIdx[i], kvLen);
-                block_data.buf[kvIdx[i]] = ~block_data.buf[kvIdx[i]];
-                newnode->block_data.hdr.kv_last_pos -= kvLen;
-            }
-        }
-        int newLen = 0;
-        for (int i = block_data.hdr.kv_last_pos; i < BLK_SIZE;) {
-            int keyLen = block_data.buf[i];
-            int kvLen = 0;
-            if (keyLen < 0) {
-                keyLen = ~keyLen;
-                kvLen = keyLen;
-                kvLen++;
-                kvLen += block_data.buf[i];
-                kvLen++;
-                memmove(block_data.buf + i, block_data.buf + i + kvLen, kvLen);
-            } else {
-                kvLen = keyLen;
-                kvLen++;
-                kvLen += block_data.buf[i];
-                kvLen++;
-                newLen += kvLen;
-            }
-            i += kvLen;
-        }
-        byte *kv_last_idx = block_data.buf + block_data.hdr.kv_last_pos;
-        memmove(kv_last_idx + newLen, kv_last_idx, newLen);
-        block_data.hdr.kv_last_pos += newLen;
-        if (node->getParent() == null) {
-            root = new linex_block();
-            node->setParent(root);
-            root = node->parent;
-            root.first = node->first;
-            root.children = new Node[mSizeBy2];
-            root.children[0] = node;
-            root.children[1] = newNode;
-            root.isLeaf = false;
-            root.filledSize() = 1;
-            root.lastSearchPos = 0;
-            newnode->parent = root;
-        } else {
-            Node parent = node->parent;
-            if (parent.lastSearchPos == parent.filledSize())
-                parent.lastSearchPos = ~(parent.filledSize() + 1);
-            else
-                parent.lastSearchPos = ~(parent.lastSearchPos + 1);
-            recursiveUpdate(parent, newNode, null);
-        }
-        // System.out.println("Grow");
-        if (idx > mSizeBy4Minus1) {
-            node = newNode;
-            arr = (node->isLeaf ? newnode->data : newnode->children);
-            idx -= mSizeBy4;
-            if (!node->isLeaf)
-                ((Node) key).parent = newNode;
-        }
-        if (idx == 0) {
-            if (node->isLeaf)
-                node->first = (Comparable) arr[0];
-            else
-                node->first = (Comparable)((Node) arr[0]).first;
-            updateParentsRecursively(node, node->first);
-        }
-    }
-    int idxPlus1 = *pIdx + 1;
-    if (idx <= node->filledSize())
-        System.arraycopy(arr, idx, arr, idxPlus1, node->filledSize() - idx + 1);
-    arr[idx] = key;
-    if (node->isLeaf) {
-        if (idx <= node->filledSize())
-            System.arraycopy(arr, idxPlusSizeBy2, arr, idxPlusSizeBy2 + 1,
-                    node->filledSize() - idx + 1);
-        arr[idxPlusSizeBy2] = value;
-        size++;
-    }
-    node->filledSize()++;}
-
-void linex_block::updateParentsRecursively(Node node, Comparable first) {
-    if (node == null)
-        return;
-    Node parent = node->parent;
-    if (parent != null && parent.children[0].equals(node)) {
-        parent.first = first;
-        updateParentsRecursively(parent, first);
-    }
+void linex_block::addData(int idx, char *key, int key_len, char *value,
+        int value_len) {
+    int *kvIdx = sizeof(block_data.hdr);
+    if (idx < filledSize())
+        memmove(kvIdx+1, kvIdx, sizeof(int));
+    block_data.hdr.filledSize++;
+    kvIdx[idx] = block_data.hdr.kv_last_pos - key_len - value_len - 2;
 }
 
 void linex::recursiveUpdate(linex_block *node, int pos, char *key, int key_len,
@@ -168,7 +66,86 @@ void linex::recursiveUpdate(linex_block *node, int pos, char *key, int key_len,
     int idx = lastSearchPos[level];
     if (idx < 0) {
         idx = ~idx;
-        node = node->addData(&idx, key, key_len, value, value_len);
+        if (node->isFull(key_len + value_len)) {
+            linex_block *new_block = new linex_block();
+            if (!node->isLeaf())
+                new_block->setLeaf(false);
+            int halfKVLen = BLK_SIZE - node->block_data.hdr.kv_last_pos + 1;
+            halfKVLen /= 2;
+            int kvLen = 0;
+            int *kvIdx = sizeof(node->block_data.hdr);
+            int breakIdx;
+            for (breakIdx = filledSize() - 1; breakIdx >= 0; breakIdx++) {
+                int keyLen = node->block_data.buf[kvIdx[breakIdx]];
+                keyLen++;
+                int valueLen = node->block_data.buf[kvIdx[breakIdx] + keyLen];
+                valueLen++;
+                kvLen += keyLen;
+                kvLen += valueLen;
+                if (kvLen > halfKVLen) {
+                    new_block->block_data.hdr.filledSize = filledSize()
+                            - breakIdx;
+                    break;
+                } else {
+                    memcpy(
+                            new_block->block_data.buf
+                                    + new_block->block_data.hdr.kv_last_pos
+                                    - kvLen,
+                            node->block_data.buf + kvIdx[breakIdx], kvLen);
+                    node->block_data.buf[kvIdx[breakIdx]] =
+                            ~node->block_data.buf[kvIdx[breakIdx]];
+                    new_block->block_data.hdr.kv_last_pos -= kvLen;
+                }
+            }
+            int newLen = 0;
+            for (int i = node->block_data.hdr.kv_last_pos; i < BLK_SIZE;) {
+                int keyLen = node->block_data.buf[i];
+                int kvLen = 0;
+                if (keyLen < 0) {
+                    keyLen = ~keyLen;
+                    kvLen = keyLen;
+                    kvLen++;
+                    kvLen += node->block_data.buf[i];
+                    kvLen++;
+                    memmove(node->block_data.buf + i,
+                            node->block_data.buf + i + kvLen, kvLen);
+                } else {
+                    kvLen = keyLen;
+                    kvLen++;
+                    kvLen += node->block_data.buf[i];
+                    kvLen++;
+                    newLen += kvLen;
+                }
+                i += kvLen;
+            }
+            byte *kv_last_idx = node->block_data.buf
+                    + node->block_data.hdr.kv_last_pos;
+            memmove(kv_last_idx + newLen, kv_last_idx, newLen);
+            node->block_data.hdr.kv_last_pos += newLen;
+
+            if (root == node) {
+                root = new linex_block();
+                int len;
+                char *key = node->getKey(0, &len);
+                root->addData(0, key, len, (char *) &node, sizeof(char *));
+                key = new_block->getKey(0, &len);
+                root->addData(1, key, len, (char *) &new_block, sizeof(char *));
+                root->setLeaf(false);
+            } else {
+                Node parent = node->parent;
+                if (parent.lastSearchPos == parent.filledSize())
+                    parent.lastSearchPos = ~(parent.filledSize() + 1);
+                else
+                    parent.lastSearchPos = ~(parent.lastSearchPos + 1);
+                recursiveUpdate(parent, newNode, null);
+            }
+            if (idx > breakIdx) {
+                node = new_block;
+                idx -= breakIdx;
+            }
+
+        }
+        node->addData(&idx, key, key_len, value, value_len);
     } else {
         if (node->isLeaf) {
             int vIdx = idx + mSizeBy2;
@@ -275,5 +252,16 @@ int linex_block::filledSize() {
 linex_block *linex_block::getChild(int pos) {
 }
 
-int linex_block::getData(int pos, char *data) {
+char *linex_block::getKey(int pos, int *plen) {
+    int *kvIdx = sizeof(block_data.hdr);
+    *plen = kvIdx[pos];
+    return kvIdx+pos+1;
+}
+
+char *linex_block::getData(int pos, int *plen) {
+    int *kvIdx = sizeof(block_data.hdr);
+    kvIdx += kvIdx[pos];
+    kvIdx++;
+    *plen = kvIdx[pos];
+    return kvIdx+pos+1;
 }
