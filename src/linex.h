@@ -9,6 +9,10 @@ typedef unsigned char byte;
 
 class linex_block {
 private:
+    int compare(char *v1, int len1, char *v2, int len2);
+    int binarySearchLeaf(char *key, int key_len);
+    int binarySearchNode(char *key, int key_len);
+public:
     union {
         byte buf[BLK_SIZE];
         struct {
@@ -17,9 +21,6 @@ private:
             int kv_last_pos;
         } hdr;
     } block_data;
-    int binarySearchLeaf(char *key, int key_len);
-    int binarySearchNode(char *key, int key_len);
-public:
     linex_block();
     bool isLeaf();
     void setLeaf(byte isLeaf);
@@ -27,8 +28,7 @@ public:
     int filledSize();
     linex_block *getChild(int pos);
     int binarySearch(char *key, int key_len);
-    void addData(int idx, char *key, int key_len, char *value,
-            int value_len);
+    void addData(int idx, char *key, int key_len, char *value, int value_len);
     char *getKey(int pos, int *plen);
     char *getData(int pos, int *plen);
 };
@@ -39,10 +39,10 @@ private:
     long total_size;
     int numLevels;
     linex_block *recursiveSearch(char *key, int key_len, linex_block *node,
-            int lastSearchPos[], int *pIdx);
+            int lastSearchPos[], linex_block *block_paths[], int *pIdx);
     void recursiveUpdate(linex_block *foundNode, int pos, char *key,
             int key_len, char *value, int value_len, int lastSearchPos[],
-            int level);
+            linex_block *block_paths[], int level);
 public:
     linex();
     long size();
