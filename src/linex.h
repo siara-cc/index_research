@@ -4,33 +4,33 @@
 typedef unsigned char byte;
 #define null 0
 #define BLK_SIZE 512
+#define BLK_HDR_SIZE 4
 #define TREE_SIZE 128
 #define MAX_DATA_LEN 127
 
 class linex_block {
 private:
-    int compare(char *v1, int len1, char *v2, int len2);
-    int binarySearchLeaf(char *key, int key_len);
-    int binarySearchNode(char *key, int key_len);
+    int compare(const char *v1, int len1, const char *v2, int len2);
+    int binarySearchLeaf(const char *key, int key_len);
+    int binarySearchNode(const char *key, int key_len);
 public:
     union {
         byte buf[BLK_SIZE];
-        struct {
-            byte isLeaf;
-            byte filledSize;
-            int kv_last_pos;
-        } hdr;
     } block_data;
     linex_block();
     bool isLeaf();
-    void setLeaf(byte isLeaf);
+    void setLeaf(char isLeaf);
     bool isFull(int kv_len);
     int filledSize();
+    void setFilledSize(char filledSize);
+    int binarySearch(const char *key, int key_len);
+    void addData(int idx, const char *key, int key_len, const char *value,
+            int value_len);
     linex_block *getChild(int pos);
-    int binarySearch(char *key, int key_len);
-    void addData(int idx, char *key, int key_len, char *value, int value_len);
-    char *getKey(int pos, int *plen);
-    char *getData(int pos, int *plen);
+    byte *getKey(int pos, int *plen);
+    byte *getData(int pos, int *plen);
+    void setKVLastPos(int val);
+    int getKVLastPos();
 };
 
 class linex {
@@ -38,16 +38,19 @@ private:
     linex_block *root;
     long total_size;
     int numLevels;
-    linex_block *recursiveSearch(char *key, int key_len, linex_block *node,
-            int lastSearchPos[], linex_block *block_paths[], int *pIdx);
-    void recursiveUpdate(linex_block *foundNode, int pos, char *key,
-            int key_len, char *value, int value_len, int lastSearchPos[],
+    linex_block *recursiveSearch(const char *key, int key_len,
+            linex_block *node, int lastSearchPos[], linex_block *block_paths[],
+            int *pIdx);
+    void recursiveUpdate(linex_block *foundNode, int pos, const char *key,
+            int key_len, const char *value, int value_len, int lastSearchPos[],
             linex_block *block_paths[], int level);
 public:
     linex();
     long size();
-    char *get(char *key, int key_len, int *pValueLen);
-    void put(char *key, int key_len, char *value, int value_len);
+    char *get(const char *key, int key_len, int *pValueLen);
+    void put(const char *key, int key_len, const char *value, int value_len);
+    static int getInt(byte *pos);
+    static void setInt(byte *pos, int val);
 };
 
 class GenTree {
@@ -111,7 +114,7 @@ public:
             if (i == 0)
                 roots[ixRoots++] = 0;
             else {
-                int root = 2 ^ nxt;
+                int root = (1 << nxt);
                 root--;
                 if (i + 1 == TREE_SIZE) {
                     roots[ixRoots] = roots[ixRoots - 1];

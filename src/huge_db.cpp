@@ -9,6 +9,7 @@
 #include <map>
 #include <tr1/unordered_map>
 #include "art.h"
+#include "linex.h"
 using namespace std::tr1;
 using namespace std;
 
@@ -42,7 +43,21 @@ float timedifference_msec(struct timeval t0, struct timeval t1) {
     return (t1.tv_sec - t0.tv_sec) * 1000.0f
             + (t1.tv_usec - t0.tv_usec) / 1000.0f;
 }
+
 int main() {
+    linex *lx = new linex();
+    lx->put("Hello", 5, "World", 5);
+    lx->put("Arun", 4, "Hello", 5);
+    lx->put("Nice", 4, "Place", 5);
+    int len;
+    char *value = lx->get("Nice", 4, &len);
+    char s[100];
+    strncpy(s, value, 5);
+    s[5] = 0;
+    std::cout << "Value:" << s << endl;
+}
+
+int main1() {
 
     /*
      db d("/tmp", "test");
