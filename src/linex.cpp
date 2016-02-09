@@ -1,4 +1,5 @@
 #include "linex.h"
+#include <cstdio>
 #include <cstring>
 
 void linex::put(const char *key, int key_len, const char *value,
@@ -77,13 +78,17 @@ void linex_block::setKVLastPos(int val) {
 int linex_block::getKVLastPos() {
     return linex::getInt(block_data.buf + 2);
 }
+
 void linex_block::addData(int idx, const char *key, int key_len,
         const char *value, int value_len) {
+
     byte *kvIdx = block_data.buf + BLK_HDR_SIZE;
     kvIdx += idx;
     kvIdx += idx;
-    if (idx < filledSize())
-        memmove(kvIdx + 2, kvIdx, 2);
+    int filledSz = filledSize();
+    if (idx < filledSz)
+        memmove(kvIdx + 2, kvIdx, (filledSz - idx) * 2);
+
     block_data.buf[1]++;
     int kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
     setKVLastPos(kv_last_pos);
@@ -101,6 +106,7 @@ void linex::recursiveUpdate(linex_block *node, int pos, const char *key,
     if (idx < 0) {
         idx = ~idx;
         if (node->isFull(key_len + value_len)) {
+            printf("Full\n");
             linex_block *new_block = new linex_block();
             if (!node->isLeaf())
                 new_block->setLeaf(false);

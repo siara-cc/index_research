@@ -17,7 +17,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 164000; l++) {
+    for (long l = 0; l < 14; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));
@@ -44,20 +44,37 @@ float timedifference_msec(struct timeval t0, struct timeval t1) {
             + (t1.tv_usec - t0.tv_usec) / 1000.0f;
 }
 
-int main() {
+int main1() {
     linex *lx = new linex();
     lx->put("Hello", 5, "World", 5);
-    lx->put("Arun", 4, "Hello", 5);
     lx->put("Nice", 4, "Place", 5);
+    lx->put("Arun", 4, "Hello", 5);
+    lx->put("arun", 4, "0", 1);
+    lx->put("ri0hello", 7, "2", 1);
+    lx->put("ricin", 5, "3", 1);
+    lx->put("rickshaw", 8, "4", 1);
+    lx->put("ride", 4, "5", 1);
+    lx->put("rider", 5, "6", 1);
+    lx->put("rice", 4, "7", 1);
+    lx->put("ric", 3, "8", 1);
+    lx->put("aruna", 5, "9", 1);
+    lx->put("hello", 5, "10", 2);
+    lx->put("world", 5, "11", 2);
+    lx->put("how", 3, "12", 2);
+    lx->put("are", 3, "13", 2);
+    lx->put("1", 1, "15", 2);
+    lx->put("you", 3, "14", 2);
+    lx->put("boy", 3, "15", 2);
     int len;
     char *value = lx->get("Nice", 4, &len);
     char s[100];
     strncpy(s, value, 5);
     s[5] = 0;
     std::cout << "Value:" << s << endl;
+    return 0;
 }
 
-int main1() {
+int main() {
 
     /*
      db d("/tmp", "test");
@@ -106,6 +123,32 @@ int main1() {
     gettimeofday(&stop, NULL);
     cout << "ART Get Time:" << timedifference_msec(start, stop) << endl;
     cout << "ART Size:" << art_size(&at) << endl;
+
+    linex *lx = new linex();
+    it = m.begin();
+    gettimeofday(&start, NULL);
+    for (; it != m.end(); ++it) {
+        lx->put(it->first.c_str(), it->first.length(), it->second.c_str(),
+                it->second.length());
+    }
+    gettimeofday(&stop, NULL);
+    cout << "B+Tree insert time:" << timedifference_msec(start, stop) << endl;
+
+    it = m.begin();
+    int ctr = 0;
+    gettimeofday(&start, NULL);
+    for (; it != m.end(); ++it) {
+        int len;
+        char *value = lx->get(it->first.c_str(), it->first.length(), &len);
+        char v[100];
+        if (value != null) {
+            strncpy(v, value, len);
+            v[len] = 0;
+            cout << ctr++ << ":" << v << endl;
+        }
+    }
+    gettimeofday(&stop, NULL);
+    cout << "B+Tree get time:" << timedifference_msec(start, stop) << endl;
 
     return 0;
 
