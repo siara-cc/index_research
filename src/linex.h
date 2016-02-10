@@ -5,7 +5,7 @@ typedef unsigned char byte;
 #define null 0
 #define BLK_SIZE 512
 #define BLK_HDR_SIZE 4
-#define TREE_SIZE 128
+#define TREE_SIZE 256
 #define MAX_DATA_LEN 127
 
 class linex_block {
@@ -51,6 +51,8 @@ public:
     void put(const char *key, int key_len, const char *value, int value_len);
     static int getInt(byte *pos);
     static void setInt(byte *pos, int val);
+    static void cvtAddr(unsigned long addr_num, char *addr);
+    static unsigned long cvtAddrToLong(byte *addr);
 };
 
 class GenTree {

@@ -72,6 +72,27 @@ void linex::setInt(byte *pos, int val) {
     pos++;
     *pos = val % 256;
 }
+void linex::cvtAddr(unsigned long addr_num, char *addr) {
+    addr[3] = (addr_num & 0xFF);
+    addr_num >>= 8;
+    addr[2] = (addr_num & 0xFF);
+    addr_num >>= 8;
+    addr[1] = (addr_num & 0xFF);
+    addr_num >>= 8;
+    addr[0] = (addr_num & 0xFF);
+    addr[4] = 0;
+}
+unsigned long linex::cvtAddrToLong(byte *addr) {
+    unsigned long ret = 0;
+    ret = addr[3];
+    ret <<= 8;
+    ret |= addr[2];
+    ret <<= 8;
+    ret |= addr[2];
+    ret <<= 8;
+    ret |= addr[0];
+    return ret;
+}
 void linex_block::setKVLastPos(int val) {
     linex::setInt(&block_data.buf[2], val);
 }
@@ -116,10 +137,10 @@ void linex::recursiveUpdate(linex_block *node, int pos, const char *key,
             byte *kvIdx = node->block_data.buf + BLK_HDR_SIZE;
             int breakIdx;
             for (breakIdx = node->filledSize() - 1; breakIdx >= 0; breakIdx++) {
-                int keyLen = node->block_data.buf[getInt(kvIdx + breakIdx * 2)];
+                int srcIdx = getInt(kvIdx + breakIdx * 2);
+                int keyLen = node->block_data.buf[srcIdx];
                 keyLen++;
-                int valueLen = node->block_data.buf[getInt(kvIdx + breakIdx * 2)
-                        + keyLen];
+                int valueLen = node->block_data.buf[srcIdx + keyLen];
                 valueLen++;
                 kvLen += keyLen;
                 kvLen += valueLen;
@@ -127,15 +148,13 @@ void linex::recursiveUpdate(linex_block *node, int pos, const char *key,
                     new_block->setFilledSize(node->filledSize() - breakIdx);
                     break;
                 } else {
-                    memcpy(
-                            new_block->block_data.buf
-                                    + new_block->getKVLastPos() - kvLen,
-                            node->block_data.buf + getInt(kvIdx + breakIdx * 2),
-                            kvLen);
-                    node->block_data.buf[getInt(kvIdx + breakIdx * 2)] =
-                            ~node->block_data.buf[getInt(kvIdx + breakIdx * 2)];
-                    setInt(new_block->block_data.buf + 2,
-                            new_block->getKVLastPos() - kvLen);
+                    int newKVLastPos = new_block->getKVLastPos();
+                    newKVLastPos -= kvLen;
+                    memcpy(new_block->block_data.buf + newKVLastPos,
+                            node->block_data.buf + srcIdx, kvLen);
+                    node->block_data.buf[srcIdx] =
+                            ~node->block_data.buf[srcIdx];
+                    new_block->setKVLastPos(newKVLastPos);
                 }
             }
             int newLen = 0;
@@ -166,21 +185,25 @@ void linex::recursiveUpdate(linex_block *node, int pos, const char *key,
             if (root == node) {
                 root = new linex_block();
                 int len;
-                byte *key = node->getKey(0, &len);
-                //root->addData(0, key, len, (const char *) &node, sizeof(char *));
-                key = new_block->getKey(0, &len);
-                //root->addData(1, key, len, (const char *) &new_block, sizeof(char *));
+                char *key = (char *) node->getKey(0, &len);
+                char addr[5];
+                linex::cvtAddr((unsigned long) node, addr);
+                root->addData(0, key, len, addr, sizeof(char *));
+                linex::cvtAddr((unsigned long) new_block, addr);
+                root->addData(1, key, len, addr, sizeof(char *));
                 root->setLeaf(false);
                 numLevels++;
             } else {
                 int prev_level = level - 1;
                 linex_block *parent = block_paths[prev_level];
                 int first_key_len;
-                byte *new_block_first_key = new_block->getKey(0,
+                char *new_block_first_key = (char *) new_block->getKey(0,
                         &first_key_len);
-                //recursiveUpdate(parent, ~(lastSearchPos[prev_level] + 1),
-                //        new_block_first_key, first_key_len, (char *) &new_block,
-                //        sizeof(char *), lastSearchPos, block_paths, prev_level);
+                char addr[5];
+                linex::cvtAddr((unsigned long) new_block, addr);
+                recursiveUpdate(parent, ~(lastSearchPos[prev_level] + 1),
+                        new_block_first_key, first_key_len, addr,
+                        sizeof(char *), lastSearchPos, block_paths, prev_level);
             }
             if (idx > breakIdx) {
                 node = new_block;
@@ -202,7 +225,6 @@ int linex_block::compare(const char *v1, int len1, const char *v2, int len2) {
     int lim = len1;
     if (len2 < len1)
         lim = len2;
-
     int k = 0;
     while (k < lim) {
         char c1 = v1[k];
@@ -303,7 +325,7 @@ void linex_block::setFilledSize(char filledSize) {
 
 bool linex_block::isFull(int kv_len) {
     kv_len += 4; // one int pointer, 1 byte key len, 1 byte value len
-    int spaceLeft = sizeof(block_data.buf);
+    int spaceLeft = getKVLastPos();
     spaceLeft -= (filledSize() * 2);
     spaceLeft -= BLK_HDR_SIZE;
     if (spaceLeft < kv_len)
@@ -323,7 +345,9 @@ linex_block *linex_block::getChild(int pos) {
     byte *idx = kvIdx;
     idx += kvIdx[pos];
     idx += 2;
-    return (linex_block *) *idx;
+    unsigned long addr_num = linex::cvtAddrToLong(idx);
+    linex_block *ret = 0;
+    return (linex_block *) (ret + addr_num);
 }
 
 byte *linex_block::getKey(int pos, int *plen) {

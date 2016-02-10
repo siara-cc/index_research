@@ -17,7 +17,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 14; l++) {
+    for (long l = 0; l < 16; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));
@@ -141,12 +141,14 @@ int main() {
         int len;
         char *value = lx->get(it->first.c_str(), it->first.length(), &len);
         char v[100];
-        if (value != null) {
-            strncpy(v, value, len);
-            v[len] = 0;
-            cout << ctr++ << ":" << v << endl;
+        if (value == null) {
+            ctr++;
+            //strncpy(v, value, len);
+            //v[len] = 0;
+            //cout << ctr++ << ":" << v << endl;
         }
     }
+    cout << "Null:" << ctr << endl;
     gettimeofday(&stop, NULL);
     cout << "B+Tree get time:" << timedifference_msec(start, stop) << endl;
 
