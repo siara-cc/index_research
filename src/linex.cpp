@@ -94,100 +94,100 @@ unsigned long linex::cvtAddrToLong(byte *addr) {
     return ret;
 }
 void linex_block::setKVLastPos(int val) {
-    linex::setInt(&block_data.buf[2], val);
+    linex::setInt(&buf[2], val);
 }
 int linex_block::getKVLastPos() {
-    return linex::getInt(block_data.buf + 2);
+    return linex::getInt(buf + 2);
 }
 
 void linex_block::addData(int idx, const char *key, int key_len,
         const char *value, int value_len) {
 
-    byte *kvIdx = block_data.buf + BLK_HDR_SIZE;
+    byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += idx;
     kvIdx += idx;
     int filledSz = filledSize();
     if (idx < filledSz)
         memmove(kvIdx + 2, kvIdx, (filledSz - idx) * 2);
 
-    block_data.buf[1]++;
+    buf[1]++;
     int kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
     setKVLastPos(kv_last_pos);
-    block_data.buf[kv_last_pos] = key_len;
-    memcpy(block_data.buf + kv_last_pos + 1, key, key_len);
-    block_data.buf[kv_last_pos + key_len + 1] = value_len;
-    memcpy(block_data.buf + kv_last_pos + key_len + 2, value, value_len);
+    buf[kv_last_pos] = key_len;
+    memcpy(buf + kv_last_pos + 1, key, key_len);
+    buf[kv_last_pos + key_len + 1] = value_len;
+    memcpy(buf + kv_last_pos + key_len + 2, value, value_len);
     linex::setInt(kvIdx, kv_last_pos);
 }
 
-void linex::recursiveUpdate(linex_block *node, int pos, const char *key,
+void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
         int key_len, const char *value, int value_len, int lastSearchPos[],
-        linex_block *block_paths[], int level) {
+        linex_block *blocks_path[], int level) {
     int idx = lastSearchPos[level];
     if (idx < 0) {
         idx = ~idx;
-        if (node->isFull(key_len + value_len)) {
+        if (block->isFull(key_len + value_len)) {
             printf("Full\n");
             linex_block *new_block = new linex_block();
-            if (!node->isLeaf())
+            if (!block->isLeaf())
                 new_block->setLeaf(false);
-            int halfKVLen = BLK_SIZE - node->getKVLastPos() + 1;
+            int kv_last_pos = block->getKVLastPos();
+            int halfKVLen = BLK_SIZE - kv_last_pos + 1;
             halfKVLen /= 2;
-            int kvLen = 0;
-            byte *kvIdx = node->block_data.buf + BLK_HDR_SIZE;
-            int breakIdx;
-            for (breakIdx = node->filledSize() - 1; breakIdx >= 0; breakIdx++) {
-                int srcIdx = getInt(kvIdx + breakIdx * 2);
-                int keyLen = node->block_data.buf[srcIdx];
-                keyLen++;
-                int valueLen = node->block_data.buf[srcIdx + keyLen];
-                valueLen++;
-                kvLen += keyLen;
-                kvLen += valueLen;
-                if (kvLen > halfKVLen) {
-                    new_block->setFilledSize(node->filledSize() - breakIdx);
-                    break;
-                } else {
-                    int newKVLastPos = new_block->getKVLastPos();
-                    newKVLastPos -= kvLen;
-                    memcpy(new_block->block_data.buf + newKVLastPos,
-                            node->block_data.buf + srcIdx, kvLen);
-                    node->block_data.buf[srcIdx] =
-                            ~node->block_data.buf[srcIdx];
-                    new_block->setKVLastPos(newKVLastPos);
+            byte *kv_idx = block->buf + BLK_HDR_SIZE;
+            byte *new_kv_idx = new_block->buf + BLK_HDR_SIZE;
+            int new_idx;
+            int brk_idx = -1;
+            int brk_kv_pos;
+            int new_pos = 0;
+            int tot_len = 0;
+            int filled_size = block->filledSize();
+            for (new_idx = 0; new_idx < filled_size; new_idx++) {
+                int src_idx = getInt(kv_idx + new_pos);
+                int key_len = block->buf[src_idx];
+                key_len++;
+                int value_len = block->buf[src_idx + key_len];
+                value_len++;
+                int kv_len = key_len;
+                kv_len += value_len;
+                tot_len += kv_len;
+                memcpy(new_block->buf + kv_last_pos, block->buf + src_idx,
+                        kv_len);
+                linex::setInt(new_kv_idx + new_pos, kv_last_pos);
+                kv_last_pos += kv_len;
+                new_pos += 2;
+                if (tot_len > halfKVLen && brk_idx == -1) {
+                    brk_idx = new_idx;
+                    brk_kv_pos = kv_last_pos;
                 }
             }
-            int newLen = 0;
-            for (int i = node->getKVLastPos(); i < BLK_SIZE;) {
-                int keyLen = node->block_data.buf[i];
-                int kvLen = 0;
-                if (keyLen < 0) {
-                    keyLen = ~keyLen;
-                    kvLen = keyLen;
-                    kvLen++;
-                    kvLen += node->block_data.buf[i];
-                    kvLen++;
-                    memmove(node->block_data.buf + i,
-                            node->block_data.buf + i + kvLen, kvLen);
-                } else {
-                    kvLen = keyLen;
-                    kvLen++;
-                    kvLen += node->block_data.buf[i];
-                    kvLen++;
-                    newLen += kvLen;
-                }
-                i += kvLen;
-            }
-            byte *kv_last_idx = node->block_data.buf + node->getKVLastPos();
-            memmove(kv_last_idx + newLen, kv_last_idx, newLen);
-            node->setKVLastPos(node->getKVLastPos() + newLen);
+            kv_last_pos = block->getKVLastPos();
+            // no need memset after everything works
+            // memset(block->buf, '\n', sizeof(block->buf));
+            int old_blk_new_len = brk_kv_pos - kv_last_pos;
+            memcpy(block->buf + BLK_SIZE - old_blk_new_len,
+                    new_block->buf + kv_last_pos, old_blk_new_len); // (3)
+            new_pos = 0;
+            for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
+                int src_idx = getInt(new_kv_idx + new_pos);
+                src_idx += (BLK_SIZE - brk_kv_pos);
+                linex::setInt(kv_idx + new_pos, src_idx);
+                if (new_idx == 0)
+                    block->setKVLastPos(src_idx); // (6)
+                new_pos += 2;
+            } // (4)
+            int new_size = filled_size - brk_idx - 1;
+            memcpy(new_kv_idx, new_kv_idx + new_pos, new_size * 2); // (5)
+            new_block->setKVLastPos(getInt(new_kv_idx)); // (7)
+            block->setFilledSize(brk_idx + 1); // (8)
+            new_block->setFilledSize(new_size); // (9)
 
-            if (root == node) {
+            if (root == block) {
                 root = new linex_block();
                 int len;
-                char *key = (char *) node->getKey(0, &len);
+                char *key = (char *) block->getKey(0, &len);
                 char addr[5];
-                linex::cvtAddr((unsigned long) node, addr);
+                linex::cvtAddr((unsigned long) block, addr);
                 root->addData(0, key, len, addr, sizeof(char *));
                 linex::cvtAddr((unsigned long) new_block, addr);
                 root->addData(1, key, len, addr, sizeof(char *));
@@ -195,7 +195,7 @@ void linex::recursiveUpdate(linex_block *node, int pos, const char *key,
                 numLevels++;
             } else {
                 int prev_level = level - 1;
-                linex_block *parent = block_paths[prev_level];
+                linex_block *parent = blocks_path[prev_level];
                 int first_key_len;
                 char *new_block_first_key = (char *) new_block->getKey(0,
                         &first_key_len);
@@ -203,15 +203,15 @@ void linex::recursiveUpdate(linex_block *node, int pos, const char *key,
                 linex::cvtAddr((unsigned long) new_block, addr);
                 recursiveUpdate(parent, ~(lastSearchPos[prev_level] + 1),
                         new_block_first_key, first_key_len, addr,
-                        sizeof(char *), lastSearchPos, block_paths, prev_level);
+                        sizeof(char *), lastSearchPos, blocks_path, prev_level);
             }
-            if (idx > breakIdx) {
-                node = new_block;
-                idx -= breakIdx;
+            if (idx > new_idx) {
+                block = new_block;
+                idx -= new_idx;
             }
 
         }
-        node->addData(idx, key, key_len, value, value_len);
+        block->addData(idx, key, key_len, value, value_len);
     } else {
         //if (node->isLeaf) {
         //    int vIdx = idx + mSizeBy2;
@@ -306,21 +306,21 @@ linex::linex() {
 }
 
 linex_block::linex_block() {
-    memset(block_data.buf, '\0', sizeof(block_data.buf));
+    memset(buf, '\0', sizeof(buf));
     setLeaf(1);
     setFilledSize(0);
-    setKVLastPos(sizeof(block_data.buf));
+    setKVLastPos(sizeof(buf));
 }
 
 bool linex_block::isLeaf() {
-    return (block_data.buf[0] == 1);
+    return (buf[0] == 1);
 }
 
 void linex_block::setLeaf(char isLeaf) {
-    block_data.buf[0] = isLeaf;
+    buf[0] = isLeaf;
 }
 void linex_block::setFilledSize(char filledSize) {
-    block_data.buf[1] = filledSize;
+    buf[1] = filledSize;
 }
 
 bool linex_block::isFull(int kv_len) {
@@ -334,14 +334,14 @@ bool linex_block::isFull(int kv_len) {
 }
 
 int linex_block::filledSize() {
-    return block_data.buf[1];
+    return buf[1];
 }
 
 linex_block *linex_block::getChild(int pos) {
-    byte *kvIdx = block_data.buf + BLK_HDR_SIZE;
+    byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     kvIdx += pos;
-    kvIdx = block_data.buf + linex::getInt(kvIdx);
+    kvIdx = buf + linex::getInt(kvIdx);
     byte *idx = kvIdx;
     idx += kvIdx[pos];
     idx += 2;
@@ -351,20 +351,20 @@ linex_block *linex_block::getChild(int pos) {
 }
 
 byte *linex_block::getKey(int pos, int *plen) {
-    byte *kvIdx = block_data.buf + BLK_HDR_SIZE;
+    byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     kvIdx += pos;
-    kvIdx = block_data.buf + linex::getInt(kvIdx);
+    kvIdx = buf + linex::getInt(kvIdx);
     *plen = kvIdx[0];
     kvIdx++;
     return kvIdx;
 }
 
 byte *linex_block::getData(int pos, int *plen) {
-    byte *kvIdx = block_data.buf + BLK_HDR_SIZE;
+    byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     kvIdx += pos;
-    kvIdx = block_data.buf + linex::getInt(kvIdx);
+    kvIdx = buf + linex::getInt(kvIdx);
     byte *ret = kvIdx;
     ret += kvIdx[0];
     ret++;

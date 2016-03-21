@@ -14,9 +14,7 @@ private:
     int binarySearchLeaf(const char *key, int key_len);
     int binarySearchNode(const char *key, int key_len);
 public:
-    union {
-        byte buf[BLK_SIZE];
-    } block_data;
+    byte buf[BLK_SIZE];
     linex_block();
     bool isLeaf();
     void setLeaf(char isLeaf);
