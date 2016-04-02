@@ -79,18 +79,18 @@ void linex::cvtAddr(unsigned long addr_num, char *addr) {
     addr_num >>= 8;
     addr[1] = (addr_num & 0xFF);
     addr_num >>= 8;
-    addr[0] = (addr_num & 0xFF);
+    addr[0] = addr_num;
     addr[4] = 0;
 }
 unsigned long linex::cvtAddrToLong(byte *addr) {
     unsigned long ret = 0;
-    ret = addr[3];
+    ret = addr[0];
+    ret <<= 8;
+    ret |= addr[1];
     ret <<= 8;
     ret |= addr[2];
     ret <<= 8;
-    ret |= addr[2];
-    ret <<= 8;
-    ret |= addr[0];
+    ret |= addr[3];
     return ret;
 }
 void linex_block::setKVLastPos(int val) {
@@ -123,11 +123,11 @@ void linex_block::addData(int idx, const char *key, int key_len,
 void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
         int key_len, const char *value, int value_len, int lastSearchPos[],
         linex_block *blocks_path[], int level) {
-    int idx = lastSearchPos[level];
+    int idx = pos; // lastSearchPos[level];
     if (idx < 0) {
         idx = ~idx;
         if (block->isFull(key_len + value_len)) {
-            printf("Full\n");
+            //printf("Full\n");
             linex_block *new_block = new linex_block();
             if (!block->isLeaf())
                 new_block->setLeaf(false);
@@ -184,13 +184,14 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
 
             if (root == block) {
                 root = new linex_block();
-                int len;
-                char *key = (char *) block->getKey(0, &len);
+                int first_len;
+                char *first_key = (char *) block->getKey(0, &first_len);
                 char addr[5];
                 linex::cvtAddr((unsigned long) block, addr);
-                root->addData(0, key, len, addr, sizeof(char *));
+                root->addData(0, first_key, first_len, addr, sizeof(char *));
+                first_key = (char *) new_block->getKey(0, &first_len);
                 linex::cvtAddr((unsigned long) new_block, addr);
-                root->addData(1, key, len, addr, sizeof(char *));
+                root->addData(1, first_key, first_len, addr, sizeof(char *));
                 root->setLeaf(false);
                 numLevels++;
             } else {
@@ -343,11 +344,11 @@ linex_block *linex_block::getChild(int pos) {
     kvIdx += pos;
     kvIdx = buf + linex::getInt(kvIdx);
     byte *idx = kvIdx;
-    idx += kvIdx[pos];
+    idx += kvIdx[0];
     idx += 2;
     unsigned long addr_num = linex::cvtAddrToLong(idx);
-    linex_block *ret = 0;
-    return (linex_block *) (ret + addr_num);
+    linex_block *ret = (linex_block *) addr_num;
+    return ret;
 }
 
 byte *linex_block::getKey(int pos, int *plen) {

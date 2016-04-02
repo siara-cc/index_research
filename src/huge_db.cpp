@@ -17,7 +17,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 16; l++) {
+    for (long l = 0; l < 220; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));
@@ -136,6 +136,7 @@ int main() {
 
     it = m.begin();
     int ctr = 0;
+    int cmp = 0;
     gettimeofday(&start, NULL);
     for (; it != m.end(); ++it) {
         int len;
@@ -143,13 +144,19 @@ int main() {
         char v[100];
         if (value == null) {
             ctr++;
-            //strncpy(v, value, len);
-            //v[len] = 0;
-            //cout << ctr++ << ":" << v << endl;
+        } else {
+            int d = linex_block::compare(it->second.c_str(), it->second.length(), value, len);
+            if (d != 0) {
+                cmp++;
+                strncpy(v, value, len);
+                v[it->first.length()] = 0;
+                cout << cmp << ":" << it->first.c_str() << "==========" << it->second.c_str() << "----------->" << v << endl;
+            }
         }
     }
-    cout << "Null:" << ctr << endl;
     gettimeofday(&stop, NULL);
+    cout << "Null:" << ctr << endl;
+    cout << "Cmp:" << cmp << endl;
     cout << "B+Tree get time:" << timedifference_msec(start, stop) << endl;
 
     return 0;

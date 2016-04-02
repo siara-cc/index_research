@@ -10,7 +10,6 @@ typedef unsigned char byte;
 
 class linex_block {
 private:
-    int compare(const char *v1, int len1, const char *v2, int len2);
     int binarySearchLeaf(const char *key, int key_len);
     int binarySearchNode(const char *key, int key_len);
 public:
@@ -29,6 +28,7 @@ public:
     byte *getData(int pos, int *plen);
     void setKVLastPos(int val);
     int getKVLastPos();
+    static int compare(const char *v1, int len1, const char *v2, int len2);
 };
 
 class linex {
