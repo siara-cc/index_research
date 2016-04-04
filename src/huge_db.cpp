@@ -17,7 +17,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 220; l++) {
+    for (long l = 0; l < 200000; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));
@@ -71,6 +71,28 @@ int main1() {
     strncpy(s, value, 5);
     s[5] = 0;
     std::cout << "Value:" << s << endl;
+    return 0;
+}
+
+int main2() {
+    linex *lx = new linex();
+    lx->put("0?391>63381307(0", 16, "1341012271188", 13);
+    lx->put("08/135/:03*6200<", 16, "2458735612129", 13);
+    lx->put("0?5;123300,=(1*4", 16, "236482090128166", 15);
+    lx->put("15*<.6,618/21816", 16, "11814303447566", 14);
+    lx->put("0717.<040500*066", 16, "3673237115013", 13);
+    lx->put("0=,0180;1;(=/52;", 16, "145312276917216", 15);
+    lx->put("04/=,;.60<+413.8", 16, "1993614936778", 13);
+    lx->put("0417+:581;307:6:", 16, "306762304331492", 15);
+    lx->put("00)3(<.802/;*<3=", 16, "250811475410158", 15);
+    lx->put("067;*6.007+64956", 16, "156701999810315", 15);
+    char *value = null;
+    int len;
+    value = lx->get("04/=,;.60<+413.8", 16, &len);
+    char v[100];
+    memset(v, 0, sizeof(v));
+    strncpy(v, value, len);
+    cout << v << endl;
     return 0;
 }
 
@@ -145,12 +167,14 @@ int main() {
         if (value == null) {
             ctr++;
         } else {
-            int d = linex_block::compare(it->second.c_str(), it->second.length(), value, len);
+            int d = linex_block::compare(it->second.c_str(),
+                    it->second.length(), value, len);
             if (d != 0) {
                 cmp++;
                 strncpy(v, value, len);
                 v[it->first.length()] = 0;
-                cout << cmp << ":" << it->first.c_str() << "==========" << it->second.c_str() << "----------->" << v << endl;
+                cout << cmp << ":" << it->first.c_str() << "=========="
+                        << it->second.c_str() << "----------->" << v << endl;
             }
         }
     }
@@ -158,6 +182,14 @@ int main() {
     cout << "Null:" << ctr << endl;
     cout << "Cmp:" << cmp << endl;
     cout << "B+Tree get time:" << timedifference_msec(start, stop) << endl;
+
+    if (cmp > 0) {
+        it = m.begin();
+        for (; it != m.end(); ++it) {
+            cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
+                    << "\"," << endl;
+        }
+    }
 
     return 0;
 

@@ -124,6 +124,7 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
         int key_len, const char *value, int value_len, int lastSearchPos[],
         linex_block *blocks_path[], int level) {
     int idx = pos; // lastSearchPos[level];
+    int filled_size = block->filledSize();
     if (idx < 0) {
         idx = ~idx;
         if (block->isFull(key_len + value_len)) {
@@ -138,10 +139,9 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
             byte *new_kv_idx = new_block->buf + BLK_HDR_SIZE;
             int new_idx;
             int brk_idx = -1;
-            int brk_kv_pos;
+            int brk_kv_pos = 0;
             int new_pos = 0;
             int tot_len = 0;
-            int filled_size = block->filledSize();
             for (new_idx = 0; new_idx < filled_size; new_idx++) {
                 int src_idx = getInt(kv_idx + new_pos);
                 int key_len = block->buf[src_idx];
@@ -179,7 +179,8 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
             int new_size = filled_size - brk_idx - 1;
             memcpy(new_kv_idx, new_kv_idx + new_pos, new_size * 2); // (5)
             new_block->setKVLastPos(getInt(new_kv_idx)); // (7)
-            block->setFilledSize(brk_idx + 1); // (8)
+            filled_size = brk_idx + 1;
+            block->setFilledSize(filled_size); // (8)
             new_block->setFilledSize(new_size); // (9)
 
             if (root == block) {
@@ -188,7 +189,7 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
                 char *first_key = (char *) block->getKey(0, &first_len);
                 char addr[5];
                 linex::cvtAddr((unsigned long) block, addr);
-                root->addData(0, first_key, first_len, addr, sizeof(char *));
+                root->addData(0, "", 0, addr, sizeof(char *));
                 first_key = (char *) new_block->getKey(0, &first_len);
                 linex::cvtAddr((unsigned long) new_block, addr);
                 root->addData(1, first_key, first_len, addr, sizeof(char *));
@@ -209,10 +210,11 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
             if (idx > new_idx) {
                 block = new_block;
                 idx -= new_idx;
+                filled_size = new_size;
             }
-
         }
         block->addData(idx, key, key_len, value, value_len);
+        filled_size++;
     } else {
         //if (node->isLeaf) {
         //    int vIdx = idx + mSizeBy2;
@@ -220,6 +222,9 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
         //    arr[vIdx] = value;
         //}
     }
+    //if (idx == 0 && filled_size > 1) {
+    //    updateParentsRecursively(blocks_path, level, block, key, key_len);
+    //}
 }
 
 int linex_block::compare(const char *v1, int len1, const char *v2, int len2) {
