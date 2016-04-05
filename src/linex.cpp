@@ -61,17 +61,20 @@ char *linex::get(const char *key, int key_len, int *pValueLen) {
         return null;
     return (char *) foundNode->getData(pos, pValueLen);
 }
+
 int linex::getInt(byte *pos) {
     int ret = *pos * 256;
     pos++;
     ret += *pos;
     return ret;
 }
+
 void linex::setInt(byte *pos, int val) {
     *pos = val / 256;
     pos++;
     *pos = val % 256;
 }
+
 void linex::cvtAddr(unsigned long addr_num, char *addr) {
     addr[3] = (addr_num & 0xFF);
     addr_num >>= 8;
@@ -82,6 +85,7 @@ void linex::cvtAddr(unsigned long addr_num, char *addr) {
     addr[0] = addr_num;
     addr[4] = 0;
 }
+
 unsigned long linex::cvtAddrToLong(byte *addr) {
     unsigned long ret = 0;
     ret = addr[0];
@@ -93,11 +97,13 @@ unsigned long linex::cvtAddrToLong(byte *addr) {
     ret |= addr[3];
     return ret;
 }
+
 void linex_block::setKVLastPos(int val) {
-    linex::setInt(&buf[2], val);
+    linex::setInt(&buf[3], val);
 }
+
 int linex_block::getKVLastPos() {
-    return linex::getInt(buf + 2);
+    return linex::getInt(buf + 3);
 }
 
 void linex_block::addData(int idx, const char *key, int key_len,
@@ -110,7 +116,8 @@ void linex_block::addData(int idx, const char *key, int key_len,
     if (idx < filledSz)
         memmove(kvIdx + 2, kvIdx, (filledSz - idx) * 2);
 
-    buf[1]++;
+    filledSz++;
+    linex::setInt(buf + 1, filledSz);
     int kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
     setKVLastPos(kv_last_pos);
     buf[kv_last_pos] = key_len;
@@ -162,8 +169,6 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
                 }
             }
             kv_last_pos = block->getKVLastPos();
-            // no need memset after everything works
-            // memset(block->buf, '\n', sizeof(block->buf));
             int old_blk_new_len = brk_kv_pos - kv_last_pos;
             memcpy(block->buf + BLK_SIZE - old_blk_new_len,
                     new_block->buf + kv_last_pos, old_blk_new_len); // (3)
@@ -214,7 +219,6 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
             }
         }
         block->addData(idx, key, key_len, value, value_len);
-        filled_size++;
     } else {
         //if (node->isLeaf) {
         //    int vIdx = idx + mSizeBy2;
@@ -222,9 +226,6 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
         //    arr[vIdx] = value;
         //}
     }
-    //if (idx == 0 && filled_size > 1) {
-    //    updateParentsRecursively(blocks_path, level, block, key, key_len);
-    //}
 }
 
 int linex_block::compare(const char *v1, int len1, const char *v2, int len2) {
@@ -326,7 +327,7 @@ void linex_block::setLeaf(char isLeaf) {
     buf[0] = isLeaf;
 }
 void linex_block::setFilledSize(char filledSize) {
-    buf[1] = filledSize;
+    linex::setInt(buf + 1, filledSize);
 }
 
 bool linex_block::isFull(int kv_len) {
@@ -340,7 +341,7 @@ bool linex_block::isFull(int kv_len) {
 }
 
 int linex_block::filledSize() {
-    return buf[1];
+    return linex::getInt(buf + 1);
 }
 
 linex_block *linex_block::getChild(int pos) {

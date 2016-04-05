@@ -3,9 +3,9 @@
 
 typedef unsigned char byte;
 #define null 0
-#define BLK_SIZE 512
-#define BLK_HDR_SIZE 4
-#define TREE_SIZE 256
+#define BLK_SIZE 65535
+#define BLK_HDR_SIZE 5
+#define TREE_SIZE 16384
 #define MAX_DATA_LEN 127
 
 class linex_block {

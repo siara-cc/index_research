@@ -17,7 +17,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 200000; l++) {
+    for (long l = 0; l < 655360; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));
@@ -125,7 +125,7 @@ int main() {
     }
     gettimeofday(&stop, NULL);
     cout << "RB Tree get time:" << timedifference_msec(start, stop) << endl;
-    cout << "HashMap size:" << m.size() << endl;
+    cout << "RB Tree size:" << m1.size() << endl;
 
     art_tree at;
     art_tree_init(&at);
