@@ -1,6 +1,4 @@
 #include "linex.h"
-#include <cstdio>
-#include <cstring>
 
 void linex::put(const char *key, int key_len, const char *value,
         int value_len) {
@@ -62,48 +60,12 @@ char *linex::get(const char *key, int key_len, int *pValueLen) {
     return (char *) foundNode->getData(pos, pValueLen);
 }
 
-int linex::getInt(byte *pos) {
-    int ret = *pos * 256;
-    pos++;
-    ret += *pos;
-    return ret;
-}
-
-void linex::setInt(byte *pos, int val) {
-    *pos = val / 256;
-    pos++;
-    *pos = val % 256;
-}
-
-void linex::cvtAddr(unsigned long addr_num, char *addr) {
-    addr[3] = (addr_num & 0xFF);
-    addr_num >>= 8;
-    addr[2] = (addr_num & 0xFF);
-    addr_num >>= 8;
-    addr[1] = (addr_num & 0xFF);
-    addr_num >>= 8;
-    addr[0] = addr_num;
-    addr[4] = 0;
-}
-
-unsigned long linex::cvtAddrToLong(byte *addr) {
-    unsigned long ret = 0;
-    ret = addr[0];
-    ret <<= 8;
-    ret |= addr[1];
-    ret <<= 8;
-    ret |= addr[2];
-    ret <<= 8;
-    ret |= addr[3];
-    return ret;
-}
-
 void linex_block::setKVLastPos(int val) {
-    linex::setInt(&buf[3], val);
+    util::setInt(&buf[3], val);
 }
 
 int linex_block::getKVLastPos() {
-    return linex::getInt(buf + 3);
+    return util::getInt(buf + 3);
 }
 
 void linex_block::addData(int idx, const char *key, int key_len,
@@ -117,14 +79,14 @@ void linex_block::addData(int idx, const char *key, int key_len,
         memmove(kvIdx + 2, kvIdx, (filledSz - idx) * 2);
 
     filledSz++;
-    linex::setInt(buf + 1, filledSz);
+    util::setInt(buf + 1, filledSz);
     int kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
     setKVLastPos(kv_last_pos);
     buf[kv_last_pos] = key_len;
     memcpy(buf + kv_last_pos + 1, key, key_len);
     buf[kv_last_pos + key_len + 1] = value_len;
     memcpy(buf + kv_last_pos + key_len + 2, value, value_len);
-    linex::setInt(kvIdx, kv_last_pos);
+    util::setInt(kvIdx, kv_last_pos);
 }
 
 void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
@@ -136,6 +98,8 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
         idx = ~idx;
         if (block->isFull(key_len + value_len)) {
             //printf("Full\n");
+            if (maxKeyCount < filled_size)
+                maxKeyCount = filled_size;
             linex_block *new_block = new linex_block();
             if (!block->isLeaf())
                 new_block->setLeaf(false);
@@ -150,7 +114,7 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
             int new_pos = 0;
             int tot_len = 0;
             for (new_idx = 0; new_idx < filled_size; new_idx++) {
-                int src_idx = getInt(kv_idx + new_pos);
+                int src_idx = util::getInt(kv_idx + new_pos);
                 int key_len = block->buf[src_idx];
                 key_len++;
                 int value_len = block->buf[src_idx + key_len];
@@ -160,7 +124,7 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
                 tot_len += kv_len;
                 memcpy(new_block->buf + kv_last_pos, block->buf + src_idx,
                         kv_len);
-                linex::setInt(new_kv_idx + new_pos, kv_last_pos);
+                util::setInt(new_kv_idx + new_pos, kv_last_pos);
                 kv_last_pos += kv_len;
                 new_pos += 2;
                 if (tot_len > halfKVLen && brk_idx == -1) {
@@ -174,16 +138,16 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
                     new_block->buf + kv_last_pos, old_blk_new_len); // (3)
             new_pos = 0;
             for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
-                int src_idx = getInt(new_kv_idx + new_pos);
+                int src_idx = util::getInt(new_kv_idx + new_pos);
                 src_idx += (BLK_SIZE - brk_kv_pos);
-                linex::setInt(kv_idx + new_pos, src_idx);
+                util::setInt(kv_idx + new_pos, src_idx);
                 if (new_idx == 0)
                     block->setKVLastPos(src_idx); // (6)
                 new_pos += 2;
             } // (4)
             int new_size = filled_size - brk_idx - 1;
             memcpy(new_kv_idx, new_kv_idx + new_pos, new_size * 2); // (5)
-            new_block->setKVLastPos(getInt(new_kv_idx)); // (7)
+            new_block->setKVLastPos(util::getInt(new_kv_idx)); // (7)
             filled_size = brk_idx + 1;
             block->setFilledSize(filled_size); // (8)
             new_block->setFilledSize(new_size); // (9)
@@ -193,10 +157,10 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
                 int first_len;
                 char *first_key = (char *) block->getKey(0, &first_len);
                 char addr[5];
-                linex::cvtAddr((unsigned long) block, addr);
+                util::ptrToFourBytes((unsigned long) block, addr);
                 root->addData(0, "", 0, addr, sizeof(char *));
                 first_key = (char *) new_block->getKey(0, &first_len);
-                linex::cvtAddr((unsigned long) new_block, addr);
+                util::ptrToFourBytes((unsigned long) new_block, addr);
                 root->addData(1, first_key, first_len, addr, sizeof(char *));
                 root->setLeaf(false);
                 numLevels++;
@@ -207,7 +171,7 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
                 char *new_block_first_key = (char *) new_block->getKey(0,
                         &first_key_len);
                 char addr[5];
-                linex::cvtAddr((unsigned long) new_block, addr);
+                util::ptrToFourBytes((unsigned long) new_block, addr);
                 recursiveUpdate(parent, ~(lastSearchPos[prev_level] + 1),
                         new_block_first_key, first_key_len, addr,
                         sizeof(char *), lastSearchPos, blocks_path, prev_level);
@@ -228,22 +192,6 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
     }
 }
 
-int linex_block::compare(const char *v1, int len1, const char *v2, int len2) {
-    int lim = len1;
-    if (len2 < len1)
-        lim = len2;
-    int k = 0;
-    while (k < lim) {
-        char c1 = v1[k];
-        char c2 = v2[k];
-        if (c1 != c2) {
-            return c1 - c2;
-        }
-        k++;
-    }
-    return len1 - len2;
-}
-
 int linex_block::binarySearchLeaf(const char *key, int key_len) {
     int middle, cmp, filledUpto;
     filledUpto = filledSize() - 1;
@@ -251,7 +199,7 @@ int linex_block::binarySearchLeaf(const char *key, int key_len) {
     do {
         int middle_key_len;
         char *middle_key = (char *) getKey(middle, &middle_key_len);
-        cmp = compare(middle_key, middle_key_len, key, key_len);
+        cmp = util::compare(middle_key, middle_key_len, key, key_len);
         if (cmp < 0) {
             middle = GenTree::ryte[middle];
             while (middle > filledUpto)
@@ -271,14 +219,14 @@ int linex_block::binarySearchNode(const char *key, int key_len) {
     do {
         int middle_key_len;
         char *middle_key = (char *) getKey(middle, &middle_key_len);
-        cmp = compare(middle_key, middle_key_len, key, key_len);
+        cmp = util::compare(middle_key, middle_key_len, key, key_len);
         if (cmp > 0)
             middle = GenTree::left[middle];
         else if (cmp < 0) {
             if (filledUpto > middle) {
                 int plus1_key_len;
                 char *plus1_key = (char *) getKey(middle + 1, &plus1_key_len);
-                cmp = compare(plus1_key, plus1_key_len, key, key_len);
+                cmp = util::compare(plus1_key, plus1_key_len, key, key_len);
                 if (cmp > 0)
                     return middle;
                 else if (cmp < 0) {
@@ -310,6 +258,7 @@ linex::linex() {
     root = new linex_block();
     total_size = 0;
     numLevels = 1;
+    maxKeyCount = 0;
 }
 
 linex_block::linex_block() {
@@ -326,8 +275,9 @@ bool linex_block::isLeaf() {
 void linex_block::setLeaf(char isLeaf) {
     buf[0] = isLeaf;
 }
+
 void linex_block::setFilledSize(char filledSize) {
-    linex::setInt(buf + 1, filledSize);
+    util::setInt(buf + 1, filledSize);
 }
 
 bool linex_block::isFull(int kv_len) {
@@ -341,18 +291,18 @@ bool linex_block::isFull(int kv_len) {
 }
 
 int linex_block::filledSize() {
-    return linex::getInt(buf + 1);
+    return util::getInt(buf + 1);
 }
 
 linex_block *linex_block::getChild(int pos) {
     byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     kvIdx += pos;
-    kvIdx = buf + linex::getInt(kvIdx);
+    kvIdx = buf + util::getInt(kvIdx);
     byte *idx = kvIdx;
     idx += kvIdx[0];
     idx += 2;
-    unsigned long addr_num = linex::cvtAddrToLong(idx);
+    unsigned long addr_num = util::fourBytesToPtr(idx);
     linex_block *ret = (linex_block *) addr_num;
     return ret;
 }
@@ -361,7 +311,7 @@ byte *linex_block::getKey(int pos, int *plen) {
     byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     kvIdx += pos;
-    kvIdx = buf + linex::getInt(kvIdx);
+    kvIdx = buf + util::getInt(kvIdx);
     *plen = kvIdx[0];
     kvIdx++;
     return kvIdx;
@@ -371,7 +321,7 @@ byte *linex_block::getData(int pos, int *plen) {
     byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     kvIdx += pos;
-    kvIdx = buf + linex::getInt(kvIdx);
+    kvIdx = buf + util::getInt(kvIdx);
     byte *ret = kvIdx;
     ret += kvIdx[0];
     ret++;
@@ -379,13 +329,3 @@ byte *linex_block::getData(int pos, int *plen) {
     ret++;
     return ret;
 }
-
-byte GenTree::bit_count[256];
-int *GenTree::roots;
-int *GenTree::left;
-int *GenTree::ryte;
-int *GenTree::parent;
-int GenTree::ixRoots;
-int GenTree::ixLeft;
-int GenTree::ixRyte;
-int GenTree::ixPrnt;

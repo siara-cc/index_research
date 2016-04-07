@@ -10,6 +10,7 @@
 #include <tr1/unordered_map>
 #include "art.h"
 #include "linex.h"
+
 using namespace std::tr1;
 using namespace std;
 
@@ -17,7 +18,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 655360; l++) {
+    for (long l = 0; l < 65536; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));
@@ -167,7 +168,7 @@ int main() {
         if (value == null) {
             ctr++;
         } else {
-            int d = linex_block::compare(it->second.c_str(),
+            int d = util::compare(it->second.c_str(),
                     it->second.length(), value, len);
             if (d != 0) {
                 cmp++;
@@ -182,6 +183,8 @@ int main() {
     cout << "Null:" << ctr << endl;
     cout << "Cmp:" << cmp << endl;
     cout << "B+Tree get time:" << timedifference_msec(start, stop) << endl;
+    lx->printMaxKeyCount();
+    lx->printNumLevels();
 
     if (cmp > 0) {
         it = m.begin();
