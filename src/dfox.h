@@ -18,8 +18,8 @@ typedef unsigned char byte;
 #define INSERT_LEAF1 4
 #define INSERT_LEAF2 5
 
-class dfox_block {
-private:
+class dfox_var {
+public:
     byte tc;
     byte mask;
     byte msb5;
@@ -29,13 +29,25 @@ private:
     byte insertState;
     byte csPos;
     byte triePos;
-    static byte left_mask[] = { 0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE };
-    static byte ryte_mask[] = { 0x7F, 0x3F, 0x1F, 0x0F, 0x07, 0x03, 0x01, 0x00 };
-    void insAt(byte pos, byte b);
-    void setAt(byte pos, byte b);
-    byte getAt(byte pos);
-    byte getLen();
-    byte recurseSkip();
+    int lastSearchPos;
+    const char *key;
+    int key_len;
+    char *key_at;
+    int key_at_len;
+    dfox_var();
+};
+
+class dfox_block {
+private:
+    byte *triePos;
+    byte trieLen;
+    static byte left_mask[8];
+    static byte ryte_mask[8];
+    inline void insAt(byte pos, byte b);
+    inline void setAt(byte pos, byte b);
+    inline void append(byte b);
+    inline byte getAt(byte pos);
+    byte recurseSkip(dfox_var *v);
 public:
     byte buf[BLK_SIZE];
     dfox_block();
@@ -51,9 +63,10 @@ public:
     byte *getData(int pos, int *plen);
     void setKVLastPos(int val);
     int getKVLastPos();
-    void locateInTrie();
-    bool recurseTrie(int level);
-    void insertCurrent();
+    dfox_block *split(int *pbrk_idx);
+    int locateInTrie(const char *key, int key_len);
+    bool recurseTrie(int level, dfox_var *v);
+    void insertCurrent(dfox_var *v);
 };
 
 class dfox {

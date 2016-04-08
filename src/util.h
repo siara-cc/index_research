@@ -58,6 +58,9 @@ public:
         return len1 - len2;
     }
 
+    static int min(int x, int y) {
+        return (x > y ? y : x);
+    }
 
 };
 

@@ -1,3 +1,5 @@
+#include "GenTree.h"
+
 byte GenTree::bit_count[256];
 int *GenTree::roots;
 int *GenTree::left;

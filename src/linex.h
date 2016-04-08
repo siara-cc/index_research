@@ -32,6 +32,7 @@ public:
     byte *getData(int pos, int *plen);
     void setKVLastPos(int val);
     int getKVLastPos();
+    linex_block *split(int *pbrk_idx);
 };
 
 class linex {

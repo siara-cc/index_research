@@ -89,69 +89,74 @@ void linex_block::addData(int idx, const char *key, int key_len,
     util::setInt(kvIdx, kv_last_pos);
 }
 
+linex_block *linex_block::split(int *pbrk_idx) {
+    int filled_size = filledSize();
+    linex_block *new_block = new linex_block();
+    if (!isLeaf())
+        new_block->setLeaf(false);
+    int kv_last_pos = getKVLastPos();
+    int halfKVLen = BLK_SIZE - kv_last_pos + 1;
+    halfKVLen /= 2;
+    byte *kv_idx = buf + BLK_HDR_SIZE;
+    byte *new_kv_idx = new_block->buf + BLK_HDR_SIZE;
+    int new_idx;
+    int brk_idx = -1;
+    int brk_kv_pos = 0;
+    int new_pos = 0;
+    int tot_len = 0;
+    for (new_idx = 0; new_idx < filled_size; new_idx++) {
+        int src_idx = util::getInt(kv_idx + new_pos);
+        int key_len = buf[src_idx];
+        key_len++;
+        int value_len = buf[src_idx + key_len];
+        value_len++;
+        int kv_len = key_len;
+        kv_len += value_len;
+        tot_len += kv_len;
+        memcpy(new_block->buf + kv_last_pos, buf + src_idx, kv_len);
+        util::setInt(new_kv_idx + new_pos, kv_last_pos);
+        kv_last_pos += kv_len;
+        new_pos += 2;
+        if (tot_len > halfKVLen && brk_idx == -1) {
+            brk_idx = new_idx;
+            brk_kv_pos = kv_last_pos;
+        }
+    }
+    kv_last_pos = getKVLastPos();
+    int old_blk_new_len = brk_kv_pos - kv_last_pos;
+    memcpy(buf + BLK_SIZE - old_blk_new_len, new_block->buf + kv_last_pos,
+            old_blk_new_len); // (3)
+    new_pos = 0;
+    for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
+        int src_idx = util::getInt(new_kv_idx + new_pos);
+        src_idx += (BLK_SIZE - brk_kv_pos);
+        util::setInt(kv_idx + new_pos, src_idx);
+        if (new_idx == 0)
+            setKVLastPos(src_idx); // (6)
+        new_pos += 2;
+    } // (4)
+    int new_size = filled_size - brk_idx - 1;
+    memcpy(new_kv_idx, new_kv_idx + new_pos, new_size * 2); // (5)
+    new_block->setKVLastPos(util::getInt(new_kv_idx)); // (7)
+    filled_size = brk_idx + 1;
+    setFilledSize(filled_size); // (8)
+    new_block->setFilledSize(new_size); // (9)
+    *pbrk_idx = brk_idx;
+    return new_block;
+}
+
 void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
         int key_len, const char *value, int value_len, int lastSearchPos[],
         linex_block *blocks_path[], int level) {
     int idx = pos; // lastSearchPos[level];
-    int filled_size = block->filledSize();
     if (idx < 0) {
         idx = ~idx;
         if (block->isFull(key_len + value_len)) {
             //printf("Full\n");
-            if (maxKeyCount < filled_size)
-                maxKeyCount = filled_size;
-            linex_block *new_block = new linex_block();
-            if (!block->isLeaf())
-                new_block->setLeaf(false);
-            int kv_last_pos = block->getKVLastPos();
-            int halfKVLen = BLK_SIZE - kv_last_pos + 1;
-            halfKVLen /= 2;
-            byte *kv_idx = block->buf + BLK_HDR_SIZE;
-            byte *new_kv_idx = new_block->buf + BLK_HDR_SIZE;
-            int new_idx;
-            int brk_idx = -1;
-            int brk_kv_pos = 0;
-            int new_pos = 0;
-            int tot_len = 0;
-            for (new_idx = 0; new_idx < filled_size; new_idx++) {
-                int src_idx = util::getInt(kv_idx + new_pos);
-                int key_len = block->buf[src_idx];
-                key_len++;
-                int value_len = block->buf[src_idx + key_len];
-                value_len++;
-                int kv_len = key_len;
-                kv_len += value_len;
-                tot_len += kv_len;
-                memcpy(new_block->buf + kv_last_pos, block->buf + src_idx,
-                        kv_len);
-                util::setInt(new_kv_idx + new_pos, kv_last_pos);
-                kv_last_pos += kv_len;
-                new_pos += 2;
-                if (tot_len > halfKVLen && brk_idx == -1) {
-                    brk_idx = new_idx;
-                    brk_kv_pos = kv_last_pos;
-                }
-            }
-            kv_last_pos = block->getKVLastPos();
-            int old_blk_new_len = brk_kv_pos - kv_last_pos;
-            memcpy(block->buf + BLK_SIZE - old_blk_new_len,
-                    new_block->buf + kv_last_pos, old_blk_new_len); // (3)
-            new_pos = 0;
-            for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
-                int src_idx = util::getInt(new_kv_idx + new_pos);
-                src_idx += (BLK_SIZE - brk_kv_pos);
-                util::setInt(kv_idx + new_pos, src_idx);
-                if (new_idx == 0)
-                    block->setKVLastPos(src_idx); // (6)
-                new_pos += 2;
-            } // (4)
-            int new_size = filled_size - brk_idx - 1;
-            memcpy(new_kv_idx, new_kv_idx + new_pos, new_size * 2); // (5)
-            new_block->setKVLastPos(util::getInt(new_kv_idx)); // (7)
-            filled_size = brk_idx + 1;
-            block->setFilledSize(filled_size); // (8)
-            new_block->setFilledSize(new_size); // (9)
-
+            if (maxKeyCount < block->filledSize())
+                maxKeyCount = block->filledSize();
+            int brk_idx;
+            linex_block *new_block = block->split(&brk_idx);
             if (root == block) {
                 root = new linex_block();
                 int first_len;
@@ -176,10 +181,9 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
                         new_block_first_key, first_key_len, addr,
                         sizeof(char *), lastSearchPos, blocks_path, prev_level);
             }
-            if (idx > new_idx) {
+            if (idx > brk_idx) {
                 block = new_block;
-                idx -= new_idx;
-                filled_size = new_size;
+                idx -= brk_idx;
             }
         }
         block->addData(idx, key, key_len, value, value_len);
