@@ -9,7 +9,7 @@ using namespace std;
 
 typedef unsigned char byte;
 #define BLK_SIZE 512
-#define BLK_HDR_SIZE 5
+#define BLK_HDR_SIZE 8
 #define MAX_DATA_LEN 127
 
 #define INSERT_MIDDLE1 1
@@ -34,13 +34,13 @@ public:
     int key_len;
     char *key_at;
     int key_at_len;
+    byte need_count;
     dfox_var();
 };
 
 class dfox_block {
 private:
     byte *triePos;
-    byte trieLen;
     static byte left_mask[8];
     static byte ryte_mask[8];
     inline void insAt(byte pos, byte b);
@@ -55,7 +55,7 @@ public:
     void setLeaf(char isLeaf);
     bool isFull(int kv_len);
     int filledSize();
-    void setFilledSize(char filledSize);
+    void setFilledSize(int filledSize);
     void addData(int idx, const char *key, int key_len, const char *value,
             int value_len);
     dfox_block *getChild(int pos);

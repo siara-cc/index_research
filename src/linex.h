@@ -23,7 +23,7 @@ public:
     void setLeaf(char isLeaf);
     bool isFull(int kv_len);
     int filledSize();
-    void setFilledSize(char filledSize);
+    void setFilledSize(int filledSize);
     int binarySearch(const char *key, int key_len);
     void addData(int idx, const char *key, int key_len, const char *value,
             int value_len);

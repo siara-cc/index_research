@@ -51,7 +51,7 @@ public:
             char c1 = v1[k];
             char c2 = v2[k];
             if (c1 != c2) {
-                return c1 - c2;
+                return -k;
             }
             k++;
         }

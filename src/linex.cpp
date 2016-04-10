@@ -113,7 +113,8 @@ linex_block *linex_block::split(int *pbrk_idx) {
         int kv_len = key_len;
         kv_len += value_len;
         tot_len += kv_len;
-        memcpy(new_block->buf + kv_last_pos, buf + src_idx, kv_len);
+        memcpy(new_block->buf + kv_last_pos, buf + src_idx,
+                kv_len);
         util::setInt(new_kv_idx + new_pos, kv_last_pos);
         kv_last_pos += kv_len;
         new_pos += 2;
@@ -124,8 +125,8 @@ linex_block *linex_block::split(int *pbrk_idx) {
     }
     kv_last_pos = getKVLastPos();
     int old_blk_new_len = brk_kv_pos - kv_last_pos;
-    memcpy(buf + BLK_SIZE - old_blk_new_len, new_block->buf + kv_last_pos,
-            old_blk_new_len); // (3)
+    memcpy(buf + BLK_SIZE - old_blk_new_len,
+            new_block->buf + kv_last_pos, old_blk_new_len); // (3)
     new_pos = 0;
     for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
         int src_idx = util::getInt(new_kv_idx + new_pos);
@@ -152,7 +153,7 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
     if (idx < 0) {
         idx = ~idx;
         if (block->isFull(key_len + value_len)) {
-            //printf("Full\n");
+            printf("Full\n");
             if (maxKeyCount < block->filledSize())
                 maxKeyCount = block->filledSize();
             int brk_idx;
@@ -181,9 +182,10 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
                         new_block_first_key, first_key_len, addr,
                         sizeof(char *), lastSearchPos, blocks_path, prev_level);
             }
-            if (idx > brk_idx) {
+            if (idx > brk_idx + 1) {
                 block = new_block;
                 idx -= brk_idx;
+                idx--;
             }
         }
         block->addData(idx, key, key_len, value, value_len);
@@ -280,7 +282,7 @@ void linex_block::setLeaf(char isLeaf) {
     buf[0] = isLeaf;
 }
 
-void linex_block::setFilledSize(char filledSize) {
+void linex_block::setFilledSize(int filledSize) {
     util::setInt(buf + 1, filledSize);
 }
 
