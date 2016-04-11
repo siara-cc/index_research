@@ -50,8 +50,10 @@ public:
         while (k < lim) {
             char c1 = v1[k];
             char c2 = v2[k];
-            if (c1 != c2) {
+            if (c1 < c2) {
                 return -k;
+            } else if (c1 > c2) {
+                return k;
             }
             k++;
         }

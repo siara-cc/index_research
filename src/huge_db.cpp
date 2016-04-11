@@ -10,6 +10,7 @@
 #include <tr1/unordered_map>
 #include "art.h"
 #include "linex.h"
+#include "dfox.h"
 
 using namespace std::tr1;
 using namespace std;
@@ -45,59 +46,66 @@ float timedifference_msec(struct timeval t0, struct timeval t1) {
             + (t1.tv_usec - t0.tv_usec) / 1000.0f;
 }
 
-int main1() {
-    linex *lx = new linex();
-    lx->put("Hello", 5, "World", 5);
-    lx->put("Nice", 4, "Place", 5);
-    lx->put("Arun", 4, "Hello", 5);
-    lx->put("arun", 4, "0", 1);
-    lx->put("ri0hello", 7, "2", 1);
-    lx->put("ricin", 5, "3", 1);
-    lx->put("rickshaw", 8, "4", 1);
-    lx->put("ride", 4, "5", 1);
-    lx->put("rider", 5, "6", 1);
-    lx->put("rice", 4, "7", 1);
-    lx->put("ric", 3, "8", 1);
-    lx->put("aruna", 5, "9", 1);
-    lx->put("hello", 5, "10", 2);
-    lx->put("world", 5, "11", 2);
-    lx->put("how", 3, "12", 2);
-    lx->put("are", 3, "13", 2);
-    lx->put("1", 1, "15", 2);
-    lx->put("you", 3, "14", 2);
-    lx->put("boy", 3, "15", 2);
+int main2() {
+    GenTree::generateBitCounts();
+    dfox *dx = new dfox();
+    dx->put("Hello", 5, "World", 5);
+    dx->put("Nice", 4, "Place", 5);
+    dx->put("Arun", 4, "Hello", 5);
+    dx->put("arun", 4, "0", 1);
+    dx->put("ri0hello", 7, "2", 1);
+    dx->put("ricin", 5, "34623", 5);
+    dx->put("rickshaw", 8, "4", 1);
+    dx->put("ride", 4, "5", 1);
+    dx->put("rider", 5, "6", 1);
+    dx->put("rice", 4, "7", 1);
+    dx->put("ric", 3, "8", 1);
+    dx->put("aruna", 5, "9", 1);
+//    dx->put("hello", 5, "10", 2);
+    dx->put("world", 5, "11", 2);
+//    dx->put("how", 3, "12", 2);
+//    dx->put("are", 3, "13", 2);
+//    dx->put("1", 1, "15", 2);
+//    dx->put("you", 3, "14", 2);
+//    dx->put("boy", 3, "15", 2);
     int len;
-    char *value = lx->get("Nice", 4, &len);
+    char *value = dx->get("Arun", 4, &len);
     char s[100];
-    strncpy(s, value, 5);
+    strncpy(s, value, 1);
     s[5] = 0;
     std::cout << "Value:" << s << endl;
-    return 0;
-}
-
-int main2() {
-    linex *lx = new linex();
-    lx->put("0?391>63381307(0", 16, "1341012271188", 13);
-    lx->put("08/135/:03*6200<", 16, "2458735612129", 13);
-    lx->put("0?5;123300,=(1*4", 16, "236482090128166", 15);
-    lx->put("15*<.6,618/21816", 16, "11814303447566", 14);
-    lx->put("0717.<040500*066", 16, "3673237115013", 13);
-    lx->put("0=,0180;1;(=/52;", 16, "145312276917216", 15);
-    lx->put("04/=,;.60<+413.8", 16, "1993614936778", 13);
-    lx->put("0417+:581;307:6:", 16, "306762304331492", 15);
-    lx->put("00)3(<.802/;*<3=", 16, "250811475410158", 15);
-    lx->put("067;*6.007+64956", 16, "156701999810315", 15);
-    char *value = null;
-    int len;
-    value = lx->get("04/=,;.60<+413.8", 16, &len);
-    char v[100];
-    memset(v, 0, sizeof(v));
-    strncpy(v, value, len);
-    cout << v << endl;
+    std::cout << "Trie Size:" << dx->size() << endl;
     return 0;
 }
 
 int main() {
+    GenTree::generateBitCounts();
+    dfox *dx = new dfox();
+    dx->put("08/135/:03*6200<", 16, "2458735612129", 13);
+    dx->put("0?5;123300,=(1*4", 16, "236482090128166", 15);
+    dx->put("04/=,;.60<+413.8", 16, "1993614936778", 13);
+    dx->put("15*<.6,618/21816", 16, "11814303447566", 14);
+    dx->put("0717.<040500*066", 16, "3673237115013", 13);
+    dx->put("0?391>63381307(0", 16, "1341012271188", 13);
+    dx->put("0=,0180;1;(=/52;", 16, "145312276917216", 15);
+    dx->put("0417+:581;307:6:", 16, "306762304331492", 15);
+    dx->put("00)3(<.802/;*<3=", 16, "250811475410158", 15);
+    dx->put("067;*6.007+64956", 16, "156701999810315", 15);
+    char *value = null;
+    int len;
+    value = dx->get("067;*6.007+64956", 16, &len);
+    //value = dx->get("0?5;123300,=(1*4", 16, &len);
+    char v[100];
+    memset(v, 0, sizeof(v));
+    strncpy(v, value, len);
+    cout << v << endl;
+    std::cout << "Trie Size:" << dx->size() << endl;
+    return 0;
+}
+
+int main1() {
+
+    GenTree::generateBitCounts();
 
     /*
      db d("/tmp", "test");

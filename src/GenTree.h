@@ -80,6 +80,9 @@ public:
             }
             simulateBinarySearch(i);
         }
+    }
+
+    static void generateBitCounts() {
         for (int i = 0; i < 256; i++) {
             bit_count[i] = countSetBits(i);
         }
