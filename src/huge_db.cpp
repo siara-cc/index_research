@@ -19,7 +19,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 2200; l++) {
+    for (long l = 0; l < 5; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));
@@ -32,10 +32,10 @@ void insert(unordered_map<string, string>& m) {
             k[b * 2] = 48 + (c >> 4);
             k[b * 2 + 1] = 48 + (c & 0x0F);
         }
-        k[16] = 0;
+        k[8] = 0;
         itoa(rand(), v, 10);
-        itoa(rand(), v + strlen(v), 10);
-        itoa(rand(), v + strlen(v), 10);
+        //itoa(rand(), v + strlen(v), 10);
+        //itoa(rand(), v + strlen(v), 10);
         if (l == 0)
             cout << "key:" << k << endl;
         m.insert(pair<string, string>(k, v));
@@ -78,7 +78,7 @@ int main2() {
     return 0;
 }
 
-int main() {
+int main1() {
     GenTree::generateBitCounts();
     dfox *dx = new dfox();
     dx->put("08/135/:03*6200<", 16, "2458735612129", 13);
@@ -103,7 +103,7 @@ int main() {
     return 0;
 }
 
-int main1() {
+int main() {
 
     GenTree::generateBitCounts();
 
@@ -146,8 +146,8 @@ int main1() {
     }
     gettimeofday(&stop, NULL);
     cout << "ART Insert Time:" << timedifference_msec(start, stop) << endl;
-    gettimeofday(&start, NULL);
     it = m.begin();
+    gettimeofday(&start, NULL);
     for (; it != m.end(); ++it) {
         art_search(&at, (unsigned char*) it->first.c_str(), it->first.length());
     }
@@ -166,18 +166,37 @@ int main1() {
     cout << "B+Tree insert time:" << timedifference_msec(start, stop) << endl;
 
     it = m.begin();
+    gettimeofday(&start, NULL);
+    for (; it != m.end(); ++it) {
+        int len;
+        char *value = lx->get(it->first.c_str(), it->first.length(), &len);
+    }
+    gettimeofday(&stop, NULL);
+    cout << "B+Tree Get Time:" << timedifference_msec(start, stop) << endl;
+
+    dfox *dx = new dfox();
+    it = m.begin();
+    gettimeofday(&start, NULL);
+    for (; it != m.end(); ++it) {
+        dx->put(it->first.c_str(), it->first.length(), it->second.c_str(),
+                it->second.length());
+    }
+    gettimeofday(&stop, NULL);
+    cout << "DFox+Tree insert time:" << timedifference_msec(start, stop) << endl;
+
+    it = m.begin();
     int ctr = 0;
     int cmp = 0;
     gettimeofday(&start, NULL);
     for (; it != m.end(); ++it) {
         int len;
-        char *value = lx->get(it->first.c_str(), it->first.length(), &len);
+        char *value = dx->get(it->first.c_str(), it->first.length(), &len);
         char v[100];
         if (value == null) {
             ctr++;
         } else {
-            int d = util::compare(it->second.c_str(),
-                    it->second.length(), value, len);
+            int d = util::compare(it->second.c_str(), it->second.length(),
+                    value, len);
             if (d != 0) {
                 cmp++;
                 strncpy(v, value, len);
@@ -190,9 +209,10 @@ int main1() {
     gettimeofday(&stop, NULL);
     cout << "Null:" << ctr << endl;
     cout << "Cmp:" << cmp << endl;
-    cout << "B+Tree get time:" << timedifference_msec(start, stop) << endl;
-    lx->printMaxKeyCount();
-    lx->printNumLevels();
+    cout << "DFox+Tree get time:" << timedifference_msec(start, stop) << endl;
+    std::cout << "Trie Size:" << dx->size() << endl;
+    dx->printMaxKeyCount();
+    dx->printNumLevels();
 
     if (cmp > 0) {
         it = m.begin();

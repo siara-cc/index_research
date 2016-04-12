@@ -145,7 +145,7 @@ dfox_block::dfox_block() {
     FILLED_SIZE = 0;
     TRIE_LEN = 0;
     setKVLastPos(sizeof(buf));
-    triePos = buf + IDX_HDR_SIZE;
+    trie = buf + IDX_HDR_SIZE;
 }
 
 void dfox_block::setKVLastPos(int val) {
@@ -167,6 +167,11 @@ void dfox_block::addData(int pos, const char *key, int key_len,
     buf[kv_last_pos + key_len + 1] = value_len;
     memcpy(buf + kv_last_pos + key_len + 2, value, value_len);
 
+    insPtr(pos, kv_last_pos);
+
+}
+
+void dfox_block::insPtr(int pos, int kv_pos) {
     int filledSz = filledSize();
     filledSz++;
     byte *kvIdx = buf + IDX_BLK_SIZE;
@@ -174,10 +179,10 @@ void dfox_block::addData(int pos, const char *key, int key_len,
     if (pos > 0) {
         memmove(kvIdx, kvIdx + 1, pos);
     }
-    kvIdx[pos] = (byte) kv_last_pos & 0xFF;
+    kvIdx[pos] = (byte) kv_pos & 0xFF;
     byte offset = pos % 8;
     byte carry = 0;
-    if (kv_last_pos > 256)
+    if (kv_pos > 256)
         carry = 0x80;
     byte is_leaf = isLeaf();
     for (int i = pos / 8; i < 4; i++) {
@@ -193,12 +198,11 @@ void dfox_block::addData(int pos, const char *key, int key_len,
     }
     setLeaf(is_leaf);
     FILLED_SIZE = filledSz;
-
 }
 
 //
 dfox_block *dfox_block::split(int *pbrk_idx) {
-    int filled_size = filledSize();
+    int orig_filled_size = filledSize();
     dfox_block *new_block = new dfox_block();
     if (!isLeaf())
         new_block->setLeaf(false);
@@ -211,10 +215,10 @@ dfox_block *dfox_block::split(int *pbrk_idx) {
     int new_idx;
     int brk_idx = -1;
     int brk_kv_pos = 0;
-    int new_pos = 0;
     int tot_len = 0;
-    for (new_idx = 0; new_idx < filled_size; new_idx++) {
-        int src_idx = util::getInt(kv_idx + new_pos);
+    // (1) move all data to new_block in order
+    for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
+        int src_idx = getPtr(new_idx);
         int key_len = buf[src_idx];
         key_len++;
         int value_len = buf[src_idx + key_len];
@@ -223,33 +227,48 @@ dfox_block *dfox_block::split(int *pbrk_idx) {
         kv_len += value_len;
         tot_len += kv_len;
         memcpy(new_block->buf + kv_last_pos, buf + src_idx, kv_len);
-        util::setInt(new_kv_idx + new_pos, kv_last_pos);
+        new_block->insPtr(new_idx, kv_last_pos);
         kv_last_pos += kv_len;
-        new_pos += 2;
         if (tot_len > halfKVLen && brk_idx == -1) {
             brk_idx = new_idx;
             brk_kv_pos = kv_last_pos;
         }
     }
+    // (2) move top half of new_block to bottom half of old_block
     kv_last_pos = getKVLastPos();
     int old_blk_new_len = brk_kv_pos - kv_last_pos;
     memcpy(buf + BLK_SIZE - old_blk_new_len, new_block->buf + kv_last_pos,
-            old_blk_new_len); // (3)
-    new_pos = 0;
+            old_blk_new_len);
+    // (3) Insert pointers to the moved data in old block
+    FILLED_SIZE = 0;
+    TRIE_LEN = 0;
+    dfox_var *v = new dfox_var();
     for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
-        int src_idx = util::getInt(new_kv_idx + new_pos);
+        int src_idx = new_block->getPtr(new_idx);
         src_idx += (BLK_SIZE - brk_kv_pos);
-        util::setInt(kv_idx + new_pos, src_idx);
-        if (new_idx == 0)
-            setKVLastPos(src_idx); // (6)
-        new_pos += 2;
-    } // (4)
-    int new_size = filled_size - brk_idx - 1;
-    memcpy(new_kv_idx, new_kv_idx + new_pos, new_size * 2); // (5)
-    new_block->setKVLastPos(util::getInt(new_kv_idx)); // (7)
-    filled_size = brk_idx + 1;
-    setFilledSize(filled_size); // (8)
-    new_block->setFilledSize(new_size); // (9)
+        insPtr(new_idx, src_idx);
+        if (new_idx == 0) // (5) Set Last data position for old block
+            setKVLastPos(src_idx);
+        dfox_var();
+        char *key = buf + src_idx + 1;
+        locateInTrie(key, buf[src_idx], v);
+        insertCurrent(v);
+    }
+    // (4) move new block pointers to front
+    int new_size = orig_filled_size - brk_idx - 1;
+    memcpy(new_kv_idx + new_idx, new_kv_idx, new_size);
+    // (4) and set corresponding bits
+    for (int i = 0; i < new_size; i++) {
+        int from_bit = i + new_idx;
+        if (DATA_PTR_HIGH_BITS[from_bit / 8] & (0x80 >> (from_bit % 8)))
+            DATA_PTR_HIGH_BITS[i / 8] |= (0x80 >> (i % 8));
+        else
+            DATA_PTR_HIGH_BITS[i / 8] &= ~(0x80 >> (i % 8));
+    }
+    new_block->setKVLastPos(new_size); // (5) New Block Last position
+    //filled_size = brk_idx + 1;
+    //setFilledSize(filled_size); // (7) Filled Size for Old block
+    new_block->setFilledSize(new_size); // (8) Filled Size for New Block
     *pbrk_idx = brk_idx;
     return new_block;
 }
@@ -290,27 +309,25 @@ dfox_block *dfox_block::getChild(int pos) {
     return ret;
 }
 
-byte *dfox_block::getKey(int pos, int *plen) {
+int dfox_block::getPtr(int pos) {
     byte *kvIdx = buf + IDX_BLK_SIZE;
     kvIdx -= FILLED_SIZE;
     kvIdx += pos;
     int idx = *kvIdx;
     if (DATA_PTR_HIGH_BITS[pos / 8] & (0x80 >> (pos % 8)))
         idx += 256;
-    kvIdx = buf + idx;
+    return idx;
+}
+
+byte *dfox_block::getKey(int pos, int *plen) {
+    byte *kvIdx = buf + getPtr(pos);
     *plen = kvIdx[0];
     kvIdx++;
     return kvIdx;
 }
 
 byte *dfox_block::getData(int pos, int *plen) {
-    byte *kvIdx = buf + IDX_BLK_SIZE;
-    kvIdx -= FILLED_SIZE;
-    kvIdx += pos;
-    int idx = *kvIdx;
-    if (DATA_PTR_HIGH_BITS[pos / 8] & (0x80 >> (pos % 8)))
-        idx += 256;
-    kvIdx = buf + idx;
+    byte *kvIdx = buf + getPtr(pos);
     *plen = kvIdx[0];
     kvIdx++;
     kvIdx += *plen;
@@ -555,7 +572,7 @@ bool dfox_block::recurseTrie(int level, dfox_var *v) {
                     cmp = -cmp;
                 cmp -= level;
                 v->need_count = cmp * 2;
-                v->need_count += 4;
+                v->need_count += 3;
                 v->lastLevel = level;
                 return true;
             } else {
@@ -587,21 +604,21 @@ int dfox_block::locateInTrie(const char *key, int key_len, dfox_var *v) {
 }
 
 void dfox_block::insAt(byte pos, byte b) {
-    memmove(triePos + pos + 1, triePos + pos, TRIE_LEN - pos);
-    triePos[pos] = b;
+    memmove(trie + pos + 1, trie + pos, TRIE_LEN - pos);
+    trie[pos] = b;
     TRIE_LEN++;
 }
 
 void dfox_block::setAt(byte pos, byte b) {
-    triePos[pos] = b;
+    trie[pos] = b;
 }
 
 void dfox_block::append(byte b) {
-    triePos[TRIE_LEN++] = b;
+    trie[TRIE_LEN++] = b;
 }
 
 byte dfox_block::getAt(byte pos) {
-    return triePos[pos];
+    return trie[pos];
 }
 
 dfox_var::dfox_var() {

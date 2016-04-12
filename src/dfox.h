@@ -48,7 +48,7 @@ public:
 
 class dfox_block {
 private:
-    byte *triePos;
+    byte *trie;
     static byte left_mask[8];
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];
@@ -67,6 +67,8 @@ public:
     void setFilledSize(int filledSize);
     void addData(int idx, const char *key, int key_len, const char *value,
             int value_len, dfox_var *v);
+    int getPtr(int pos);
+    void insPtr(int pos, int kvIdx);
     dfox_block *getChild(int pos);
     byte *getKey(int pos, int *plen);
     byte *getData(int pos, int *plen);
