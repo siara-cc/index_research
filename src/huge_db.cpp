@@ -19,7 +19,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 5; l++) {
+    for (long l = 0; l < 36; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));

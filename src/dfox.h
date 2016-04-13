@@ -31,19 +31,20 @@ public:
     byte tc;
     byte mask;
     byte msb5;
+    byte csPos;
     byte leaves;
+    byte triePos;
     byte origPos;
     byte lastLevel;
+    byte need_count;
     byte insertState;
-    byte csPos;
-    byte triePos;
     int lastSearchPos;
     const char *key;
     int key_len;
     char *key_at;
     int key_at_len;
-    byte need_count;
-    dfox_var();
+    dfox_var() { init(); };
+    void init();
 };
 
 class dfox_block {

@@ -91,13 +91,20 @@ void dfox::recursiveUpdate(dfox_block *block, int pos, const char *key,
             if (root == block) {
                 root = new dfox_block();
                 int first_len;
-                char *first_key = (char *) block->getKey(0, &first_len);
+                char *first_key; // = (char *) block->getKey(0, &first_len);
                 char addr[5];
                 util::ptrToFourBytes((unsigned long) block, addr);
-                root->addData(0, "", 0, addr, sizeof(char *), v);
+                dfox_var *rv = new dfox_var();
+                rv->key = "";
+                rv->key_len = 1;
+                root->addData(0, rv->key, 1, addr, sizeof(char *), rv);
                 first_key = (char *) new_block->getKey(0, &first_len);
+                rv->key = first_key;
+                rv->key_len = first_len;
                 util::ptrToFourBytes((unsigned long) new_block, addr);
-                root->addData(1, first_key, first_len, addr, sizeof(char *), v);
+                rv->init();
+                root->locateInTrie(first_key, first_len, rv);
+                root->addData(1, first_key, first_len, addr, sizeof(char *), rv);
                 root->setLeaf(false);
                 numLevels++;
             } else {
@@ -117,6 +124,8 @@ void dfox::recursiveUpdate(dfox_block *block, int pos, const char *key,
                 block = new_block;
                 idx -= brk_idx;
             }
+            v->init();
+            block->locateInTrie(key, key_len, v);
         }
         block->addData(idx, key, key_len, value, value_len, v);
     } else {
@@ -210,12 +219,12 @@ dfox_block *dfox_block::split(int *pbrk_idx) {
     int halfKVLen = BLK_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
 
-    byte *kv_idx = buf + IDX_HDR_SIZE;
-    byte *new_kv_idx = new_block->buf + IDX_HDR_SIZE;
     int new_idx;
     int brk_idx = -1;
     int brk_kv_pos = 0;
     int tot_len = 0;
+    dfox_var *v = new dfox_var();
+    new_block->TRIE_LEN = 0;
     // (1) move all data to new_block in order
     for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
         int src_idx = getPtr(new_idx);
@@ -229,9 +238,17 @@ dfox_block *dfox_block::split(int *pbrk_idx) {
         memcpy(new_block->buf + kv_last_pos, buf + src_idx, kv_len);
         new_block->insPtr(new_idx, kv_last_pos);
         kv_last_pos += kv_len;
-        if (tot_len > halfKVLen && brk_idx == -1) {
-            brk_idx = new_idx;
-            brk_kv_pos = kv_last_pos;
+        if (tot_len > halfKVLen) {
+            if (brk_idx == -1) {
+                brk_idx = new_idx;
+                brk_kv_pos = kv_last_pos;
+            }
+            char *key = (char *) (buf + src_idx + 1);
+            v->init();
+            v->key = key;
+            v->key_len = buf[src_idx];
+            new_block->locateInTrie(key, buf[src_idx], v);
+            new_block->insertCurrent(v);
         }
     }
     // (2) move top half of new_block to bottom half of old_block
@@ -242,30 +259,33 @@ dfox_block *dfox_block::split(int *pbrk_idx) {
     // (3) Insert pointers to the moved data in old block
     FILLED_SIZE = 0;
     TRIE_LEN = 0;
-    dfox_var *v = new dfox_var();
     for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
         int src_idx = new_block->getPtr(new_idx);
         src_idx += (BLK_SIZE - brk_kv_pos);
         insPtr(new_idx, src_idx);
         if (new_idx == 0) // (5) Set Last data position for old block
             setKVLastPos(src_idx);
-        dfox_var();
-        char *key = buf + src_idx + 1;
+        char *key = (char *) (buf + src_idx + 1);
+        v->init();
+        v->key = key;
+        v->key_len = buf[src_idx];
         locateInTrie(key, buf[src_idx], v);
         insertCurrent(v);
     }
-    // (4) move new block pointers to front
     int new_size = orig_filled_size - brk_idx - 1;
-    memcpy(new_kv_idx + new_idx, new_kv_idx, new_size);
+    /*
+    // (4) move new block pointers to front
+    byte *new_kv_idx = new_block->buf + IDX_HDR_SIZE - orig_filled_size;
+    memmove(new_kv_idx + new_idx, new_kv_idx, new_size); */
     // (4) and set corresponding bits
     for (int i = 0; i < new_size; i++) {
         int from_bit = i + new_idx;
-        if (DATA_PTR_HIGH_BITS[from_bit / 8] & (0x80 >> (from_bit % 8)))
-            DATA_PTR_HIGH_BITS[i / 8] |= (0x80 >> (i % 8));
+        if (new_block->DATA_PTR_HIGH_BITS[from_bit / 8] & (0x80 >> (from_bit % 8)))
+            new_block->DATA_PTR_HIGH_BITS[i / 8] |= (0x80 >> (i % 8));
         else
-            DATA_PTR_HIGH_BITS[i / 8] &= ~(0x80 >> (i % 8));
+            new_block->DATA_PTR_HIGH_BITS[i / 8] &= ~(0x80 >> (i % 8));
     }
-    new_block->setKVLastPos(new_size); // (5) New Block Last position
+    new_block->setKVLastPos(brk_kv_pos); // (5) New Block Last position
     //filled_size = brk_idx + 1;
     //setFilledSize(filled_size); // (7) Filled Size for Old block
     new_block->setFilledSize(new_size); // (8) Filled Size for New Block
@@ -562,9 +582,8 @@ bool dfox_block::recurseTrie(int level, dfox_var *v) {
                 v->key_at = (char *) getKey(v->lastSearchPos, &v->key_at_len);
                 int cmp = util::compare(v->key, v->key_len, v->key_at,
                         v->key_at_len);
-                if (cmp == 0) {
+                if (cmp == 0)
                     return true;
-                }
                 if (cmp < 0)
                     v->lastSearchPos--;
                 v->insertState = INSERT_THREAD;
@@ -572,7 +591,7 @@ bool dfox_block::recurseTrie(int level, dfox_var *v) {
                     cmp = -cmp;
                 cmp -= level;
                 v->need_count = cmp * 2;
-                v->need_count += 3;
+                v->need_count += 4;
                 v->lastLevel = level;
                 return true;
             } else {
@@ -621,13 +640,18 @@ byte dfox_block::getAt(byte pos) {
     return trie[pos];
 }
 
-dfox_var::dfox_var() {
+void dfox_var::init() {
     tc = 0;
+    mask = 0;
+    msb5 = 0;
     csPos = 0;
+    leaves = 0;
     triePos = 0;
     origPos = 0;
     lastLevel = 0;
+    need_count = 0;
     insertState = 0;
+    lastSearchPos = -1;
 }
 
 byte dfox_block::left_mask[8] =
