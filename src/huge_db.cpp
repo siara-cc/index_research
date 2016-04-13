@@ -19,7 +19,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 36; l++) {
+    for (long l = 0; l < 24; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));
@@ -46,7 +46,20 @@ float timedifference_msec(struct timeval t0, struct timeval t1) {
             + (t1.tv_usec - t0.tv_usec) / 1000.0f;
 }
 
-int main2() {
+void print(dfox *dx, const char *key, int key_len) {
+    int len;
+    char *value = dx->get(key, key_len, &len);
+    if (value == null || len == 0) {
+        std::cout << "Value for " << key << " is null" << endl;
+        return;
+    }
+    char s[100];
+    strncpy(s, value, len);
+    s[len] = 0;
+    std::cout << "Key: " << key << ", Value:" << s << endl;
+}
+
+int main() {
     GenTree::generateBitCounts();
     dfox *dx = new dfox();
     dx->put("Hello", 5, "World", 5);
@@ -61,24 +74,30 @@ int main2() {
     dx->put("rice", 4, "7", 1);
     dx->put("ric", 3, "8", 1);
     dx->put("aruna", 5, "9", 1);
-//    dx->put("hello", 5, "10", 2);
+    dx->put("hello", 5, "10", 2);
     dx->put("world", 5, "11", 2);
-//    dx->put("how", 3, "12", 2);
-//    dx->put("are", 3, "13", 2);
-//    dx->put("1", 1, "15", 2);
-//    dx->put("you", 3, "14", 2);
-//    dx->put("boy", 3, "15", 2);
-    int len;
-    char *value = dx->get("Arun", 4, &len);
-    char s[100];
-    strncpy(s, value, 1);
-    s[5] = 0;
-    std::cout << "Value:" << s << endl;
+    dx->put("how", 3, "12", 2);
+    dx->put("are", 3, "13", 2);
+    dx->put("1", 1, "15", 2);
+    dx->put("you", 3, "14", 2);
+    dx->put("boy", 3, "15", 2);
+    print(dx, "Arun", 4);
+    print(dx, "Hello", 5);
+    print(dx, "Nice", 4);
+    print(dx, "arun", 4);
+    print(dx, "hello", 5);
+    print(dx, "ri0hell", 7);
+    print(dx, "ric", 3);
+    print(dx, "rice", 4);
+    print(dx, "ricin", 5);
+    print(dx, "rickshaw", 8);
+    print(dx, "ride", 4);
+    print(dx, "world", 5);
     std::cout << "Trie Size:" << dx->size() << endl;
     return 0;
 }
 
-int main1() {
+int main2() {
     GenTree::generateBitCounts();
     dfox *dx = new dfox();
     dx->put("08/135/:03*6200<", 16, "2458735612129", 13);
@@ -103,7 +122,7 @@ int main1() {
     return 0;
 }
 
-int main() {
+int main1() {
 
     GenTree::generateBitCounts();
 
@@ -169,7 +188,7 @@ int main() {
     gettimeofday(&start, NULL);
     for (; it != m.end(); ++it) {
         int len;
-        char *value = lx->get(it->first.c_str(), it->first.length(), &len);
+        lx->get(it->first.c_str(), it->first.length(), &len);
     }
     gettimeofday(&stop, NULL);
     cout << "B+Tree Get Time:" << timedifference_msec(start, stop) << endl;

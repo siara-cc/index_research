@@ -153,7 +153,7 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
     if (idx < 0) {
         idx = ~idx;
         if (block->isFull(key_len + value_len)) {
-            printf("Full\n");
+            //printf("Full\n");
             if (maxKeyCount < block->filledSize())
                 maxKeyCount = block->filledSize();
             int brk_idx;
