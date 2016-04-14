@@ -76,13 +76,15 @@ void dfox::recursiveUpdate(dfox_block *block, int pos, const char *key,
         idx = ~idx;
         if (block->isFull(key_len + value_len, v)) {
             //printf("Full\n");
-            if (maxKeyCount > block->filledSize())
-                maxKeyCount = block->filledSize();
+            //if (maxKeyCount < block->filledSize())
+            //    maxKeyCount = block->filledSize();
             int brk_idx;
             dfox_block *new_block = block->split(&brk_idx);
+            blockCount++;
             dfox_var *rv = new dfox_var();
             if (root == block) {
                 root = new dfox_block();
+                blockCount++;
                 int first_len;
                 char *first_key; // = (char *) block->getKey(0, &first_len);
                 char addr[5];
@@ -108,9 +110,8 @@ void dfox::recursiveUpdate(dfox_block *block, int pos, const char *key,
                 util::ptrToFourBytes((unsigned long) new_block, addr);
                 parent->locateInTrie(rv->key, rv->key_len, rv);
                 recursiveUpdate(parent, ~(lastSearchPos[prev_level] + 1),
-                        rv->key, rv->key_len, addr,
-                        sizeof(char *), lastSearchPos, blocks_path, prev_level,
-                        rv);
+                        rv->key, rv->key_len, addr, sizeof(char *),
+                        lastSearchPos, blocks_path, prev_level, rv);
             }
             if (idx > brk_idx) {
                 block = new_block;
@@ -196,8 +197,8 @@ dfox_block *dfox_block::split(int *pbrk_idx) {
     memset(new_block->DATA_PTR_HIGH_BITS, 0, 4);
     for (int i = 0; i < new_size; i++) {
         int from_bit = i + new_idx;
-        if (high_bits[from_bit / 8] & (0x80 >> (from_bit % 8)))
-            new_block->DATA_PTR_HIGH_BITS[i / 8] |= (0x80 >> (i % 8));
+        if (high_bits[from_bit >> 3] & (0x80 >> (from_bit & 0x07)))
+            new_block->DATA_PTR_HIGH_BITS[i >> 3] |= (0x80 >> (i & 0x07));
     }
     if (high_bits[3] & 0x01)
         new_block->setLeaf(1);
@@ -224,7 +225,8 @@ dfox::dfox() {
     root = new dfox_block();
     total_size = 0;
     numLevels = 1;
-    maxKeyCount = 9999;
+    maxKeyCount = 0; //9999;
+    blockCount = 1;
 }
 
 dfox_block::dfox_block() {
@@ -268,12 +270,12 @@ void dfox_block::insPtr(int pos, int kv_pos) {
         memmove(kvIdx, kvIdx + 1, pos);
     }
     kvIdx[pos] = (byte) kv_pos & 0xFF;
-    byte offset = pos % 8;
+    byte offset = pos & 0x07;
     byte carry = 0;
     if (kv_pos > 256)
         carry = 0x80;
     byte is_leaf = isLeaf();
-    for (int i = pos / 8; i < 4; i++) {
+    for (int i = (pos >> 3); i < 4; i++) {
         byte bitmap = DATA_PTR_HIGH_BITS[i];
         byte new_carry = 0;
         if (DATA_PTR_HIGH_BITS[i] & 0x01)
@@ -308,7 +310,7 @@ bool dfox_block::isFull(int kv_len, dfox_var *v) {
         return true;
     if (FILLED_SIZE > 26)
         return true;
-    if ((getKVLastPos()-kv_len-2) < (IDX_BLK_SIZE + 10))
+    if ((getKVLastPos() - kv_len - 2) < (IDX_BLK_SIZE + 10))
         return true;
     return false;
 }
@@ -329,7 +331,7 @@ int dfox_block::getPtr(int pos) {
     kvIdx -= FILLED_SIZE;
     kvIdx += pos;
     int idx = *kvIdx;
-    if (DATA_PTR_HIGH_BITS[pos / 8] & (0x80 >> (pos % 8)))
+    if (DATA_PTR_HIGH_BITS[pos >> 3] & (0x80 >> (pos & 0x07)))
         idx += 256;
     return idx;
 }
@@ -416,7 +418,14 @@ void dfox_block::insertCurrent(dfox_var *v) {
                 leafPos++;
                 int leaf = getAt(leafPos);
                 leaf &= ~v->mask;
-                setAt(leafPos, leaf);
+                if (leaf)
+                    setAt(leafPos, leaf);
+                else {
+                    delAt(leafPos);
+                    v->triePos--;
+                    origTC |= 0x20;
+                    setAt(v->origPos, origTC);
+                }
             }
             do {
                 c1 = v->key[pos];
@@ -621,6 +630,11 @@ int dfox_block::locateInTrie(const char *key, int key_len, dfox_var *v) {
     }
     v->lastSearchPos = ~(v->lastSearchPos + 1);
     return v->lastSearchPos;
+}
+
+void dfox_block::delAt(byte pos) {
+    TRIE_LEN--;
+    memmove(trie + pos, trie + pos + 1, TRIE_LEN - pos);
 }
 
 void dfox_block::insAt(byte pos, byte b) {

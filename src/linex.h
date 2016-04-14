@@ -37,7 +37,6 @@ public:
 
 class linex {
 private:
-    linex_block *root;
     long total_size;
     int numLevels;
     int maxKeyCount;
@@ -48,6 +47,7 @@ private:
             int key_len, const char *value, int value_len, int lastSearchPos[],
             linex_block *block_paths[], int level);
 public:
+    linex_block *root;
     linex();
     long size();
     char *get(const char *key, int key_len, int *pValueLen);

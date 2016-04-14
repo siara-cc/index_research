@@ -57,6 +57,7 @@ private:
     inline void setAt(byte pos, byte b);
     inline void append(byte b);
     inline byte getAt(byte pos);
+    inline void delAt(byte pos);
     byte recurseSkip(dfox_var *v);
 public:
     byte buf[BLK_SIZE];
@@ -83,22 +84,23 @@ public:
 
 class dfox {
 private:
-    dfox_block *root;
     long total_size;
     int numLevels;
-    int maxKeyCount;
+    long maxKeyCount;
+    long blockCount;
     dfox_block *recursiveSearch(const char *key, int key_len, dfox_block *node,
             int lastSearchPos[], dfox_block *block_paths[], int *pIdx, dfox_var *v);
     void recursiveUpdate(dfox_block *foundNode, int pos, const char *key,
             int key_len, const char *value, int value_len, int lastSearchPos[],
             dfox_block *block_paths[], int level, dfox_var *v);
 public:
+    dfox_block *root;
     dfox();
     long size();
     char *get(const char *key, int key_len, int *pValueLen);
     void put(const char *key, int key_len, const char *value, int value_len);
     void printMaxKeyCount() {
-        std::cout << "Max Key Count:" << maxKeyCount << std::endl;
+        std::cout << "Max Key Count:" << (60000/blockCount) << std::endl;
     }
     void printNumLevels() {
         std::cout << "Level Count:" << numLevels << std::endl;

@@ -19,7 +19,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 300000; l++) {
+    for (long l = 0; l < 60000; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));
@@ -32,10 +32,10 @@ void insert(unordered_map<string, string>& m) {
             k[b * 2] = 48 + (c >> 4);
             k[b * 2 + 1] = 48 + (c & 0x0F);
         }
-        k[16] = 0;
+        k[8] = 0;
         for (int i=0; i<8; i++)
             v[7-i] = k[i];
-        v[8] = 0;
+        v[4] = 0;
         //itoa(rand(), v, 10);
         //itoa(rand(), v + strlen(v), 10);
         //itoa(rand(), v + strlen(v), 10);
@@ -215,6 +215,8 @@ int main() {
     }
     gettimeofday(&stop, NULL);
     cout << "B+Tree Get Time:" << timedifference_msec(start, stop) << endl;
+    lx->printNumLevels();
+    cout << "Root filled size:" << lx->root->filledSize() << endl;
 
     //it = m.begin();
     //for (; it != m.end(); ++it) {
@@ -261,6 +263,7 @@ int main() {
     std::cout << "Trie Size:" << dx->size() << endl;
     dx->printMaxKeyCount();
     dx->printNumLevels();
+    cout << "Root filled size:" << dx->root->filledSize() << endl;
 
     if (cmp > 0) {
         it = m.begin();
