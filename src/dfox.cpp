@@ -80,13 +80,13 @@ void dfox::recursiveUpdate(dfox_block *block, int pos, const char *key,
                 maxKeyCount = block->filledSize();
             int brk_idx;
             dfox_block *new_block = block->split(&brk_idx);
+            dfox_var *rv = new dfox_var();
             if (root == block) {
                 root = new dfox_block();
                 int first_len;
                 char *first_key; // = (char *) block->getKey(0, &first_len);
                 char addr[5];
                 util::ptrToFourBytes((unsigned long) block, addr);
-                dfox_var *rv = new dfox_var();
                 rv->key = "";
                 rv->key_len = 1;
                 root->addData(0, rv->key, 1, addr, sizeof(char *), rv);
@@ -103,15 +103,14 @@ void dfox::recursiveUpdate(dfox_block *block, int pos, const char *key,
             } else {
                 int prev_level = level - 1;
                 dfox_block *parent = blocks_path[prev_level];
-                int first_key_len;
-                char *new_block_first_key = (char *) new_block->getKey(0,
-                        &first_key_len);
+                rv->key = (char *) new_block->getKey(0, &rv->key_len);
                 char addr[5];
                 util::ptrToFourBytes((unsigned long) new_block, addr);
+                parent->locateInTrie(rv->key, rv->key_len, rv);
                 recursiveUpdate(parent, ~(lastSearchPos[prev_level] + 1),
-                        new_block_first_key, first_key_len, addr,
+                        rv->key, rv->key_len, addr,
                         sizeof(char *), lastSearchPos, blocks_path, prev_level,
-                        v);
+                        rv);
             }
             if (idx > brk_idx) {
                 block = new_block;
@@ -119,6 +118,7 @@ void dfox::recursiveUpdate(dfox_block *block, int pos, const char *key,
             }
             v->init();
             block->locateInTrie(key, key_len, v);
+            idx = ~v->lastSearchPos;
         }
         block->addData(idx, key, key_len, value, value_len, v);
     } else {
@@ -206,13 +206,13 @@ dfox_block *dfox_block::split(int *pbrk_idx) {
     //setFilledSize(filled_size); // (7) Filled Size for Old block
     new_block->TRIE_LEN = 0;
     new_block->setFilledSize(new_size); // (8) Filled Size for New Block
-    for (int i=0; i<new_size; i++) {
+    for (int i = 0; i < new_size; i++) {
         v->init();
         v->key = (char *) new_block->getKey(i, &v->key_len);
         new_block->locateInTrie(v->key, v->key_len, v);
         new_block->insertCurrent(v);
     }
-    *pbrk_idx = brk_idx;
+    *pbrk_idx = (brk_idx + 1);
     return new_block;
 }
 
@@ -404,8 +404,12 @@ void dfox_block::insertCurrent(dfox_var *v) {
             origTC &= 0xBF; // ~0x40
             setAt(v->origPos, origTC);
         }
-        pos = v->lastLevel + 1;
+        pos = v->lastLevel;
         min = util::min(v->key_len, v->key_at_len);
+        char c1, c2;
+        c1 = v->key[pos];
+        c2 = v->key_at[pos];
+        pos++;
         if (pos < min) {
             leafPos = childPos;
             if (0 == (origTC & 0x20)) {
@@ -414,7 +418,6 @@ void dfox_block::insertCurrent(dfox_var *v) {
                 leaf &= ~v->mask;
                 setAt(leafPos, leaf);
             }
-            char c1, c2;
             do {
                 c1 = v->key[pos];
                 c2 = v->key_at[pos];
@@ -463,14 +466,14 @@ void dfox_block::insertCurrent(dfox_var *v) {
                     break;
                 pos++;
             } while (pos < min);
-            if (c1 == c2) {
-                c2 = (pos == v->key_at_len ? v->key[pos] : v->key_at[pos]);
-                int msb5c2 = c2 >> 3;
-                int offc2 = c2 & 0x07;
-                msb5c2 |= 0xC0;
-                insAt(v->triePos, (0x80 >> offc2));
-                insAt(v->triePos, msb5c2);
-            }
+        }
+        if (c1 == c2) {
+            c2 = (pos == v->key_at_len ? v->key[pos] : v->key_at[pos]);
+            int msb5c2 = c2 >> 3;
+            int offc2 = c2 & 0x07;
+            msb5c2 |= 0xC0;
+            insAt(v->triePos, (0x80 >> offc2));
+            insAt(v->triePos, msb5c2);
         }
         break;
     case INSERT_LEAF2:

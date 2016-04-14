@@ -19,7 +19,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 26; l++) {
+    for (long l = 0; l < 36; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));
@@ -66,22 +66,26 @@ int main1() {
     dx->put("Nice", 4, "Place", 5);
     dx->put("Arun", 4, "Hello", 5);
     dx->put("arun", 4, "0", 1);
-    dx->put("ri0hello", 7, "2", 1);
-    dx->put("ricin", 5, "34623", 5);
+    dx->put("resin", 5, "34623", 5);
+    dx->put("rinse", 5, "2", 1);
     dx->put("rickshaw", 8, "4", 1);
     dx->put("ride", 4, "5", 1);
     dx->put("rider", 5, "6", 1);
     dx->put("rice", 4, "7", 1);
-    dx->put("ric", 3, "8", 1);
+    dx->put("rick", 4, "8", 1);
     dx->put("aruna", 5, "9", 1);
     dx->put("hello", 5, "10", 2);
     dx->put("world", 5, "11", 2);
     dx->put("how", 3, "12", 2);
     dx->put("are", 3, "13", 2);
-    dx->put("1", 1, "15", 2);
     dx->put("you", 3, "14", 2);
     dx->put("boy", 3, "15", 2);
-    print(dx, "1", 1);
+    dx->put("boat", 4, "16", 2);
+    dx->put("buoy", 4, "17", 2);
+    dx->put("boast", 5, "18", 2);
+    dx->put("young", 5, "19", 2);
+    dx->put("youth", 5, "20", 2);
+    dx->put("yousuf", 6, "21", 2);
     print(dx, "Arun", 4);
     print(dx, "Hello", 5);
     print(dx, "Nice", 4);
@@ -90,12 +94,13 @@ int main1() {
     print(dx, "boy", 3);
     print(dx, "hello", 5);
     print(dx, "how", 3);
-    print(dx, "ri0hell", 7);
-    print(dx, "ric", 3);
+    print(dx, "resin", 5);
+    print(dx, "rick", 4);
     print(dx, "rice", 4);
-    print(dx, "ricin", 5);
+    print(dx, "rinse", 5);
     print(dx, "rickshaw", 8);
     print(dx, "ride", 4);
+    print(dx, "rider", 5);
     print(dx, "world", 5);
     print(dx, "you", 3);
     std::cout << "Trie Size:" << dx->size() << endl;
