@@ -75,8 +75,8 @@ void dfox::recursiveUpdate(dfox_block *block, int pos, const char *key,
     if (idx < 0) {
         idx = ~idx;
         if (block->isFull(key_len + value_len, v)) {
-            printf("Full\n");
-            if (maxKeyCount < block->filledSize())
+            //printf("Full\n");
+            if (maxKeyCount > block->filledSize())
                 maxKeyCount = block->filledSize();
             int brk_idx;
             dfox_block *new_block = block->split(&brk_idx);
@@ -224,7 +224,7 @@ dfox::dfox() {
     root = new dfox_block();
     total_size = 0;
     numLevels = 1;
-    maxKeyCount = 0;
+    maxKeyCount = 9999;
 }
 
 dfox_block::dfox_block() {
@@ -306,9 +306,9 @@ void dfox_block::setFilledSize(int filledSize) {
 bool dfox_block::isFull(int kv_len, dfox_var *v) {
     if (TRIE_LEN + v->need_count + FILLED_SIZE >= TRIE_PTR_AREA_SIZE)
         return true;
-    if (FILLED_SIZE > 30)
+    if (FILLED_SIZE > 26)
         return true;
-    if (getKVLastPos() < (IDX_BLK_SIZE + 2))
+    if ((getKVLastPos()-kv_len-2) < (IDX_BLK_SIZE + 10))
         return true;
     return false;
 }
