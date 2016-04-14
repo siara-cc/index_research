@@ -144,7 +144,6 @@ dfox_block *dfox_block::split(int *pbrk_idx) {
     int brk_kv_pos = 0;
     int tot_len = 0;
     dfox_var *v = new dfox_var();
-    new_block->TRIE_LEN = 0;
     // (1) move all data to new_block in order
     for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
         int src_idx = getPtr(new_idx);
@@ -162,13 +161,6 @@ dfox_block *dfox_block::split(int *pbrk_idx) {
             if (brk_idx == -1) {
                 brk_idx = new_idx;
                 brk_kv_pos = kv_last_pos;
-            } else {
-                char *key = (char *) (buf + src_idx + 1);
-                v->init();
-                v->key = key;
-                v->key_len = buf[src_idx];
-                new_block->locateInTrie(key, buf[src_idx], v);
-                new_block->insertCurrent(v);
             }
         }
     }
@@ -212,7 +204,14 @@ dfox_block *dfox_block::split(int *pbrk_idx) {
     new_block->setKVLastPos(brk_kv_pos); // (5) New Block Last position
     //filled_size = brk_idx + 1;
     //setFilledSize(filled_size); // (7) Filled Size for Old block
+    new_block->TRIE_LEN = 0;
     new_block->setFilledSize(new_size); // (8) Filled Size for New Block
+    for (int i=0; i<new_size; i++) {
+        v->init();
+        v->key = (char *) new_block->getKey(i, &v->key_len);
+        new_block->locateInTrie(v->key, v->key_len, v);
+        new_block->insertCurrent(v);
+    }
     *pbrk_idx = brk_idx;
     return new_block;
 }

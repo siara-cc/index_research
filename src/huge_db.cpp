@@ -19,7 +19,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 24; l++) {
+    for (long l = 0; l < 26; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));
@@ -59,7 +59,7 @@ void print(dfox *dx, const char *key, int key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
-int main() {
+int main1() {
     GenTree::generateBitCounts();
     dfox *dx = new dfox();
     dx->put("Hello", 5, "World", 5);
@@ -81,11 +81,15 @@ int main() {
     dx->put("1", 1, "15", 2);
     dx->put("you", 3, "14", 2);
     dx->put("boy", 3, "15", 2);
+    print(dx, "1", 1);
     print(dx, "Arun", 4);
     print(dx, "Hello", 5);
     print(dx, "Nice", 4);
+    print(dx, "are", 3);
     print(dx, "arun", 4);
+    print(dx, "boy", 3);
     print(dx, "hello", 5);
+    print(dx, "how", 3);
     print(dx, "ri0hell", 7);
     print(dx, "ric", 3);
     print(dx, "rice", 4);
@@ -93,6 +97,7 @@ int main() {
     print(dx, "rickshaw", 8);
     print(dx, "ride", 4);
     print(dx, "world", 5);
+    print(dx, "you", 3);
     std::cout << "Trie Size:" << dx->size() << endl;
     return 0;
 }
@@ -122,7 +127,7 @@ int main2() {
     return 0;
 }
 
-int main1() {
+int main() {
 
     GenTree::generateBitCounts();
 
