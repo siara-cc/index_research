@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define BLK_SIZE 512
+#define LINEX_BLK_SIZE 512
 #define BLK_HDR_SIZE 5
 #define MAX_DATA_LEN 127
 
@@ -17,7 +17,7 @@ private:
     int binarySearchLeaf(const char *key, int key_len);
     int binarySearchNode(const char *key, int key_len);
 public:
-    byte buf[BLK_SIZE];
+    byte buf[LINEX_BLK_SIZE];
     linex_block();
     bool isLeaf();
     void setLeaf(char isLeaf);
@@ -40,6 +40,7 @@ private:
     long total_size;
     int numLevels;
     int maxKeyCount;
+    int blockCount;
     linex_block *recursiveSearch(const char *key, int key_len,
             linex_block *node, int lastSearchPos[], linex_block *block_paths[],
             int *pIdx);
@@ -52,7 +53,11 @@ public:
     long size();
     char *get(const char *key, int key_len, int *pValueLen);
     void put(const char *key, int key_len, const char *value, int value_len);
-    void printMaxKeyCount() { std::cout << "Max Key Count:" << maxKeyCount << std::endl; }
+    void printMaxKeyCount(long num_entries) {
+        std::cout << "Block Count:" << blockCount << std::endl;
+        std::cout << "Avg Block Count:" << (num_entries/blockCount) << std::endl;
+        std::cout << "Avg Max Count:" << (maxKeyCount/blockCount) << std::endl;
+    }
     void printNumLevels() { std::cout << "Level Count:" << numLevels << std::endl; }
 };
 

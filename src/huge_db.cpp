@@ -12,6 +12,8 @@
 #include "linex.h"
 #include "dfox.h"
 
+#define NUM_ENTRIES 60000
+
 using namespace std::tr1;
 using namespace std;
 
@@ -19,7 +21,7 @@ void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < 60000; l++) {
+    for (long l = 0; l < NUM_ENTRIES; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
             char c = (r >> (24 - b * 8));
@@ -215,6 +217,7 @@ int main() {
     }
     gettimeofday(&stop, NULL);
     cout << "B+Tree Get Time:" << timedifference_msec(start, stop) << endl;
+    lx->printMaxKeyCount(NUM_ENTRIES);
     lx->printNumLevels();
     cout << "Root filled size:" << lx->root->filledSize() << endl;
 
@@ -261,7 +264,7 @@ int main() {
     cout << "Cmp:" << cmp << endl;
     cout << "DFox+Tree get time:" << timedifference_msec(start, stop) << endl;
     std::cout << "Trie Size:" << dx->size() << endl;
-    dx->printMaxKeyCount();
+    dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
     cout << "Root filled size:" << dx->root->filledSize() << endl;
 

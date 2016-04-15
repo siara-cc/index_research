@@ -57,6 +57,10 @@ public:
             }
             k++;
         }
+//        if (lim == len1)
+//            return lim;
+//        else
+//            return -lim;
         return len1 - len2;
     }
 

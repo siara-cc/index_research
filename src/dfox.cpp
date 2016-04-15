@@ -78,6 +78,8 @@ void dfox::recursiveUpdate(dfox_block *block, int pos, const char *key,
             //printf("Full\n");
             //if (maxKeyCount < block->filledSize())
             //    maxKeyCount = block->filledSize();
+            //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
+            maxKeyCount += block->filledSize();
             int brk_idx;
             dfox_block *new_block = block->split(&brk_idx);
             blockCount++;
@@ -197,8 +199,8 @@ dfox_block *dfox_block::split(int *pbrk_idx) {
     memset(new_block->DATA_PTR_HIGH_BITS, 0, 4);
     for (int i = 0; i < new_size; i++) {
         int from_bit = i + new_idx;
-        if (high_bits[from_bit >> 3] & (0x80 >> (from_bit & 0x07)))
-            new_block->DATA_PTR_HIGH_BITS[i >> 3] |= (0x80 >> (i & 0x07));
+        if (high_bits[from_bit >> 3] & pos_mask[from_bit])
+            new_block->DATA_PTR_HIGH_BITS[i >> 3] |= pos_mask[i];
     }
     if (high_bits[3] & 0x01)
         new_block->setLeaf(1);
@@ -331,7 +333,7 @@ int dfox_block::getPtr(int pos) {
     kvIdx -= FILLED_SIZE;
     kvIdx += pos;
     int idx = *kvIdx;
-    if (DATA_PTR_HIGH_BITS[pos >> 3] & (0x80 >> (pos & 0x07)))
+    if (DATA_PTR_HIGH_BITS[pos >> 3] & pos_mask[pos])
         idx += 256;
     return idx;
 }
@@ -520,7 +522,7 @@ byte dfox_block::recurseSkip(dfox_var *v) {
         leaves = getAt(v->triePos++);
     v->lastSearchPos += GenTree::bit_count[leaves];
     for (int i = 0; i < GenTree::bit_count[children]; i++) {
-        int ctc;
+        byte ctc;
         do {
             ctc = recurseSkip(v);
         } while ((ctc & 0x80) != 0x80);
@@ -531,15 +533,14 @@ byte dfox_block::recurseSkip(dfox_var *v) {
 bool dfox_block::recurseTrie(int level, dfox_var *v) {
     if (v->csPos >= v->key_len)
         return false;
-    int kc = v->key[v->csPos++];
+    byte kc = v->key[v->csPos++];
     v->msb5 = kc >> 3;
-    int offset = kc & 0x07;
+    byte offset = kc & 0x07;
     v->mask = 0x80 >> offset;
     v->tc = getAt(v->triePos);
-    int msb5tc = v->tc & 0x1F;
+    byte msb5tc = v->tc & 0x1F;
     v->origPos = v->triePos;
     while (msb5tc < v->msb5) {
-        v->origPos = v->triePos;
         v->tc = recurseSkip(v);
         if ((v->tc & 0x80) == 0x80 || v->triePos == TRIE_LEN) {
             v->insertState = INSERT_MIDDLE1;
@@ -548,11 +549,11 @@ bool dfox_block::recurseTrie(int level, dfox_var *v) {
         }
         v->tc = getAt(v->triePos);
         msb5tc = v->tc & 0x1F;
+        v->origPos = v->triePos;
     }
-    v->origPos = v->triePos;
     if (msb5tc == v->msb5) {
         v->tc = getAt(v->triePos++);
-        int children = 0;
+        byte children = 0;
         v->leaves = 0;
         if (0 == (v->tc & 0x40)) {
             children = getAt(v->triePos++);
@@ -562,9 +563,9 @@ bool dfox_block::recurseTrie(int level, dfox_var *v) {
             v->lastSearchPos +=
                     GenTree::bit_count[v->leaves & left_mask[offset]];
         }
-        int lCount = GenTree::bit_count[children & left_mask[offset]];
+        byte lCount = GenTree::bit_count[children & left_mask[offset]];
         while (lCount-- > 0) {
-            int ctc;
+            byte ctc;
             do {
                 ctc = recurseSkip(v);
             } while ((ctc & 0x80) != 0x80);
@@ -656,13 +657,8 @@ byte dfox_block::getAt(byte pos) {
 }
 
 void dfox_var::init() {
-    tc = 0;
-    mask = 0;
-    msb5 = 0;
     csPos = 0;
-    leaves = 0;
     triePos = 0;
-    origPos = 0;
     lastLevel = 0;
     need_count = 0;
     insertState = 0;
@@ -675,3 +671,6 @@ byte dfox_block::ryte_mask[8] =
         { 0x7F, 0x3F, 0x1F, 0x0F, 0x07, 0x03, 0x01, 0x00 };
 byte dfox_block::ryte_incl_mask[8] = { 0xFF, 0x7F, 0x3F, 0x1F, 0x0F, 0x07, 0x03,
         0x01 };
+byte dfox_block::pos_mask[32] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80,
+        0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80, 0x40, 0x20, 0x10, 0x08,
+        0x04, 0x02, 0x01, 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };

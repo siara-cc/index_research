@@ -95,7 +95,7 @@ linex_block *linex_block::split(int *pbrk_idx) {
     if (!isLeaf())
         new_block->setLeaf(false);
     int kv_last_pos = getKVLastPos();
-    int halfKVLen = BLK_SIZE - kv_last_pos + 1;
+    int halfKVLen = LINEX_BLK_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
     byte *kv_idx = buf + BLK_HDR_SIZE;
     byte *new_kv_idx = new_block->buf + BLK_HDR_SIZE;
@@ -125,12 +125,12 @@ linex_block *linex_block::split(int *pbrk_idx) {
     }
     kv_last_pos = getKVLastPos();
     int old_blk_new_len = brk_kv_pos - kv_last_pos;
-    memcpy(buf + BLK_SIZE - old_blk_new_len,
+    memcpy(buf + LINEX_BLK_SIZE - old_blk_new_len,
             new_block->buf + kv_last_pos, old_blk_new_len); // (3)
     new_pos = 0;
     for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
         int src_idx = util::getInt(new_kv_idx + new_pos);
-        src_idx += (BLK_SIZE - brk_kv_pos);
+        src_idx += (LINEX_BLK_SIZE - brk_kv_pos);
         util::setInt(kv_idx + new_pos, src_idx);
         if (new_idx == 0)
             setKVLastPos(src_idx); // (6)
@@ -154,12 +154,13 @@ void linex::recursiveUpdate(linex_block *block, int pos, const char *key,
         idx = ~idx;
         if (block->isFull(key_len + value_len)) {
             //printf("Full\n");
-            if (maxKeyCount < block->filledSize())
-                maxKeyCount = block->filledSize();
+            maxKeyCount += block->filledSize();
             int brk_idx;
             linex_block *new_block = block->split(&brk_idx);
+            blockCount++;
             if (root == block) {
                 root = new linex_block();
+                blockCount++;
                 int first_len;
                 char *first_key = (char *) block->getKey(0, &first_len);
                 char addr[5];
@@ -265,6 +266,7 @@ linex::linex() {
     total_size = 0;
     numLevels = 1;
     maxKeyCount = 0;
+    blockCount = 1;
 }
 
 linex_block::linex_block() {
