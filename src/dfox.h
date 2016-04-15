@@ -65,11 +65,13 @@ private:
 public:
     byte buf[BLK_SIZE];
     dfox_block();
-    bool isLeaf();
-    void setLeaf(char isLeaf);
     bool isFull(int kv_len, dfox_var *v);
+    inline bool isLeaf();
+    inline void setLeaf(char isLeaf);
     int filledSize();
-    void setFilledSize(int filledSize);
+    inline void setFilledSize(int filledSize);
+    inline int getKVLastPos();
+    inline void setKVLastPos(int val);
     void addData(int idx, const char *key, int key_len, const char *value,
             int value_len, dfox_var *v);
     int getPtr(int pos);
@@ -77,8 +79,6 @@ public:
     dfox_block *getChild(int pos);
     byte *getKey(int pos, int *plen);
     byte *getData(int pos, int *plen);
-    void setKVLastPos(int val);
-    int getKVLastPos();
     dfox_block *split(int *pbrk_idx);
     int locateInTrie(const char *key, int key_len, dfox_var *v);
     bool recurseTrie(int level, dfox_var *v);

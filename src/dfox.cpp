@@ -635,11 +635,13 @@ int dfox_block::locateInTrie(const char *key, int key_len, dfox_var *v) {
 
 void dfox_block::delAt(byte pos) {
     TRIE_LEN--;
-    memmove(trie + pos, trie + pos + 1, TRIE_LEN - pos);
+    byte *ptr = trie + pos;
+    memmove(ptr, ptr + 1, TRIE_LEN - pos);
 }
 
 void dfox_block::insAt(byte pos, byte b) {
-    memmove(trie + pos + 1, trie + pos, TRIE_LEN - pos);
+    byte *ptr = trie + pos;
+    memmove(ptr + 1, ptr, TRIE_LEN - pos);
     trie[pos] = b;
     TRIE_LEN++;
 }
