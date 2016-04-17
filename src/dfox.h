@@ -43,6 +43,7 @@ public:
     int key_len;
     char *key_at;
     int key_at_len;
+    // len of len, remaining children, node pos
     dfox_var() {
         init();
     }
@@ -57,6 +58,8 @@ private:
     static byte ryte_incl_mask[8];
     static byte pos_mask[32];
     inline void insAt(byte pos, byte b);
+    inline void insAt(byte pos, byte b1, byte b2);
+    inline void insAt(byte pos, byte b1, byte b2, byte b3);
     inline void setAt(byte pos, byte b);
     inline void append(byte b);
     inline byte getAt(byte pos);

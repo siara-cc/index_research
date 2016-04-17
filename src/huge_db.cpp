@@ -12,7 +12,7 @@
 #include "linex.h"
 #include "dfox.h"
 
-#define NUM_ENTRIES 60000
+#define NUM_ENTRIES 65536
 
 using namespace std::tr1;
 using namespace std;
@@ -151,11 +151,6 @@ int main() {
 
     GenTree::generateBitCounts();
 
-    /*
-     db d("/tmp", "test");
-     rs r(&d, "table1");
-     r.insert("record1", 7);
-     */
     struct timeval stop, start;
     unordered_map<string, string> m;
     gettimeofday(&start, NULL);
@@ -163,9 +158,14 @@ int main() {
     gettimeofday(&stop, NULL);
     cout << "HashMap insert time:" << timedifference_msec(start, stop) << endl;
     cout << "HashMap size:" << m.size() << endl;
+
+    unordered_map<string, string>::iterator it;
+
+    /*
     map<string, string> m1;
-    unordered_map<string, string>::iterator it = m.begin();
+    m.begin();
     gettimeofday(&start, NULL);
+    it = m.begin();
     for (; it != m.end(); ++it) {
         m1.insert(pair<string, string>(it->first, it->second));
     }
@@ -179,6 +179,7 @@ int main() {
     gettimeofday(&stop, NULL);
     cout << "RB Tree get time:" << timedifference_msec(start, stop) << endl;
     cout << "RB Tree size:" << m1.size() << endl;
+    */
 
     art_tree at;
     art_tree_init(&at);

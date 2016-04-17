@@ -2,7 +2,7 @@
 #define GENTREE_H
 #include "util.h"
 
-#define TREE_SIZE 16384
+#define TREE_SIZE 4096
 
 class GenTree {
 public:

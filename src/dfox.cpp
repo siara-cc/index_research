@@ -308,11 +308,11 @@ void dfox_block::setFilledSize(int filledSize) {
 }
 
 bool dfox_block::isFull(int kv_len, dfox_var *v) {
-    if (TRIE_LEN + v->need_count + FILLED_SIZE >= TRIE_PTR_AREA_SIZE)
+    if (TRIE_LEN + 8 + v->need_count + FILLED_SIZE >= TRIE_PTR_AREA_SIZE)
         return true;
-    if (FILLED_SIZE > 26)
+    if (FILLED_SIZE > 30)
         return true;
-    if ((getKVLastPos() - kv_len - 2) < (IDX_BLK_SIZE + 10))
+    if ((getKVLastPos() - kv_len - 2) < (IDX_BLK_SIZE + 2))
         return true;
     return false;
 }
@@ -374,13 +374,14 @@ void dfox_block::insertCurrent(dfox_var *v) {
         return;
     }
 
+    byte insCount = TRIE_LEN;
     switch (v->insertState) {
     case INSERT_MIDDLE1:
         v->tc &= 0x7F;
         setAt(v->origPos, v->tc);
-        insAt(v->triePos, v->mask);
+        insAt(v->triePos, (v->msb5 | 0xC0), v->mask);
+        v->triePos += 2;
         // trie.insert(triePos, (char) 0);
-        insAt(v->triePos, (v->msb5 | 0xC0));
         break;
     case INSERT_LEAF1:
         origTC = getAt(v->origPos);
@@ -392,6 +393,7 @@ void dfox_block::insertCurrent(dfox_var *v) {
             setAt(leafPos, v->leaves);
         } else {
             insAt(leafPos, v->mask);
+            v->triePos++;
             setAt(v->origPos, (origTC & 0xDF));
         }
         break;
@@ -460,19 +462,19 @@ void dfox_block::insertCurrent(dfox_var *v) {
                         c2leaf = (0x80 >> offc2);
                         msb5c2 |= 0xC0;
                         msb5c1 |= 0x40;
-                        insAt(v->triePos, c2leaf);
-                        insAt(v->triePos, msb5c2);
+                        insAt(v->triePos, msb5c2, c2leaf);
                     }
                 }
-                if (c1leaf != 0)
-                    insAt(v->triePos, c1leaf);
-                if (c1child != 0)
-                    insAt(v->triePos, c1child);
-                insAt(v->triePos, msb5c1);
-                if (c1leaf != 0 && c1child != 0)
+                if (c1leaf != 0 && c1child != 0) {
+                    insAt(v->triePos, msb5c1, c1child, c1leaf);
                     v->triePos += 3;
-                else
+                } else if (c1leaf != 0) {
+                    insAt(v->triePos, msb5c1, c1leaf);
                     v->triePos += 2;
+                } else {
+                    insAt(v->triePos, msb5c1, c1child);
+                    v->triePos += 2;
+                }
                 if (c1 != c2)
                     break;
                 pos++;
@@ -483,8 +485,8 @@ void dfox_block::insertCurrent(dfox_var *v) {
             int msb5c2 = c2 >> 3;
             int offc2 = c2 & 0x07;
             msb5c2 |= 0xC0;
-            insAt(v->triePos, (0x80 >> offc2));
-            insAt(v->triePos, msb5c2);
+            insAt(v->triePos, msb5c2, (0x80 >> offc2));
+            v->triePos += 2;
         }
         break;
     case INSERT_LEAF2:
@@ -498,16 +500,22 @@ void dfox_block::insertCurrent(dfox_var *v) {
             setAt(leafPos, leaf);
         } else {
             insAt(leafPos, leaf);
+            v->triePos++;
             origTC &= 0xDF; // ~0x20
             setAt(v->origPos, origTC);
         }
         break;
     case INSERT_MIDDLE2:
-        insAt(v->triePos, v->mask);
-        insAt(v->triePos, (v->msb5 | 0x40));
+        insAt(v->triePos, (v->msb5 | 0x40), v->mask);
+        v->triePos += 2;
         break;
     }
     v->insertState = 0;
+    insCount = TRIE_LEN - insCount;
+    if (insCount == 0)
+        return;
+    // update lastSearchPos above
+
 }
 
 byte dfox_block::recurseSkip(dfox_var *v) {
@@ -525,7 +533,7 @@ byte dfox_block::recurseSkip(dfox_var *v) {
         byte ctc;
         do {
             ctc = recurseSkip(v);
-        } while ((ctc & 0x80) != 0x80);
+        } while (ctc < 128); //(ctc & 0x80) != 0x80);
     }
     return tc;
 }
@@ -542,7 +550,7 @@ bool dfox_block::recurseTrie(int level, dfox_var *v) {
     v->origPos = v->triePos;
     while (msb5tc < v->msb5) {
         v->tc = recurseSkip(v);
-        if ((v->tc & 0x80) == 0x80 || v->triePos == TRIE_LEN) {
+        if (v->tc > 127 /* (v->tc & 0x80) == 0x80 */|| v->triePos == TRIE_LEN) {
             v->insertState = INSERT_MIDDLE1;
             v->need_count = 2;
             return true;
@@ -568,7 +576,7 @@ bool dfox_block::recurseTrie(int level, dfox_var *v) {
             byte ctc;
             do {
                 ctc = recurseSkip(v);
-            } while ((ctc & 0x80) != 0x80);
+            } while (ctc < 128); //(ctc & 0x80) != 0x80);
         }
         if (v->mask == (children & v->mask)) {
             if (v->mask == (v->leaves & v->mask)) {
@@ -646,6 +654,23 @@ void dfox_block::insAt(byte pos, byte b) {
     TRIE_LEN++;
 }
 
+void dfox_block::insAt(byte pos, byte b1, byte b2) {
+    byte *ptr = trie + pos;
+    memmove(ptr + 2, ptr, TRIE_LEN - pos);
+    trie[pos++] = b1;
+    trie[pos] = b2;
+    TRIE_LEN += 2;
+}
+
+void dfox_block::insAt(byte pos, byte b1, byte b2, byte b3) {
+    byte *ptr = trie + pos;
+    memmove(ptr + 3, ptr, TRIE_LEN - pos);
+    trie[pos++] = b1;
+    trie[pos++] = b2;
+    trie[pos] = b3;
+    TRIE_LEN += 3;
+}
+
 void dfox_block::setAt(byte pos, byte b) {
     trie[pos] = b;
 }
@@ -673,6 +698,7 @@ byte dfox_block::ryte_mask[8] =
         { 0x7F, 0x3F, 0x1F, 0x0F, 0x07, 0x03, 0x01, 0x00 };
 byte dfox_block::ryte_incl_mask[8] = { 0xFF, 0x7F, 0x3F, 0x1F, 0x0F, 0x07, 0x03,
         0x01 };
-byte dfox_block::pos_mask[32] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80,
-        0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80, 0x40, 0x20, 0x10, 0x08,
-        0x04, 0x02, 0x01, 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
+byte dfox_block::pos_mask[32] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02,
+        0x01, 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80, 0x40, 0x20,
+        0x10, 0x08, 0x04, 0x02, 0x01, 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02,
+        0x01 };
