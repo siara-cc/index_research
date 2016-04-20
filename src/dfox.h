@@ -64,7 +64,8 @@ private:
     inline void append(byte b);
     inline byte getAt(byte pos);
     inline void delAt(byte pos);
-    byte recurseSkip(dfox_var *v);
+    inline void delAt(byte pos, int count);
+    byte recurseSkip(dfox_var *v, byte skip_count, byte skip_size);
 public:
     byte buf[BLK_SIZE];
     dfox_block();

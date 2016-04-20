@@ -12,7 +12,7 @@
 #include "linex.h"
 #include "dfox.h"
 
-#define NUM_ENTRIES 65536
+#define NUM_ENTRIES 100
 
 using namespace std::tr1;
 using namespace std;
@@ -86,11 +86,11 @@ int main1() {
     dx->put("you", 3, "14", 2);
     dx->put("boy", 3, "15", 2);
     dx->put("boat", 4, "16", 2);
-    dx->put("buoy", 4, "17", 2);
-    dx->put("boast", 5, "18", 2);
-    dx->put("young", 5, "19", 2);
-    dx->put("youth", 5, "20", 2);
-    dx->put("yousuf", 6, "21", 2);
+//    dx->put("buoy", 4, "17", 2);
+//    dx->put("boast", 5, "18", 2);
+//    dx->put("young", 5, "19", 2);
+//    dx->put("youth", 5, "20", 2);
+//    dx->put("yousuf", 6, "21", 2);
     print(dx, "Arun", 4);
     print(dx, "Hello", 5);
     print(dx, "Nice", 4);
@@ -112,7 +112,7 @@ int main1() {
     return 0;
 }
 
-int main() {
+int main2() {
     GenTree::generateBitCounts();
     dfox *dx = new dfox();
     dx->put("02,;0:*0025:51/:", 16, "0*:0;,20", 8);
@@ -127,27 +127,30 @@ int main() {
     dx->put("00-2.5(;1211.740", 16, ";(5.2-00", 8);
     dx->put("000<+3382218)92<", 16, "833+<000", 8);
     dx->put("0944+66:2:16(82<", 16, ":66+4490", 8);
-//    dx->put("07023:(0001>*578", 16, "0(:32070", 8);
-//    dx->put("2863.=381237)6.0", 16, "83=.3682", 8);
-//    dx->put("00*2+5700233,?*0", 16, "075+2*00", 8);
-//    dx->put("20*36>-20733*070", 16, "2->63*02", 8);
-//    dx->put("1?*<301624*0*<40", 16, "6103<*?1", 8);
-//    dx->put("10*8,7+61236*465", 16, "6+7,8*01", 8);
-//    dx->put("05+>+36>0=.421/8", 16, ">63+>+50", 8);
-//    dx->put("00+5/33801->+?)<", 16, "833/5+00", 8);
+    dx->put("07023:(0001>*578", 16, "0(:32070", 8);
+    dx->put("2863.=381237)6.0", 16, "83=.3682", 8);
+    dx->put("00*2+5700233,?*0", 16, "075+2*00", 8);
+    dx->put("20*36>-20733*070", 16, "2->63*02", 8);
+    dx->put("1?*<301624*0*<40", 16, "6103<*?1", 8);
+    dx->put("10*8,7+61236*465", 16, "6+7,8*01", 8);
+    dx->put("05+>+36>0=.421/8", 16, ">63+>+50", 8);
+    dx->put("00+5/33801->+?)<", 16, "833/5+00", 8);
     char *value = null;
     int len;
-    value = dx->get("2:(4(8);0223-80>", 16, &len);
-    //value = dx->get("0?5;123300,=(1*4", 16, &len);
-    char v[100];
-    memset(v, 0, sizeof(v));
-    strncpy(v, value, len);
-    cout << v << endl;
+    //value = dx->get("2:(4(8);0223-80>", 16, &len);
+    value = dx->get("1=3840-726.25736", 16, &len);
+    if (value != null) {
+        char v[100];
+        memset(v, 0, sizeof(v));
+        strncpy(v, value, len);
+        cout << v << endl;
+    } else
+        cout << "Value null" << endl;
     std::cout << "Trie Size:" << dx->size() << endl;
     return 0;
 }
 
-int main2() {
+int main() {
 
     GenTree::generateBitCounts();
 
