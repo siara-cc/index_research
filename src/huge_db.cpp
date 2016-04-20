@@ -24,7 +24,7 @@ void insert(unordered_map<string, string>& m) {
     for (long l = 0; l < NUM_ENTRIES; l++) {
         long r = rand() * rand();
         for (int b = 0; b < 4; b++) {
-            char c = (r >> (24 - b * 8));
+            char c = (r >> (24 - (3 - b) * 8));
             k[b * 2] = 48 + (c >> 4);
             k[b * 2 + 1] = 48 + (c & 0x0F);
         }
@@ -35,8 +35,8 @@ void insert(unordered_map<string, string>& m) {
             k[b * 2 + 1] = 48 + (c & 0x0F);
         }
         k[8] = 0;
-        for (int i=0; i<8; i++)
-            v[7-i] = k[i];
+        for (int i = 0; i < 8; i++)
+            v[7 - i] = k[i];
         v[4] = 0;
         //itoa(rand(), v, 10);
         //itoa(rand(), v + strlen(v), 10);
@@ -64,7 +64,7 @@ void print(dfox *dx, const char *key, int key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
-int main2() {
+int main1() {
     GenTree::generateBitCounts();
     dfox *dx = new dfox();
     dx->put("Hello", 5, "World", 5);
@@ -112,7 +112,7 @@ int main2() {
     return 0;
 }
 
-int main1() {
+int main() {
     GenTree::generateBitCounts();
     dfox *dx = new dfox();
     dx->put("02,;0:*0025:51/:", 16, "0*:0;,20", 8);
@@ -127,17 +127,17 @@ int main1() {
     dx->put("00-2.5(;1211.740", 16, ";(5.2-00", 8);
     dx->put("000<+3382218)92<", 16, "833+<000", 8);
     dx->put("0944+66:2:16(82<", 16, ":66+4490", 8);
-    dx->put("07023:(0001>*578", 16, "0(:32070", 8);
-    dx->put("2863.=381237)6.0", 16, "83=.3682", 8);
-    dx->put("00*2+5700233,?*0", 16, "075+2*00", 8);
-    dx->put("20*36>-20733*070", 16, "2->63*02", 8);
-    dx->put("1?*<301624*0*<40", 16, "6103<*?1", 8);
-    dx->put("10*8,7+61236*465", 16, "6+7,8*01", 8);
-    dx->put("05+>+36>0=.421/8", 16, ">63+>+50", 8);
-    dx->put("00+5/33801->+?)<", 16, "833/5+00", 8);
+//    dx->put("07023:(0001>*578", 16, "0(:32070", 8);
+//    dx->put("2863.=381237)6.0", 16, "83=.3682", 8);
+//    dx->put("00*2+5700233,?*0", 16, "075+2*00", 8);
+//    dx->put("20*36>-20733*070", 16, "2->63*02", 8);
+//    dx->put("1?*<301624*0*<40", 16, "6103<*?1", 8);
+//    dx->put("10*8,7+61236*465", 16, "6+7,8*01", 8);
+//    dx->put("05+>+36>0=.421/8", 16, ">63+>+50", 8);
+//    dx->put("00+5/33801->+?)<", 16, "833/5+00", 8);
     char *value = null;
     int len;
-    value = dx->get("05+>+36>0=.421/8", 16, &len);
+    value = dx->get("2:(4(8);0223-80>", 16, &len);
     //value = dx->get("0?5;123300,=(1*4", 16, &len);
     char v[100];
     memset(v, 0, sizeof(v));
@@ -147,7 +147,7 @@ int main1() {
     return 0;
 }
 
-int main() {
+int main2() {
 
     GenTree::generateBitCounts();
 
@@ -162,24 +162,24 @@ int main() {
     unordered_map<string, string>::iterator it;
 
     /*
-    map<string, string> m1;
-    m.begin();
-    gettimeofday(&start, NULL);
-    it = m.begin();
-    for (; it != m.end(); ++it) {
-        m1.insert(pair<string, string>(it->first, it->second));
-    }
-    gettimeofday(&stop, NULL);
-    cout << "RB Tree insert time:" << timedifference_msec(start, stop) << endl;
-    it = m.begin();
-    gettimeofday(&start, NULL);
-    for (; it != m.end(); ++it) {
-        m1[it->first];
-    }
-    gettimeofday(&stop, NULL);
-    cout << "RB Tree get time:" << timedifference_msec(start, stop) << endl;
-    cout << "RB Tree size:" << m1.size() << endl;
-    */
+     map<string, string> m1;
+     m.begin();
+     gettimeofday(&start, NULL);
+     it = m.begin();
+     for (; it != m.end(); ++it) {
+     m1.insert(pair<string, string>(it->first, it->second));
+     }
+     gettimeofday(&stop, NULL);
+     cout << "RB Tree insert time:" << timedifference_msec(start, stop) << endl;
+     it = m.begin();
+     gettimeofday(&start, NULL);
+     for (; it != m.end(); ++it) {
+     m1[it->first];
+     }
+     gettimeofday(&stop, NULL);
+     cout << "RB Tree get time:" << timedifference_msec(start, stop) << endl;
+     cout << "RB Tree size:" << m1.size() << endl;
+     */
 
     art_tree at;
     art_tree_init(&at);
@@ -236,7 +236,8 @@ int main() {
                 it->second.length());
     }
     gettimeofday(&stop, NULL);
-    cout << "DFox+Tree insert time:" << timedifference_msec(start, stop) << endl;
+    cout << "DFox+Tree insert time:" << timedifference_msec(start, stop)
+            << endl;
 
     it = m.begin();
     int ctr = 0;

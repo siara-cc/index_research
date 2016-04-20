@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define LINEX_BLK_SIZE 512
+#define LINEX_BLK_SIZE 32767
 #define BLK_HDR_SIZE 5
 #define MAX_DATA_LEN 127
 
@@ -55,10 +55,14 @@ public:
     void put(const char *key, int key_len, const char *value, int value_len);
     void printMaxKeyCount(long num_entries) {
         std::cout << "Block Count:" << blockCount << std::endl;
-        std::cout << "Avg Block Count:" << (num_entries/blockCount) << std::endl;
-        std::cout << "Avg Max Count:" << (maxKeyCount/blockCount) << std::endl;
+        std::cout << "Avg Block Count:" << (num_entries / blockCount)
+                << std::endl;
+        std::cout << "Avg Max Count:" << (maxKeyCount / blockCount)
+                << std::endl;
     }
-    void printNumLevels() { std::cout << "Level Count:" << numLevels << std::endl; }
+    void printNumLevels() {
+        std::cout << "Level Count:" << numLevels << std::endl;
+    }
 };
 
 #endif

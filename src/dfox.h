@@ -85,6 +85,7 @@ public:
     dfox_block *split(int *pbrk_idx);
     int locateInTrie(const char *key, int key_len, dfox_var *v);
     bool recurseTrie(int level, dfox_var *v);
+    byte recurseEntireTrie(int level, dfox_var *v, long idx_list[], int *pidx_len);
     void insertCurrent(dfox_var *v);
 };
 
@@ -100,6 +101,7 @@ private:
     void recursiveUpdate(dfox_block *foundNode, int pos, const char *key,
             int key_len, const char *value, int value_len, int lastSearchPos[],
             dfox_block *block_paths[], int level, dfox_var *v);
+    int binarySearch(int array[], int filledUpto, int key);
 public:
     dfox_block *root;
     dfox();

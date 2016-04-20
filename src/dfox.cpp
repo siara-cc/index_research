@@ -1,3 +1,4 @@
+#include <iostream>
 #include <math.h>
 #include "dfox.h"
 #include "GenTree.h"
@@ -88,7 +89,7 @@ void dfox::recursiveUpdate(dfox_block *block, int pos, const char *key,
                 root = new dfox_block();
                 blockCount++;
                 int first_len;
-                char *first_key; // = (char *) block->getKey(0, &first_len);
+                char *first_key;
                 char addr[5];
                 util::ptrToFourBytes((unsigned long) block, addr);
                 rv->key = "";
@@ -514,8 +515,81 @@ void dfox_block::insertCurrent(dfox_var *v) {
     insCount = TRIE_LEN - insCount;
     if (insCount == 0)
         return;
-    // update lastSearchPos above
+    int idx_len = 0;
+    long idx_list[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    v->init();
+    std::cout << "----------" << std::endl;
+    while (v->triePos < TRIE_LEN)
+        recurseEntireTrie(0, v, idx_list, &idx_len);
+    for (int i = 0; i < idx_len; i++) {
+        long l = idx_list[i];
+        std::cout << "level:" << (l >> 24) << ", pos:" << ((l >> 16) & 0xFF)
+                << ", cur_tc:" << ((l >> 8) & 0xFF) << ", size:" << (l & 0xFF)
+                << std::endl;
+    }
+    std::cout << "Trie len:" << ((int) TRIE_LEN) << std::endl;
+}
 
+byte dfox_block::recurseEntireTrie(int level, dfox_var *v, long idx_list[],
+        int *pidx_len) {
+    if (v->triePos >= TRIE_LEN)
+        return 0x80;
+    // delete if index entry
+    int origPos = v->triePos;
+    int sub_tree_size = v->triePos;
+    byte cur_tc = getAt(v->triePos++);
+    v->tc = cur_tc;
+    byte children = 0;
+    byte leaves = 0;
+    if (0 == (cur_tc & 0x40))
+        children = getAt(v->triePos++);
+    if (0 == (cur_tc & 0x20))
+        leaves = getAt(v->triePos++);
+    v->lastSearchPos += GenTree::bit_count[leaves];
+    for (int i = 0; i < GenTree::bit_count[children]; i++) {
+        byte ctc;
+        do {
+            ctc = recurseEntireTrie(level + 1, v, idx_list, pidx_len);
+        } while (ctc < 128); //(ctc & 0x80) != 0x80);
+    }
+    // test if current one is terminated, then sub_tree_size can be ignored
+    // otherwise, add to list if more than threshold
+    sub_tree_size = v->triePos - sub_tree_size;
+    if (cur_tc < 128 && /* sub_tree_size > 4 && */v->triePos < TRIE_LEN) {
+        long to_insert = (level << 24);
+        to_insert |= (origPos << 16);
+        to_insert |= (cur_tc << 8);
+        to_insert |= sub_tree_size;
+        std::cout << level << "," << (int) cur_tc << "," << sub_tree_size
+                << std::endl;
+        (*pidx_len)++;
+        for (int i = 0; i < *pidx_len; i++) {
+            if (idx_list[i] == 0 || to_insert < idx_list[i]) {
+                for (int j = *pidx_len; j > i; j--)
+                    idx_list[j] = idx_list[j - 1];
+                idx_list[i] = to_insert;
+                break;
+            }
+        }
+    }
+
+    return cur_tc;
+}
+
+int dfox::binarySearch(int array[], int filledUpto, int key) {
+    int middle;
+    middle = GenTree::roots[filledUpto];
+    do {
+        if (array[middle] < key) {
+            middle = GenTree::ryte[middle];
+            while (middle > filledUpto)
+                middle = GenTree::left[middle];
+        } else if (array[middle] < key)
+            middle = GenTree::left[middle];
+        else
+            return middle;
+    } while (middle >= 0);
+    return middle;
 }
 
 byte dfox_block::recurseSkip(dfox_var *v) {
