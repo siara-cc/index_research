@@ -12,7 +12,7 @@
 #include "linex.h"
 #include "dfox.h"
 
-#define NUM_ENTRIES 10
+#define NUM_ENTRIES 800
 
 using namespace std::tr1;
 using namespace std;
@@ -51,7 +51,7 @@ float timedifference_msec(struct timeval t0, struct timeval t1) {
             + (t1.tv_usec - t0.tv_usec) / 1000.0f;
 }
 
-void print(dfox *dx, const char *key, int key_len) {
+void print(bplus_tree *dx, const char *key, int key_len) {
     int len;
     char *value = dx->get(key, key_len, &len);
     if (value == null || len == 0) {
@@ -67,6 +67,7 @@ void print(dfox *dx, const char *key, int key_len) {
 int main2() {
     GenTree::generateBitCounts();
     dfox *dx = new dfox();
+    //linex *dx = new linex();
     dx->put("Hello", 5, "World", 5);
     dx->put("Nice", 4, "Place", 5);
     dx->put("Arun", 4, "Hello", 5);
@@ -256,7 +257,7 @@ int main() {
     gettimeofday(&start, NULL);
     for (; it != m.end(); ++it) {
         int len;
-        char *value = lx->get(it->first.c_str(), it->first.length(), &len);
+        char *value = dx->get(it->first.c_str(), it->first.length(), &len);
         char v[100];
         if (value == null) {
             ctr++;

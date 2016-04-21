@@ -9,9 +9,8 @@
 
 using namespace std;
 
-#define LINEX_BLK_SIZE 512
+#define LINEX_NODE_SIZE 512
 #define BLK_HDR_SIZE 5
-#define MAX_DATA_LEN 127
 
 class linex_var: public bplus_tree_var {
 };
@@ -21,7 +20,6 @@ private:
     int binarySearchLeaf(const char *key, int key_len);
     int binarySearchNode(const char *key, int key_len);
 public:
-    byte buf[LINEX_BLK_SIZE];
     linex_node();
     bool isLeaf();
     void setLeaf(char isLeaf);

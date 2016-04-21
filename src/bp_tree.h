@@ -8,7 +8,6 @@
 
 using namespace std;
 
-#define NODE_HDR_SIZE 5
 #define MAX_DATA_LEN 127
 
 class bplus_tree_var {
@@ -27,10 +26,11 @@ public:
 };
 
 class bplus_tree_node {
-private:
 public:
-    byte buf[];
+    byte *buf;
+    bool to_locate_again_after_split;
     bplus_tree_node() {
+        to_locate_again_after_split = 0;
     }
     virtual ~bplus_tree_node() {
     }
@@ -48,6 +48,9 @@ public:
     virtual int getKVLastPos() = 0;
     virtual bplus_tree_node *split(int *pbrk_idx) = 0;
     virtual int locate(bplus_tree_var *v) = 0;
+    void set_locate_option(bool option) {
+        to_locate_again_after_split = option;
+    }
 };
 
 class bplus_tree {
@@ -115,7 +118,8 @@ private:
                     rv->key_len = first_len;
                     util::ptrToFourBytes((unsigned long) new_block, addr);
                     rv->init();
-                    root->locate(rv);
+                    if (root->to_locate_again_after_split)
+                        root->locate(rv);
                     root->addData(1, addr, sizeof(char *), rv);
                     root->setLeaf(false);
                     numLevels++;
@@ -125,7 +129,8 @@ private:
                     rv->key = (char *) new_block->getKey(0, &rv->key_len);
                     char addr[5];
                     util::ptrToFourBytes((unsigned long) new_block, addr);
-                    parent->locate(rv);
+                    if (root->to_locate_again_after_split)
+                        parent->locate(rv);
                     recursiveUpdate(parent, ~(lastSearchPos[prev_level] + 1),
                             addr, sizeof(char *), lastSearchPos, node_paths,
                             prev_level, rv);
@@ -135,9 +140,11 @@ private:
                     idx -= brk_idx;
                     idx--;
                 }
-                v->init();
-                foundNode->locate(v);
-                idx = ~v->lastSearchPos;
+                if (root->to_locate_again_after_split) {
+                    v->init();
+                    foundNode->locate(v);
+                    idx = ~v->lastSearchPos;
+                }
             }
             foundNode->addData(idx, value, value_len, v);
         } else {
@@ -170,7 +177,8 @@ public:
             return null;
         return (char *) foundNode->getData(pos, pValueLen);
     }
-    virtual void put(const char *key, int key_len, const char *value, int value_len) {
+    virtual void put(const char *key, int key_len, const char *value,
+            int value_len) {
         // isPut = true;
         int lastSearchPos[numLevels];
         bplus_tree_node *block_paths[numLevels];

@@ -48,7 +48,7 @@ linex_node *linex_node::split(int *pbrk_idx) {
     if (!isLeaf())
         new_block->setLeaf(false);
     int kv_last_pos = getKVLastPos();
-    int halfKVLen = LINEX_BLK_SIZE - kv_last_pos + 1;
+    int halfKVLen = LINEX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
     byte *kv_idx = buf + BLK_HDR_SIZE;
     byte *new_kv_idx = new_block->buf + BLK_HDR_SIZE;
@@ -77,12 +77,12 @@ linex_node *linex_node::split(int *pbrk_idx) {
     }
     kv_last_pos = getKVLastPos();
     int old_blk_new_len = brk_kv_pos - kv_last_pos;
-    memcpy(buf + LINEX_BLK_SIZE - old_blk_new_len, new_block->buf + kv_last_pos,
-            old_blk_new_len); // (3)
+    memcpy(buf + LINEX_NODE_SIZE - old_blk_new_len,
+            new_block->buf + kv_last_pos, old_blk_new_len); // (3)
     new_pos = 0;
     for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
         int src_idx = util::getInt(new_kv_idx + new_pos);
-        src_idx += (LINEX_BLK_SIZE - brk_kv_pos);
+        src_idx += (LINEX_NODE_SIZE - brk_kv_pos);
         util::setInt(kv_idx + new_pos, src_idx);
         if (new_idx == 0)
             setKVLastPos(src_idx); // (6)
@@ -169,10 +169,11 @@ linex::linex() {
 }
 
 linex_node::linex_node() {
-    memset(buf, '\0', sizeof(buf));
+    buf = new byte[LINEX_NODE_SIZE];
+    memset(buf, '\0', LINEX_NODE_SIZE);
     setLeaf(1);
     setFilledSize(0);
-    setKVLastPos(sizeof(buf));
+    setKVLastPos(LINEX_NODE_SIZE);
 }
 
 bool linex_node::isLeaf() {

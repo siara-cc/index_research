@@ -9,10 +9,10 @@
 using namespace std;
 
 typedef unsigned char byte;
-#define BLK_SIZE 512
+#define DFOX_NODE_SIZE 512
 #define IDX_BLK_SIZE 64
 #define IDX_HDR_SIZE 8
-#define MAX_DATA_LEN 127
+#define TRIE_PTR_AREA_SIZE 56
 
 #define INSERT_MIDDLE1 1
 #define INSERT_MIDDLE2 2
@@ -25,7 +25,6 @@ typedef unsigned char byte;
 #define TRIE_LEN buf[4]
 #define FILLED_SIZE buf[5]
 #define LAST_DATA_PTR buf + 6
-#define TRIE_PTR_AREA_SIZE 56
 
 class dfox_var: public bplus_tree_var {
 public:
@@ -66,7 +65,6 @@ private:
     inline void delAt(byte pos, int count);
     byte recurseSkip(dfox_var *v, byte skip_count, byte skip_size);
 public:
-    byte buf[BLK_SIZE];
     dfox_node();
     bool isFull(int kv_len, dfox_var *v);
     bool isFull(int kv_len, bplus_tree_var *v);

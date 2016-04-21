@@ -8,7 +8,9 @@ dfox_var *dfox::newVar() {
 }
 
 dfox_node *dfox::newNode() {
-    return new dfox_node();
+    dfox_node *new_node = new dfox_node();
+    new_node->set_locate_option(true);
+    return new_node;
 }
 
 dfox_node *dfox_node::split(int *pbrk_idx) {
@@ -17,7 +19,7 @@ dfox_node *dfox_node::split(int *pbrk_idx) {
     if (!isLeaf())
         new_block->setLeaf(false);
     int kv_last_pos = getKVLastPos();
-    int halfKVLen = BLK_SIZE - kv_last_pos + 1;
+    int halfKVLen = DFOX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
 
     int new_idx;
@@ -48,14 +50,14 @@ dfox_node *dfox_node::split(int *pbrk_idx) {
     // (2) move top half of new_block to bottom half of old_block
     kv_last_pos = getKVLastPos();
     int old_blk_new_len = brk_kv_pos - kv_last_pos;
-    memcpy(buf + BLK_SIZE - old_blk_new_len, new_block->buf + kv_last_pos,
+    memcpy(buf + DFOX_NODE_SIZE - old_blk_new_len, new_block->buf + kv_last_pos,
             old_blk_new_len);
     // (3) Insert pointers to the moved data in old block
     FILLED_SIZE = 0;
     TRIE_LEN = 0;
     for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
         int src_idx = new_block->getPtr(new_idx);
-        src_idx += (BLK_SIZE - brk_kv_pos);
+        src_idx += (DFOX_NODE_SIZE - brk_kv_pos);
         insPtr(new_idx, src_idx);
         if (new_idx == 0) // (5) Set Last data position for old block
             setKVLastPos(src_idx);
@@ -106,11 +108,12 @@ dfox::dfox() {
 }
 
 dfox_node::dfox_node() {
-    memset(buf, '\0', sizeof(buf));
+    buf = new byte[DFOX_NODE_SIZE];
+    memset(buf, '\0', DFOX_NODE_SIZE);
     setLeaf(1);
     FILLED_SIZE = 0;
     TRIE_LEN = 0;
-    setKVLastPos(sizeof(buf));
+    setKVLastPos(DFOX_NODE_SIZE);
     trie = buf + IDX_HDR_SIZE;
 }
 
@@ -398,8 +401,8 @@ void dfox_node::insertCurrent(dfox_var *v) {
     v->init();
     //std::cout << "----------" << std::endl;
 
-    while (v->triePos < TRIE_LEN)
-        recurseEntireTrie(0, v, idx_list, &idx_len);
+    //while (v->triePos < TRIE_LEN)
+    //    recurseEntireTrie(0, v, idx_list, &idx_len);
     for (int i = 0; i < idx_len; i++) {
         long l = idx_list[i];
         int pos = ((l >> 16) & 0xFF);
