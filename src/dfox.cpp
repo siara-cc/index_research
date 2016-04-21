@@ -76,7 +76,7 @@ void dfox::recursiveUpdate(dfox_block *block, int pos, const char *key,
     if (idx < 0) {
         idx = ~idx;
         if (block->isFull(key_len + value_len, v)) {
-            std::cout << "Full\n" << std::endl;
+            //std::cout << "Full\n" << std::endl;
             //if (maxKeyCount < block->filledSize())
             //    maxKeyCount = block->filledSize();
             //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
@@ -514,7 +514,8 @@ void dfox_block::insertCurrent(dfox_var *v) {
     int idx_len = 0;
     long idx_list[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     v->init();
-    std::cout << "----------" << std::endl;
+    //std::cout << "----------" << std::endl;
+
     while (v->triePos < TRIE_LEN)
         recurseEntireTrie(0, v, idx_list, &idx_len);
     for (int i = 0; i < idx_len; i++) {
@@ -522,9 +523,27 @@ void dfox_block::insertCurrent(dfox_var *v) {
         int pos = ((l >> 16) & 0xFF);
         int sub_tree_count = ((l >> 8) & 0xFF);
         int sub_tree_size = (l & 0xFF);
-        insAt(pos + i * 2, (0x60 | sub_tree_count), sub_tree_size);
-        std::cout << "level:" << (l >> 24) << ", pos:" << pos << ", lsp:"
-                << sub_tree_count << ", size:" << sub_tree_size << std::endl;
+        for (int j = i + 1; j < 4; j++) {
+            long nxt_l = idx_list[j];
+            int nxt_start = ((nxt_l >> 16) & 0xFF);
+            int nxt_end = nxt_start + (nxt_l & 0xFF);
+            if (nxt_start > pos && nxt_end < (pos + sub_tree_size))
+                sub_tree_size += 2;
+        }
+        insAt(pos, (0x60 | sub_tree_count), sub_tree_size);
+        for (int j = i + 1; j < 4; j++) {
+            long nxt_l = idx_list[j];
+            int nxt_pos = ((nxt_l >> 16) & 0xFF);
+            if (nxt_pos > pos) {
+                nxt_pos += 2;
+                nxt_l = (nxt_l & 0xFF00FFFF);
+                nxt_l |= (nxt_pos << 16);
+                idx_list[j] = nxt_l;
+            }
+        }
+//        std::cout << "level:" << (l >> 24) << ", pos:" << (pos + i * 2)
+//                << ", lsp:" << sub_tree_count << ", size:" << sub_tree_size
+//                << std::endl;
         if (i == 3)
             break;
     }
@@ -607,12 +626,12 @@ byte dfox_block::recurseSkip(dfox_var *v, byte skip_count, byte skip_size) {
         skip_count = (tc & 0x1F);
         v->triePos++;
         skip_size = getAt(v->triePos++);
-        std::cout << "SSkip Count:" << (int)skip_count << ", Skip Size:" << (int)skip_size
-                << std::endl;
+//        std::cout << "SSkip Count:" << (int) skip_count << ", Skip Size:"
+//                << (int) skip_size << std::endl;
         tc = getAt(v->triePos);
     }
     if (skip_count > 0) {
-        std::cout << "Skipping" << std::endl;
+        //std::cout << "Skipping:" << (int) skip_size << std::endl;
         v->triePos += skip_size;
         v->lastSearchPos += skip_count;
 //        while (tc < 128) {
@@ -653,20 +672,30 @@ bool dfox_block::recurseTrie(int level, dfox_var *v) {
         skip_count = (v->tc & 0x1F);
         v->triePos++;
         skip_size = getAt(v->triePos++);
-        std::cout << "Skip Count:" << (int)skip_count << ", Skip Size:" << (int)skip_size
-                << std::endl;
+//        std::cout << "Skip Count:" << (int) skip_count << ", Skip Size:"
+//                << (int) skip_size << std::endl;
         v->tc = getAt(v->triePos);
     }
     byte msb5tc = v->tc & 0x1F;
     v->origPos = v->triePos;
     while (msb5tc < v->msb5) {
         v->tc = recurseSkip(v, skip_count, skip_size);
+        skip_count = 0;
+        skip_size = 0;
         if (v->tc > 127 /* (v->tc & 0x80) == 0x80 */|| v->triePos == TRIE_LEN) {
             v->insertState = INSERT_MIDDLE1;
             v->need_count = 2;
             return true;
         }
         v->tc = getAt(v->triePos);
+        if (0x60 == (v->tc & 0x60)) {
+            skip_count = (v->tc & 0x1F);
+            v->triePos++;
+            skip_size = getAt(v->triePos++);
+//            std::cout << "Skip Count:" << (int) skip_count << ", Skip Size:"
+//                    << (int) skip_size << std::endl;
+            v->tc = getAt(v->triePos);
+        }
         msb5tc = v->tc & 0x1F;
         v->origPos = v->triePos;
     }

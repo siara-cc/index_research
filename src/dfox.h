@@ -9,7 +9,7 @@ using namespace std;
 
 typedef unsigned char byte;
 #define BLK_SIZE 512
-#define IDX_BLK_SIZE 64
+#define IDX_BLK_SIZE 128
 #define IDX_HDR_SIZE 8
 #define MAX_DATA_LEN 127
 
@@ -24,7 +24,7 @@ typedef unsigned char byte;
 #define TRIE_LEN buf[4]
 #define FILLED_SIZE buf[5]
 #define LAST_DATA_PTR buf + 6
-#define TRIE_PTR_AREA_SIZE 56
+#define TRIE_PTR_AREA_SIZE 110
 
 class dfox_var {
 public:
@@ -115,6 +115,7 @@ public:
                 << std::endl;
         std::cout << "Avg Max Count:" << (maxKeyCount / blockCount)
                 << std::endl;
+        std::cout << "Trie Size:" << (int) root->TRIE_LEN << std::endl;
     }
     void printNumLevels() {
         std::cout << "Level Count:" << numLevels << std::endl;

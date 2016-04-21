@@ -12,7 +12,7 @@
 #include "linex.h"
 #include "dfox.h"
 
-#define NUM_ENTRIES 100
+#define NUM_ENTRIES 1000000
 
 using namespace std::tr1;
 using namespace std;
@@ -64,7 +64,7 @@ void print(dfox *dx, const char *key, int key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
-int main1() {
+int main() {
     GenTree::generateBitCounts();
     dfox *dx = new dfox();
     dx->put("Hello", 5, "World", 5);
@@ -86,33 +86,41 @@ int main1() {
     dx->put("you", 3, "14", 2);
     dx->put("boy", 3, "15", 2);
     dx->put("boat", 4, "16", 2);
-//    dx->put("buoy", 4, "17", 2);
-//    dx->put("boast", 5, "18", 2);
-//    dx->put("young", 5, "19", 2);
-//    dx->put("youth", 5, "20", 2);
-//    dx->put("yousuf", 6, "21", 2);
-    print(dx, "Arun", 4);
+    dx->put("buoy", 4, "17", 2);
+    dx->put("boast", 5, "18", 2);
+    dx->put("young", 5, "19", 2);
+    dx->put("youth", 5, "20", 2);
+    dx->put("yousuf", 6, "21", 2);
     print(dx, "Hello", 5);
     print(dx, "Nice", 4);
-    print(dx, "are", 3);
+    print(dx, "Arun", 4);
     print(dx, "arun", 4);
-    print(dx, "boy", 3);
-    print(dx, "hello", 5);
-    print(dx, "how", 3);
     print(dx, "resin", 5);
-    print(dx, "rick", 4);
-    print(dx, "rice", 4);
     print(dx, "rinse", 5);
     print(dx, "rickshaw", 8);
     print(dx, "ride", 4);
     print(dx, "rider", 5);
+    print(dx, "rice", 4);
+    print(dx, "rick", 4);
+    print(dx, "aruna", 5);
+    print(dx, "hello", 5);
     print(dx, "world", 5);
+    print(dx, "how", 3);
+    print(dx, "are", 3);
     print(dx, "you", 3);
-    std::cout << "Trie Size:" << dx->size() << endl;
+    print(dx, "boy", 3);
+    print(dx, "boat", 4);
+    print(dx, "buoy", 4);
+    print(dx, "boast", 5);
+    print(dx, "young", 5);
+    print(dx, "youth", 5);
+    print(dx, "yousuf", 6);
+    dx->printMaxKeyCount(24);
+    dx->printNumLevels();
     return 0;
 }
 
-int main2() {
+int main1() {
     GenTree::generateBitCounts();
     dfox *dx = new dfox();
     dx->put("02,;0:*0025:51/:", 16, "0*:0;,20", 8);
@@ -150,7 +158,7 @@ int main2() {
     return 0;
 }
 
-int main() {
+int main2() {
 
     GenTree::generateBitCounts();
 
@@ -273,13 +281,13 @@ int main() {
     dx->printNumLevels();
     cout << "Root filled size:" << dx->root->filledSize() << endl;
 
-    if (cmp > 0) {
-        it = m.begin();
-        for (; it != m.end(); ++it) {
-            cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
-                    << "\"," << endl;
-        }
-    }
+//    if (ctr > 0 || cmp > 0) {
+//        it = m.begin();
+//        for (; it != m.end(); ++it) {
+//            cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
+//                    << "\"," << endl;
+//        }
+//    }
 
     return 0;
 

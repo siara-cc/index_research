@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define LINEX_BLK_SIZE 32767
+#define LINEX_BLK_SIZE 512
 #define BLK_HDR_SIZE 5
 #define MAX_DATA_LEN 127
 
