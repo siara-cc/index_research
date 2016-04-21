@@ -12,7 +12,7 @@
 #include "linex.h"
 #include "dfox.h"
 
-#define NUM_ENTRIES 1000000
+#define NUM_ENTRIES 10
 
 using namespace std::tr1;
 using namespace std;
@@ -64,7 +64,7 @@ void print(dfox *dx, const char *key, int key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
-int main() {
+int main2() {
     GenTree::generateBitCounts();
     dfox *dx = new dfox();
     dx->put("Hello", 5, "World", 5);
@@ -158,7 +158,7 @@ int main1() {
     return 0;
 }
 
-int main2() {
+int main() {
 
     GenTree::generateBitCounts();
 
@@ -256,7 +256,7 @@ int main2() {
     gettimeofday(&start, NULL);
     for (; it != m.end(); ++it) {
         int len;
-        char *value = dx->get(it->first.c_str(), it->first.length(), &len);
+        char *value = lx->get(it->first.c_str(), it->first.length(), &len);
         char v[100];
         if (value == null) {
             ctr++;
