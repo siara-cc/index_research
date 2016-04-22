@@ -65,6 +65,7 @@ private:
             node_paths[level] = node;
             if (lastSearchPos[level] < 0) {
                 lastSearchPos[level] = ~lastSearchPos[level];
+                lastSearchPos[level]--;
                 if (lastSearchPos[level] >= node->filledSize()) {
                     lastSearchPos[level] -= node->filledSize();
                     do {
@@ -135,10 +136,10 @@ private:
                             addr, sizeof(char *), lastSearchPos, node_paths,
                             prev_level, rv);
                 }
-                if (idx > brk_idx + 1) {
+                brk_idx++;
+                if (idx > brk_idx) {
                     foundNode = new_block;
                     idx -= brk_idx;
-                    idx--;
                 }
                 if (root->to_locate_again_after_split) {
                     v->init();

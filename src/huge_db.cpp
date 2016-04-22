@@ -12,7 +12,7 @@
 #include "linex.h"
 #include "dfox.h"
 
-#define NUM_ENTRIES 800
+#define NUM_ENTRIES 100000
 
 using namespace std::tr1;
 using namespace std;
@@ -258,20 +258,20 @@ int main() {
     for (; it != m.end(); ++it) {
         int len;
         char *value = dx->get(it->first.c_str(), it->first.length(), &len);
-        char v[100];
-        if (value == null) {
-            ctr++;
-        } else {
-            int d = util::compare(it->second.c_str(), it->second.length(),
-                    value, len);
-            if (d != 0) {
-                cmp++;
-                strncpy(v, value, len);
-                v[it->first.length()] = 0;
-                cout << cmp << ":" << it->first.c_str() << "=========="
-                        << it->second.c_str() << "----------->" << v << endl;
-            }
-        }
+//        char v[100];
+//        if (value == null) {
+//            ctr++;
+//        } else {
+//            int d = util::compare(it->second.c_str(), it->second.length(),
+//                    value, len);
+//            if (d != 0) {
+//                cmp++;
+//                strncpy(v, value, len);
+//                v[it->first.length()] = 0;
+//                cout << cmp << ":" << it->first.c_str() << "=========="
+//                        << it->second.c_str() << "----------->" << v << endl;
+//            }
+//        }
     }
     gettimeofday(&stop, NULL);
     cout << "Null:" << ctr << endl;

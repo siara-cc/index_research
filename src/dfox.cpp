@@ -74,15 +74,15 @@ dfox_node *dfox_node::split(int *pbrk_idx) {
      byte *new_kv_idx = new_block->buf + IDX_HDR_SIZE - orig_filled_size;
      memmove(new_kv_idx + new_idx, new_kv_idx, new_size); */
     // (4) and set corresponding bits
-    byte high_bits[4];
-    memcpy(high_bits, new_block->DATA_PTR_HIGH_BITS, 4);
-    memset(new_block->DATA_PTR_HIGH_BITS, 0, 4);
+    byte high_bits[MAX_PTR_BITMAP_BYTES];
+    memcpy(high_bits, new_block->DATA_PTR_HIGH_BITS, MAX_PTR_BITMAP_BYTES);
+    memset(new_block->DATA_PTR_HIGH_BITS, 0, MAX_PTR_BITMAP_BYTES);
     for (int i = 0; i < new_size; i++) {
         int from_bit = i + new_idx;
         if (high_bits[from_bit >> 3] & pos_mask[from_bit])
             new_block->DATA_PTR_HIGH_BITS[i >> 3] |= pos_mask[i];
     }
-    if (high_bits[3] & 0x01)
+    if (high_bits[MAX_PTR_BITMAP_BYTES-1] & 0x01)
         new_block->setLeaf(1);
     new_block->setKVLastPos(brk_kv_pos); // (5) New Block Last position
     //filled_size = brk_idx + 1;
@@ -159,7 +159,7 @@ void dfox_node::insPtr(int pos, int kv_pos) {
     if (kv_pos > 256)
         carry = 0x80;
     byte is_leaf = isLeaf();
-    for (int i = (pos >> 3); i < 4; i++) {
+    for (int i = (pos >> 3); i < MAX_PTR_BITMAP_BYTES; i++) {
         byte bitmap = DATA_PTR_HIGH_BITS[i];
         byte new_carry = 0;
         if (DATA_PTR_HIGH_BITS[i] & 0x01)
@@ -196,7 +196,7 @@ bool dfox_node::isFull(int kv_len, bplus_tree_var *v) {
 bool dfox_node::isFull(int kv_len, dfox_var *v) {
     if (TRIE_LEN + 8 + v->need_count + FILLED_SIZE >= TRIE_PTR_AREA_SIZE)
         return true;
-    if (FILLED_SIZE > 30)
+    if (FILLED_SIZE > MAX_PTRS)
         return true;
     if ((getKVLastPos() - kv_len - 2) < (IDX_BLK_SIZE + 2))
         return true;
@@ -646,16 +646,14 @@ int dfox_node::locate(dfox_var *v) {
     while (v->triePos < TRIE_LEN) {
         if (recurseTrie(0, v)) {
             if (v->insertState != 0) {
-                v->lastSearchPos = ~v->lastSearchPos;
-                if (isLeaf())
-                    v->lastSearchPos--;
+                v->lastSearchPos = ~(v->lastSearchPos + 1);
             }
             return v->lastSearchPos;
         }
     }
-    v->lastSearchPos = ~v->lastSearchPos;
-    if (isLeaf())
-        v->lastSearchPos--;
+    if (v->insertState != 0) {
+        v->lastSearchPos = ~(v->lastSearchPos + 1);
+    }
     return v->lastSearchPos;
 }
 
@@ -722,6 +720,8 @@ byte dfox_node::ryte_mask[8] =
         { 0x7F, 0x3F, 0x1F, 0x0F, 0x07, 0x03, 0x01, 0x00 };
 byte dfox_node::ryte_incl_mask[8] = { 0xFF, 0x7F, 0x3F, 0x1F, 0x0F, 0x07, 0x03,
         0x01 };
-byte dfox_node::pos_mask[32] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01,
+byte dfox_node::pos_mask[48] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01,
         0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80, 0x40, 0x20, 0x10,
-        0x08, 0x04, 0x02, 0x01, 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
+        0x08, 0x04, 0x02, 0x01, 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01,
+        0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80, 0x40, 0x20, 0x10,
+        0x08, 0x04, 0x02, 0x01 };

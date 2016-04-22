@@ -10,9 +10,11 @@ using namespace std;
 
 typedef unsigned char byte;
 #define DFOX_NODE_SIZE 512
+#define MAX_PTR_BITMAP_BYTES 4
 #define IDX_BLK_SIZE 64
-#define IDX_HDR_SIZE 8
-#define TRIE_PTR_AREA_SIZE 56
+#define IDX_HDR_SIZE (MAX_PTR_BITMAP_BYTES+4)
+#define TRIE_PTR_AREA_SIZE (IDX_BLK_SIZE-IDX_HDR_SIZE)
+#define MAX_PTRS 30
 
 #define INSERT_MIDDLE1 1
 #define INSERT_MIDDLE2 2
@@ -20,11 +22,11 @@ typedef unsigned char byte;
 #define INSERT_LEAF1 4
 #define INSERT_LEAF2 5
 
-#define IS_LEAF_BYTE buf[3]
+#define IS_LEAF_BYTE buf[MAX_PTR_BITMAP_BYTES-1]
 #define DATA_PTR_HIGH_BITS buf
-#define TRIE_LEN buf[4]
-#define FILLED_SIZE buf[5]
-#define LAST_DATA_PTR buf + 6
+#define TRIE_LEN buf[MAX_PTR_BITMAP_BYTES]
+#define FILLED_SIZE buf[MAX_PTR_BITMAP_BYTES+1]
+#define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 2
 
 class dfox_var: public bplus_tree_var {
 public:
@@ -54,7 +56,7 @@ private:
     static byte left_mask[8];
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];
-    static byte pos_mask[32];
+    static byte pos_mask[48];
     inline void insAt(byte pos, byte b);
     inline void insAt(byte pos, byte b1, byte b2);
     inline void insAt(byte pos, byte b1, byte b2, byte b3);

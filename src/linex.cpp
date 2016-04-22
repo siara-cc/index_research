@@ -154,9 +154,15 @@ int linex_node::locate(bplus_tree_var *v) {
 }
 
 int linex_node::locate(linex_var *v) {
-    if (isLeaf())
-        return binarySearchLeaf(v->key, v->key_len);
-    return binarySearchNode(v->key, v->key_len);
+    int ret = -1;
+    if (isLeaf()) {
+        ret = binarySearchLeaf(v->key, v->key_len);
+    } else {
+        ret = binarySearchNode(v->key, v->key_len);
+        if (ret < 0)
+            ret--;
+    }
+    return ret;
 }
 
 linex::linex() {
