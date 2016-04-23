@@ -88,6 +88,7 @@
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.c.linker.mingw.base.1703706082" name="MinGW C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.mingw.base"/>
 							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base.795760631" name="MinGW C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base">
+								<option id="gnu.cpp.link.option.flags.1257706100" name="Linker flags" superClass="gnu.cpp.link.option.flags" value="-Wl,-Map=main.map" valueType="string"/>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.linker.input.254253165" superClass="cdt.managedbuild.tool.gnu.cpp.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
@@ -95,8 +96,14 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.101111951.1330421989" name="dfox.cpp" rcbsApplicability="disable" resourcePath="src/dfox.cpp" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.861259549.1615931636">
+						<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.861259549.1615931636" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.861259549">
+							<option id="gnu.cpp.compiler.option.other.other.446236336" name="Other flags" superClass="gnu.cpp.compiler.option.other.other" value="-c -fmessage-length=0" valueType="string"/>
+							<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.238817982" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
+						</tool>
+					</fileInfo>
 					<sourceEntries>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="rb_tree.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -110,6 +117,7 @@
 	<storageModule moduleId="refreshScope" versionNumber="1">
 		<resource resourceType="PROJECT" workspacePath="/huge_db"/>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 	<storageModule moduleId="scannerConfiguration">
 		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.debug.1182156698;cdt.managedbuild.config.gnu.exe.debug.1182156698.;cdt.managedbuild.tool.gnu.cpp.compiler.exe.debug.1680878797;cdt.managedbuild.tool.gnu.cpp.compiler.input.770081980">
@@ -124,6 +132,9 @@
 		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.release.101111951;cdt.managedbuild.config.gnu.exe.release.101111951.;cdt.managedbuild.tool.gnu.c.compiler.mingw.base.876492615;cdt.managedbuild.tool.gnu.c.compiler.input.1689780580">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
 		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.release.101111951;cdt.managedbuild.config.gnu.exe.release.101111951.1330421989;cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.861259549.1615931636;cdt.managedbuild.tool.gnu.cpp.compiler.input.238817982">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
+		</scannerConfigBuildInfo>
 		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.release.101111951;cdt.managedbuild.config.gnu.exe.release.101111951.;cdt.managedbuild.tool.gnu.c.compiler.exe.release.31279328;cdt.managedbuild.tool.gnu.c.compiler.input.1825767609">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
@@ -131,5 +142,4 @@
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
 		</scannerConfigBuildInfo>
 	</storageModule>
-	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>

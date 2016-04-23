@@ -44,8 +44,6 @@ public:
     virtual bplus_tree_node *getChild(int pos) = 0;
     virtual byte *getKey(int pos, int *plen) = 0;
     virtual byte *getData(int pos, int *plen) = 0;
-    virtual void setKVLastPos(int val) = 0;
-    virtual int getKVLastPos() = 0;
     virtual bplus_tree_node *split(int *pbrk_idx) = 0;
     virtual int locate(bplus_tree_var *v) = 0;
     void set_locate_option(bool option) {
