@@ -45,9 +45,13 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1182156698.1454315745" name="rb_tree.h" rcbsApplicability="disable" resourcePath="src/rb_tree.h" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1182156698.1328608747" name="rb_tree.cpp" rcbsApplicability="disable" resourcePath="src/rb_tree.cpp" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.1797401979.1840422153">
+						<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.1797401979.1840422153" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.1797401979"/>
+					</fileInfo>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1182156698.1708039047" name="bp_tree.h" rcbsApplicability="disable" resourcePath="src/bp_tree.h" toolsToInvoke=""/>
 					<sourceEntries>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="rb_tree.cpp|rb_tree.h" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -96,12 +100,6 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
-					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.101111951.1330421989" name="dfox.cpp" rcbsApplicability="disable" resourcePath="src/dfox.cpp" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.861259549.1615931636">
-						<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.861259549.1615931636" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.861259549">
-							<option id="gnu.cpp.compiler.option.other.other.446236336" name="Other flags" superClass="gnu.cpp.compiler.option.other.other" value="-c -fmessage-length=0" valueType="string"/>
-							<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.238817982" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
-						</tool>
-					</fileInfo>
 					<sourceEntries>
 						<entry excluding="rb_tree.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>

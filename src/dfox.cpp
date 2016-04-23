@@ -82,7 +82,7 @@ dfox_node *dfox_node::split(int *pbrk_idx) {
         if (high_bits[from_bit >> 3] & pos_mask[from_bit])
             new_block->DATA_PTR_HIGH_BITS[i >> 3] |= pos_mask[i];
     }
-    if (high_bits[MAX_PTR_BITMAP_BYTES-1] & 0x01)
+    if (high_bits[MAX_PTR_BITMAP_BYTES - 1] & 0x01)
         new_block->setLeaf(1);
     new_block->setKVLastPos(brk_kv_pos); // (5) New Block Last position
     //filled_size = brk_idx + 1;
@@ -251,10 +251,9 @@ void dfox_node::insertCurrent(dfox_var *v) {
 
     if (TRIE_LEN == 0) {
         byte kc = v->key[0];
-        byte msb5 = kc >> 3;
-        byte base = (msb5 << 3);
-        byte offset = kc - base;
-        append(msb5 | 0xC0);
+        byte msb5 = (kc & 0xFB);
+        byte offset = (kc & 0x07);
+        append(msb5 | 0x05);
         append(0x80 >> offset);
         v->insertState = 0;
         return;
@@ -262,37 +261,37 @@ void dfox_node::insertCurrent(dfox_var *v) {
 
     switch (v->insertState) {
     case INSERT_MIDDLE1:
-        v->tc &= 0x7F;
+        v->tc &= 0xFE;
         setAt(v->origPos, v->tc);
-        insAt(v->triePos, (v->msb5 | 0xC0), v->mask);
+        insAt(v->triePos, (v->msb5 | 0x05), v->mask);
         v->triePos += 2;
         // trie.insert(triePos, (char) 0);
         break;
     case INSERT_LEAF1:
         origTC = getAt(v->origPos);
         leafPos = v->origPos + 1;
-        if (0 == (origTC & 0x40))
+        if (v->tc & 0x04)
             leafPos++;
-        if (0 == (origTC & 0x20)) {
+        if (v->tc & 0x02) {
             v->leaves |= v->mask;
             setAt(leafPos, v->leaves);
         } else {
             insAt(leafPos, v->mask);
             v->triePos++;
-            setAt(v->origPos, (origTC & 0xDF));
+            setAt(v->origPos, (origTC | 0x02));
         }
         break;
     case INSERT_THREAD:
         childPos = v->origPos + 1;
         child = v->mask;
         origTC = getAt(v->origPos);
-        if (0 == (origTC & 0x40)) {
+        if (origTC & 0x04) {
             child |= getAt(childPos);
             setAt(childPos, child);
         } else {
             insAt(childPos, child);
             v->triePos++;
-            origTC &= 0xBF; // ~0x40
+            origTC |= 0x04;
             setAt(v->origPos, origTC);
         }
         pos = v->lastLevel;
@@ -303,7 +302,7 @@ void dfox_node::insertCurrent(dfox_var *v) {
         pos++;
         if (pos < min) {
             leafPos = childPos;
-            if (0 == (origTC & 0x20)) {
+            if (origTC & 0x02) {
                 leafPos++;
                 int leaf = getAt(leafPos);
                 leaf &= ~v->mask;
@@ -312,7 +311,7 @@ void dfox_node::insertCurrent(dfox_var *v) {
                 else {
                     delAt(leafPos);
                     v->triePos--;
-                    origTC |= 0x20;
+                    origTC &= 0xFD;
                     setAt(v->origPos, origTC);
                 }
             }
@@ -324,9 +323,9 @@ void dfox_node::insertCurrent(dfox_var *v) {
                     c1 = c2;
                     c2 = swap;
                 }
-                byte msb5c1 = c1 >> 3;
+                byte msb5c1 = c1 & 0xF8;
                 byte offc1 = c1 & 0x07;
-                byte msb5c2 = c2 >> 3;
+                byte msb5c2 = c2 & 0xF8;
                 byte offc2 = c2 & 0x07;
                 byte c1leaf = 0;
                 byte c2leaf = 0;
@@ -335,18 +334,18 @@ void dfox_node::insertCurrent(dfox_var *v) {
                     c1child = (0x80 >> offc1);
                     if (pos + 1 == min) {
                         c1leaf = (0x80 >> offc1);
-                        msb5c1 |= 0x80;
+                        msb5c1 |= 0x01;
                     } else
-                        msb5c1 |= 0xA0;
+                        msb5c1 |= 0x05;
                 } else {
                     if (msb5c1 == msb5c2) {
-                        msb5c1 |= 0xC0;
+                        msb5c1 |= 0x05;
                         c1leaf = ((0x80 >> offc1) | (0x80 >> offc2));
                     } else {
                         c1leaf = (0x80 >> offc1);
                         c2leaf = (0x80 >> offc2);
-                        msb5c2 |= 0xC0;
-                        msb5c1 |= 0x40;
+                        msb5c2 |= 0x05;
+                        msb5c1 |= 0x04;
                         insAt(v->triePos, msb5c2, c2leaf);
                     }
                 }
@@ -367,9 +366,9 @@ void dfox_node::insertCurrent(dfox_var *v) {
         }
         if (c1 == c2) {
             c2 = (pos == v->key_at_len ? v->key[pos] : v->key_at[pos]);
-            int msb5c2 = c2 >> 3;
+            int msb5c2 = c2;
             int offc2 = c2 & 0x07;
-            msb5c2 |= 0xC0;
+            msb5c2 |= 0x05;
             insAt(v->triePos, msb5c2, (0x80 >> offc2));
             v->triePos += 2;
         }
@@ -378,20 +377,20 @@ void dfox_node::insertCurrent(dfox_var *v) {
         origTC = getAt(v->origPos);
         leafPos = v->origPos + 1;
         leaf = v->mask;
-        if (0 == (origTC & 0x40))
+        if (origTC & 0x04)
             leafPos++;
-        if (0 == (origTC & 0x20)) {
+        if (origTC & 0x02) {
             leaf |= getAt(leafPos);
             setAt(leafPos, leaf);
         } else {
             insAt(leafPos, leaf);
             v->triePos++;
-            origTC &= 0xDF; // ~0x20
+            origTC |= 0x02;
             setAt(v->origPos, origTC);
         }
         break;
     case INSERT_MIDDLE2:
-        insAt(v->triePos, (v->msb5 | 0x40), v->mask);
+        insAt(v->triePos, (v->msb5 & 0xFB), v->mask);
         v->triePos += 2;
         break;
     }
@@ -489,10 +488,10 @@ byte dfox_node::recurseEntireTrie(int level, dfox_var *v, long idx_list[],
 
 byte dfox_node::recurseSkip(dfox_var *v, byte skip_count, byte skip_size) {
     if (v->triePos >= TRIE_LEN)
-        return 0x80;
+        return 0x01;
     byte tc = getAt(v->triePos);
-    if (0x60 == (tc & 0x60)) {
-        skip_count = (tc & 0x1F);
+    if (0 == (tc & 0x06)) {
+        skip_count = (tc >> 3);
         v->triePos++;
         skip_size = getAt(v->triePos++);
 //        std::cout << "SSkip Count:" << (int) skip_count << ", Skip Size:"
@@ -503,24 +502,23 @@ byte dfox_node::recurseSkip(dfox_var *v, byte skip_count, byte skip_size) {
         //std::cout << "Skipping:" << (int) skip_size << std::endl;
         v->triePos += skip_size;
         v->lastSearchPos += skip_count;
-//        while (tc < 128) {
-//            tc = recurseSkip(v, 0, 0);
-//        }
-//        tc = getAt(v->triePos);
     } else {
         v->triePos++;
         byte children = 0;
         byte leaves = 0;
-        if (0 == (tc & 0x40))
+        if ((v->tc & 0x02)) {
+            v->leaves = getAt(v->triePos++);
+            v->lastSearchPos += GenTree::bit_count[leaves];
+        }
+        if ((v->tc & 0x04)) {
             children = getAt(v->triePos++);
-        if (0 == (tc & 0x20))
-            leaves = getAt(v->triePos++);
-        v->lastSearchPos += GenTree::bit_count[leaves];
-        for (int i = 0; i < GenTree::bit_count[children]; i++) {
-            byte ctc;
-            do {
-                ctc = recurseSkip(v, 0, 0);
-            } while (ctc < 128); //(ctc & 0x80) != 0x80);
+            byte bc = GenTree::bit_count[children];
+            for (int i = 0; i < bc; i++) {
+                byte ctc;
+                do {
+                    ctc = recurseSkip(v, 0, 0);
+                } while ((ctc & 0x01) == 0);
+            }
         }
     }
     return tc;
@@ -529,63 +527,61 @@ byte dfox_node::recurseSkip(dfox_var *v, byte skip_count, byte skip_size) {
 bool dfox_node::recurseTrie(int level, dfox_var *v) {
     if (v->csPos >= v->key_len)
         return false;
-    byte kc = v->key[v->csPos++];
-    v->msb5 = kc >> 3;
-    byte offset = kc & 0x07;
-    v->mask = 0x80 >> offset;
-
     byte skip_count = 0;
     byte skip_size = 0;
     v->tc = getAt(v->triePos);
-    if (0x60 == (v->tc & 0x60)) {
-        skip_count = (v->tc & 0x1F);
+    if (0 == (v->tc & 0x06)) {
+        skip_count = (v->tc >> 3);
         v->triePos++;
         skip_size = getAt(v->triePos++);
 //        std::cout << "Skip Count:" << (int) skip_count << ", Skip Size:"
 //                << (int) skip_size << std::endl;
         v->tc = getAt(v->triePos);
     }
-    byte msb5tc = v->tc & 0x1F;
+    byte kc = v->key[v->csPos++];
     v->origPos = v->triePos;
-    while (msb5tc < v->msb5) {
+    while (v->tc < kc) {
         v->tc = recurseSkip(v, skip_count, skip_size);
         skip_count = 0;
         skip_size = 0;
-        if (v->tc > 127 /* (v->tc & 0x80) == 0x80 */|| v->triePos == TRIE_LEN) {
+        if ((v->tc & 0x01) || v->triePos == TRIE_LEN) {
+            v->msb5 = (kc & 0xF8);
+            v->mask = (0x80 >> (kc & 0x07));
             v->insertState = INSERT_MIDDLE1;
             v->need_count = 2;
             return true;
         }
         v->tc = getAt(v->triePos);
-        if (0x60 == (v->tc & 0x60)) {
-            skip_count = (v->tc & 0x1F);
+        if (0 == (v->tc & 0x06)) {
+            skip_count = (v->tc >> 3);
             v->triePos++;
             skip_size = getAt(v->triePos++);
 //            std::cout << "Skip Count:" << (int) skip_count << ", Skip Size:"
 //                    << (int) skip_size << std::endl;
             v->tc = getAt(v->triePos);
         }
-        msb5tc = v->tc & 0x1F;
         v->origPos = v->triePos;
     }
-    if (msb5tc == v->msb5) {
+    if ((kc ^ v->tc) < 0x08) {
         v->tc = getAt(v->triePos++);
         byte children = 0;
         v->leaves = 0;
-        if (0 == (v->tc & 0x40)) {
-            children = getAt(v->triePos++);
-        }
-        if (0 == (v->tc & 0x20)) {
+        byte offset = (kc & 0x07);
+        v->mask = (0x80 >> offset);
+        if ((v->tc & 0x02)) {
             v->leaves = getAt(v->triePos++);
             v->lastSearchPos +=
                     GenTree::bit_count[v->leaves & left_mask[offset]];
         }
-        byte lCount = GenTree::bit_count[children & left_mask[offset]];
-        while (lCount-- > 0) {
-            byte ctc;
-            do {
-                ctc = recurseSkip(v, 0, 0);
-            } while (ctc < 128); //(ctc & 0x80) != 0x80);
+        if ((v->tc & 0x04)) {
+            children = getAt(v->triePos++);
+            byte lCount = GenTree::bit_count[children & left_mask[offset]];
+            while (lCount-- > 0) {
+                byte ctc;
+                do {
+                    ctc = recurseSkip(v, 0, 0);
+                } while ((ctc & 0x01) == 0);
+            }
         }
         if (v->mask == (children & v->mask)) {
             if (v->mask == (v->leaves & v->mask)) {
@@ -629,6 +625,9 @@ bool dfox_node::recurseTrie(int level, dfox_var *v) {
             }
         }
     } else {
+        byte offset = (kc & 0x07);
+        v->mask = (0x80 >> offset);
+        v->msb5 = (kc & 0xF8);
         v->insertState = INSERT_MIDDLE2;
         v->need_count = 2;
         return true;
