@@ -32,11 +32,11 @@ public:
     byte tc;
     byte mask;
     byte msb5;
-    byte csPos;
+    byte keyPos;
+    byte children;
     byte leaves;
     byte triePos;
     byte origPos;
-    byte lastLevel;
     byte need_count;
     byte insertState;
     char *key_at;
@@ -65,6 +65,7 @@ private:
     inline void delAt(byte pos);
     inline void delAt(byte pos, int count);
     byte recurseSkip(dfox_var *v, byte skip_count, byte skip_size);
+    byte processTC(dfox_var *v);
 public:
     dfox_node();
     bool isFull(int kv_len, dfox_var *v);

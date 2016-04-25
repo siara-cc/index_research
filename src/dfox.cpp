@@ -292,7 +292,7 @@ void dfox_node::insertCurrent(dfox_var *v) {
             origTC |= 0x04;
             setAt(v->origPos, origTC);
         }
-        pos = v->lastLevel;
+        pos = v->keyPos - 1;
         min = util::min(v->key_len, v->key_at_len);
         char c1, c2;
         c1 = v->key[pos];
@@ -508,7 +508,7 @@ byte dfox_node::recurseSkip(dfox_var *v, byte skip_count, byte skip_size) {
 }
 
 bool dfox_node::recurseTrie(int level, dfox_var *v) {
-    if (v->csPos >= v->key_len)
+    if (v->keyPos >= v->key_len)
         return false;
     byte skip_count = 0;
     byte skip_size = 0;
@@ -521,7 +521,7 @@ bool dfox_node::recurseTrie(int level, dfox_var *v) {
 //                << (int) skip_size << std::endl;
         v->tc = getAt(v->triePos);
     }
-    byte kc = v->key[v->csPos++];
+    byte kc = v->key[v->keyPos++];
     while (v->tc < kc) {
         if ((kc ^ v->tc) < 0x08)
             break;
@@ -572,11 +572,11 @@ bool dfox_node::recurseTrie(int level, dfox_var *v) {
         if (children & v->mask) {
             if (v->leaves & v->mask) {
                 v->lastSearchPos++;
-                if (v->csPos == v->key_len) {
+                if (v->keyPos == v->key_len) {
                     return true;
                 }
             } else {
-                if (v->csPos == v->key_len) {
+                if (v->keyPos == v->key_len) {
                     v->insertState = INSERT_LEAF;
                     v->need_count = 2;
                     return true;
@@ -602,7 +602,6 @@ bool dfox_node::recurseTrie(int level, dfox_var *v) {
                 cmp--;
                 v->need_count = cmp * 2;
                 v->need_count += 4;
-                v->lastLevel = level;
                 return true;
             } else {
                 v->insertState = INSERT_LEAF;
@@ -625,21 +624,170 @@ int dfox_node::locate(bplus_tree_var *v) {
     return locate((dfox_var *) v);
 }
 
+#define PTC_KEY_FOUND 0
+#define PTC_CONTINUE 1
+#define PTC_NOT_FOUND 2
+
+#define AFTER_SKIP_INITIAL 0
+#define AFTER_SKIP_PROCESS_TC 1
+#define AFTER_SKIP_RETURN 2
+
 int dfox_node::locate(dfox_var *v) {
-    if (TRIE_LEN == 0)
-        return -1;
-    while (v->triePos < TRIE_LEN) {
-        if (recurseTrie(0, v)) {
-            if (v->insertState != 0) {
-                v->lastSearchPos = ~(v->lastSearchPos + 1);
+    byte to_skip = 0;
+    byte after_skip = AFTER_SKIP_INITIAL;
+    byte kc = v->key[v->keyPos++];
+    int i = 0;
+    int len = TRIE_LEN;
+    while (i < len) {
+        int origPos = i;
+        byte tc = getAt(i++);
+        byte leaves = 0;
+        byte children = 0;
+        if (tc & 0x04)
+            children = getAt(i++);
+        if (tc & 0x02)
+            leaves = getAt(i++);
+        if (to_skip) {
+            if (tc & 0x01)
+                to_skip--;
+            if (leaves)
+                v->lastSearchPos += GenTree::bit_count[leaves];
+            if (children)
+                to_skip += GenTree::bit_count[children];
+            if (to_skip == 0) {
+                if (after_skip == AFTER_SKIP_PROCESS_TC) {
+                    v->triePos = i;
+                    byte ret = processTC(v);
+                    if (ret == PTC_KEY_FOUND)
+                        return v->lastSearchPos;
+                    else if (ret == PTC_NOT_FOUND)
+                        return ~(v->lastSearchPos + 1);
+                    kc = v->key[v->keyPos++];
+                }
+                if (after_skip == AFTER_SKIP_RETURN) {
+                    return ~(v->lastSearchPos + 1);
+                }
+                after_skip = AFTER_SKIP_INITIAL;
             }
-            return v->lastSearchPos;
+        } else {
+            {
+                v->origPos = origPos;
+                if ((kc ^ tc) < 0x08) {
+                    byte offset = (kc & 0x07);
+                    if (leaves) {
+                        v->lastSearchPos += GenTree::bit_count[leaves
+                                & left_mask[offset]];
+                    }
+                    if (children) {
+                        to_skip = GenTree::bit_count[children
+                                & left_mask[offset]];
+                    }
+                    v->tc = tc;
+                    v->children = children;
+                    v->leaves = leaves;
+                    v->mask = (0x80 >> (kc & 0x07));
+                    v->triePos = i;
+                    if (to_skip)
+                        after_skip = AFTER_SKIP_PROCESS_TC;
+                    else {
+                        byte ret = processTC(v);
+                        if (ret == PTC_KEY_FOUND)
+                            return v->lastSearchPos;
+                        else if (ret == PTC_NOT_FOUND)
+                            return ~(v->lastSearchPos + 1);
+                        kc = v->key[v->keyPos++];
+                    }
+                } else if (kc > tc) {
+                    if (leaves)
+                        v->lastSearchPos += GenTree::bit_count[leaves];
+                    if (children)
+                        to_skip += GenTree::bit_count[children];
+                    if (tc & 0x01) {
+                        v->triePos = i;
+                        v->tc = tc;
+                        byte offset = (kc & 0x07);
+                        v->mask = (0x80 >> offset);
+                        v->msb5 = (kc & 0xF8);
+                        v->insertState = INSERT_MIDDLE1;
+                        v->need_count = 2;
+                        if (to_skip)
+                            after_skip = AFTER_SKIP_RETURN;
+                        else
+                            return ~(v->lastSearchPos + 1);
+                    }
+                } else {
+                    byte offset = (kc & 0x07);
+                    v->mask = (0x80 >> offset);
+                    v->msb5 = (kc & 0xF8);
+                    v->insertState = INSERT_MIDDLE2;
+                    v->need_count = 2;
+                    i--;
+                    if (children)
+                        i--;
+                    if (leaves)
+                        i--;
+                    v->triePos = i;
+                    return ~(v->lastSearchPos + 1);
+                }
+            }
         }
     }
-    if (v->insertState != 0) {
-        v->lastSearchPos = ~(v->lastSearchPos + 1);
+    v->triePos = i;
+    byte offset = (kc & 0x07);
+    v->mask = (0x80 >> offset);
+    v->msb5 = (kc & 0xF8);
+    v->insertState = INSERT_MIDDLE2;
+    v->need_count = 2;
+    return ~(v->lastSearchPos + 1);
+}
+//if (recurseTrie(0, v)) {
+//    if (v->insertState != 0) {
+//        v->lastSearchPos = ~(v->lastSearchPos + 1);
+//    }
+//    return v->lastSearchPos;
+//}
+
+byte dfox_node::processTC(dfox_var *v) {
+    if (v->children & v->mask) {
+        if (v->leaves & v->mask) {
+            v->lastSearchPos++;
+            if (v->keyPos == v->key_len) {
+                return PTC_KEY_FOUND;
+            }
+        } else {
+            if (v->keyPos == v->key_len) {
+                v->insertState = INSERT_LEAF;
+                v->need_count = 2;
+                return PTC_NOT_FOUND;
+            }
+        }
+        return PTC_CONTINUE;
+    } else {
+        if (v->leaves & v->mask) {
+            v->lastSearchPos++;
+            v->key_at = (char *) getKey(v->lastSearchPos, &v->key_at_len);
+            int cmp = util::compare(v->key, v->key_len, v->key_at,
+                    v->key_at_len);
+            if (cmp == 0)
+                return PTC_KEY_FOUND;
+            if (cmp < 0)
+                v->lastSearchPos--;
+            v->insertState = INSERT_THREAD;
+            if (cmp < 0)
+                cmp = -cmp;
+            cmp -= v->keyPos;
+            //cmp--;
+            v->need_count = cmp * 2;
+            v->need_count += 4;
+            return PTC_NOT_FOUND;
+        } else {
+            v->insertState = INSERT_LEAF;
+            v->need_count = 2;
+            return PTC_NOT_FOUND;
+        }
     }
-    return v->lastSearchPos;
+    return PTC_NOT_FOUND;
+
 }
 
 void dfox_node::delAt(byte pos) {
@@ -691,9 +839,8 @@ byte dfox_node::getAt(byte pos) {
 }
 
 void dfox_var::init() {
-    csPos = 0;
+    keyPos = 0;
     triePos = 0;
-    lastLevel = 0;
     need_count = 0;
     insertState = 0;
     lastSearchPos = -1;
