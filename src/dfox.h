@@ -10,11 +10,11 @@ using namespace std;
 
 typedef unsigned char byte;
 #define DFOX_NODE_SIZE 512
-#define MAX_PTR_BITMAP_BYTES 5
+#define MAX_PTR_BITMAP_BYTES 4
 #define IDX_BLK_SIZE 64
 #define IDX_HDR_SIZE (MAX_PTR_BITMAP_BYTES+4)
 #define TRIE_PTR_AREA_SIZE (IDX_BLK_SIZE-IDX_HDR_SIZE)
-#define MAX_PTRS 39
+#define MAX_PTRS 30
 
 #define INSERT_MIDDLE1 1
 #define INSERT_MIDDLE2 2

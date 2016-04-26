@@ -95,6 +95,7 @@ dfox_node *dfox_node::split(int *pbrk_idx) {
         new_block->locate(v);
         new_block->insertCurrent(v);
     }
+    v->key = (char *) getKey(0, &v->key_len);
     *pbrk_idx = brk_idx;
     return new_block;
 }
@@ -633,16 +634,24 @@ int dfox_node::locate(bplus_tree_var *v) {
 #define AFTER_SKIP_RETURN 2
 
 int dfox_node::locate(dfox_var *v) {
-    byte to_skip = 0;
-    byte after_skip = AFTER_SKIP_INITIAL;
-    byte kc = v->key[v->keyPos++];
-    int i = 0;
-    int len = TRIE_LEN;
+    if (TRIE_LEN == 0)
+        return -1;
+    register byte to_skip = 0;
+    register byte after_skip = AFTER_SKIP_INITIAL;
+    register byte kc = v->key[v->keyPos++];
+    register int i = 0;
+    register int len = TRIE_LEN;
     while (i < len) {
-        int origPos = i;
-        byte tc = getAt(i++);
-        byte leaves = 0;
-        byte children = 0;
+        //if (recurseTrie(0, v)) {
+        //    if (v->insertState != 0) {
+        //        v->lastSearchPos = ~(v->lastSearchPos + 1);
+        //    }
+        //    return v->lastSearchPos;
+        //}
+        register int origPos = i;
+        register byte tc = getAt(i++);
+        register byte leaves = 0;
+        register byte children = 0;
         if (tc & 0x04)
             children = getAt(i++);
         if (tc & 0x02)
@@ -660,12 +669,16 @@ int dfox_node::locate(dfox_var *v) {
                     byte ret = processTC(v);
                     if (ret == PTC_KEY_FOUND)
                         return v->lastSearchPos;
-                    else if (ret == PTC_NOT_FOUND)
-                        return ~(v->lastSearchPos + 1);
+                    else if (ret == PTC_NOT_FOUND) {
+                        v->lastSearchPos = ~(v->lastSearchPos + 1);
+                        return v->lastSearchPos;
+                    }
                     kc = v->key[v->keyPos++];
                 }
                 if (after_skip == AFTER_SKIP_RETURN) {
-                    return ~(v->lastSearchPos + 1);
+                    v->triePos = i;
+                    v->lastSearchPos = ~(v->lastSearchPos + 1);
+                    return v->lastSearchPos;
                 }
                 after_skip = AFTER_SKIP_INITIAL;
             }
@@ -693,8 +706,10 @@ int dfox_node::locate(dfox_var *v) {
                         byte ret = processTC(v);
                         if (ret == PTC_KEY_FOUND)
                             return v->lastSearchPos;
-                        else if (ret == PTC_NOT_FOUND)
-                            return ~(v->lastSearchPos + 1);
+                        else if (ret == PTC_NOT_FOUND) {
+                            v->lastSearchPos = ~(v->lastSearchPos + 1);
+                            return v->lastSearchPos;
+                        }
                         kc = v->key[v->keyPos++];
                     }
                 } else if (kc > tc) {
@@ -712,8 +727,10 @@ int dfox_node::locate(dfox_var *v) {
                         v->need_count = 2;
                         if (to_skip)
                             after_skip = AFTER_SKIP_RETURN;
-                        else
-                            return ~(v->lastSearchPos + 1);
+                        else {
+                            v->lastSearchPos = ~(v->lastSearchPos + 1);
+                            return v->lastSearchPos;
+                        }
                     }
                 } else {
                     byte offset = (kc & 0x07);
@@ -727,25 +744,15 @@ int dfox_node::locate(dfox_var *v) {
                     if (leaves)
                         i--;
                     v->triePos = i;
-                    return ~(v->lastSearchPos + 1);
+                    v->lastSearchPos = ~(v->lastSearchPos + 1);
+                    return v->lastSearchPos;
                 }
             }
         }
     }
-    v->triePos = i;
-    byte offset = (kc & 0x07);
-    v->mask = (0x80 >> offset);
-    v->msb5 = (kc & 0xF8);
-    v->insertState = INSERT_MIDDLE2;
-    v->need_count = 2;
-    return ~(v->lastSearchPos + 1);
+    v->lastSearchPos = ~(v->lastSearchPos + 1);
+    return v->lastSearchPos;
 }
-//if (recurseTrie(0, v)) {
-//    if (v->insertState != 0) {
-//        v->lastSearchPos = ~(v->lastSearchPos + 1);
-//    }
-//    return v->lastSearchPos;
-//}
 
 byte dfox_node::processTC(dfox_var *v) {
     if (v->children & v->mask) {
@@ -775,6 +782,7 @@ byte dfox_node::processTC(dfox_var *v) {
             v->insertState = INSERT_THREAD;
             if (cmp < 0)
                 cmp = -cmp;
+            if (v->keyPos < cmp)
             cmp -= v->keyPos;
             //cmp--;
             v->need_count = cmp * 2;
