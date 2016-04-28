@@ -1,4 +1,5 @@
 #include "rb_tree.h"
+#include <assert.h>
 
 rb_tree_var *rb_tree::newVar() {
     return new rb_tree_var();
@@ -63,10 +64,60 @@ rb_tree_node *rb_tree_node::split(int *pbrk_idx) {
     rb_tree_node *new_block = new rb_tree_node();
     if (!isLeaf())
         new_block->setLeaf(false);
-    setFilledSize(filled_size); // (8)
-    new_block->setFilledSize(new_size); // (9)
+
+    int data_end_pos = util::getInt(buf + DATA_END_POS);
+    int halfKVLen = data_end_pos;
+    halfKVLen /= 2;
+    byte *new_kv_idx = new_block->buf + RB_TREE_HDR_SIZE;
+    int new_idx;
+    int brk_idx = -1;
+    int brk_kv_pos = 0;
+    int tot_len = 0;
+    int stack[log2(filled_size) + 1];
+    int level = 0;
+    int node = getRoot();
+    for (new_idx = 0; new_idx < filled_size; new_idx++) {
+        if (node == 0) {
+            node = stack[--level];
+            int src_idx = node;
+            int key_len = buf[src_idx + KEY_LEN_POS];
+            key_len++;
+            int value_len = buf[src_idx + KEY_LEN_POS + key_len];
+            value_len++;
+            int kv_len = key_len;
+            kv_len += value_len;
+            tot_len += kv_len;
+            tot_len += KEY_LEN_POS;
+            memcpy(new_kv_idx, buf + src_idx, kv_len);
+            if (tot_len > halfKVLen && brk_idx == -1) {
+                brk_idx = new_idx;
+                brk_kv_pos = RB_TREE_HDR_SIZE + tot_len;
+            }
+            node = getRight(node);
+        } else {
+            stack[level++] = node;
+            node = getLeft(node);
+        }
+    }
+    new_block->setFilledSize(brk_idx);
+    new_block->setDataEndPos(brk_kv_pos);
+
+    int old_blk_new_len = data_end_pos - brk_kv_pos;
+    memcpy(buf + RB_TREE_HDR_SIZE, new_block->buf + brk_kv_pos,
+            old_blk_new_len);
+    setFilledSize(filled_size - brk_idx);
+
+    // from new block, update pointers for remaining items
     *pbrk_idx = brk_idx;
     return new_block;
+}
+
+int rb_tree_node::getDataEndPos() {
+    return util::getInt(buf + DATA_END_POS);
+}
+
+void rb_tree_node::setDataEndPos(int pos) {
+    util::setInt(buf + DATA_END_POS, pos);
 }
 
 int rb_tree_node::binarySearchLeaf(const char *key, int key_len) {
@@ -113,11 +164,11 @@ int rb_tree_node::binarySearchNode(const char *key, int key_len) {
     return middle;
 }
 
-int rb_tree_node::locate(bplus_tree_var *v) {
-    return locate((rb_tree_var *) v);
+int rb_tree_node::locate(bplus_tree_var *v, int level) {
+    return locate((rb_tree_var *) v, level);
 }
 
-int rb_tree_node::locate(rb_tree_var *v) {
+int rb_tree_node::locate(rb_tree_var *v, int level) {
     int ret = -1;
     if (isLeaf()) {
         ret = binarySearchLeaf(v->key, v->key_len);
@@ -312,8 +363,8 @@ int rb_tree_node::getParent(int n) {
 }
 
 int rb_tree_node::getSibling(int n) {
-    //assert(n != 0);
-    //assert(getParent(n) != 0);
+    assert(n != 0);
+    assert(getParent(n) != 0);
     if (n == getLeft(getParent(n)))
         return getRight(getParent(n));
     else
@@ -321,16 +372,16 @@ int rb_tree_node::getSibling(int n) {
 }
 
 int rb_tree_node::getUncle(int n) {
-    //assert(n != NULL);
-    //assert(getParent(n) != 0);
-    //assert(getParent(getParent(n)) != 0);
+    assert(n != NULL);
+    assert(getParent(n) != 0);
+    assert(getParent(getParent(n)) != 0);
     return getSibling(getParent(n));
 }
 
 int rb_tree_node::getGrandParent(int n) {
-    //assert(n != NULL);
-    //assert(getParent(n) != 0);
-    //assert(getParent(getParent(n)) != 0);
+    assert(n != NULL);
+    assert(getParent(n) != 0);
+    assert(getParent(getParent(n)) != 0);
     return getParent(getParent(n));
 }
 
@@ -365,10 +416,11 @@ void rb_tree_node::setColor(int n, byte c) {
 int rb_tree_node::newNode(byte n_color, int left, int right, int parent) {
     int n = util::getInt(buf + DATA_END_POS);
     byte *node = buf + n;
-    node[0] = n_color;
-    util::setInt(node + 1, left);
-    util::setInt(node + 3, right);
-    util::setInt(node + 5, parent);
+
+    node[COLOR_POS] = n_color;
+    util::setInt(node + LEFT_PTR_POS, left);
+    util::setInt(node + RYTE_PTR_POS, right);
+    util::setInt(node + PARENT_PTR_POS, parent);
     util::setInt(buf + DATA_END_POS, kv_last_pos);
     return n;
 }

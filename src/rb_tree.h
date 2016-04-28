@@ -10,7 +10,7 @@
 using namespace std;
 
 #define RB_TREE_NODE_SIZE 512
-#define RB_NODE_HDR_SIZE 7
+#define RB_TREE_HDR_SIZE 7
 #define IS_LEAF_POS 0
 #define FILLED_SIZE_POS 1
 #define DATA_END_POS 3
@@ -19,8 +19,11 @@ using namespace std;
 #define RB_RED 0
 #define RB_BLACK 1
 
-class rb_tree_var: public bplus_tree_var {
-};
+#define COLOR_POS 0
+#define LEFT_PTR_POS 1
+#define RYTE_PTR_POS 3
+#define PARENT_PTR_POS 5
+#define KEY_LEN_POS 7
 
 class rb_tree_node: public bplus_tree_node {
 private:
@@ -56,8 +59,10 @@ public:
     bool isFull(int kv_len, rb_tree_var *v);
     int filledSize();
     void setFilledSize(int filledSize);
-    int locate(rb_tree_var *v);
-    int locate(bplus_tree_var *v);
+    int getDataEndPos();
+    void setDataEndPos(int pos);
+    int locate(rb_tree_var *v, int level);
+    int locate(bplus_tree_var *v, int level);
     void addData(int idx, const char *value, int value_len, rb_tree_var *v);
     void addData(int idx, const char *value, int value_len, bplus_tree_var *v);
     rb_tree_node *getChild(int pos);

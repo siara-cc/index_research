@@ -1,23 +1,152 @@
 #include <iostream>
 #include <math.h>
+#include <malloc.h>
 #include "dfox.h"
 #include "GenTree.h"
 
-dfox_var *dfox::newVar() {
-    return new dfox_var();
+char *dfox::get(const char *key, int key_len, int *pValueLen) {
+    int lastSearchPos[numLevels];
+    byte *block_paths[numLevels];
+    int pos = -1;
+    dfox_var v;
+    v.init();
+    v.key = key;
+    v.key_len = key_len;
+    byte *foundNode = recursiveSearch(key, key_len, root->buf, lastSearchPos,
+            block_paths, &pos, &v);
+    if (pos < 0)
+        return null;
+    dfox_node node(foundNode);
+    return (char *) node.getData(pos, pValueLen);
 }
 
-dfox_node *dfox::newNode() {
-    dfox_node *new_node = new dfox_node();
-    new_node->set_locate_option(true);
-    return new_node;
+byte *dfox::recursiveSearch(const char *key, int key_len, byte *node_data,
+        int lastSearchPos[], byte *node_paths[], int *pIdx, dfox_var *v) {
+    int level = 0;
+    dfox_node node(node_data);
+    while (!node.isLeaf()) {
+        lastSearchPos[level] = node.locate(v, level);
+        node_paths[level] = node_data;
+        if (lastSearchPos[level] < 0) {
+            lastSearchPos[level] = ~lastSearchPos[level];
+            lastSearchPos[level]--;
+            if (lastSearchPos[level] >= node.filledSize()) {
+                lastSearchPos[level] -= node.filledSize();
+                do {
+                    node_data = node.getChild(lastSearchPos[level]);
+                    node.setBuf(node_data);
+                    level++;
+                    node_paths[level] = node.buf;
+                    lastSearchPos[level] = 0;
+                } while (!node.isLeaf());
+                *pIdx = lastSearchPos[level];
+                return node_data;
+            }
+        }
+        node_data = node.getChild(lastSearchPos[level]);
+        node.setBuf(node_data);
+        level++;
+    }
+    node_paths[level] = node_data;
+    lastSearchPos[level] = node.locate(v, level);
+    *pIdx = lastSearchPos[level];
+    return node_data;
 }
 
-dfox_node *dfox_node::split(int *pbrk_idx) {
+void dfox::put(const char *key, int key_len, const char *value, int value_len) {
+    int lastSearchPos[numLevels];
+    byte *block_paths[numLevels];
+    dfox_var v;
+    v.isPut = true;
+    v.key = key;
+    v.key_len = key_len;
+    if (root->filledSize() == 0) {
+        root->addData(0, value, value_len, &v);
+        total_size++;
+    } else {
+        int pos = -1;
+        byte *foundNode = recursiveSearch(key, key_len, root->buf,
+                lastSearchPos, block_paths, &pos, &v);
+        recursiveUpdate(key, key_len, foundNode, pos, value, value_len,
+                lastSearchPos, block_paths, numLevels - 1, &v);
+    }
+}
+
+void dfox::recursiveUpdate(const char *key, int key_len, byte *foundNode,
+        int pos, const char *value, int value_len, int lastSearchPos[],
+        byte *node_paths[], int level, dfox_var *v) {
+    dfox_node node(foundNode);
+    int idx = pos; // lastSearchPos[level];
+    if (idx < 0) {
+        idx = ~idx;
+        if (node.isFull(v->key_len + value_len, v)) {
+            //std::cout << "Full\n" << std::endl;
+            //if (maxKeyCount < block->filledSize())
+            //    maxKeyCount = block->filledSize();
+            //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
+            maxKeyCount += node.filledSize();
+            int brk_idx;
+            byte *b = node.split(&brk_idx);
+            dfox_node new_block(b);
+            blockCount++;
+            dfox_var rv;
+            if (root->buf == node.buf) {
+                byte *buf = util::alignedAlloc(DFOX_NODE_SIZE);
+                root->setBuf(buf);
+                blockCount++;
+                int first_len;
+                char *first_key;
+                char addr[5];
+                util::ptrToFourBytes((unsigned long) foundNode, addr);
+                rv.key = "";
+                rv.key_len = 1;
+                root->addData(0, addr, sizeof(char *), &rv);
+                first_key = (char *) new_block.getKey(0, &first_len);
+                rv.key = first_key;
+                rv.key_len = first_len;
+                util::ptrToFourBytes((unsigned long) new_block.buf, addr);
+                rv.init();
+                root->locate(&rv, 0);
+                root->addData(1, addr, sizeof(char *), &rv);
+                root->setLeaf(false);
+                numLevels++;
+            } else {
+                int prev_level = level - 1;
+                byte *parent = node_paths[prev_level];
+                rv.key = (char *) new_block.getKey(0, &rv.key_len);
+                char addr[5];
+                util::ptrToFourBytes((unsigned long) new_block.buf, addr);
+                dfox_node parent_node(parent);
+                parent_node.locate(&rv, prev_level);
+                recursiveUpdate(rv.key, rv.key_len, parent,
+                        ~(lastSearchPos[prev_level] + 1), addr, sizeof(char *),
+                        lastSearchPos, node_paths, prev_level, &rv);
+            }
+            brk_idx++;
+            if (idx > brk_idx) {
+                node.setBuf(new_block.buf);
+                idx -= brk_idx;
+            }
+            v->init();
+            node.locate(v, level);
+                idx = ~v->lastSearchPos;
+        }
+        node.addData(idx, value, value_len, v);
+    } else {
+        //if (node->isLeaf) {
+        //    int vIdx = idx + mSizeBy2;
+        //    returnValue = (V) arr[vIdx];
+        //    arr[vIdx] = value;
+        //}
+    }
+}
+
+byte *dfox_node::split(int *pbrk_idx) {
     int orig_filled_size = filledSize();
-    dfox_node *new_block = new dfox_node();
+    byte *b = (byte *) __mingw_aligned_malloc(DFOX_NODE_SIZE, 64);
+    dfox_node new_block(b);
     if (!isLeaf())
-        new_block->setLeaf(false);
+        new_block.setLeaf(false);
     int kv_last_pos = getKVLastPos();
     int halfKVLen = DFOX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
@@ -26,7 +155,6 @@ dfox_node *dfox_node::split(int *pbrk_idx) {
     int brk_idx = -1;
     int brk_kv_pos = 0;
     int tot_len = 0;
-    dfox_var *v = new dfox_var();
     // (1) move all data to new_block in order
     for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
         int src_idx = getPtr(new_idx);
@@ -37,8 +165,8 @@ dfox_node *dfox_node::split(int *pbrk_idx) {
         int kv_len = key_len;
         kv_len += value_len;
         tot_len += kv_len;
-        memcpy(new_block->buf + kv_last_pos, buf + src_idx, kv_len);
-        new_block->insPtr(new_idx, kv_last_pos);
+        memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
+        new_block.insPtr(new_idx, kv_last_pos);
         kv_last_pos += kv_len;
         if (tot_len > halfKVLen) {
             if (brk_idx == -1) {
@@ -50,23 +178,24 @@ dfox_node *dfox_node::split(int *pbrk_idx) {
     // (2) move top half of new_block to bottom half of old_block
     kv_last_pos = getKVLastPos();
     int old_blk_new_len = brk_kv_pos - kv_last_pos;
-    memcpy(buf + DFOX_NODE_SIZE - old_blk_new_len, new_block->buf + kv_last_pos,
+    memcpy(buf + DFOX_NODE_SIZE - old_blk_new_len, new_block.buf + kv_last_pos,
             old_blk_new_len);
     // (3) Insert pointers to the moved data in old block
+    dfox_var v;
     FILLED_SIZE = 0;
     TRIE_LEN = 0;
     for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
-        int src_idx = new_block->getPtr(new_idx);
+        int src_idx = new_block.getPtr(new_idx);
         src_idx += (DFOX_NODE_SIZE - brk_kv_pos);
         insPtr(new_idx, src_idx);
         if (new_idx == 0) // (5) Set Last data position for old block
             setKVLastPos(src_idx);
         char *key = (char *) (buf + src_idx + 1);
-        v->init();
-        v->key = key;
-        v->key_len = buf[src_idx];
-        locate(v);
-        insertCurrent(v);
+        v.init();
+        v.key = key;
+        v.key_len = buf[src_idx];
+        locate(&v, 0);
+        insertCurrent(&v);
     }
     int new_size = orig_filled_size - brk_idx - 1;
     /*
@@ -75,47 +204,59 @@ dfox_node *dfox_node::split(int *pbrk_idx) {
      memmove(new_kv_idx + new_idx, new_kv_idx, new_size); */
     // (4) and set corresponding bits
     byte high_bits[MAX_PTR_BITMAP_BYTES];
-    memcpy(high_bits, new_block->DATA_PTR_HIGH_BITS, MAX_PTR_BITMAP_BYTES);
-    memset(new_block->DATA_PTR_HIGH_BITS, 0, MAX_PTR_BITMAP_BYTES);
+    memcpy(high_bits, new_block.DATA_PTR_HIGH_BITS, MAX_PTR_BITMAP_BYTES);
+    memset(new_block.DATA_PTR_HIGH_BITS, 0, MAX_PTR_BITMAP_BYTES);
     for (int i = 0; i < new_size; i++) {
         int from_bit = i + new_idx;
         if (high_bits[from_bit >> 3] & pos_mask[from_bit])
-            new_block->DATA_PTR_HIGH_BITS[i >> 3] |= pos_mask[i];
+            new_block.DATA_PTR_HIGH_BITS[i >> 3] |= pos_mask[i];
     }
     if (high_bits[MAX_PTR_BITMAP_BYTES - 1] & 0x01)
-        new_block->setLeaf(1);
-    new_block->setKVLastPos(brk_kv_pos); // (5) New Block Last position
+        new_block.setLeaf(1);
+    new_block.setKVLastPos(brk_kv_pos); // (5) New Block Last position
     //filled_size = brk_idx + 1;
     //setFilledSize(filled_size); // (7) Filled Size for Old block
-    new_block->TRIE_LEN = 0;
-    new_block->setFilledSize(new_size); // (8) Filled Size for New Block
+    new_block.TRIE_LEN = 0;
+    new_block.setFilledSize(new_size); // (8) Filled Size for New Block
     for (int i = 0; i < new_size; i++) {
-        v->init();
-        v->key = (char *) new_block->getKey(i, &v->key_len);
-        new_block->locate(v);
-        new_block->insertCurrent(v);
+        v.init();
+        v.key = (char *) new_block.getKey(i, &v.key_len);
+        new_block.locate(&v, 0);
+        new_block.insertCurrent(&v);
     }
-    v->key = (char *) getKey(0, &v->key_len);
     *pbrk_idx = brk_idx;
-    return new_block;
+    return new_block.buf;
 }
 
 dfox::dfox() {
-    root = newNode();
+    byte *b = (byte *) __mingw_aligned_malloc(DFOX_NODE_SIZE, 64);
+    root = new dfox_node(b);
     total_size = 0;
     numLevels = 1;
     maxKeyCount = 0; //9999;
     blockCount = 1;
+    maxThread = 9999;
 }
 
-dfox_node::dfox_node() {
-    buf = new byte[DFOX_NODE_SIZE];
+dfox::~dfox() {
+    delete root;
+}
+
+dfox_node::dfox_node(byte *m) {
+    //buf = (byte *) __mingw_aligned_malloc(DFOX_NODE_SIZE, 64);
+    //buf = new byte[DFOX_NODE_SIZE];
+    buf = m;
     memset(buf, '\0', DFOX_NODE_SIZE);
     setLeaf(1);
     FILLED_SIZE = 0;
     TRIE_LEN = 0;
+    threads = 0;
     setKVLastPos(DFOX_NODE_SIZE);
     trie = buf + IDX_HDR_SIZE;
+}
+
+void dfox_node::setBuf(byte *m) {
+    buf = m;
 }
 
 void dfox_node::setKVLastPos(int val) {
@@ -124,11 +265,6 @@ void dfox_node::setKVLastPos(int val) {
 
 int dfox_node::getKVLastPos() {
     return util::getInt(LAST_DATA_PTR);
-}
-
-void dfox_node::addData(int pos, const char *value, int value_len,
-        bplus_tree_var *v) {
-    addData(pos, value, value_len, (dfox_var *) v);
 }
 
 void dfox_node::addData(int pos, const char *value, int value_len,
@@ -190,10 +326,6 @@ void dfox_node::setFilledSize(int filledSize) {
     FILLED_SIZE = filledSize;
 }
 
-bool dfox_node::isFull(int kv_len, bplus_tree_var *v) {
-    return isFull(kv_len, (dfox_var *) v);
-}
-
 bool dfox_node::isFull(int kv_len, dfox_var *v) {
     if (TRIE_LEN + v->need_count + FILLED_SIZE >= TRIE_PTR_AREA_SIZE)
         return true;
@@ -208,10 +340,10 @@ int dfox_node::filledSize() {
     return FILLED_SIZE;
 }
 
-dfox_node *dfox_node::getChild(int pos) {
+byte *dfox_node::getChild(int pos) {
     byte *idx = getData(pos, &pos);
     unsigned long addr_num = util::fourBytesToPtr(idx);
-    dfox_node *ret = (dfox_node *) addr_num;
+    byte *ret = (byte *) addr_num;
     return ret;
 }
 
@@ -281,6 +413,7 @@ void dfox_node::insertCurrent(dfox_var *v) {
         }
         break;
     case INSERT_THREAD:
+        threads++;
         childPos = v->origPos + 1;
         child = v->mask;
         origTC = getAt(v->origPos);
@@ -621,10 +754,6 @@ bool dfox_node::recurseTrie(int level, dfox_var *v) {
     return false;
 }
 
-int dfox_node::locate(bplus_tree_var *v) {
-    return locate((dfox_var *) v);
-}
-
 #define PTC_KEY_FOUND 0
 #define PTC_CONTINUE 1
 #define PTC_NOT_FOUND 2
@@ -633,12 +762,14 @@ int dfox_node::locate(bplus_tree_var *v) {
 #define AFTER_SKIP_PROCESS_TC 1
 #define AFTER_SKIP_RETURN 2
 
-int dfox_node::locate(dfox_var *v) {
+int dfox_node::locate(dfox_var *v, int level) {
     if (TRIE_LEN == 0)
         return -1;
     register byte to_skip = 0;
     register byte after_skip = AFTER_SKIP_INITIAL;
     register byte kc = v->key[v->keyPos++];
+    byte offset = (kc & 0x07);
+    v->mask = (0x80 >> (kc & 0x07));
     register int i = 0;
     register int len = TRIE_LEN;
     while (i < len) {
@@ -650,8 +781,8 @@ int dfox_node::locate(dfox_var *v) {
         //}
         register int origPos = i;
         register byte tc = getAt(i++);
-        register byte leaves = 0;
-        register byte children = 0;
+        byte leaves = 0;
+        byte children = 0;
         if (tc & 0x04)
             children = getAt(i++);
         if (tc & 0x02)
@@ -663,7 +794,7 @@ int dfox_node::locate(dfox_var *v) {
                 v->lastSearchPos += GenTree::bit_count[leaves];
             if (children)
                 to_skip += GenTree::bit_count[children];
-            if (to_skip == 0) {
+            if (!to_skip) {
                 if (after_skip == AFTER_SKIP_PROCESS_TC) {
                     v->triePos = i;
                     byte ret = processTC(v);
@@ -674,8 +805,9 @@ int dfox_node::locate(dfox_var *v) {
                         return v->lastSearchPos;
                     }
                     kc = v->key[v->keyPos++];
-                }
-                if (after_skip == AFTER_SKIP_RETURN) {
+                    offset = (kc & 0x07);
+                    v->mask = (0x80 >> (kc & 0x07));
+                } else if (after_skip == AFTER_SKIP_RETURN) {
                     v->triePos = i;
                     v->lastSearchPos = ~(v->lastSearchPos + 1);
                     return v->lastSearchPos;
@@ -683,70 +815,63 @@ int dfox_node::locate(dfox_var *v) {
                 after_skip = AFTER_SKIP_INITIAL;
             }
         } else {
-            {
-                v->origPos = origPos;
-                if ((kc ^ tc) < 0x08) {
-                    byte offset = (kc & 0x07);
-                    if (leaves) {
-                        v->lastSearchPos += GenTree::bit_count[leaves
-                                & left_mask[offset]];
-                    }
-                    if (children) {
-                        to_skip = GenTree::bit_count[children
-                                & left_mask[offset]];
-                    }
-                    v->tc = tc;
-                    v->children = children;
-                    v->leaves = leaves;
-                    v->mask = (0x80 >> (kc & 0x07));
-                    v->triePos = i;
-                    if (to_skip)
-                        after_skip = AFTER_SKIP_PROCESS_TC;
-                    else {
-                        byte ret = processTC(v);
-                        if (ret == PTC_KEY_FOUND)
-                            return v->lastSearchPos;
-                        else if (ret == PTC_NOT_FOUND) {
-                            v->lastSearchPos = ~(v->lastSearchPos + 1);
-                            return v->lastSearchPos;
-                        }
-                        kc = v->key[v->keyPos++];
-                    }
-                } else if (kc > tc) {
-                    if (leaves)
-                        v->lastSearchPos += GenTree::bit_count[leaves];
-                    if (children)
-                        to_skip += GenTree::bit_count[children];
-                    if (tc & 0x01) {
-                        v->triePos = i;
-                        v->tc = tc;
-                        byte offset = (kc & 0x07);
-                        v->mask = (0x80 >> offset);
-                        v->msb5 = (kc & 0xF8);
-                        v->insertState = INSERT_MIDDLE1;
-                        v->need_count = 2;
-                        if (to_skip)
-                            after_skip = AFTER_SKIP_RETURN;
-                        else {
-                            v->lastSearchPos = ~(v->lastSearchPos + 1);
-                            return v->lastSearchPos;
-                        }
-                    }
-                } else {
-                    byte offset = (kc & 0x07);
-                    v->mask = (0x80 >> offset);
-                    v->msb5 = (kc & 0xF8);
-                    v->insertState = INSERT_MIDDLE2;
-                    v->need_count = 2;
-                    i--;
-                    if (children)
-                        i--;
-                    if (leaves)
-                        i--;
-                    v->triePos = i;
-                    v->lastSearchPos = ~(v->lastSearchPos + 1);
-                    return v->lastSearchPos;
+            v->origPos = origPos;
+            if ((kc ^ tc) < 0x08) {
+                if (leaves) {
+                    v->lastSearchPos += GenTree::bit_count[leaves
+                            & left_mask[offset]];
                 }
+                if (children) {
+                    to_skip = GenTree::bit_count[children & left_mask[offset]];
+                }
+                v->tc = tc;
+                v->children = children;
+                v->leaves = leaves;
+                v->triePos = i;
+                if (to_skip)
+                    after_skip = AFTER_SKIP_PROCESS_TC;
+                else {
+                    byte ret = processTC(v);
+                    if (ret == PTC_KEY_FOUND)
+                        return v->lastSearchPos;
+                    else if (ret == PTC_NOT_FOUND) {
+                        v->lastSearchPos = ~(v->lastSearchPos + 1);
+                        return v->lastSearchPos;
+                    }
+                    kc = v->key[v->keyPos++];
+                    offset = (kc & 0x07);
+                    v->mask = (0x80 >> (kc & 0x07));
+                }
+            } else if (kc > tc) {
+                if (leaves)
+                    v->lastSearchPos += GenTree::bit_count[leaves];
+                if (children)
+                    to_skip += GenTree::bit_count[children];
+                if (tc & 0x01) {
+                    v->triePos = i;
+                    v->tc = tc;
+                    v->msb5 = (kc & 0xF8);
+                    v->insertState = INSERT_MIDDLE1;
+                    v->need_count = 2;
+                    if (to_skip)
+                        after_skip = AFTER_SKIP_RETURN;
+                    else {
+                        v->lastSearchPos = ~(v->lastSearchPos + 1);
+                        return v->lastSearchPos;
+                    }
+                }
+            } else {
+                v->msb5 = (kc & 0xF8);
+                v->insertState = INSERT_MIDDLE2;
+                v->need_count = 2;
+                i--;
+                if (children)
+                    i--;
+                if (leaves)
+                    i--;
+                v->triePos = i;
+                v->lastSearchPos = ~(v->lastSearchPos + 1);
+                return v->lastSearchPos;
             }
         }
     }
@@ -774,7 +899,7 @@ byte dfox_node::processTC(dfox_var *v) {
             v->lastSearchPos++;
             v->key_at = (char *) getKey(v->lastSearchPos, &v->key_at_len);
             int cmp = util::compare(v->key, v->key_len, v->key_at,
-                    v->key_at_len);
+                    v->key_at_len, v->keyPos);
             if (cmp == 0)
                 return PTC_KEY_FOUND;
             if (cmp < 0)
@@ -783,7 +908,7 @@ byte dfox_node::processTC(dfox_var *v) {
             if (cmp < 0)
                 cmp = -cmp;
             if (v->keyPos < cmp)
-            cmp -= v->keyPos;
+                cmp -= v->keyPos;
             //cmp--;
             v->need_count = cmp * 2;
             v->need_count += 4;

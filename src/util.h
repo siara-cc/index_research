@@ -1,5 +1,6 @@
 #ifndef UTIL_H
 #define UTIL_H
+#include <malloc.h>
 
 typedef unsigned char byte;
 #define null 0
@@ -42,11 +43,10 @@ public:
         return ret;
     }
 
-    static int compare(const char *v1, int len1, const char *v2, int len2) {
+    static int compare(const char *v1, int len1, const char *v2, int len2, int k = 0) {
         int lim = len1;
         if (len2 < len1)
             lim = len2;
-        int k = 0;
         while (k < lim) {
             char c1 = v1[k];
             char c2 = v2[k];
@@ -68,6 +68,9 @@ public:
         return (x > y ? y : x);
     }
 
+    static byte *alignedAlloc(int blockSize) {
+        return (byte *) __mingw_aligned_malloc(blockSize, 64);
+    }
 };
 
 #endif

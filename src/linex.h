@@ -5,46 +5,67 @@
 #include <iostream>
 #include "util.h"
 #include "GenTree.h"
-#include "bp_tree.h"
 
 using namespace std;
 
 #define LINEX_NODE_SIZE 512
 #define BLK_HDR_SIZE 5
 
-class linex_var: public bplus_tree_var {
-};
-
-class linex_node: public bplus_tree_node {
+class linex_node {
 private:
     int binarySearchLeaf(const char *key, int key_len);
     int binarySearchNode(const char *key, int key_len);
 public:
-    linex_node();
+    byte *buf;
+    linex_node(byte *m);
+    void setBuf(byte *m);
     bool isLeaf();
     void setLeaf(char isLeaf);
-    bool isFull(int kv_len, bplus_tree_var *v);
-    bool isFull(int kv_len, linex_var *v);
+    bool isFull(int kv_len);
     int filledSize();
     void setFilledSize(int filledSize);
-    int locate(linex_var *v);
-    int locate(bplus_tree_var *v);
-    void addData(int idx, const char *value, int value_len, linex_var *v);
-    void addData(int idx, const char *value, int value_len, bplus_tree_var *v);
-    linex_node *getChild(int pos);
+    int locate(const char *key, int key_len, int level);
+    void addData(int idx, const char *key, int key_len, const char *value,
+            int value_len);
+    byte *getChild(int pos);
     byte *getKey(int pos, int *plen);
     byte *getData(int pos, int *plen);
     void setKVLastPos(int val);
     int getKVLastPos();
-    linex_node *split(int *pbrk_idx);
+    byte *split(int *pbrk_idx);
 };
 
-class linex : public bplus_tree {
+class linex {
 private:
-    linex_node *newNode();
-    linex_var *newVar();
+    long total_size;
+    int numLevels;
+    int maxKeyCount;
+    int blockCount;
+    byte *recursiveSearch(const char *key, int key_len, byte *node_data,
+            int lastSearchPos[], byte *node_paths[], int *pIdx);
+    void recursiveUpdate(const char *key, int key_len, byte *foundNode, int pos,
+            const char *value, int value_len, int lastSearchPos[],
+            byte *node_paths[], int level);
 public:
+    linex_node *root;
+    int maxThread;
     linex();
+    ~linex();
+    char *get(const char *key, int key_len, int *pValueLen);
+    void put(const char *key, int key_len, const char *value, int value_len);
+    void printMaxKeyCount(long num_entries) {
+        std::cout << "Block Count:" << blockCount << std::endl;
+        std::cout << "Avg Block Count:" << (num_entries / blockCount)
+                << std::endl;
+        std::cout << "Avg Max Count:" << (maxKeyCount / blockCount)
+                << std::endl;
+    }
+    void printNumLevels() {
+        std::cout << "Level Count:" << numLevels << std::endl;
+    }
+    long size() {
+        return total_size;
+    }
 };
 
 #endif
