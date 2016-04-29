@@ -74,6 +74,7 @@ public:
     byte *buf;
     int threads;
     dfox_node(byte *m);
+    void init();
     void setBuf(byte *m);
     bool isFull(int kv_len, dfox_var *v);
     inline bool isLeaf();

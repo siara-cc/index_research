@@ -19,6 +19,7 @@ public:
     byte *buf;
     linex_node(byte *m);
     void setBuf(byte *m);
+    void init();
     bool isLeaf();
     void setLeaf(char isLeaf);
     bool isFull(int kv_len);

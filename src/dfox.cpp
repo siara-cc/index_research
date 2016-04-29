@@ -45,6 +45,7 @@ byte *dfox::recursiveSearch(const char *key, int key_len, byte *node_data,
         }
         node_data = node.getChild(lastSearchPos[level]);
         node.setBuf(node_data);
+        v->init();
         level++;
     }
     node_paths[level] = node_data;
@@ -93,6 +94,7 @@ void dfox::recursiveUpdate(const char *key, int key_len, byte *foundNode,
             if (root->buf == node.buf) {
                 byte *buf = util::alignedAlloc(DFOX_NODE_SIZE);
                 root->setBuf(buf);
+                root->init();
                 blockCount++;
                 int first_len;
                 char *first_key;
@@ -143,8 +145,9 @@ void dfox::recursiveUpdate(const char *key, int key_len, byte *foundNode,
 
 byte *dfox_node::split(int *pbrk_idx) {
     int orig_filled_size = filledSize();
-    byte *b = (byte *) __mingw_aligned_malloc(DFOX_NODE_SIZE, 64);
+    byte *b = util::alignedAlloc(DFOX_NODE_SIZE);
     dfox_node new_block(b);
+    new_block.init();
     if (!isLeaf())
         new_block.setLeaf(false);
     int kv_last_pos = getKVLastPos();
@@ -229,8 +232,9 @@ byte *dfox_node::split(int *pbrk_idx) {
 }
 
 dfox::dfox() {
-    byte *b = (byte *) __mingw_aligned_malloc(DFOX_NODE_SIZE, 64);
+    byte *b = util::alignedAlloc(DFOX_NODE_SIZE);
     root = new dfox_node(b);
+    root->init();
     total_size = 0;
     numLevels = 1;
     maxKeyCount = 0; //9999;
@@ -243,20 +247,21 @@ dfox::~dfox() {
 }
 
 dfox_node::dfox_node(byte *m) {
-    //buf = (byte *) __mingw_aligned_malloc(DFOX_NODE_SIZE, 64);
-    //buf = new byte[DFOX_NODE_SIZE];
-    buf = m;
+    setBuf(m);
+}
+
+void dfox_node::init() {
     memset(buf, '\0', DFOX_NODE_SIZE);
     setLeaf(1);
     FILLED_SIZE = 0;
     TRIE_LEN = 0;
     threads = 0;
     setKVLastPos(DFOX_NODE_SIZE);
-    trie = buf + IDX_HDR_SIZE;
 }
 
 void dfox_node::setBuf(byte *m) {
     buf = m;
+    trie = buf + IDX_HDR_SIZE;
 }
 
 void dfox_node::setKVLastPos(int val) {
@@ -768,7 +773,7 @@ int dfox_node::locate(dfox_var *v, int level) {
     register byte to_skip = 0;
     register byte after_skip = AFTER_SKIP_INITIAL;
     register byte kc = v->key[v->keyPos++];
-    byte offset = (kc & 0x07);
+    register byte offset = (kc & 0x07);
     v->mask = (0x80 >> (kc & 0x07));
     register int i = 0;
     register int len = TRIE_LEN;
@@ -781,8 +786,8 @@ int dfox_node::locate(dfox_var *v, int level) {
         //}
         register int origPos = i;
         register byte tc = getAt(i++);
-        byte leaves = 0;
-        byte children = 0;
+        register byte leaves = 0;
+        register byte children = 0;
         if (tc & 0x04)
             children = getAt(i++);
         if (tc & 0x02)
