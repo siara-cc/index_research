@@ -13,47 +13,47 @@ using namespace std;
 
 class linex_node {
 private:
-    int binarySearchLeaf(const char *key, int key_len);
-    int binarySearchNode(const char *key, int key_len);
+    int16_t binarySearchLeaf(const char *key, int16_t key_len);
+    int16_t binarySearchNode(const char *key, int16_t key_len);
 public:
     byte *buf;
     linex_node(byte *m);
-    void setBuf(byte *m);
-    void init();
-    bool isLeaf();
-    void setLeaf(char isLeaf);
-    bool isFull(int kv_len);
-    int filledSize();
-    void setFilledSize(int filledSize);
-    int locate(const char *key, int key_len, int level);
-    void addData(int idx, const char *key, int key_len, const char *value,
-            int value_len);
-    byte *getChild(int pos);
-    byte *getKey(int pos, int *plen);
-    byte *getData(int pos, int *plen);
-    void setKVLastPos(int val);
-    int getKVLastPos();
-    byte *split(int *pbrk_idx);
+    inline void setBuf(byte *m);
+    inline void init();
+    inline bool isLeaf();
+    inline void setLeaf(char isLeaf);
+    inline void setFilledUpto(int16_t filledUpto);
+    inline void setKVLastPos(int16_t val);
+    inline int16_t getKVLastPos();
+    int16_t filledUpto();
+    bool isFull(int16_t kv_len);
+    int16_t locate(const char *key, int16_t key_len, int16_t level);
+    void addData(int16_t idx, const char *key, int16_t key_len, const char *value,
+            int16_t value_len);
+    byte *getChild(int16_t pos);
+    byte *getKey(int16_t pos, int16_t *plen);
+    byte *getData(int16_t pos, int16_t *plen);
+    byte *split(int16_t *pbrk_idx);
 };
 
 class linex {
 private:
     long total_size;
-    int numLevels;
-    int maxKeyCount;
-    int blockCount;
-    byte *recursiveSearch(const char *key, int key_len, byte *node_data,
-            int lastSearchPos[], byte *node_paths[], int *pIdx);
-    void recursiveUpdate(const char *key, int key_len, byte *foundNode, int pos,
-            const char *value, int value_len, int lastSearchPos[],
-            byte *node_paths[], int level);
+    int16_t numLevels;
+    int16_t maxKeyCount;
+    int16_t blockCount;
+    byte *recursiveSearch(const char *key, int16_t key_len, byte *node_data,
+            int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx);
+    void recursiveUpdate(const char *key, int16_t key_len, byte *foundNode, int16_t pos,
+            const char *value, int16_t value_len, int16_t lastSearchPos[],
+            byte *node_paths[], int16_t level);
 public:
     linex_node *root;
-    int maxThread;
+    int16_t maxThread;
     linex();
     ~linex();
-    char *get(const char *key, int key_len, int *pValueLen);
-    void put(const char *key, int key_len, const char *value, int value_len);
+    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
+    void put(const char *key, int16_t key_len, const char *value, int16_t value_len);
     void printMaxKeyCount(long num_entries) {
         std::cout << "Block Count:" << blockCount << std::endl;
         std::cout << "Avg Block Count:" << (num_entries / blockCount)

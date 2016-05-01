@@ -1,5 +1,6 @@
 #ifndef UTIL_H
 #define UTIL_H
+#include <stdint.h>
 #include <malloc.h>
 
 typedef unsigned char byte;
@@ -7,17 +8,21 @@ typedef unsigned char byte;
 
 class util {
 public:
-    static int getInt(byte *pos) {
-        int ret = *pos * 256;
-        pos++;
-        ret += *pos;
-        return ret;
+    static inline int16_t getInt(byte *pos) {
+        int16_t *ptr = (int16_t *) pos;
+        return *ptr;
+//        int16_t ret = *pos * 256;
+//        pos++;
+//        ret += *pos;
+//        return ret;
     }
 
-    static void setInt(byte *pos, int val) {
-        *pos = val / 256;
-        pos++;
-        *pos = val % 256;
+    static inline void setInt(byte *pos, int16_t val) {
+        int16_t *ptr = (int16_t *) pos;
+        *ptr = val;
+//        *pos = val / 256;
+//        pos++;
+//        *pos = val % 256;
     }
 
     static void ptrToFourBytes(unsigned long addr_num, char *addr) {
@@ -43,8 +48,8 @@ public:
         return ret;
     }
 
-    static int compare(const char *v1, int len1, const char *v2, int len2, int k = 0) {
-        int lim = len1;
+    static int16_t compare(const char *v1, int16_t len1, const char *v2, int16_t len2, int16_t k = 0) {
+        int16_t lim = len1;
         if (len2 < len1)
             lim = len2;
         while (k < lim) {
@@ -60,11 +65,11 @@ public:
         return len1 - len2;
     }
 
-    static int min(int x, int y) {
+    static inline int16_t min(int16_t x, int16_t y) {
         return (x > y ? y : x);
     }
 
-    static byte *alignedAlloc(int blockSize) {
+    static byte *alignedAlloc(int16_t blockSize) {
         return (byte *) __mingw_aligned_malloc(blockSize, 64);
     }
 };

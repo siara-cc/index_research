@@ -40,10 +40,10 @@ public:
     byte insertState;
     byte isPut;
     const char *key;
-    int key_len;
+    int16_t key_len;
     char *key_at;
-    int key_at_len;
-    int lastSearchPos;
+    int16_t key_at_len;
+    int16_t lastSearchPos;
     dfox_var() {
         init();
     }
@@ -66,56 +66,56 @@ private:
     inline void append(byte b);
     inline byte getAt(byte pos);
     inline void delAt(byte pos);
-    inline void delAt(byte pos, int count);
+    inline void delAt(byte pos, int16_t count);
     byte recurseSkip(dfox_var *v, byte skip_count, byte skip_size);
     byte processTC(dfox_var *v);
     static byte *alignedAlloc();
 public:
     byte *buf;
-    int threads;
+    int16_t threads;
     dfox_node(byte *m);
     void init();
     void setBuf(byte *m);
-    bool isFull(int kv_len, dfox_var *v);
+    bool isFull(int16_t kv_len, dfox_var *v);
     inline bool isLeaf();
     inline void setLeaf(char isLeaf);
-    int filledSize();
-    inline void setFilledSize(int filledSize);
-    inline int getKVLastPos();
-    inline void setKVLastPos(int val);
-    void addData(int idx, const char *value, int value_len, dfox_var *v);
-    byte *getChild(int pos);
-    byte *getKey(int pos, int *plen);
-    byte *getData(int pos, int *plen);
-    byte *split(int *pbrk_idx);
-    int getPtr(int pos);
-    void insPtr(int pos, int kvIdx);
-    int locate(dfox_var *v, int level);
-    bool recurseTrie(int level, dfox_var *v);
-    byte recurseEntireTrie(int level, dfox_var *v, long idx_list[],
-            int *pidx_len);
+    int16_t filledSize();
+    inline void setFilledSize(int16_t filledSize);
+    inline int16_t getKVLastPos();
+    inline void setKVLastPos(int16_t val);
+    void addData(int16_t idx, const char *value, int16_t value_len, dfox_var *v);
+    byte *getChild(int16_t pos);
+    byte *getKey(int16_t pos, int16_t *plen);
+    byte *getData(int16_t pos, int16_t *plen);
+    byte *split(int16_t *pbrk_idx);
+    int16_t getPtr(int16_t pos);
+    void insPtr(int16_t pos, int16_t kvIdx);
+    int16_t locate(dfox_var *v, int16_t level);
+    bool recurseTrie(int16_t level, dfox_var *v);
+    byte recurseEntireTrie(int16_t level, dfox_var *v, long idx_list[],
+            int16_t *pidx_len);
     void insertCurrent(dfox_var *v);
 };
 
 class dfox {
 private:
     long total_size;
-    int numLevels;
-    int maxKeyCount;
-    int blockCount;
-    byte *recursiveSearch(const char *key, int key_len, byte *node_data,
-            int lastSearchPos[], byte *node_paths[], int *pIdx, dfox_var *v);
-    void recursiveUpdate(const char *key, int key_len, byte *foundNode, int pos,
-            const char *value, int value_len, int lastSearchPos[],
-            byte *node_paths[], int level, dfox_var *v);
+    int16_t numLevels;
+    int16_t maxKeyCount;
+    int16_t blockCount;
+    byte *recursiveSearch(const char *key, int16_t key_len, byte *node_data,
+            int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx, dfox_var *v);
+    void recursiveUpdate(const char *key, int16_t key_len, byte *foundNode, int16_t pos,
+            const char *value, int16_t value_len, int16_t lastSearchPos[],
+            byte *node_paths[], int16_t level, dfox_var *v);
 public:
     dfox_node *root;
-    int maxThread;
+    int16_t maxThread;
     dfox();
     ~dfox();
-    char *get(const char *key, int key_len, int *pValueLen);
-    void put(const char *key, int key_len, const char *value,
-            int value_len);
+    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
+    void put(const char *key, int16_t key_len, const char *value,
+            int16_t value_len);
     void printMaxKeyCount(long num_entries) {
         std::cout << "Block Count:" << blockCount << std::endl;
         std::cout << "Avg Block Count:" << (num_entries / blockCount)
