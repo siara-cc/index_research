@@ -100,9 +100,9 @@ public:
 class dfox {
 private:
     long total_size;
-    int16_t numLevels;
-    int16_t maxKeyCount;
-    int16_t blockCount;
+    int numLevels;
+    int maxKeyCount;
+    int blockCount;
     byte *recursiveSearch(const char *key, int16_t key_len, byte *node_data,
             int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx, dfox_var *v);
     void recursiveUpdate(const char *key, int16_t key_len, byte *foundNode, int16_t pos,
@@ -110,7 +110,7 @@ private:
             byte *node_paths[], int16_t level, dfox_var *v);
 public:
     dfox_node *root;
-    int16_t maxThread;
+    int maxThread;
     dfox();
     ~dfox();
     char *get(const char *key, int16_t key_len, int16_t *pValueLen);

@@ -21,19 +21,16 @@ byte *linex::recursiveSearch(const char *key, int16_t key_len, byte *node_data,
         node_paths[level] = node_data;
         if (lastSearchPos[level] < 0) {
             lastSearchPos[level] = ~lastSearchPos[level];
-            if (lastSearchPos[level] > node.filledUpto()) {
-                lastSearchPos[level] -= node.filledUpto();
-                lastSearchPos[level]--;
-//                do {
-//                    node_data = node.getChild(lastSearchPos[level]);
-//                    node.setBuf(node_data);
-//                    level++;
-//                    node_paths[level] = node.buf;
-//                    lastSearchPos[level] = 0;
-//                } while (!node.isLeaf());
-//                *pIdx = lastSearchPos[level];
-//                return node_data;
-            }
+        } else {
+            do {
+                node_data = node.getChild(lastSearchPos[level]);
+                node.setBuf(node_data);
+                level++;
+                node_paths[level] = node.buf;
+                lastSearchPos[level] = 0;
+            } while (!node.isLeaf());
+            *pIdx = lastSearchPos[level];
+            return node_data;
         }
         node_data = node.getChild(lastSearchPos[level]);
         node.setBuf(node_data);
@@ -257,17 +254,17 @@ int16_t linex_node::binarySearchNode(const char *key, int16_t key_len) {
                 char *plus1_key = (char *) getKey(middle + 1, &plus1_key_len);
                 cmp = util::compare(plus1_key, plus1_key_len, key, key_len);
                 if (cmp > 0)
-                    return middle;
+                    return ~middle;
                 else if (cmp < 0) {
                     middle = GenTree::ryte[middle];
                     while (middle > filled_upto)
                         middle = GenTree::left[middle];
                 } else
-                    return ~(middle + filled_upto + 2);
+                    return (middle + 1);
             } else
-                return middle;
+                return ~middle;
         } else
-            return ~(middle + filled_upto + 1);
+            return middle;
     } while (middle >= 0);
     return middle;
 }

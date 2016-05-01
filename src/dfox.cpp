@@ -21,7 +21,8 @@ char *dfox::get(const char *key, int16_t key_len, int16_t *pValueLen) {
 }
 
 byte *dfox::recursiveSearch(const char *key, int16_t key_len, byte *node_data,
-        int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx, dfox_var *v) {
+        int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx,
+        dfox_var *v) {
     int16_t level = 0;
     dfox_node node(node_data);
     while (!node.isLeaf()) {
@@ -54,7 +55,8 @@ byte *dfox::recursiveSearch(const char *key, int16_t key_len, byte *node_data,
     return node_data;
 }
 
-void dfox::put(const char *key, int16_t key_len, const char *value, int16_t value_len) {
+void dfox::put(const char *key, int16_t key_len, const char *value,
+        int16_t value_len) {
     int16_t lastSearchPos[numLevels];
     byte *block_paths[numLevels];
     dfox_var v;
@@ -74,8 +76,9 @@ void dfox::put(const char *key, int16_t key_len, const char *value, int16_t valu
 }
 
 void dfox::recursiveUpdate(const char *key, int16_t key_len, byte *foundNode,
-        int16_t pos, const char *value, int16_t value_len, int16_t lastSearchPos[],
-        byte *node_paths[], int16_t level, dfox_var *v) {
+        int16_t pos, const char *value, int16_t value_len,
+        int16_t lastSearchPos[], byte *node_paths[], int16_t level,
+        dfox_var *v) {
     dfox_node node(foundNode);
     int16_t idx = pos; // lastSearchPos[level];
     if (idx < 0) {
@@ -131,7 +134,7 @@ void dfox::recursiveUpdate(const char *key, int16_t key_len, byte *foundNode,
             }
             v->init();
             node.locate(v, level);
-                idx = ~v->lastSearchPos;
+            idx = ~v->lastSearchPos;
         }
         node.addData(idx, value, value_len, v);
     } else {
@@ -778,12 +781,6 @@ int16_t dfox_node::locate(dfox_var *v, int16_t level) {
     register int16_t i = 0;
     register int16_t len = TRIE_LEN;
     while (i < len) {
-        //if (recurseTrie(0, v)) {
-        //    if (v->insertState != 0) {
-        //        v->lastSearchPos = ~(v->lastSearchPos + 1);
-        //    }
-        //    return v->lastSearchPos;
-        //}
         register int16_t origPos = i;
         register byte tc = getAt(i++);
         register byte leaves = 0;
@@ -811,7 +808,7 @@ int16_t dfox_node::locate(dfox_var *v, int16_t level) {
                     }
                     kc = v->key[v->keyPos++];
                     offset = (kc & 0x07);
-                    v->mask = (0x80 >> (kc & 0x07));
+                    v->mask = (0x80 >> offset);
                 } else if (after_skip == AFTER_SKIP_RETURN) {
                     v->triePos = i;
                     v->lastSearchPos = ~(v->lastSearchPos + 1);
@@ -823,8 +820,7 @@ int16_t dfox_node::locate(dfox_var *v, int16_t level) {
             v->origPos = origPos;
             if ((kc ^ tc) < 0x08) {
                 if (leaves) {
-                    v->lastSearchPos += GenTree::bit_count[leaves
-                            & left_mask[offset]];
+                    v->lastSearchPos += GenTree::bit_count[leaves & left_mask[offset]];
                 }
                 if (children) {
                     to_skip = GenTree::bit_count[children & left_mask[offset]];
@@ -845,7 +841,7 @@ int16_t dfox_node::locate(dfox_var *v, int16_t level) {
                     }
                     kc = v->key[v->keyPos++];
                     offset = (kc & 0x07);
-                    v->mask = (0x80 >> (kc & 0x07));
+                    v->mask = (0x80 >> offset);
                 }
             } else if (kc > tc) {
                 if (leaves)
@@ -883,6 +879,12 @@ int16_t dfox_node::locate(dfox_var *v, int16_t level) {
     v->lastSearchPos = ~(v->lastSearchPos + 1);
     return v->lastSearchPos;
 }
+//if (recurseTrie(0, v)) {
+//    if (v->insertState != 0) {
+//        v->lastSearchPos = ~(v->lastSearchPos + 1);
+//    }
+//    return v->lastSearchPos;
+//}
 
 byte dfox_node::processTC(dfox_var *v) {
     if (v->children & v->mask) {

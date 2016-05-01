@@ -246,80 +246,33 @@ int main() {
      gettimeofday(&stop, NULL);
      cout << "RB Tree get time:" << timedifference_msec(start, stop) << endl;
      cout << "RB Tree size:" << m1.size() << endl;
-
-     art_tree at;
-     art_tree_init(&at);
-     gettimeofday(&start, NULL);
-     it = m.begin();
-     for (; it != m.end(); ++it) {
-
-     art_insert(&at, (unsigned char*) it->first.c_str(), it->first.length(),
-     (void *) it->second.c_str());
-     }
-     gettimeofday(&stop, NULL);
-     cout << "ART Insert Time:" << timedifference_msec(start, stop) << endl;
-     it = m.begin();
-     gettimeofday(&start, NULL);
-     for (; it != m.end(); ++it) {
-     art_search(&at, (unsigned char*) it->first.c_str(), it->first.length());
-     }
-     gettimeofday(&stop, NULL);
-     cout << "ART Get Time:" << timedifference_msec(start, stop) << endl;
-     cout << "ART Size:" << art_size(&at) << endl;
      */
+
+    art_tree at;
+    art_tree_init(&at);
+    gettimeofday(&start, NULL);
+    it = m.begin();
+    for (; it != m.end(); ++it) {
+
+        art_insert(&at, (unsigned char*) it->first.c_str(), it->first.length(),
+                (void *) it->second.c_str());
+    }
+    gettimeofday(&stop, NULL);
+    cout << "ART Insert Time:" << timedifference_msec(start, stop) << endl;
+    it = m.begin();
+    gettimeofday(&start, NULL);
+    for (; it != m.end(); ++it) {
+        art_search(&at, (unsigned char*) it->first.c_str(), it->first.length());
+    }
+    gettimeofday(&stop, NULL);
+    cout << "ART Get Time:" << timedifference_msec(start, stop) << endl;
+    cout << "ART Size:" << art_size(&at) << endl;
 
     int16_t ctr = 0;
     int16_t cmp = 0;
 
-    linex *lx = new linex();
-    it = m.begin();
-    gettimeofday(&start, NULL);
-    for (; it != m.end(); ++it) {
-        lx->put(it->first.c_str(), it->first.length(), it->second.c_str(),
-                it->second.length());
-    }
-    gettimeofday(&stop, NULL);
-    cout << "B+Tree insert time:" << timedifference_msec(start, stop) << endl;
-
-    it = m.begin();
-    gettimeofday(&start, NULL);
-    for (; it != m.end(); ++it) {
-        int16_t len;
-        char *value = lx->get(it->first.c_str(), it->first.length(), &len);
-        char v[100];
-        if (value == null) {
-            ctr++;
-        } else {
-            int16_t d = util::compare(it->second.c_str(), it->second.length(),
-                    value, len);
-            if (d != 0) {
-                cmp++;
-                strncpy(v, value, len);
-                v[it->first.length()] = 0;
-                cout << cmp << ":" << it->first.c_str() << "=========="
-                        << it->second.c_str() << "----------->" << v << endl;
-            }
-        }
-    }
-    gettimeofday(&stop, NULL);
-    cout << "B+Tree Get Time:" << timedifference_msec(start, stop) << endl;
-    cout << "Null:" << ctr << endl;
-    cout << "Cmp:" << cmp << endl;
-    lx->printMaxKeyCount(NUM_ENTRIES);
-    lx->printNumLevels();
-    cout << "Root filled size:" << lx->root->filledUpto() << endl;
-
-    if (ctr > 0 || cmp > 0) {
-        it = m.begin();
-        for (; it != m.end(); ++it) {
-            cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
-                    << "\"," << endl;
-        }
-    }
-
     ctr = 0;
     cmp = 0;
-
     dfox *dx = new dfox();
     it = m.begin();
     gettimeofday(&start, NULL);
@@ -336,20 +289,20 @@ int main() {
     for (; it != m.end(); ++it) {
         int16_t len;
         char *value = dx->get(it->first.c_str(), it->first.length(), &len);
-        char v[100];
-        if (value == null) {
-            ctr++;
-        } else {
-            int16_t d = util::compare(it->second.c_str(), it->second.length(),
-                    value, len);
-            if (d != 0) {
-                cmp++;
-                strncpy(v, value, len);
-                v[it->first.length()] = 0;
-                cout << cmp << ":" << it->first.c_str() << "=========="
-                        << it->second.c_str() << "----------->" << v << endl;
-            }
-        }
+//        char v[100];
+//        if (value == null) {
+//            ctr++;
+//        } else {
+//            int16_t d = util::compare(it->second.c_str(), it->second.length(),
+//                    value, len);
+//            if (d != 0) {
+//                cmp++;
+//                strncpy(v, value, len);
+//                v[it->first.length()] = 0;
+//                cout << cmp << ":" << it->first.c_str() << "=========="
+//                        << it->second.c_str() << "----------->" << v << endl;
+//            }
+//        }
     }
     gettimeofday(&stop, NULL);
     cout << "Null:" << ctr << endl;
@@ -359,6 +312,54 @@ int main() {
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
     cout << "Root filled size:" << dx->root->filledSize() << endl;
+
+    ctr = 0;
+    cmp = 0;
+    linex *lx = new linex();
+    it = m.begin();
+    gettimeofday(&start, NULL);
+    for (; it != m.end(); ++it) {
+        lx->put(it->first.c_str(), it->first.length(), it->second.c_str(),
+                it->second.length());
+    }
+    gettimeofday(&stop, NULL);
+    cout << "B+Tree insert time:" << timedifference_msec(start, stop) << endl;
+
+    it = m.begin();
+    gettimeofday(&start, NULL);
+    for (; it != m.end(); ++it) {
+        int16_t len;
+        char *value = lx->get(it->first.c_str(), it->first.length(), &len);
+//        char v[100];
+//        if (value == null) {
+//            ctr++;
+//        } else {
+//            int16_t d = util::compare(it->second.c_str(), it->second.length(),
+//                    value, len);
+//            if (d != 0) {
+//                cmp++;
+//                strncpy(v, value, len);
+//                v[it->first.length()] = 0;
+//                cout << cmp << ":" << it->first.c_str() << "=========="
+//                        << it->second.c_str() << "----------->" << v << endl;
+//            }
+//        }
+    }
+    gettimeofday(&stop, NULL);
+    cout << "B+Tree Get Time:" << timedifference_msec(start, stop) << endl;
+    cout << "Null:" << ctr << endl;
+    cout << "Cmp:" << cmp << endl;
+    lx->printMaxKeyCount(NUM_ENTRIES);
+    lx->printNumLevels();
+    cout << "Root filled size:" << lx->root->filledUpto() << endl;
+
+    //    if (ctr > 0 || cmp > 0) {
+    //        it = m.begin();
+    //        for (; it != m.end(); ++it) {
+    //            cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
+    //                    << "\"," << endl;
+    //        }
+    //    }
 
     return 0;
 

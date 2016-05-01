@@ -39,9 +39,9 @@ public:
 class linex {
 private:
     long total_size;
-    int16_t numLevels;
-    int16_t maxKeyCount;
-    int16_t blockCount;
+    int numLevels;
+    int maxKeyCount;
+    int blockCount;
     byte *recursiveSearch(const char *key, int16_t key_len, byte *node_data,
             int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx);
     void recursiveUpdate(const char *key, int16_t key_len, byte *foundNode, int16_t pos,
@@ -49,7 +49,6 @@ private:
             byte *node_paths[], int16_t level);
 public:
     linex_node *root;
-    int16_t maxThread;
     linex();
     ~linex();
     char *get(const char *key, int16_t key_len, int16_t *pValueLen);
