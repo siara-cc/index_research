@@ -12,7 +12,7 @@
 #include "dfox.h"
 #include <sys/time.h>
 
-#define NUM_ENTRIES 1000000
+#define NUM_ENTRIES 600000
 
 using namespace std::tr1;
 using namespace std;
@@ -22,15 +22,21 @@ void insert(unordered_map<string, string>& m) {
     char v[100];
     srand(time(NULL));
     for (long l = 0; l < NUM_ENTRIES; l++) {
-        for (int16_t b = 0; b < 8; b++) {
-            char c = (48 + ((rand() * l + l) % 64));
-            k[b] = c;
+        long r = rand() * rand();
+        for (int16_t b = 0; b < 4; b++) {
+            char c = (r >> (24 - (3 - b) * 8));
+            k[b * 2] = 48 + (c >> 4);
+            k[b * 2 + 1] = 48 + (c & 0x0F);
+        }
+        r = rand() * rand();
+        for (int16_t b = 4; b < 8; b++) {
+            char c = (r >> (24 - (b - 4) * 8));
+            k[b * 2] = 48 + (c >> 4);
+            k[b * 2 + 1] = 48 + (c & 0x0F);
         }
         k[8] = 0;
-        for (int16_t b = 0; b < 8; b++) {
-            char c = (48 + ((rand() * l + l) % 64));
-            v[b] = c;
-        }
+        for (int16_t i = 0; i < 8; i++)
+            v[7 - i] = k[i];
         v[4] = 0;
         //itoa(rand(), v, 10);
         //itoa(rand(), v + strlen(v), 10);
@@ -40,6 +46,7 @@ void insert(unordered_map<string, string>& m) {
         m.insert(pair<string, string>(k, v));
     }
 }
+
 float timedifference_msec(struct timeval t0, struct timeval t1) {
     return (t1.tv_sec - t0.tv_sec) * 1000.0f
             + (t1.tv_usec - t0.tv_usec) / 1000.0f;
@@ -287,20 +294,20 @@ int main() {
     for (; it != m.end(); ++it) {
         int16_t len;
         char *value = dx->get(it->first.c_str(), it->first.length(), &len);
-//        char v[100];
-//        if (value == null) {
-//            ctr++;
-//        } else {
-//            int16_t d = util::compare(it->second.c_str(), it->second.length(),
-//                    value, len);
-//            if (d != 0) {
-//                cmp++;
-//                strncpy(v, value, len);
-//                v[it->first.length()] = 0;
-//                cout << cmp << ":" << it->first.c_str() << "=========="
-//                        << it->second.c_str() << "----------->" << v << endl;
-//            }
-//        }
+        char v[100];
+        if (value == null) {
+            ctr++;
+        } else {
+            int16_t d = util::compare(it->second.c_str(), it->second.length(),
+                    value, len);
+            if (d != 0) {
+                cmp++;
+                strncpy(v, value, len);
+                v[it->first.length()] = 0;
+                cout << cmp << ":" << it->first.c_str() << "=========="
+                        << it->second.c_str() << "----------->" << v << endl;
+            }
+        }
     }
     gettimeofday(&stop, NULL);
     cout << "Null:" << ctr << endl;
@@ -330,20 +337,20 @@ int main() {
     for (; it != m.end(); ++it) {
         int16_t len;
         char *value = lx->get(it->first.c_str(), it->first.length(), &len);
-//        char v[100];
-//        if (value == null) {
-//            ctr++;
-//        } else {
-//            int16_t d = util::compare(it->second.c_str(), it->second.length(),
-//                    value, len);
-//            if (d != 0) {
-//                cmp++;
-//                strncpy(v, value, len);
-//                v[it->first.length()] = 0;
-//                cout << cmp << ":" << it->first.c_str() << "=========="
-//                        << it->second.c_str() << "----------->" << v << endl;
-//            }
-//        }
+        char v[100];
+        if (value == null) {
+            ctr++;
+        } else {
+            int16_t d = util::compare(it->second.c_str(), it->second.length(),
+                    value, len);
+            if (d != 0) {
+                cmp++;
+                strncpy(v, value, len);
+                v[it->first.length()] = 0;
+                cout << cmp << ":" << it->first.c_str() << "=========="
+                        << it->second.c_str() << "----------->" << v << endl;
+            }
+        }
     }
     gettimeofday(&stop, NULL);
     cout << "B+Tree Get Time:" << timedifference_msec(start, stop) << endl;

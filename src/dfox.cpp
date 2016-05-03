@@ -54,15 +54,15 @@ byte *dfox::recursiveSearch(const char *key, int16_t key_len, byte *node_data,
             lastSearchPos[level] = ~lastSearchPos[level];
             lastSearchPos[level]--;
         } else {
-            do {
-                node_data = node.getChild(lastSearchPos[level]);
-                node.setBuf(node_data);
-                level++;
-                node_paths[level] = node.buf;
-                lastSearchPos[level] = 0;
-            } while (!node.isLeaf());
-            *pIdx = lastSearchPos[level];
-            return node_data;
+                do {
+                    node_data = node.getChild(lastSearchPos[level]);
+                    node.setBuf(node_data);
+                    level++;
+                    node_paths[level] = node.buf;
+                    lastSearchPos[level] = 0;
+                } while (!node.isLeaf());
+                *pIdx = lastSearchPos[level];
+                return node_data;
         }
         node_data = node.getChild(lastSearchPos[level]);
         node.setBuf(node_data);
