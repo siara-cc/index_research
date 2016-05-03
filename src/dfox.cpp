@@ -5,19 +5,41 @@
 #include "GenTree.h"
 
 char *dfox::get(const char *key, int16_t key_len, int16_t *pValueLen) {
-    int16_t lastSearchPos[numLevels];
-    byte *block_paths[numLevels];
     int16_t pos = -1;
-    dfox_var v;
-    v.init();
-    v.key = key;
-    v.key_len = key_len;
-    byte *foundNode = recursiveSearch(key, key_len, root->buf, lastSearchPos,
-            block_paths, &pos, &v);
+    byte *foundNode = recursiveSearchForGet(key, key_len, root->buf, &pos);
     if (pos < 0)
         return null;
     dfox_node node(foundNode);
     return (char *) node.getData(pos, pValueLen);
+}
+
+byte *dfox::recursiveSearchForGet(const char *key, int16_t key_len,
+        byte *node_data, int16_t *pIdx) {
+    int16_t level = 0;
+    int16_t pos = -1;
+    dfox_node node(node_data);
+    while (!node.isLeaf()) {
+        pos = node.locateForGet(key, key_len, level);
+        if (pos < 0) {
+            pos = ~pos;
+            pos--;
+        } else {
+            do {
+                node_data = node.getChild(pos);
+                node.setBuf(node_data);
+                level++;
+                pos = 0;
+            } while (!node.isLeaf());
+            *pIdx = pos;
+            return node_data;
+        }
+        node_data = node.getChild(pos);
+        node.setBuf(node_data);
+        level++;
+    }
+    pos = node.locateForGet(key, key_len, level);
+    *pIdx = pos;
+    return node_data;
 }
 
 byte *dfox::recursiveSearch(const char *key, int16_t key_len, byte *node_data,
@@ -31,18 +53,16 @@ byte *dfox::recursiveSearch(const char *key, int16_t key_len, byte *node_data,
         if (lastSearchPos[level] < 0) {
             lastSearchPos[level] = ~lastSearchPos[level];
             lastSearchPos[level]--;
-            if (lastSearchPos[level] >= node.filledSize()) {
-                lastSearchPos[level] -= node.filledSize();
-                do {
-                    node_data = node.getChild(lastSearchPos[level]);
-                    node.setBuf(node_data);
-                    level++;
-                    node_paths[level] = node.buf;
-                    lastSearchPos[level] = 0;
-                } while (!node.isLeaf());
-                *pIdx = lastSearchPos[level];
-                return node_data;
-            }
+        } else {
+            do {
+                node_data = node.getChild(lastSearchPos[level]);
+                node.setBuf(node_data);
+                level++;
+                node_paths[level] = node.buf;
+                lastSearchPos[level] = 0;
+            } while (!node.isLeaf());
+            *pIdx = lastSearchPos[level];
+            return node_data;
         }
         node_data = node.getChild(lastSearchPos[level]);
         node.setBuf(node_data);
@@ -820,7 +840,8 @@ int16_t dfox_node::locate(dfox_var *v, int16_t level) {
             v->origPos = origPos;
             if ((kc ^ tc) < 0x08) {
                 if (leaves) {
-                    v->lastSearchPos += GenTree::bit_count[leaves & left_mask[offset]];
+                    v->lastSearchPos += GenTree::bit_count[leaves
+                            & left_mask[offset]];
                 }
                 if (children) {
                     to_skip = GenTree::bit_count[children & left_mask[offset]];
@@ -928,6 +949,128 @@ byte dfox_node::processTC(dfox_var *v) {
     }
     return PTC_NOT_FOUND;
 
+}
+
+int16_t dfox_node::locateForGet(const char *key, int16_t key_len,
+        int16_t level) {
+    if (TRIE_LEN == 0)
+        return -1;
+    register int16_t keyPos = 0;
+    register byte kc = key[keyPos++];
+    register byte offset = (kc & 0x07);
+    register byte mask = (0x80 >> offset);
+    register byte to_skip = 0;
+    byte after_skip = AFTER_SKIP_INITIAL;
+    register int16_t pos = -1;
+    register int16_t i = 0;
+    register int16_t len = TRIE_LEN;
+    byte orig_child = 0;
+    byte orig_leaf = 0;
+    while (i < len) {
+        register byte tc = trie[i++];
+        register byte leaves = 0;
+        register byte children = 0;
+        if (tc & 0x04)
+            children = trie[i++];
+        if (tc & 0x02)
+            leaves = trie[i++];
+        if (to_skip) {
+            if (tc & 0x01)
+                to_skip--;
+            if (leaves)
+                pos += GenTree::bit_count[leaves];
+            if (children)
+                to_skip += GenTree::bit_count[children];
+            if (!to_skip) {
+                if (after_skip == AFTER_SKIP_PROCESS_TC) {
+                    if (orig_child & mask) {
+                        if (orig_leaf & mask) {
+                            pos++;
+                            if (keyPos == key_len)
+                                return pos;
+                        } else {
+                            if (keyPos == key_len)
+                                return ~(pos + 1);
+                        }
+                    } else {
+                        if (orig_leaf & mask) {
+                            pos++;
+                            int16_t key_at_len;
+                            const char *key_at = (char *) getKey(pos,
+                                    &key_at_len);
+                            int16_t cmp = util::compare(key, key_len, key_at,
+                                    key_at_len, keyPos);
+                            if (cmp == 0)
+                                return pos;
+                            if (cmp < 0)
+                                pos--;
+                            return ~(pos + 1);
+                        } else
+                            return ~(pos + 1);
+                    }
+                    kc = key[keyPos++];
+                    offset = (kc & 0x07);
+                    mask = (0x80 >> offset);
+                } else if (after_skip == AFTER_SKIP_RETURN)
+                    return ~(pos + 1);
+                after_skip = AFTER_SKIP_INITIAL;
+            }
+        } else {
+            if ((kc ^ tc) < 0x08) {
+                if (leaves)
+                    pos += GenTree::bit_count[leaves & left_mask[offset]];
+                if (children)
+                    to_skip = GenTree::bit_count[children & left_mask[offset]];
+                if (to_skip) {
+                    orig_child = children;
+                    orig_leaf = leaves;
+                    after_skip = AFTER_SKIP_PROCESS_TC;
+                } else {
+                    if (children & mask) {
+                        if (leaves & mask) {
+                            pos++;
+                            if (keyPos == key_len)
+                                return pos;
+                        } else {
+                            if (keyPos == key_len)
+                                return ~(pos + 1);
+                        }
+                    } else {
+                        if (leaves & mask) {
+                            pos++;
+                            int16_t key_at_len;
+                            const char *key_at = (char *) getKey(pos,
+                                    &key_at_len);
+                            int16_t cmp = util::compare(key, key_len, key_at,
+                                    key_at_len, keyPos);
+                            if (cmp == 0)
+                                return pos;
+                            if (cmp < 0)
+                                pos--;
+                            return ~(pos + 1);
+                        } else
+                            return ~(pos + 1);
+                    }
+                    kc = key[keyPos++];
+                    offset = (kc & 0x07);
+                    mask = (0x80 >> offset);
+                }
+            } else if (kc > tc) {
+                if (leaves)
+                    pos += GenTree::bit_count[leaves];
+                if (children)
+                    to_skip += GenTree::bit_count[children];
+                if (tc & 0x01) {
+                    if (to_skip)
+                        after_skip = AFTER_SKIP_RETURN;
+                    else
+                        return ~(pos + 1);
+                }
+            } else
+                return ~(pos + 1);
+        }
+    }
+    return ~(pos + 1);
 }
 
 void dfox_node::delAt(byte pos) {

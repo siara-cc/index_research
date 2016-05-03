@@ -12,7 +12,7 @@
 #include "dfox.h"
 #include <sys/time.h>
 
-#define NUM_ENTRIES 60000
+#define NUM_ENTRIES 1000000
 
 using namespace std::tr1;
 using namespace std;
@@ -22,21 +22,15 @@ void insert(unordered_map<string, string>& m) {
     char v[100];
     srand(time(NULL));
     for (long l = 0; l < NUM_ENTRIES; l++) {
-        long r = rand() * rand();
-        for (int16_t b = 0; b < 4; b++) {
-            char c = (r >> (24 - (3 - b) * 8));
-            k[b * 2] = 48 + (c >> 4);
-            k[b * 2 + 1] = 48 + (c & 0x0F);
-        }
-        r = rand() * rand();
-        for (int16_t b = 4; b < 8; b++) {
-            char c = (r >> (24 - (b - 4) * 8));
-            k[b * 2] = 48 + (c >> 4);
-            k[b * 2 + 1] = 48 + (c & 0x0F);
+        for (int16_t b = 0; b < 8; b++) {
+            char c = (48 + ((rand() * l + l) % 64));
+            k[b] = c;
         }
         k[8] = 0;
-        for (int16_t i = 0; i < 8; i++)
-            v[7 - i] = k[i];
+        for (int16_t b = 0; b < 8; b++) {
+            char c = (48 + ((rand() * l + l) % 64));
+            v[b] = c;
+        }
         v[4] = 0;
         //itoa(rand(), v, 10);
         //itoa(rand(), v + strlen(v), 10);
@@ -225,6 +219,7 @@ int main() {
     gettimeofday(&stop, NULL);
     cout << "HashMap insert time:" << timedifference_msec(start, stop) << endl;
     cout << "HashMap size:" << m.size() << endl;
+    //getchar();
 
     unordered_map<string, string>::iterator it;
 
@@ -259,6 +254,7 @@ int main() {
     }
     gettimeofday(&stop, NULL);
     cout << "ART Insert Time:" << timedifference_msec(start, stop) << endl;
+    //getchar();
     it = m.begin();
     gettimeofday(&start, NULL);
     for (; it != m.end(); ++it) {
@@ -267,6 +263,7 @@ int main() {
     gettimeofday(&stop, NULL);
     cout << "ART Get Time:" << timedifference_msec(start, stop) << endl;
     cout << "ART Size:" << art_size(&at) << endl;
+    //getchar();
 
     int16_t ctr = 0;
     int16_t cmp = 0;
@@ -283,6 +280,7 @@ int main() {
     gettimeofday(&stop, NULL);
     cout << "DFox+Tree insert time:" << timedifference_msec(start, stop)
             << endl;
+    //getchar();
 
     it = m.begin();
     gettimeofday(&start, NULL);
@@ -312,6 +310,7 @@ int main() {
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
     cout << "Root filled size:" << dx->root->filledSize() << endl;
+    //getchar();
 
     ctr = 0;
     cmp = 0;
@@ -324,6 +323,7 @@ int main() {
     }
     gettimeofday(&stop, NULL);
     cout << "B+Tree insert time:" << timedifference_msec(start, stop) << endl;
+    //getchar();
 
     it = m.begin();
     gettimeofday(&start, NULL);

@@ -91,6 +91,7 @@ public:
     int16_t getPtr(int16_t pos);
     void insPtr(int16_t pos, int16_t kvIdx);
     int16_t locate(dfox_var *v, int16_t level);
+    int16_t locateForGet(const char *key, int16_t key_len, int16_t level);
     bool recurseTrie(int16_t level, dfox_var *v);
     byte recurseEntireTrie(int16_t level, dfox_var *v, long idx_list[],
             int16_t *pidx_len);
@@ -105,6 +106,8 @@ private:
     int blockCount;
     byte *recursiveSearch(const char *key, int16_t key_len, byte *node_data,
             int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx, dfox_var *v);
+    byte *recursiveSearchForGet(const char *key, int16_t key_len,
+            byte *node_data, int16_t *pIdx);
     void recursiveUpdate(const char *key, int16_t key_len, byte *foundNode, int16_t pos,
             const char *value, int16_t value_len, int16_t lastSearchPos[],
             byte *node_paths[], int16_t level, dfox_var *v);
