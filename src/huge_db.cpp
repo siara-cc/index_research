@@ -12,7 +12,7 @@
 #include "dfox.h"
 #include <sys/time.h>
 
-#define NUM_ENTRIES 600000
+#define NUM_ENTRIES 60000
 
 using namespace std::tr1;
 using namespace std;
@@ -35,6 +35,15 @@ void insert(unordered_map<string, string>& m) {
             k[b * 2 + 1] = 48 + (c & 0x0F);
         }
         k[8] = 0;
+//        k[0] = (l >> 24) & 0xFF;
+//        k[1] = (l >> 16) & 0xFF;
+//        k[2] = (l >> 8) & 0xFF;
+//        k[3] = (l & 0xFF);
+//        if (k[0] == 0) k[0]++;
+//        if (k[1] == 0) k[1]++;
+//        if (k[2] == 0) k[2]++;
+//        if (k[3] == 0) k[3]++;
+//        k[4] = 0;
         for (int16_t i = 0; i < 8; i++)
             v[7 - i] = k[i];
         v[4] = 0;
@@ -255,7 +264,6 @@ int main() {
     gettimeofday(&start, NULL);
     it = m.begin();
     for (; it != m.end(); ++it) {
-
         art_insert(&at, (unsigned char*) it->first.c_str(), it->first.length(),
                 (void *) it->second.c_str());
     }
@@ -313,7 +321,7 @@ int main() {
     cout << "Null:" << ctr << endl;
     cout << "Cmp:" << cmp << endl;
     cout << "DFox+Tree get time:" << timedifference_msec(start, stop) << endl;
-    std::cout << "Trie Size:" << dx->size() << endl;
+    std::cout << "Trie Size:" << (int) dx->root->TRIE_LEN << endl;
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
     cout << "Root filled size:" << dx->root->filledSize() << endl;

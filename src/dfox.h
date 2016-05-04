@@ -9,11 +9,11 @@ using namespace std;
 
 typedef unsigned char byte;
 #define DFOX_NODE_SIZE 512
-#define MAX_PTR_BITMAP_BYTES 4
-#define IDX_BLK_SIZE 64
+#define MAX_PTR_BITMAP_BYTES 6
+#define IDX_BLK_SIZE 128
 #define IDX_HDR_SIZE (MAX_PTR_BITMAP_BYTES+4)
 #define TRIE_PTR_AREA_SIZE (IDX_BLK_SIZE-IDX_HDR_SIZE)
-#define MAX_PTRS 30
+#define MAX_PTRS 46
 
 #define INSERT_MIDDLE1 1
 #define INSERT_MIDDLE2 2
@@ -106,8 +106,7 @@ private:
     int blockCount;
     byte *recursiveSearch(const char *key, int16_t key_len, byte *node_data,
             int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx, dfox_var *v);
-    byte *recursiveSearchForGet(const char *key, int16_t key_len,
-            byte *node_data, int16_t *pIdx);
+    byte *recursiveSearchForGet(const char *key, int16_t key_len, int16_t *pIdx);
     void recursiveUpdate(const char *key, int16_t key_len, byte *foundNode, int16_t pos,
             const char *value, int16_t value_len, int16_t lastSearchPos[],
             byte *node_paths[], int16_t level, dfox_var *v);
