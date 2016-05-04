@@ -12,7 +12,7 @@
 #include "dfox.h"
 #include <sys/time.h>
 
-#define NUM_ENTRIES 60000
+#define NUM_ENTRIES 1000000
 
 using namespace std::tr1;
 using namespace std;

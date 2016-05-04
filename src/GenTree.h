@@ -90,8 +90,8 @@ public:
 
     // Function to get no of set bits in binary
     // representation of passed binary no.
-    static byte countSetBits(int n) {
-        int count = 0;
+    inline static byte countSetBits(int n) {
+        byte count = 0;
         while (n > 0) {
             n &= (n - 1);
             count++;

@@ -963,27 +963,31 @@ int16_t dfox_node::locateForGet(const char *key, int16_t key_len,
     register int16_t pos = -1;
     register byte i = 0;
     register byte len = TRIE_LEN;
-    byte orig_child = 0;
-    byte orig_leaf = 0;
+    byte orig_child;
+    byte orig_leaf;
     while (i < len) {
         register byte tc = trie[i++];
         register byte leaves = 0;
         register byte children = 0;
-        if (tc & 0x04)
+        switch (tc & 0x06) {
+        case 0x06:
             children = trie[i++];
-        if (tc & 0x02)
             leaves = trie[i++];
+            break;
+        case 0x04:
+            children = trie[i++];
+            break;
+        case 0x02:
+            leaves = trie[i++];
+            break;
+        }
         if (to_skip) {
             if (tc & 0x01)
                 to_skip--;
-            if (leaves) {
-                pos += GenTree::bit_count[leaves >> 4];
-                pos += GenTree::bit_count[leaves & 0x0F];
-            }
-            if (children) {
-                to_skip += GenTree::bit_count[children >> 4];
-                to_skip += GenTree::bit_count[children & 0x0F];
-            }
+            if (leaves)
+                pos += GenTree::bit_count[leaves];
+            if (children)
+                to_skip += GenTree::bit_count[children];
             if (!to_skip) {
                 if (after_skip == AFTER_SKIP_PROCESS_TC) {
                     if (orig_child & mask) {
@@ -1020,16 +1024,10 @@ int16_t dfox_node::locateForGet(const char *key, int16_t key_len,
             }
         } else {
             if ((kc ^ tc) < 0x08) {
-                if (leaves) {
-                    leaves &= left_mask[offset];
-                    pos += GenTree::bit_count[leaves >> 4];
-                    pos += GenTree::bit_count[leaves & 0x0F];
-                }
-                if (children) {
-                    children &= left_mask[offset];
-                    to_skip = GenTree::bit_count[children >> 4];
-                    to_skip += GenTree::bit_count[children & 0x0F];
-                }
+                if (leaves)
+                    pos += GenTree::bit_count[leaves & left_mask[offset]];
+                if (children)
+                    to_skip = GenTree::bit_count[children & left_mask[offset]];
                 if (to_skip) {
                     orig_child = children;
                     orig_leaf = leaves;
@@ -1065,14 +1063,10 @@ int16_t dfox_node::locateForGet(const char *key, int16_t key_len,
                     mask = (0x80 >> offset);
                 }
             } else if (kc > tc) {
-                if (leaves) {
-                    pos += GenTree::bit_count[leaves >> 4];
-                    pos += GenTree::bit_count[leaves & 0x0F];
-                }
-                if (children) {
-                    to_skip += GenTree::bit_count[children >> 4];
-                    to_skip += GenTree::bit_count[children & 0x0F];
-                }
+                if (leaves)
+                    pos += GenTree::bit_count[leaves];
+                if (children)
+                    to_skip += GenTree::bit_count[children];
                 if (tc & 0x01) {
                     if (to_skip)
                         after_skip = AFTER_SKIP_RETURN;
