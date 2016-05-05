@@ -47,7 +47,7 @@ void insert(unordered_map<string, string>& m) {
 //        k[4] = 0;
         for (int16_t i = 0; i < 8; i++)
             v[7 - i] = k[i];
-        v[6] = 0;
+        v[4] = 0;
         //itoa(rand(), v, 10);
         //itoa(rand(), v + strlen(v), 10);
         //itoa(rand(), v + strlen(v), 10);
@@ -107,15 +107,15 @@ int main2() {
     dx->put("hello", 5, "10", 2);
     dx->put("world", 5, "11", 2);
     dx->put("how", 3, "12", 2);
-    dx->put("are", 3, "13", 2);
-    dx->put("you", 3, "14", 2);
-    dx->put("boy", 3, "15", 2);
-    dx->put("boat", 4, "16", 2);
-    dx->put("buoy", 4, "17", 2);
-    dx->put("boast", 5, "18", 2);
-    dx->put("young", 5, "19", 2);
-    dx->put("youth", 5, "20", 2);
-    dx->put("yousuf", 6, "21", 2);
+//    dx->put("are", 3, "13", 2);
+//    dx->put("you", 3, "14", 2);
+//    dx->put("boy", 3, "15", 2);
+//    dx->put("boat", 4, "16", 2);
+//    dx->put("buoy", 4, "17", 2);
+//    dx->put("boast", 5, "18", 2);
+//    dx->put("young", 5, "19", 2);
+//    dx->put("youth", 5, "20", 2);
+//    dx->put("yousuf", 6, "21", 2);
     print(dx, "Hello", 5);
     print(dx, "Nice", 4);
     print(dx, "Arun", 4);
@@ -131,21 +131,21 @@ int main2() {
     print(dx, "hello", 5);
     print(dx, "world", 5);
     print(dx, "how", 3);
-    print(dx, "are", 3);
-    print(dx, "you", 3);
-    print(dx, "boy", 3);
-    print(dx, "boat", 4);
-    print(dx, "buoy", 4);
-    print(dx, "boast", 5);
-    print(dx, "young", 5);
-    print(dx, "youth", 5);
-    print(dx, "yousuf", 6);
+//    print(dx, "are", 3);
+//    print(dx, "you", 3);
+//    print(dx, "boy", 3);
+//    print(dx, "boat", 4);
+//    print(dx, "buoy", 4);
+//    print(dx, "boast", 5);
+//    print(dx, "young", 5);
+//    print(dx, "youth", 5);
+//    print(dx, "yousuf", 6);
     dx->printMaxKeyCount(24);
     dx->printNumLevels();
     return 0;
 }
 
-int main() {
+int main1() {
     GenTree::generateBitCounts();
     //linex *dx = new linex();
     dfox *dx = new dfox();
@@ -239,7 +239,7 @@ int main() {
     return 0;
 }
 
-int main1() {
+int main() {
 
     GenTree::generateBitCounts();
 
@@ -299,13 +299,13 @@ int main1() {
     int16_t ctr = 0;
     int16_t cmp = 0;
 
-            it = m.begin();
-            for (; it != m.end(); ++it) {
-                cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
-                        << "\"," << endl;
-                if (ctr++ > 40)
-                    break;
-            }
+//            it = m.begin();
+//            for (; it != m.end(); ++it) {
+//                cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
+//                        << "\"," << endl;
+//                if (ctr++ > 40)
+//                    break;
+//            }
 
     ctr = 0;
     cmp = 0;

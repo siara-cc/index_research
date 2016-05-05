@@ -9,11 +9,11 @@ using namespace std;
 
 typedef unsigned char byte;
 #define DFOX_NODE_SIZE 512
-#define MAX_PTR_BITMAP_BYTES 6
-#define IDX_BLK_SIZE 128
+#define MAX_PTR_BITMAP_BYTES 4
+#define IDX_BLK_SIZE 64
 #define IDX_HDR_SIZE (MAX_PTR_BITMAP_BYTES+4)
 #define TRIE_PTR_AREA_SIZE (IDX_BLK_SIZE-IDX_HDR_SIZE)
-#define MAX_PTRS 46
+#define MAX_PTRS 30
 
 #define INSERT_MIDDLE1 1
 #define INSERT_MIDDLE2 2
@@ -41,7 +41,7 @@ public:
     byte isPut;
     const char *key;
     int16_t key_len;
-    char *key_at;
+    const char *key_at;
     int16_t key_at_len;
     int16_t lastSearchPos;
     dfox_var() {
@@ -90,8 +90,7 @@ public:
     byte *split(int16_t *pbrk_idx);
     int16_t getPtr(int16_t pos);
     void insPtr(int16_t pos, int16_t kvIdx);
-    int16_t locate(dfox_var *v, int16_t level);
-    int16_t locateForGet(const char *key, int16_t key_len, int16_t level);
+    int16_t locate(const char *key, int16_t key_len, int16_t level, dfox_var *v);
     bool recurseTrie(int16_t level, dfox_var *v);
     byte recurseEntireTrie(int16_t level, dfox_var *v, long idx_list[],
             int16_t *pidx_len);
