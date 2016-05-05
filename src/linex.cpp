@@ -1,15 +1,41 @@
 #include "linex.h"
 
 char *linex::get(const char *key, int16_t key_len, int16_t *pValueLen) {
-    int16_t lastSearchPos[numLevels];
-    byte *block_paths[numLevels];
     int16_t pos = -1;
-    byte *foundNode = recursiveSearch(key, key_len, root->buf, lastSearchPos,
-            block_paths, &pos);
+    byte *foundNode = recursiveSearchForGet(key, key_len, &pos);
     if (pos < 0)
         return null;
     linex_node node(foundNode);
     return (char *) node.getData(pos, pValueLen);
+}
+
+byte *linex::recursiveSearchForGet(const char *key, int16_t key_len,
+        int16_t *pIdx) {
+    int16_t level = 0;
+    int pos = -1;
+    byte *node_data = root->buf;
+    linex_node node(node_data);
+    while (!node.isLeaf()) {
+        pos = node.locate(key, key_len, level);
+        if (pos < 0) {
+            pos = ~pos;
+        } else {
+            do {
+                node_data = node.getChild(pos);
+                node.setBuf(node_data);
+                level++;
+                pos = 0;
+            } while (!node.isLeaf());
+            *pIdx = pos;
+            return node_data;
+        }
+        node_data = node.getChild(pos);
+        node.setBuf(node_data);
+        level++;
+    }
+    pos = node.locate(key, key_len, level);
+    *pIdx = pos;
+    return node_data;
 }
 
 byte *linex::recursiveSearch(const char *key, int16_t key_len, byte *node_data,

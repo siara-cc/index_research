@@ -360,7 +360,7 @@ bool dfox_node::isFull(int16_t kv_len, dfox_var *v) {
         return true;
     if (FILLED_SIZE > MAX_PTRS)
         return true;
-    if ((getKVLastPos() - kv_len - 2) < (IDX_BLK_SIZE + 2))
+    if ((getKVLastPos() - kv_len - 4) < IDX_BLK_SIZE)
         return true;
     return false;
 }
@@ -959,28 +959,20 @@ int16_t dfox_node::locateForGet(const char *key, int16_t key_len,
     register byte offset = (kc & 0x07);
     register byte mask = (0x80 >> offset);
     register byte to_skip = 0;
-    byte after_skip = AFTER_SKIP_INITIAL;
+    register byte after_skip = AFTER_SKIP_INITIAL;
     register int16_t pos = -1;
     register byte i = 0;
-    register byte len = TRIE_LEN;
-    byte orig_child;
-    byte orig_leaf;
-    while (i < len) {
+    //register byte len = TRIE_LEN;
+    register byte orig_child;
+    register byte orig_leaf;
+    while (1) {
         register byte tc = trie[i++];
         register byte leaves = 0;
         register byte children = 0;
-        switch (tc & 0x06) {
-        case 0x06:
+        if (tc & 0x04)
             children = trie[i++];
+        if (tc & 0x02)
             leaves = trie[i++];
-            break;
-        case 0x04:
-            children = trie[i++];
-            break;
-        case 0x02:
-            leaves = trie[i++];
-            break;
-        }
         if (to_skip) {
             if (tc & 0x01)
                 to_skip--;
