@@ -41,7 +41,6 @@ private:
     inline void setParent(int16_t n, int16_t p);
     inline void setRoot(int16_t n);
     inline void setColor(int16_t n, byte c);
-    int16_t newNode(byte n_color, int16_t left, int16_t right, int16_t parent);
     void rotateLeft(int16_t n);
     void rotateRight(int16_t n);
     void replaceNode(int16_t oldn, int16_t newn);

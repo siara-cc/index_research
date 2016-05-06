@@ -89,18 +89,25 @@ void rb_tree::put(const char *key, int16_t key_len, const char *value,
 void rb_tree_node::addData(int16_t idx, const char *key, int16_t key_len,
         const char *value, int16_t value_len) {
 
-    byte *kvIdx = buf + idx;
     int16_t filled_upto = filledUpto();
     filled_upto++;
     util::setInt(buf + FILLED_UPTO_POS, filled_upto);
-    kvIdx[0] = key_len;
-    memcpy(kvIdx + 1, key, key_len);
-    kvIdx[key_len + 1] = value_len;
-    memcpy(kvIdx + key_len + 2, value, value_len);
 
-    int16_t inserted_node = newNode(RB_RED, 0, 0, 0);
+    int16_t n = util::getInt(buf + DATA_END_POS);
+    buf[n] = RB_RED;
+    n += KEY_LEN_POS;
+    buf[n] = key_len;
+    n++;
+    memcpy(buf + n, key, key_len);
+    n += key_len;
+    buf[n] = value_len;
+    n++;
+    memcpy(buf + n, value, value_len);
+    n += value_len;
+    util::setInt(buf + DATA_END_POS, n);
+
     if (getRoot == 0) {
-        setRoot(inserted_node);
+        setRoot (inserted_node);
     } else {
         int16_t n = getRoot();
         while (1) {
@@ -127,13 +134,14 @@ void rb_tree_node::addData(int16_t idx, const char *key, int16_t key_len,
         }
         setParent(inserted_node, n);
     }
-    insertCase1(inserted_node);
+    insertCase1 (inserted_node);
 
 }
 
 byte *rb_tree_node::split(int16_t *pbrk_idx) {
     int16_t filled_upto = filledUpto();
-    rb_tree_node *new_block = new rb_tree_node(util::alignedAlloc(RB_TREE_NODE_SIZE));
+    rb_tree_node *new_block = new rb_tree_node(
+            util::alignedAlloc(RB_TREE_NODE_SIZE));
     if (!isLeaf())
         new_block->setLeaf(false);
     int16_t data_end_pos = util::getInt(buf + DATA_END_POS);
@@ -299,40 +307,31 @@ bool rb_tree_node::isFull(int16_t kv_len) {
     return false;
 }
 
-rb_tree_node *rb_tree_node::getChild(int16_t pos) {
-    byte *kvIdx = buf + RB_NODE_HDR_SIZE;
-    kvIdx += pos;
-    kvIdx += pos;
-    kvIdx = buf + util::getInt(kvIdx);
-    byte *idx = kvIdx;
-    idx += kvIdx[0];
-    idx += 2;
-    unsigned long addr_num = util::fourBytesToPtr(idx);
-    rb_tree_node *ret = (rb_tree_node *) addr_num;
+byte *rb_tree_node::getChild(int16_t pos) {
+    byte *kvIdx = buf + pos;
+    kvIdx += kvIdx[KEY_LEN_POS];
+    kvIdx += 2;
+    unsigned long addr_num = util::fourBytesToPtr(kvIdx);
+    byte *ret = (byte *) addr_num;
     return ret;
 }
 
 byte *rb_tree_node::getKey(int16_t pos, int16_t *plen) {
-    byte *kvIdx = buf + RB_NODE_HDR_SIZE;
-    kvIdx += pos;
-    kvIdx += pos;
-    kvIdx = buf + util::getInt(kvIdx);
-    *plen = kvIdx[0];
+    byte *kvIdx = buf + pos;
+    *plen = kvIdx[KEY_LEN_POS];
+    kvIdx += *plen;
     kvIdx++;
     return kvIdx;
 }
 
 byte *rb_tree_node::getData(int16_t pos, int16_t *plen) {
-    byte *kvIdx = buf + RB_NODE_HDR_SIZE;
-    kvIdx += pos;
-    kvIdx += pos;
-    kvIdx = buf + util::getInt(kvIdx);
-    byte *ret = kvIdx;
-    ret += kvIdx[0];
-    ret++;
-    *plen = ret[0];
-    ret++;
-    return ret;
+    byte *kvIdx = buf + pos;
+    *plen = kvIdx[KEY_LEN_POS];
+    kvIdx += *plen;
+    kvIdx++;
+    *plen = kvIdx[0];
+    kvIdx++;
+    return kvIdx;
 }
 
 void rb_tree_node::rotateLeft(int16_t n) {
@@ -417,7 +416,8 @@ void rb_tree_node::insertCase5(int16_t n) {
         rotateRight(getGrandParent(n));
     } else {
         assert(
-                n == getRight(getParent(n)) && getParent(n) == getRight(getGrandParent(n)));
+                n == getRight(getParent(n))
+                        && getParent(n) == getRight(getGrandParent(n)));
         rotateLeft(getGrandParent(n));
     }
 }
@@ -483,16 +483,4 @@ void rb_tree_node::setRoot(int16_t n) {
 
 void rb_tree_node::setColor(int16_t n, byte c) {
     buf[n] = c;
-}
-
-int16_t rb_tree_node::newNode(byte n_color, int16_t left, int16_t right, int16_t parent) {
-    int16_t n = util::getInt(buf + DATA_END_POS);
-    byte *node = buf + n;
-
-    node[COLOR_POS] = n_color;
-    util::setInt(node + LEFT_PTR_POS, left);
-    util::setInt(node + RYTE_PTR_POS, right);
-    util::setInt(node + PARENT_PTR_POS, parent);
-    util::setInt(buf + DATA_END_POS, kv_last_pos);
-    return n;
 }
