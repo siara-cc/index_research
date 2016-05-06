@@ -5,14 +5,13 @@
 #include <iostream>
 #include "util.h"
 #include "GenTree.h"
-#include "bp_tree.h"
 
 using namespace std;
 
 #define RB_TREE_NODE_SIZE 512
 #define RB_TREE_HDR_SIZE 7
 #define IS_LEAF_POS 0
-#define FILLED_SIZE_POS 1
+#define FILLED_UPTO_POS 1
 #define DATA_END_POS 3
 #define ROOT_NODE_POS 5
 
@@ -25,59 +24,86 @@ using namespace std;
 #define PARENT_PTR_POS 5
 #define KEY_LEN_POS 7
 
-class rb_tree_node: public bplus_tree_node {
+class rb_tree_node {
 private:
-    int binarySearchLeaf(const char *key, int key_len);
-    int binarySearchNode(const char *key, int key_len);
-    inline int getLeft(int n);
-    inline int getRight(int n);
-    inline int getParent(int n);
-    int getSibling(int n);
-    inline inline int getUncle(int n);
-    inline int getGrandParent(int n);
-    inline int getRoot();
-    inline int getColor(int n);
-    inline void setLeft(int n, int l);
-    inline void setRight(int n, int r);
-    inline void setParent(int n, int p);
-    inline void setRoot(int n);
-    inline void setColor(int n, byte c);
-    int newNode(byte n_color, int left, int right, int parent);
-    void rotateLeft(int n);
-    void rotateRight(int n);
-    void replaceNode(int oldn, int newn);
-    void insertCase1(int n);
-    void insertCase2(int n);
-    void insertCase3(int n);
-    void insertCase4(int n);
-    void insertCase5(int n);
+    int16_t binarySearchLeaf(const char *key, int16_t key_len);
+    int16_t binarySearchNode(const char *key, int16_t key_len);
+    inline int16_t getLeft(int16_t n);
+    inline int16_t getRight(int16_t n);
+    inline int16_t getParent(int16_t n);
+    int16_t getSibling(int16_t n);
+    inline inline int16_t getUncle(int16_t n);
+    inline int16_t getGrandParent(int16_t n);
+    inline int16_t getRoot();
+    inline int16_t getColor(int16_t n);
+    inline void setLeft(int16_t n, int16_t l);
+    inline void setRight(int16_t n, int16_t r);
+    inline void setParent(int16_t n, int16_t p);
+    inline void setRoot(int16_t n);
+    inline void setColor(int16_t n, byte c);
+    int16_t newNode(byte n_color, int16_t left, int16_t right, int16_t parent);
+    void rotateLeft(int16_t n);
+    void rotateRight(int16_t n);
+    void replaceNode(int16_t oldn, int16_t newn);
+    void insertCase1(int16_t n);
+    void insertCase2(int16_t n);
+    void insertCase3(int16_t n);
+    void insertCase4(int16_t n);
+    void insertCase5(int16_t n);
 public:
-    rb_tree_node();
-    bool isLeaf();
-    void setLeaf(char isLeaf);
-    bool isFull(int kv_len, bplus_tree_var *v);
-    bool isFull(int kv_len, rb_tree_var *v);
-    int filledSize();
-    void setFilledSize(int filledSize);
-    int getDataEndPos();
-    void setDataEndPos(int pos);
-    int locate(rb_tree_var *v, int level);
-    int locate(bplus_tree_var *v, int level);
-    void addData(int idx, const char *value, int value_len, rb_tree_var *v);
-    void addData(int idx, const char *value, int value_len, bplus_tree_var *v);
-    rb_tree_node *getChild(int pos);
-    byte *getKey(int pos, int *plen);
-    byte *getData(int pos, int *plen);
-    rb_tree_node *split(int *pbrk_idx);
-
+    byte *buf;
+    rb_tree_node(byte *m);
+    inline void setBuf(byte *m);
+    inline void init();
+    inline bool isLeaf();
+    inline void setLeaf(char isLeaf);
+    inline void setFilledUpto(int16_t filledUpto);
+    inline int16_t getDataEndPos();
+    inline void setDataEndPos(int16_t pos);
+    int16_t filledUpto();
+    bool isFull(int16_t kv_len);
+    int16_t locate(const char *key, int16_t key_len, int16_t level);
+    void addData(int16_t idx, const char *key, int16_t key_len,
+            const char *value, int16_t value_len);
+    byte *getChild(int16_t pos);
+    byte *getKey(int16_t pos, int16_t *plen);
+    byte *getData(int16_t pos, int16_t *plen);
+    byte *split(int16_t *pbrk_idx);
 };
 
-class rb_tree : public bplus_tree {
+class rb_tree {
 private:
-    inline rb_tree_node *newNode();
-    inline rb_tree_var *newVar();
+    long total_size;
+    int16_t numLevels;
+    int16_t maxKeyCount;
+    int16_t blockCount;
+    byte *recursiveSearch(const char *key, int16_t key_len, byte *node_data,
+            int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx);
+    byte *recursiveSearchForGet(const char *key, int16_t key_len,
+            int16_t *pIdx);
+    void recursiveUpdate(const char *key, int16_t key_len, byte *foundNode,
+            int16_t pos, const char *value, int16_t value_len,
+            int16_t lastSearchPos[], byte *node_paths[], int16_t level);
 public:
+    rb_tree_node *root;
     rb_tree();
+    ~rb_tree();
+    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
+    void put(const char *key, int16_t key_len, const char *value,
+            int16_t value_len);
+    void printMaxKeyCount(long num_entries) {
+        std::cout << "Block Count:" << blockCount << std::endl;
+        std::cout << "Avg Block Count:" << (num_entries / blockCount)
+                << std::endl;
+        std::cout << "Avg Max Count:" << (maxKeyCount / blockCount)
+                << std::endl;
+    }
+    void printNumLevels() {
+        std::cout << "Level Count:" << numLevels << std::endl;
+    }
+    long size() {
+        return total_size;
+    }
 };
 
 #endif
