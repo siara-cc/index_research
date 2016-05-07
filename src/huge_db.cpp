@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <windows.h>
 #include <tr1/unordered_map>
 #include "art.h"
 #include "linex.h"
@@ -14,6 +13,7 @@
 #include <sys/time.h>
 
 #define NUM_ENTRIES 1000000
+//#define NUM_ENTRIES 130
 
 using namespace std::tr1;
 using namespace std;
@@ -23,6 +23,15 @@ void insert(unordered_map<string, string>& m) {
     char v[100];
     srand(time(NULL));
     for (long l = 0; l < NUM_ENTRIES; l++) {
+//        k[0] = 48 + (rand() % 64);
+//        k[1] = 48 + (rand() % 64);
+//        k[2] = 48 + (rand() % 64);
+//        k[3] = 48 + (rand() % 64);
+//        k[4] = 48 + (rand() % 64);
+//        k[5] = 48 + (rand() % 64);
+//        k[6] = 48 + (rand() % 64);
+//        k[7] = 48 + (rand() % 64);
+//        k[8] = 0;
         long r = rand() * rand();
         for (int16_t b = 0; b < 4; b++) {
             char c = (r >> (24 - (3 - b) * 8));
@@ -107,15 +116,15 @@ int main2() {
     dx->put("hello", 5, "10", 2);
     dx->put("world", 5, "11", 2);
     dx->put("how", 3, "12", 2);
-//    dx->put("are", 3, "13", 2);
-//    dx->put("you", 3, "14", 2);
-//    dx->put("boy", 3, "15", 2);
-//    dx->put("boat", 4, "16", 2);
-//    dx->put("buoy", 4, "17", 2);
-//    dx->put("boast", 5, "18", 2);
-//    dx->put("young", 5, "19", 2);
-//    dx->put("youth", 5, "20", 2);
-//    dx->put("yousuf", 6, "21", 2);
+    dx->put("are", 3, "13", 2);
+    dx->put("you", 3, "14", 2);
+    dx->put("boy", 3, "15", 2);
+    dx->put("boat", 4, "16", 2);
+    dx->put("buoy", 4, "17", 2);
+    dx->put("boast", 5, "18", 2);
+    dx->put("young", 5, "19", 2);
+    dx->put("youth", 5, "20", 2);
+    dx->put("yousuf", 6, "21", 2);
     print(dx, "Hello", 5);
     print(dx, "Nice", 4);
     print(dx, "Arun", 4);
@@ -131,15 +140,15 @@ int main2() {
     print(dx, "hello", 5);
     print(dx, "world", 5);
     print(dx, "how", 3);
-//    print(dx, "are", 3);
-//    print(dx, "you", 3);
-//    print(dx, "boy", 3);
-//    print(dx, "boat", 4);
-//    print(dx, "buoy", 4);
-//    print(dx, "boast", 5);
-//    print(dx, "young", 5);
-//    print(dx, "youth", 5);
-//    print(dx, "yousuf", 6);
+    print(dx, "are", 3);
+    print(dx, "you", 3);
+    print(dx, "boy", 3);
+    print(dx, "boat", 4);
+    print(dx, "buoy", 4);
+    print(dx, "boast", 5);
+    print(dx, "young", 5);
+    print(dx, "youth", 5);
+    print(dx, "yousuf", 6);
     dx->printMaxKeyCount(24);
     dx->printNumLevels();
     return 0;
@@ -173,24 +182,24 @@ int main1() {
     dx->put("19*9421<", 8, "19*9421<", 6);
     dx->put("(46?)900", 8, "(46?)900", 6);
     dx->put(",3427=37", 8, ",3427=37", 6);
-//    dx->put("-8485501", 8, "-8485501", 6);
-//    dx->put(".01?+?0=", 8, ".01?+?0=", 6);
-//    dx->put(".=.10<15", 8, ".=.10<15", 6);
-//    dx->put("6:+41400", 8, "6:+41400", 6);
-//    dx->put(".0,0(;17", 8, ".0,0(;17", 6);
-//    dx->put("40,3):11", 8, "40,3):11", 6);
-//    dx->put(")00;,328", 8, ")00;,328", 6);
-//    dx->put(")?*7.500", 8, ")?*7.500", 6);
-//    dx->put(",74;+804", 8, ",74;+804", 6);
-//    dx->put("-2)25806", 8, "-2)25806", 6);
-//    dx->put("4=05631=", 8, "4=05631=", 6);
-//    dx->put("54.34=11", 8, "54.34=11", 6);
-//    dx->put(".?347615", 8, ".?347615", 6);
-//    dx->put("-0/55623", 8, "-0/55623", 6);
-//    dx->put(")<745002", 8, ")<745002", 6);
-//    dx->put("*>,>/318", 8, "*>,>/318", 6);
-//    dx->put("01.;1003", 8, "01.;1003", 6);
-//    dx->put("0>33/<13", 8, "31</33", 6);
+    dx->put("-8485501", 8, "-8485501", 6);
+    dx->put(".01?+?0=", 8, ".01?+?0=", 6);
+    dx->put(".=.10<15", 8, ".=.10<15", 6);
+    dx->put("6:+41400", 8, "6:+41400", 6);
+    dx->put(".0,0(;17", 8, ".0,0(;17", 6);
+    dx->put("40,3):11", 8, "40,3):11", 6);
+    dx->put(")00;,328", 8, ")00;,328", 6);
+    dx->put(")?*7.500", 8, ")?*7.500", 6);
+    dx->put(",74;+804", 8, ",74;+804", 6);
+    dx->put("-2)25806", 8, "-2)25806", 6);
+    dx->put("4=05631=", 8, "4=05631=", 6);
+    dx->put("54.34=11", 8, "54.34=11", 6);
+    dx->put(".?347615", 8, ".?347615", 6);
+    dx->put("-0/55623", 8, "-0/55623", 6);
+    dx->put(")<745002", 8, ")<745002", 6);
+    dx->put("*>,>/318", 8, "*>,>/318", 6);
+    dx->put("01.;1003", 8, "01.;1003", 6);
+    dx->put("0>33/<13", 8, "31</33", 6);
     print(dx, "-86?1:0:", 8);
     print(dx, "6=59*900", 8);
     print(dx, "70726<28", 8);
@@ -215,24 +224,24 @@ int main1() {
     print(dx, "19*9421<", 8);
     print(dx, "(46?)900", 8);
     print(dx, ",3427=37", 8);
-//    print(dx, "-8485501", 8);
-//    print(dx, ".01?+?0=", 8);
-//    print(dx, ".=.10<15", 8);
-//    print(dx, "6:+41400", 8);
-//    print(dx, ".0,0(;17", 8);
-//    print(dx, "40,3):11", 8);
-//    print(dx, ")00;,328", 8);
-//    print(dx, ")?*7.500", 8);
-//    print(dx, ",74;+804", 8);
-//    print(dx, "-2)25806", 8);
-//    print(dx, "4=05631=", 8);
-//    print(dx, "54.34=11", 8);
-//    print(dx, ".?347615", 8);
-//    print(dx, "-0/55623", 8);
-//    print(dx, ")<745002", 8);
-//    print(dx, "*>,>/318", 8);
-//    print(dx, "01.;1003", 8);
-//    print(dx, "0>33/<13", 8);
+    print(dx, "-8485501", 8);
+    print(dx, ".01?+?0=", 8);
+    print(dx, ".=.10<15", 8);
+    print(dx, "6:+41400", 8);
+    print(dx, ".0,0(;17", 8);
+    print(dx, "40,3):11", 8);
+    print(dx, ")00;,328", 8);
+    print(dx, ")?*7.500", 8);
+    print(dx, ",74;+804", 8);
+    print(dx, "-2)25806", 8);
+    print(dx, "4=05631=", 8);
+    print(dx, "54.34=11", 8);
+    print(dx, ".?347615", 8);
+    print(dx, "-0/55623", 8);
+    print(dx, ")<745002", 8);
+    print(dx, "*>,>/318", 8);
+    print(dx, "01.;1003", 8);
+    print(dx, "0>33/<13", 8);
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
     std::cout << "Size:" << dx->size() << endl;
@@ -243,7 +252,6 @@ int main() {
 
     GenTree::generateBitCounts();
 
-    cout << GetTickCount() << endl;
     struct timeval stop, start;
     unordered_map<string, string> m;
     gettimeofday(&start, NULL);
@@ -309,6 +317,47 @@ int main() {
 
     ctr = 0;
     cmp = 0;
+    linex *lx = new linex();
+    it = m.begin();
+    gettimeofday(&start, NULL);
+    for (; it != m.end(); ++it) {
+        lx->put(it->first.c_str(), it->first.length(), it->second.c_str(),
+                it->second.length());
+    }
+    gettimeofday(&stop, NULL);
+    cout << "B+Tree insert time:" << timedifference_msec(start, stop) << endl;
+    //getchar();
+
+    it = m.begin();
+    gettimeofday(&start, NULL);
+    for (; it != m.end(); ++it) {
+        int16_t len;
+        char *value = lx->get(it->first.c_str(), it->first.length(), &len);
+        char v[100];
+        if (value == null) {
+            ctr++;
+        } else {
+            int16_t d = util::compare(it->second.c_str(), it->second.length(),
+                    value, len);
+            if (d != 0) {
+                cmp++;
+                strncpy(v, value, len);
+                v[it->first.length()] = 0;
+                cout << cmp << ":" << it->first.c_str() << "=========="
+                        << it->second.c_str() << "----------->" << v << endl;
+            }
+        }
+    }
+    gettimeofday(&stop, NULL);
+    cout << "B+Tree Get Time:" << timedifference_msec(start, stop) << endl;
+    cout << "Null:" << ctr << endl;
+    cout << "Cmp:" << cmp << endl;
+    lx->printMaxKeyCount(NUM_ENTRIES);
+    lx->printNumLevels();
+    cout << "Root filled size:" << lx->root->filledUpto() << endl;
+
+    ctr = 0;
+    cmp = 0;
     dfox *dx = new dfox();
     it = m.begin();
     gettimeofday(&start, NULL);
@@ -350,47 +399,6 @@ int main() {
     dx->printNumLevels();
     cout << "Root filled size:" << dx->root->filledSize() << endl;
     //getchar();
-
-    ctr = 0;
-    cmp = 0;
-    linex *lx = new linex();
-    it = m.begin();
-    gettimeofday(&start, NULL);
-    for (; it != m.end(); ++it) {
-        lx->put(it->first.c_str(), it->first.length(), it->second.c_str(),
-                it->second.length());
-    }
-    gettimeofday(&stop, NULL);
-    cout << "B+Tree insert time:" << timedifference_msec(start, stop) << endl;
-    //getchar();
-
-    it = m.begin();
-    gettimeofday(&start, NULL);
-    for (; it != m.end(); ++it) {
-        int16_t len;
-        char *value = lx->get(it->first.c_str(), it->first.length(), &len);
-        char v[100];
-        if (value == null) {
-            ctr++;
-        } else {
-            int16_t d = util::compare(it->second.c_str(), it->second.length(),
-                    value, len);
-            if (d != 0) {
-                cmp++;
-                strncpy(v, value, len);
-                v[it->first.length()] = 0;
-                cout << cmp << ":" << it->first.c_str() << "=========="
-                        << it->second.c_str() << "----------->" << v << endl;
-            }
-        }
-    }
-    gettimeofday(&stop, NULL);
-    cout << "B+Tree Get Time:" << timedifference_msec(start, stop) << endl;
-    cout << "Null:" << ctr << endl;
-    cout << "Cmp:" << cmp << endl;
-    lx->printMaxKeyCount(NUM_ENTRIES);
-    lx->printNumLevels();
-    cout << "Root filled size:" << lx->root->filledUpto() << endl;
 
     //    if (ctr > 0 || cmp > 0) {
     //        it = m.begin();

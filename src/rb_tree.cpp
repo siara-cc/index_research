@@ -1,5 +1,4 @@
 #include "rb_tree.h"
-#include <assert.h>
 
 char *rb_tree::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     int16_t pos = -1;
@@ -93,8 +92,10 @@ void rb_tree_node::addData(int16_t idx, const char *key, int16_t key_len,
     filled_upto++;
     util::setInt(buf + FILLED_UPTO_POS, filled_upto);
 
-    int16_t n = util::getInt(buf + DATA_END_POS);
+    int16_t inserted_node = util::getInt(buf + DATA_END_POS);
+    int16_t n = inserted_node;
     buf[n] = RB_RED;
+    memset(buf + n + 1, 0, 6);
     n += KEY_LEN_POS;
     buf[n] = key_len;
     n++;
@@ -107,34 +108,34 @@ void rb_tree_node::addData(int16_t idx, const char *key, int16_t key_len,
     util::setInt(buf + DATA_END_POS, n);
 
     if (getRoot == 0) {
-        setRoot (inserted_node);
+        setRoot(inserted_node);
     } else {
         int16_t n = getRoot();
         while (1) {
-            int16_t comp_result = compare(key, n->key);
+            int16_t key_at_len;
+            char *key_at = getKey(n, &key_at_len);
+            int16_t comp_result = util::compare(key, key_len, key_at,
+                    key_at_len, 0);
             if (comp_result == 0) {
-                setValue(n, value);
+                //setValue(n, value);
                 return;
             } else if (comp_result < 0) {
                 if (getLeft(n) == NULL) {
                     setLeft(n, inserted_node);
                     break;
-                } else {
+                } else
                     n = getLeft(n);
-                }
             } else {
-                assert(comp_result > 0);
                 if (getRight(n) == 0) {
                     setRight(n, inserted_node);
                     break;
-                } else {
+                } else
                     n = getRight(n);
-                }
             }
         }
         setParent(inserted_node, n);
     }
-    insertCase1 (inserted_node);
+    insertCase1(inserted_node);
 
 }
 
@@ -167,7 +168,7 @@ byte *rb_tree_node::split(int16_t *pbrk_idx) {
             kv_len += value_len;
             tot_len += kv_len;
             tot_len += KEY_LEN_POS;
-            memcpy(new_kv_idx, buf + src_idx, kv_len);
+            memcpy(new_kv_idx, buf + src_idx, kv_len + KEY_LEN_POS);
             if (tot_len > halfKVLen && brk_idx == -1) {
                 brk_idx = new_idx;
                 brk_kv_pos = RB_TREE_HDR_SIZE + tot_len;
@@ -415,9 +416,9 @@ void rb_tree_node::insertCase5(int16_t n) {
             && getParent(n) == getLeft(getGrandParent(n))) {
         rotateRight(getGrandParent(n));
     } else {
-        assert(
-                n == getRight(getParent(n))
-                        && getParent(n) == getRight(getGrandParent(n)));
+        //assert(
+        //        n == getRight(getParent(n))
+        //                && getParent(n) == getRight(getGrandParent(n)));
         rotateLeft(getGrandParent(n));
     }
 }
@@ -435,8 +436,8 @@ int16_t rb_tree_node::getParent(int16_t n) {
 }
 
 int16_t rb_tree_node::getSibling(int16_t n) {
-    assert(n != 0);
-    assert(getParent(n) != 0);
+    //assert(n != 0);
+    //assert(getParent(n) != 0);
     if (n == getLeft(getParent(n)))
         return getRight(getParent(n));
     else
@@ -444,16 +445,16 @@ int16_t rb_tree_node::getSibling(int16_t n) {
 }
 
 int16_t rb_tree_node::getUncle(int16_t n) {
-    assert(n != NULL);
-    assert(getParent(n) != 0);
-    assert(getParent(getParent(n)) != 0);
+    //assert(n != NULL);
+    //assert(getParent(n) != 0);
+    //assert(getParent(getParent(n)) != 0);
     return getSibling(getParent(n));
 }
 
 int16_t rb_tree_node::getGrandParent(int16_t n) {
-    assert(n != NULL);
-    assert(getParent(n) != 0);
-    assert(getParent(getParent(n)) != 0);
+    //assert(n != NULL);
+    //assert(getParent(n) != 0);
+    //assert(getParent(getParent(n)) != 0);
     return getParent(getParent(n));
 }
 

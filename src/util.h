@@ -70,6 +70,7 @@ public:
     }
 
     static byte *alignedAlloc(int16_t blockSize) {
+        //return (byte *) memalign(64, blockSize);
         return (byte *) __mingw_aligned_malloc(blockSize, 64);
     }
 };
