@@ -12,8 +12,8 @@
 #include "dfox.h"
 #include <sys/time.h>
 
-#define NUM_ENTRIES 1000000
-//#define NUM_ENTRIES 130
+//#define NUM_ENTRIES 1000000
+#define NUM_ENTRIES 131
 
 using namespace std::tr1;
 using namespace std;
@@ -32,28 +32,28 @@ void insert(unordered_map<string, string>& m) {
 //        k[6] = 48 + (rand() % 64);
 //        k[7] = 48 + (rand() % 64);
 //        k[8] = 0;
-        long r = rand() * rand();
-        for (int16_t b = 0; b < 4; b++) {
-            char c = (r >> (24 - (3 - b) * 8));
-            k[b * 2] = 48 + (c >> 4);
-            k[b * 2 + 1] = 48 + (c & 0x0F);
-        }
-        r = rand() * rand();
-        for (int16_t b = 4; b < 8; b++) {
-            char c = (r >> (24 - (b - 4) * 8));
-            k[b * 2] = 48 + (c >> 4);
-            k[b * 2 + 1] = 48 + (c & 0x0F);
-        }
-        k[8] = 0;
-//        k[0] = (l >> 24) & 0xFF;
-//        k[1] = (l >> 16) & 0xFF;
-//        k[2] = (l >> 8) & 0xFF;
-//        k[3] = (l & 0xFF);
-//        if (k[0] == 0) k[0]++;
-//        if (k[1] == 0) k[1]++;
-//        if (k[2] == 0) k[2]++;
-//        if (k[3] == 0) k[3]++;
-//        k[4] = 0;
+//        long r = rand() * rand();
+//        for (int16_t b = 0; b < 4; b++) {
+//            char c = (r >> (24 - (3 - b) * 8));
+//            k[b * 2] = 48 + (c >> 4);
+//            k[b * 2 + 1] = 48 + (c & 0x0F);
+//        }
+//        r = rand() * rand();
+//        for (int16_t b = 4; b < 8; b++) {
+//            char c = (r >> (24 - (b - 4) * 8));
+//            k[b * 2] = 48 + (c >> 4);
+//            k[b * 2 + 1] = 48 + (c & 0x0F);
+//        }
+//        k[8] = 0;
+        k[0] = (l >> 24) & 0xFF;
+        k[1] = (l >> 16) & 0xFF;
+        k[2] = (l >> 8) & 0xFF;
+        k[3] = (l & 0xFF);
+        if (k[0] == 0) k[0]++;
+        if (k[1] == 0) k[1]++;
+        if (k[2] == 0) k[2]++;
+        if (k[3] == 0) k[3]++;
+        k[4] = 0;
         for (int16_t i = 0; i < 8; i++)
             v[7 - i] = k[i];
         v[4] = 0;

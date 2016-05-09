@@ -23,7 +23,8 @@ byte *dfox::recursiveSearchForGet(const char *key, int16_t key_len,
         pos = node.locate(key, key_len, level, null);
         if (pos < 0) {
             pos = ~pos;
-            pos--;
+            if (pos)
+                pos--;
         } else {
             do {
                 node_data = node.getChild(pos);
@@ -53,7 +54,8 @@ byte *dfox::recursiveSearch(const char *key, int16_t key_len, byte *node_data,
         node_paths[level] = node_data;
         if (lastSearchPos[level] < 0) {
             lastSearchPos[level] = ~lastSearchPos[level];
-            lastSearchPos[level]--;
+            if (lastSearchPos[level])
+                lastSearchPos[level]--;
         } else {
             do {
                 node_data = node.getChild(lastSearchPos[level]);
@@ -208,8 +210,8 @@ byte *dfox_node::split(int16_t *pbrk_idx) {
             old_blk_new_len);
     // (3) Insert pointers to the moved data in old block
     dfox_var v;
-    FILLED_SIZE= 0;
-    TRIE_LEN= 0;
+    FILLED_SIZE = 0;
+    TRIE_LEN = 0;
     for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
         int16_t src_idx = new_block.getPtr(new_idx);
         src_idx += (DFOX_NODE_SIZE - brk_kv_pos);
@@ -243,7 +245,7 @@ byte *dfox_node::split(int16_t *pbrk_idx) {
     new_block.setKVLastPos(brk_kv_pos); // (5) New Block Last position
     //filled_size = brk_idx + 1;
     //setFilledSize(filled_size); // (7) Filled Size for Old block
-    new_block.TRIE_LEN= 0;
+    new_block.TRIE_LEN = 0;
     new_block.setFilledSize(new_size); // (8) Filled Size for New Block
     for (int16_t i = 0; i < new_size; i++) {
         v.init();
@@ -278,8 +280,8 @@ dfox_node::dfox_node(byte *m) {
 void dfox_node::init() {
     memset(buf, '\0', DFOX_NODE_SIZE);
     setLeaf(1);
-    FILLED_SIZE= 0;
-    TRIE_LEN= 0;
+    FILLED_SIZE = 0;
+    TRIE_LEN = 0;
     threads = 0;
     setKVLastPos(DFOX_NODE_SIZE);
 }
@@ -338,31 +340,31 @@ void dfox_node::insPtr(int16_t pos, int16_t kv_pos) {
         carry = new_carry;
     }
     setLeaf(is_leaf);
-    FILLED_SIZE= filledSz;
+    FILLED_SIZE = filledSz;
 }
 
 bool dfox_node::isLeaf() {
-    return (IS_LEAF_BYTE& 0x01);
+    return (IS_LEAF_BYTE & 0x01);
 }
 
 void dfox_node::setLeaf(char isLeaf) {
     if (isLeaf)
-        IS_LEAF_BYTE|= 0x01;
-        else
+        IS_LEAF_BYTE |= 0x01;
+    else
         IS_LEAF_BYTE &= 0xFE;
-    }
+}
 
 void dfox_node::setFilledSize(int16_t filledSize) {
-    FILLED_SIZE= filledSize;
+    FILLED_SIZE = filledSize;
 }
 
 bool dfox_node::isFull(int16_t kv_len, dfox_var *v) {
-    if (TRIE_LEN+ v->need_count + FILLED_SIZE >= TRIE_PTR_AREA_SIZE)
-    return true;
+    if (TRIE_LEN + v->need_count + FILLED_SIZE >= TRIE_PTR_AREA_SIZE)
+        return true;
     if (FILLED_SIZE > MAX_PTRS)
-    return true;
+        return true;
     if ((getKVLastPos() - kv_len - 2) < IDX_BLK_SIZE)
-    return true;
+        return true;
     return false;
 }
 
@@ -411,7 +413,7 @@ void dfox_node::insertCurrent(dfox_var *v) {
     byte childPos;
     int16_t pos, min;
 
-    if (TRIE_LEN== 0) {
+    if (TRIE_LEN == 0) {
         byte kc = v->key[0];
         byte offset = (kc & 0x07);
         append((kc & 0xF8) | 0x03);
@@ -546,7 +548,7 @@ int16_t dfox_node::locate(const char *key, int16_t key_len, int16_t level,
         dfox_var *v) {
     register byte keyPos = 0;
     register byte kc = key[keyPos++];
-    register int16_t pos = -1;
+    register byte pos = 0;
     register byte i = 0;
     //register byte len = TRIE_LEN;
     while (1) {
@@ -558,7 +560,7 @@ int16_t dfox_node::locate(const char *key, int16_t key_len, int16_t level,
             register byte offset = (kc & 0x07);
             register byte mask = (0x80 >> offset);
             if (v)
-               v->origPos = i;
+                v->origPos = i;
             i++;
             switch (tc & 0x06) {
             case 0x02:
@@ -589,9 +591,10 @@ int16_t dfox_node::locate(const char *key, int16_t key_len, int16_t level,
             }
             if (children & mask) {
                 if (leaves & mask) {
-                    pos++;
                     if (keyPos == key_len)
                         return pos;
+                    else
+                        pos++;
                 } else {
                     if (keyPos == key_len) {
                         if (v) {
@@ -601,20 +604,20 @@ int16_t dfox_node::locate(const char *key, int16_t key_len, int16_t level,
                             v->insertState = INSERT_LEAF;
                             v->need_count = 2;
                         }
-                        return ~(pos + 1);
+                        return ~pos;
                     }
                 }
             } else {
                 if (leaves & mask) {
-                    pos++;
+                    //pos++;
                     int16_t key_at_len;
                     const char *key_at = (char *) getKey(pos, &key_at_len);
                     int16_t cmp = util::compare(key, key_len, key_at,
                             key_at_len, keyPos);
                     if (cmp == 0)
                         return pos;
-                    if (cmp < 0)
-                        pos--;
+                    if (cmp > 0)
+                        pos++;
                     if (v) {
                         v->triePos = i;
                         v->mask = mask;
@@ -629,7 +632,7 @@ int16_t dfox_node::locate(const char *key, int16_t key_len, int16_t level,
                         v->need_count = cmp * 2;
                         v->need_count += 4;
                     }
-                    return ~(pos + 1);
+                    return ~pos;
                 } else {
                     if (v) {
                         v->triePos = i;
@@ -638,14 +641,14 @@ int16_t dfox_node::locate(const char *key, int16_t key_len, int16_t level,
                         v->insertState = INSERT_LEAF;
                         v->need_count = 2;
                     }
-                    return ~(pos + 1);
+                    return ~pos;
                 }
             }
             kc = key[keyPos++];
         } else if (kc > tc) {
             register byte to_skip = 0;
             if (v)
-               v->origPos = i;
+                v->origPos = i;
             i++;
             if (tc & 0x04)
                 to_skip += GenTree::bit_count[trie[i++]];
@@ -669,7 +672,7 @@ int16_t dfox_node::locate(const char *key, int16_t key_len, int16_t level,
                     v->insertState = INSERT_MIDDLE1;
                     v->need_count = 2;
                 }
-                return ~(pos + 1);
+                return ~pos;
             }
         } else {
             if (v) {
@@ -680,10 +683,10 @@ int16_t dfox_node::locate(const char *key, int16_t key_len, int16_t level,
                 v->tc = tc;
                 v->triePos = i;
             }
-            return ~(pos + 1);
+            return ~pos;
         }
     }
-    return ~(pos + 1);
+    return ~pos;
 }
 
 void dfox_node::delAt(byte pos) {
@@ -693,33 +696,33 @@ void dfox_node::delAt(byte pos) {
 }
 
 void dfox_node::delAt(byte pos, int16_t count) {
-    TRIE_LEN-= count;
+    TRIE_LEN -= count;
     byte *ptr = trie + pos;
     memmove(ptr, ptr + count, TRIE_LEN - pos);
 }
 
 void dfox_node::insAt(byte pos, byte b) {
     byte *ptr = trie + pos;
-    memmove(ptr + 1, ptr, TRIE_LEN- pos);
+    memmove(ptr + 1, ptr, TRIE_LEN - pos);
     trie[pos] = b;
     TRIE_LEN++;
 }
 
 void dfox_node::insAt(byte pos, byte b1, byte b2) {
     byte *ptr = trie + pos;
-    memmove(ptr + 2, ptr, TRIE_LEN- pos);
+    memmove(ptr + 2, ptr, TRIE_LEN - pos);
     trie[pos++] = b1;
     trie[pos] = b2;
-    TRIE_LEN+= 2;
+    TRIE_LEN += 2;
 }
 
 void dfox_node::insAt(byte pos, byte b1, byte b2, byte b3) {
     byte *ptr = trie + pos;
-    memmove(ptr + 3, ptr, TRIE_LEN- pos);
+    memmove(ptr + 3, ptr, TRIE_LEN - pos);
     trie[pos++] = b1;
     trie[pos++] = b2;
     trie[pos] = b3;
-    TRIE_LEN+= 3;
+    TRIE_LEN += 3;
 }
 
 void dfox_node::setAt(byte pos, byte b) {
