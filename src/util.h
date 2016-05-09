@@ -53,8 +53,8 @@ public:
         if (len2 < len1)
             lim = len2;
         while (k < lim) {
-            char c1 = v1[k];
-            char c2 = v2[k];
+            byte c1 = v1[k];
+            byte c2 = v2[k];
             if (c1 < c2) {
                 return -1-k;
             } else if (c1 > c2) {
@@ -70,8 +70,8 @@ public:
     }
 
     static byte *alignedAlloc(int16_t blockSize) {
-        //return (byte *) memalign(64, blockSize);
-        return (byte *) __mingw_aligned_malloc(blockSize, 64);
+        return (byte *) memalign(64, blockSize);
+        //return (byte *) __mingw_aligned_malloc(blockSize, 64);
     }
 };
 

@@ -463,7 +463,7 @@ void dfox_node::insertCurrent(dfox_var *v) {
         }
         pos = v->keyPos - 1;
         min = util::min(v->key_len, v->key_at_len);
-        char c1, c2;
+        byte c1, c2;
         c1 = v->key[pos];
         c2 = v->key_at[pos];
         pos++;
@@ -562,23 +562,29 @@ int16_t dfox_node::locate(const char *key, int16_t key_len, int16_t level,
             if (v)
                 v->origPos = i;
             i++;
-            switch (tc & 0x06) {
-            case 0x02:
-                leaves = trie[i++];
-                children = 0;
-                break;
-            case 0x04:
+            children = 0;
+            leaves = 0;
+            if (tc & 0x04)
                 children = trie[i++];
-                leaves = 0;
-                break;
-            case 0x06:
-                children = trie[i++];
+            if (tc & 0x02)
                 leaves = trie[i++];
-                break;
-            }
-            if (children > mask)
+//            switch (tc & 0x06) {
+//            case 0x02:
+//                leaves = trie[i++];
+//                children = 0;
+//                break;
+//            case 0x04:
+//                children = trie[i++];
+//                leaves = 0;
+//                break;
+//            case 0x06:
+//                children = trie[i++];
+//                leaves = trie[i++];
+//                break;
+//            }
+            //if (children > mask)
                 to_skip = GenTree::bit_count[children & left_mask[offset]];
-            if (leaves > mask)
+            //if (leaves > mask)
                 pos += GenTree::bit_count[leaves & left_mask[offset]];
             while (to_skip) {
                 register byte child_tc = trie[i++];

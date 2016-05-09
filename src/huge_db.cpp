@@ -12,8 +12,7 @@
 #include "dfox.h"
 #include <sys/time.h>
 
-//#define NUM_ENTRIES 1000000
-#define NUM_ENTRIES 131
+#define NUM_ENTRIES 2000000
 
 using namespace std::tr1;
 using namespace std;
@@ -23,15 +22,15 @@ void insert(unordered_map<string, string>& m) {
     char v[100];
     srand(time(NULL));
     for (long l = 0; l < NUM_ENTRIES; l++) {
-//        k[0] = 48 + (rand() % 64);
-//        k[1] = 48 + (rand() % 64);
-//        k[2] = 48 + (rand() % 64);
-//        k[3] = 48 + (rand() % 64);
-//        k[4] = 48 + (rand() % 64);
-//        k[5] = 48 + (rand() % 64);
-//        k[6] = 48 + (rand() % 64);
-//        k[7] = 48 + (rand() % 64);
-//        k[8] = 0;
+        k[0] = 48 + (rand() % 64);
+        k[1] = 48 + (rand() % 64);
+        k[2] = 48 + (rand() % 64);
+        k[3] = 48 + (rand() % 64);
+        k[4] = 48 + (rand() % 64);
+        k[5] = 48 + (rand() % 64);
+        k[6] = 48 + (rand() % 64);
+        k[7] = 48 + (rand() % 64);
+        k[8] = 0;
 //        long r = rand() * rand();
 //        for (int16_t b = 0; b < 4; b++) {
 //            char c = (r >> (24 - (3 - b) * 8));
@@ -44,18 +43,18 @@ void insert(unordered_map<string, string>& m) {
 //            k[b * 2] = 48 + (c >> 4);
 //            k[b * 2 + 1] = 48 + (c & 0x0F);
 //        }
-//        k[8] = 0;
-        k[0] = (l >> 24) & 0xFF;
-        k[1] = (l >> 16) & 0xFF;
-        k[2] = (l >> 8) & 0xFF;
-        k[3] = (l & 0xFF);
-        if (k[0] == 0) k[0]++;
-        if (k[1] == 0) k[1]++;
-        if (k[2] == 0) k[2]++;
-        if (k[3] == 0) k[3]++;
-        k[4] = 0;
-        for (int16_t i = 0; i < 8; i++)
-            v[7 - i] = k[i];
+//        k[6] = 0;
+//        k[0] = (l >> 24) & 0xFF;
+//        k[1] = (l >> 16) & 0xFF;
+//        k[2] = (l >> 8) & 0xFF;
+//        k[3] = (l & 0xFF);
+//        if (k[0] == 0) k[0]++;
+//        if (k[1] == 0) k[1]++;
+//        if (k[2] == 0) k[2]++;
+//        if (k[3] == 0) k[3]++;
+//        k[4] = 0;
+        for (int16_t i = 0; i < 4; i++)
+            v[3 - i] = k[i];
         v[4] = 0;
         //itoa(rand(), v, 10);
         //itoa(rand(), v + strlen(v), 10);
@@ -151,6 +150,17 @@ int main2() {
     print(dx, "yousuf", 6);
     dx->printMaxKeyCount(24);
     dx->printNumLevels();
+    return 0;
+}
+
+int main3() {
+    GenTree::generateBitCounts();
+    //linex *dx = new linex();
+    dfox *dx = new dfox();
+    dx->put("\001\001\001\001", 4, "one", 3);
+    dx->put("\001\001\001\x80", 4, "two", 3);
+    print(dx, "\001\001\001\001", 4);
+    print(dx, "\001\001\001\x80", 4);
     return 0;
 }
 
@@ -260,10 +270,9 @@ int main() {
     cout << "HashMap insert time:" << timedifference_msec(start, stop) << endl;
     cout << "HashMap size:" << m.size() << endl;
     //getchar();
-
+/*
     unordered_map<string, string>::iterator it;
 
-    /*
      map<string, string> m1;
      m.begin();
      gettimeofday(&start, NULL);
@@ -281,29 +290,32 @@ int main() {
      gettimeofday(&stop, NULL);
      cout << "RB Tree get time:" << timedifference_msec(start, stop) << endl;
      cout << "RB Tree size:" << m1.size() << endl;
-     */
+*/
+
+     unordered_map<string, string>::iterator it1;
 
     art_tree at;
     art_tree_init(&at);
     gettimeofday(&start, NULL);
-    it = m.begin();
-    for (; it != m.end(); ++it) {
-        art_insert(&at, (unsigned char*) it->first.c_str(), it->first.length(),
-                (void *) it->second.c_str());
+    it1 = m.begin();
+    for (; it1 != m.end(); ++it1) {
+        art_insert(&at, (unsigned char*) it1->first.c_str(), it1->first.length(),
+                (void *) it1->second.c_str());
     }
     gettimeofday(&stop, NULL);
     cout << "ART Insert Time:" << timedifference_msec(start, stop) << endl;
     //getchar();
-    it = m.begin();
+    it1 = m.begin();
     gettimeofday(&start, NULL);
-    for (; it != m.end(); ++it) {
-        art_search(&at, (unsigned char*) it->first.c_str(), it->first.length());
+    for (; it1 != m.end(); ++it1) {
+        art_search(&at, (unsigned char*) it1->first.c_str(), it1->first.length());
     }
     gettimeofday(&stop, NULL);
     cout << "ART Get Time:" << timedifference_msec(start, stop) << endl;
     cout << "ART Size:" << art_size(&at) << endl;
     //getchar();
 
+    int16_t null_ctr = 0;
     int16_t ctr = 0;
     int16_t cmp = 0;
 
@@ -315,83 +327,91 @@ int main() {
 //                    break;
 //            }
 
+    null_ctr = 0;
     ctr = 0;
     cmp = 0;
     linex *lx = new linex();
-    it = m.begin();
+    it1 = m.begin();
     gettimeofday(&start, NULL);
-    for (; it != m.end(); ++it) {
-        lx->put(it->first.c_str(), it->first.length(), it->second.c_str(),
-                it->second.length());
+    for (; it1 != m.end(); ++it1) {
+        lx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
+                it1->second.length());
+        ctr++;
     }
     gettimeofday(&stop, NULL);
     cout << "B+Tree insert time:" << timedifference_msec(start, stop) << endl;
     //getchar();
 
-    it = m.begin();
+    ctr = 0;
+    it1 = m.begin();
     gettimeofday(&start, NULL);
-    for (; it != m.end(); ++it) {
+    for (; it1 != m.end(); ++it1) {
         int16_t len;
-        char *value = lx->get(it->first.c_str(), it->first.length(), &len);
+        char *value = lx->get(it1->first.c_str(), it1->first.length(), &len);
         char v[100];
         if (value == null) {
-            ctr++;
+            null_ctr++;
         } else {
-            int16_t d = util::compare(it->second.c_str(), it->second.length(),
+            int16_t d = util::compare(it1->second.c_str(), it1->second.length(),
                     value, len);
             if (d != 0) {
                 cmp++;
                 strncpy(v, value, len);
-                v[it->first.length()] = 0;
-                cout << cmp << ":" << it->first.c_str() << "=========="
-                        << it->second.c_str() << "----------->" << v << endl;
+                v[it1->first.length()] = 0;
+                cout << cmp << ":" << it1->first.c_str() << "=========="
+                        << it1->second.c_str() << "----------->" << v << endl;
             }
         }
+        ctr++;
     }
     gettimeofday(&stop, NULL);
     cout << "B+Tree Get Time:" << timedifference_msec(start, stop) << endl;
-    cout << "Null:" << ctr << endl;
+    cout << "Null:" << null_ctr << endl;
     cout << "Cmp:" << cmp << endl;
     lx->printMaxKeyCount(NUM_ENTRIES);
     lx->printNumLevels();
     cout << "Root filled size:" << lx->root->filledUpto() << endl;
 
+    null_ctr = 0;
     ctr = 0;
     cmp = 0;
     dfox *dx = new dfox();
-    it = m.begin();
+    it1 = m.begin();
     gettimeofday(&start, NULL);
-    for (; it != m.end(); ++it) {
-        dx->put(it->first.c_str(), it->first.length(), it->second.c_str(),
-                it->second.length());
+    for (; it1 != m.end(); ++it1) {
+        dx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
+                it1->second.length());
+        ctr++;
     }
     gettimeofday(&stop, NULL);
     cout << "DFox+Tree insert time:" << timedifference_msec(start, stop)
             << endl;
     //getchar();
 
-    it = m.begin();
+    ctr = 0;
+    it1 = m.begin();
     gettimeofday(&start, NULL);
-    for (; it != m.end(); ++it) {
+    for (; it1 != m.end(); ++it1) {
         int16_t len;
-        char *value = dx->get(it->first.c_str(), it->first.length(), &len);
+        char *value = dx->get(it1->first.c_str(), it1->first.length(), &len);
         char v[100];
         if (value == null) {
-            ctr++;
+            null_ctr++;
         } else {
-            int16_t d = util::compare(it->second.c_str(), it->second.length(),
+            int16_t d = util::compare(it1->second.c_str(), it1->second.length(),
                     value, len);
             if (d != 0) {
                 cmp++;
                 strncpy(v, value, len);
-                v[it->first.length()] = 0;
-                cout << cmp << ":" << it->first.c_str() << "=========="
-                        << it->second.c_str() << "----------->" << v << endl;
+                v[it1->first.length()] = 0;
+                cout << cmp << ":" << it1->first.c_str() << "=========="
+                        << it1->second.c_str() << "----------->" << v << endl;
             }
         }
+        ctr++;
     }
     gettimeofday(&stop, NULL);
-    cout << "Null:" << ctr << endl;
+    cout << "Null:" << null_ctr << endl;
     cout << "Cmp:" << cmp << endl;
     cout << "DFox+Tree get time:" << timedifference_msec(start, stop) << endl;
     std::cout << "Trie Size:" << (int) dx->root->TRIE_LEN << endl;
