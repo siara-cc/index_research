@@ -12,7 +12,7 @@
 #include "dfox.h"
 #include <sys/time.h>
 
-#define NUM_ENTRIES 2000000
+#define NUM_ENTRIES 20000
 
 using namespace std::tr1;
 using namespace std;
@@ -22,15 +22,15 @@ void insert(unordered_map<string, string>& m) {
     char v[100];
     srand(time(NULL));
     for (long l = 0; l < NUM_ENTRIES; l++) {
-        k[0] = 48 + (rand() % 64);
-        k[1] = 48 + (rand() % 64);
-        k[2] = 48 + (rand() % 64);
-        k[3] = 48 + (rand() % 64);
-        k[4] = 48 + (rand() % 64);
-        k[5] = 48 + (rand() % 64);
-        k[6] = 48 + (rand() % 64);
-        k[7] = 48 + (rand() % 64);
-        k[8] = 0;
+//        k[0] = 48 + (rand() % 64);
+//        k[1] = 48 + (rand() % 64);
+//        k[2] = 48 + (rand() % 64);
+//        k[3] = 48 + (rand() % 64);
+//        k[4] = 48 + (rand() % 64);
+//        k[5] = 48 + (rand() % 64);
+//        k[6] = 48 + (rand() % 64);
+//        k[7] = 48 + (rand() % 64);
+//        k[8] = 0;
 //        long r = rand() * rand();
 //        for (int16_t b = 0; b < 4; b++) {
 //            char c = (r >> (24 - (3 - b) * 8));
@@ -44,15 +44,15 @@ void insert(unordered_map<string, string>& m) {
 //            k[b * 2 + 1] = 48 + (c & 0x0F);
 //        }
 //        k[6] = 0;
-//        k[0] = (l >> 24) & 0xFF;
-//        k[1] = (l >> 16) & 0xFF;
-//        k[2] = (l >> 8) & 0xFF;
-//        k[3] = (l & 0xFF);
-//        if (k[0] == 0) k[0]++;
-//        if (k[1] == 0) k[1]++;
-//        if (k[2] == 0) k[2]++;
-//        if (k[3] == 0) k[3]++;
-//        k[4] = 0;
+        k[0] = (l >> 24) & 0xFF;
+        k[1] = (l >> 16) & 0xFF;
+        k[2] = (l >> 8) & 0xFF;
+        k[3] = (l & 0xFF);
+        if (k[0] == 0) k[0]++;
+        if (k[1] == 0) k[1]++;
+        if (k[2] == 0) k[2]++;
+        if (k[3] == 0) k[3]++;
+        k[4] = 0;
         for (int16_t i = 0; i < 4; i++)
             v[3 - i] = k[i];
         v[4] = 0;
@@ -98,8 +98,8 @@ void print(linex *dx, const char *key, int16_t key_len) {
 
 int main2() {
     GenTree::generateBitCounts();
-    dfox *dx = new dfox();
-    //linex *dx = new linex();
+    //dfox *dx = new dfox();
+    linex *dx = new linex();
     dx->put("Hello", 5, "World", 5);
     dx->put("Nice", 4, "Place", 5);
     dx->put("Arun", 4, "Hello", 5);
@@ -117,13 +117,37 @@ int main2() {
     dx->put("how", 3, "12", 2);
     dx->put("are", 3, "13", 2);
     dx->put("you", 3, "14", 2);
+    dx->put("hundred", 7, "100", 3);
     dx->put("boy", 3, "15", 2);
     dx->put("boat", 4, "16", 2);
+    dx->put("thousand", 8, "1000", 4);
     dx->put("buoy", 4, "17", 2);
     dx->put("boast", 5, "18", 2);
+    dx->put("January", 7, "first", 5);
+    dx->put("February", 8, "second", 6);
+    dx->put("March", 5, "third", 5);
+    dx->put("April", 5, "forth", 5);
+    dx->put("May", 3, "fifth", 5);
+    dx->put("June", 4, "sixth", 5);
+    dx->put("July", 4, "seventh", 7);
+    dx->put("August", 6, "eighth", 6);
+    dx->put("September", 9, "ninth", 5);
+    dx->put("October", 7, "tenth", 5);
+    dx->put("November", 8, "eleventh", 8);
+    dx->put("December", 8, "twelfth", 7);
+    dx->put("Sunday", 6, "one", 3);
+    dx->put("Monday", 6, "two", 3);
+    dx->put("Tuesday", 7, "three", 5);
+    dx->put("Wednesday", 9, "four", 4);
+    dx->put("Thursday", 8, "five", 4);
+    dx->put("Friday", 6, "six", 3);
+    dx->put("Saturday", 8, "seven", 7);
+    dx->put("casa", 4, "nova", 4);
     dx->put("young", 5, "19", 2);
+    dx->put("methyl", 6, "alcohol", 7);
     dx->put("youth", 5, "20", 2);
     dx->put("yousuf", 6, "21", 2);
+
     print(dx, "Hello", 5);
     print(dx, "Nice", 4);
     print(dx, "Arun", 4);
@@ -141,13 +165,37 @@ int main2() {
     print(dx, "how", 3);
     print(dx, "are", 3);
     print(dx, "you", 3);
+    print(dx, "hundred", 7);
     print(dx, "boy", 3);
     print(dx, "boat", 4);
+    print(dx, "thousand", 8);
     print(dx, "buoy", 4);
     print(dx, "boast", 5);
+    print(dx, "January", 7);
+    print(dx, "February", 8);
+    print(dx, "March", 5);
+    print(dx, "April", 5);
+    print(dx, "May", 3);
+    print(dx, "June", 4);
+    print(dx, "July", 4);
+    print(dx, "August", 6);
+    print(dx, "September", 9);
+    print(dx, "October", 7);
+    print(dx, "November", 8);
+    print(dx, "December", 8);
+    print(dx, "Sunday", 6);
+    print(dx, "Monday", 6);
+    print(dx, "Tuesday", 7);
+    print(dx, "Wednesday", 9);
+    print(dx, "Thursday", 8);
+    print(dx, "Friday", 6);
+    print(dx, "Saturday", 8);
+    print(dx, "casa", 4);
     print(dx, "young", 5);
+    print(dx, "methyl", 6);
     print(dx, "youth", 5);
     print(dx, "yousuf", 6);
+
     dx->printMaxKeyCount(24);
     dx->printNumLevels();
     return 0;
@@ -370,7 +418,7 @@ int main() {
     cout << "Cmp:" << cmp << endl;
     lx->printMaxKeyCount(NUM_ENTRIES);
     lx->printNumLevels();
-    cout << "Root filled size:" << lx->root->filledUpto() << endl;
+    cout << "Root filled size:" << util::getInt(lx->root_data + 1) << endl;
 
     null_ctr = 0;
     ctr = 0;
@@ -414,10 +462,10 @@ int main() {
     cout << "Null:" << null_ctr << endl;
     cout << "Cmp:" << cmp << endl;
     cout << "DFox+Tree get time:" << timedifference_msec(start, stop) << endl;
-    std::cout << "Trie Size:" << (int) dx->root->TRIE_LEN << endl;
+    std::cout << "Trie Size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES] << endl;
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
-    cout << "Root filled size:" << dx->root->filledSize() << endl;
+    cout << "Root filled size:" << dx->root_data[MAX_PTR_BITMAP_BYTES+1] << endl;
     //getchar();
 
     //    if (ctr > 0 || cmp > 0) {

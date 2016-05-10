@@ -2,106 +2,114 @@
 
 char *linex::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     int16_t pos = -1;
-    byte *foundNode = recursiveSearchForGet(key, key_len, &pos);
+    byte *node_data = root_data;
+    linex_node_handler node(node_data);
+    node.key = key;
+    node.key_len = key_len;
+    recursiveSearchForGet(&node, &pos);
     if (pos < 0)
         return null;
-    linex_node node(foundNode);
     return (char *) node.getData(pos, pValueLen);
 }
 
-byte *linex::recursiveSearchForGet(const char *key, int16_t key_len,
-        int16_t *pIdx) {
+void linex::recursiveSearchForGet(linex_node_handler *node, int16_t *pIdx) {
     int16_t level = 0;
-    int pos = -1;
-    byte *node_data = root->buf;
-    linex_node node(node_data);
-    while (!node.isLeaf()) {
-        pos = node.locate(key, key_len, level);
+    int16_t pos = -1;
+    byte *node_data = node->buf;
+    //node->initVars();
+    while (!node->isLeaf()) {
+        pos = node->locate(level);
         if (pos < 0) {
             pos = ~pos;
         } else {
             do {
-                node_data = node.getChild(pos);
-                node.setBuf(node_data);
+                node_data = node->getChild(pos);
+                node->setBuf(node_data);
                 level++;
                 pos = 0;
-            } while (!node.isLeaf());
+            } while (!node->isLeaf());
             *pIdx = pos;
-            return node_data;
+            return;
         }
-        node_data = node.getChild(pos);
-        node.setBuf(node_data);
+        node_data = node->getChild(pos);
+        node->setBuf(node_data);
+        //node->initVars();
         level++;
     }
-    pos = node.locate(key, key_len, level);
+    pos = node->locate(level);
     *pIdx = pos;
-    return node_data;
+    return;
 }
 
-byte *linex::recursiveSearch(const char *key, int16_t key_len, byte *node_data,
-        int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx) {
+void linex::recursiveSearch(linex_node_handler *node, int16_t lastSearchPos[],
+        byte *node_paths[], int16_t *pIdx) {
     int16_t level = 0;
-    linex_node node(node_data);
-    while (!node.isLeaf()) {
-        lastSearchPos[level] = node.locate(key, key_len, level);
-        node_paths[level] = node_data;
+    byte *node_data = node->buf;
+    //node->initVars();
+    while (!node->isLeaf()) {
+        lastSearchPos[level] = node->locate(level);
+        node_paths[level] = node->buf;
         if (lastSearchPos[level] < 0) {
             lastSearchPos[level] = ~lastSearchPos[level];
         } else {
             do {
-                node_data = node.getChild(lastSearchPos[level]);
-                node.setBuf(node_data);
+                node_data = node->getChild(lastSearchPos[level]);
+                node->setBuf(node_data);
                 level++;
-                node_paths[level] = node.buf;
+                node_paths[level] = node->buf;
                 lastSearchPos[level] = 0;
-            } while (!node.isLeaf());
+            } while (!node->isLeaf());
             *pIdx = lastSearchPos[level];
-            return node_data;
+            return;
         }
-        node_data = node.getChild(lastSearchPos[level]);
-        node.setBuf(node_data);
+        node_data = node->getChild(lastSearchPos[level]);
+        node->setBuf(node_data);
+        //node->initVars();
         level++;
     }
     node_paths[level] = node_data;
-    lastSearchPos[level] = node.locate(key, key_len, level);
+    lastSearchPos[level] = node->locate(level);
     *pIdx = lastSearchPos[level];
-    return node_data;
+    return;
 }
 
 void linex::put(const char *key, int16_t key_len, const char *value,
         int16_t value_len) {
     int16_t lastSearchPos[numLevels];
     byte *block_paths[numLevels];
-    if (root->filledUpto() == -1) {
-        root->addData(0, key, key_len, value, value_len);
+    linex_node_handler node(root_data);
+    node.key = key;
+    node.key_len = key_len;
+    node.value = value;
+    node.value_len = value_len;
+    node.isPut = true;
+    if (node.filledUpto() == -1) {
+        node.addData(0);
         total_size++;
     } else {
         int16_t pos = -1;
-        byte *foundNode = recursiveSearch(key, key_len, root->buf,
-                lastSearchPos, block_paths, &pos);
-        recursiveUpdate(key, key_len, foundNode, pos, value, value_len,
-                lastSearchPos, block_paths, numLevels - 1);
+        recursiveSearch(&node, lastSearchPos, block_paths, &pos);
+        recursiveUpdate(&node, pos, lastSearchPos, block_paths, numLevels - 1);
     }
 }
 
-void linex_node::setKVLastPos(int16_t val) {
+void linex_node_handler::setKVLastPos(int16_t val) {
     util::setInt(&buf[3], val);
 }
 
-int16_t linex_node::getKVLastPos() {
+int16_t linex_node_handler::getKVLastPos() {
     return util::getInt(buf + 3);
 }
 
-void linex_node::addData(int16_t idx, const char *key, int16_t key_len,
-        const char *value, int16_t value_len) {
+void linex_node_handler::addData(int16_t pos) {
 
     byte *kvIdx = buf + BLK_HDR_SIZE;
-    kvIdx += idx;
-    kvIdx += idx;
+    kvIdx += pos;
+    kvIdx += pos;
     int16_t filled_upto = filledUpto();
     filled_upto++;
-    if (idx < filled_upto)
-        memmove(kvIdx + 2, kvIdx, (filled_upto - idx) * 2);
+    if (pos < filled_upto)
+        memmove(kvIdx + 2, kvIdx, (filled_upto - pos) * 2);
 
     util::setInt(buf + 1, filled_upto);
     int16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
@@ -113,11 +121,11 @@ void linex_node::addData(int16_t idx, const char *key, int16_t key_len,
     util::setInt(kvIdx, kv_last_pos);
 }
 
-byte *linex_node::split(int16_t *pbrk_idx) {
+byte *linex_node_handler::split(int16_t *pbrk_idx) {
     int16_t filled_upto = filledUpto();
     byte *b = util::alignedAlloc(LINEX_NODE_SIZE);
-    linex_node new_block(b);
-    new_block.init();
+    linex_node_handler new_block(b);
+    new_block.initBuf();
     if (!isLeaf())
         new_block.setLeaf(false);
     int16_t kv_last_pos = getKVLastPos();
@@ -133,12 +141,12 @@ byte *linex_node::split(int16_t *pbrk_idx) {
     // Copy all data to new block in ascending order
     for (new_idx = 0; new_idx <= filled_upto; new_idx++) {
         int16_t src_idx = util::getInt(kv_idx + new_pos);
-        int16_t key_len = buf[src_idx];
-        key_len++;
-        int16_t value_len = buf[src_idx + key_len];
-        value_len++;
-        int16_t kv_len = key_len;
-        kv_len += value_len;
+        int16_t new_key_len = buf[src_idx];
+        new_key_len++;
+        int16_t new_value_len = buf[src_idx + new_key_len];
+        new_value_len++;
+        int16_t kv_len = new_key_len;
+        kv_len += new_value_len;
         tot_len += kv_len;
         memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
         util::setInt(new_kv_idx + new_pos, kv_last_pos);
@@ -177,30 +185,29 @@ byte *linex_node::split(int16_t *pbrk_idx) {
     return b;
 }
 
-void linex::recursiveUpdate(const char *key, int16_t key_len, byte *foundNode,
-        int16_t pos, const char *value, int16_t value_len,
+void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
         int16_t lastSearchPos[], byte *node_paths[], int16_t level) {
-    linex_node node(foundNode);
     int16_t idx = pos; // lastSearchPos[level];
     if (idx < 0) {
         idx = ~idx;
-        if (node.isFull(key_len + value_len)) {
+        if (node->isFull(node->key_len + node->value_len)) {
             //std::cout << "Full\n" << std::endl;
             //if (maxKeyCount < block->filledSize())
             //    maxKeyCount = block->filledSize();
             //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
-            maxKeyCount += node.filledUpto();
+            maxKeyCount += node->filledUpto();
             int16_t brk_idx;
-            byte *b = node.split(&brk_idx);
-            linex_node new_block(b);
+            byte *b = node->split(&brk_idx);
+            linex_node_handler new_block(b);
             blockCount++;
             bool isRoot = false;
-            if (root->buf == node.buf)
+            if (root_data == node->buf)
                 isRoot = true;
-            int16_t first_key_len = key_len;
-            const char *new_block_first_key = key;
+            int16_t first_key_len = node->key_len;
+            byte *old_buf = node->buf;
+            const char *new_block_first_key = node->key;
             if (idx > brk_idx) {
-                node.setBuf(new_block.buf);
+                node->setBuf(new_block.buf);
                 idx -= brk_idx;
                 idx--;
                 if (idx > 0) {
@@ -212,29 +219,41 @@ void linex::recursiveUpdate(const char *key, int16_t key_len, byte *foundNode,
                         &first_key_len);
             }
             if (isRoot) {
-                byte *buf = util::alignedAlloc(LINEX_NODE_SIZE);
-                root->setBuf(buf);
-                root->init();
+                root_data = util::alignedAlloc(LINEX_NODE_SIZE);
+                linex_node_handler root(root_data);
+                root.initBuf();
                 blockCount++;
                 char addr[5];
-                util::ptrToFourBytes((unsigned long) foundNode, addr);
-                root->addData(0, "", 1, addr, sizeof(char *));
+                util::ptrToFourBytes((unsigned long) old_buf, addr);
+                root.key = "";
+                root.key_len = 1;
+                root.value = addr;
+                root.value_len = sizeof(char *);
+                root.addData(0);
                 util::ptrToFourBytes((unsigned long) new_block.buf, addr);
-                root->addData(1, new_block_first_key, first_key_len, addr,
-                        sizeof(char *));
-                root->setLeaf(false);
+                root.key = new_block_first_key;
+                root.key_len = first_key_len;
+                root.value = addr;
+                root.value_len = sizeof(char *);
+                root.addData(1);
+                root.setLeaf(false);
                 numLevels++;
             } else {
                 int16_t prev_level = level - 1;
                 byte *parent = node_paths[prev_level];
+                linex_node_handler parent_node(parent);
                 char addr[5];
                 util::ptrToFourBytes((unsigned long) new_block.buf, addr);
-                recursiveUpdate(new_block_first_key, first_key_len, parent,
-                        ~(lastSearchPos[prev_level] + 1), addr, sizeof(char *),
+                parent_node.key = new_block_first_key;
+                parent_node.key_len = first_key_len;
+                parent_node.value = addr;
+                parent_node.value_len = sizeof(char *);
+                recursiveUpdate(&parent_node,
+                        ~(lastSearchPos[prev_level] + 1),
                         lastSearchPos, node_paths, prev_level);
             }
         }
-        node.addData(idx, key, key_len, value, value_len);
+        node->addData(idx);
     } else {
         //if (node->isLeaf) {
         //    int16_t vIdx = idx + mSizeBy2;
@@ -244,7 +263,7 @@ void linex::recursiveUpdate(const char *key, int16_t key_len, byte *foundNode,
     }
 }
 
-int16_t linex_node::binarySearchLeaf(const char *key, int16_t key_len) {
+int16_t linex_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {
     register int16_t middle, cmp, filled_upto;
     filled_upto = filledUpto();
     middle = GenTree::roots[filled_upto];
@@ -264,7 +283,7 @@ int16_t linex_node::binarySearchLeaf(const char *key, int16_t key_len) {
     return middle;
 }
 
-int16_t linex_node::binarySearchNode(const char *key, int16_t key_len) {
+int16_t linex_node_handler::binarySearchNode(const char *key, int16_t key_len) {
     register int16_t middle, cmp, filled_upto;
     filled_upto = filledUpto();
     middle = GenTree::roots[filled_upto];
@@ -295,7 +314,7 @@ int16_t linex_node::binarySearchNode(const char *key, int16_t key_len) {
     return middle;
 }
 
-int16_t linex_node::locate(const char *key, int16_t key_len, int16_t level) {
+int16_t linex_node_handler::locate(int16_t level) {
     int16_t ret = -1;
     if (isLeaf()) {
         ret = binarySearchLeaf(key, key_len);
@@ -306,47 +325,48 @@ int16_t linex_node::locate(const char *key, int16_t key_len, int16_t level) {
 }
 
 linex::~linex() {
-    delete root;
+    delete root_data;
 }
 
 linex::linex() {
     GenTree::generateLists();
-    root = new linex_node(util::alignedAlloc(LINEX_NODE_SIZE));
-    root->init();
+    root_data = util::alignedAlloc(LINEX_NODE_SIZE);
+    linex_node_handler root(root_data);
+    root.initBuf();
     total_size = 0;
     numLevels = 1;
     maxKeyCount = 0;
     blockCount = 1;
 }
 
-linex_node::linex_node(byte *b) {
+linex_node_handler::linex_node_handler(byte *b) {
     setBuf(b);
 }
 
-void linex_node::setBuf(byte *b) {
+void linex_node_handler::setBuf(byte *b) {
     buf = b;
 }
 
-void linex_node::init() {
+void linex_node_handler::initBuf() {
     memset(buf, '\0', LINEX_NODE_SIZE);
     setLeaf(1);
     setFilledUpto(-1);
     setKVLastPos(LINEX_NODE_SIZE);
 }
 
-bool linex_node::isLeaf() {
+bool linex_node_handler::isLeaf() {
     return (buf[0] == 1);
 }
 
-void linex_node::setLeaf(char isLeaf) {
+void linex_node_handler::setLeaf(char isLeaf) {
     buf[0] = isLeaf;
 }
 
-void linex_node::setFilledUpto(int16_t filledUpto) {
+void linex_node_handler::setFilledUpto(int16_t filledUpto) {
     util::setInt(buf + 1, filledUpto);
 }
 
-bool linex_node::isFull(int16_t kv_len) {
+bool linex_node_handler::isFull(int16_t kv_len) {
     kv_len += 4; // one int16_t pointer, 1 byte key len, 1 byte value len
     int16_t spaceLeft = getKVLastPos();
     spaceLeft -= (filledUpto() * 2);
@@ -357,11 +377,11 @@ bool linex_node::isFull(int16_t kv_len) {
     return false;
 }
 
-int16_t linex_node::filledUpto() {
+int16_t linex_node_handler::filledUpto() {
     return util::getInt(buf + 1);
 }
 
-byte *linex_node::getChild(int16_t pos) {
+byte *linex_node_handler::getChild(int16_t pos) {
     byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     kvIdx += pos;
@@ -374,7 +394,7 @@ byte *linex_node::getChild(int16_t pos) {
     return ret;
 }
 
-byte *linex_node::getKey(int16_t pos, int16_t *plen) {
+byte *linex_node_handler::getKey(int16_t pos, int16_t *plen) {
     byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     kvIdx += pos;
@@ -384,7 +404,7 @@ byte *linex_node::getKey(int16_t pos, int16_t *plen) {
     return kvIdx;
 }
 
-byte *linex_node::getData(int16_t pos, int16_t *plen) {
+byte *linex_node_handler::getData(int16_t pos, int16_t *plen) {
     byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     kvIdx += pos;

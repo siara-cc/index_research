@@ -11,29 +11,39 @@ using namespace std;
 #define LINEX_NODE_SIZE 512
 #define BLK_HDR_SIZE 5
 
-class linex_node {
+class linex_node_handler {
 private:
     int16_t binarySearchLeaf(const char *key, int16_t key_len);
     int16_t binarySearchNode(const char *key, int16_t key_len);
 public:
     byte *buf;
-    linex_node(byte *m);
-    inline void setBuf(byte *m);
-    inline void init();
+    byte isPut;
+    const char *key;
+    int16_t key_len;
+    const char *key_at;
+    int16_t key_at_len;
+    const char *value;
+    int16_t value_len;
+    linex_node_handler(byte *m);
+    void initBuf();
+    void initVars();
+    void setBuf(byte *m);
+    bool isFull(int16_t kv_lens);
     inline bool isLeaf();
     inline void setLeaf(char isLeaf);
-    inline void setFilledUpto(int16_t filledUpto);
-    inline void setKVLastPos(int16_t val);
-    inline int16_t getKVLastPos();
     int16_t filledUpto();
-    bool isFull(int16_t kv_len);
-    int16_t locate(const char *key, int16_t key_len, int16_t level);
-    void addData(int16_t idx, const char *key, int16_t key_len,
-            const char *value, int16_t value_len);
+    inline void setFilledUpto(int16_t filledUpto);
+    inline int16_t getKVLastPos();
+    inline void setKVLastPos(int16_t val);
+    void addData(int16_t pos);
     byte *getChild(int16_t pos);
     byte *getKey(int16_t pos, int16_t *plen);
     byte *getData(int16_t pos, int16_t *plen);
     byte *split(int16_t *pbrk_idx);
+    int16_t getPtr(int16_t pos);
+    void insPtr(int16_t pos, int16_t kvIdx);
+    int16_t locate(int16_t level);
+    void insertCurrent();
 };
 
 class linex {
@@ -42,15 +52,13 @@ private:
     int numLevels;
     int maxKeyCount;
     int blockCount;
-    byte *recursiveSearch(const char *key, int16_t key_len, byte *node_data,
-            int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx);
-    byte *recursiveSearchForGet(const char *key, int16_t key_len,
-            int16_t *pIdx);
-    void recursiveUpdate(const char *key, int16_t key_len, byte *foundNode,
-            int16_t pos, const char *value, int16_t value_len,
-            int16_t lastSearchPos[], byte *node_paths[], int16_t level);
+    void recursiveSearch(linex_node_handler *node, int16_t lastSearchPos[],
+            byte *node_paths[], int16_t *pIdx);
+    void recursiveSearchForGet(linex_node_handler *node, int16_t *pIdx);
+    void recursiveUpdate(linex_node_handler *node, int16_t pos, int16_t lastSearchPos[],
+            byte *node_paths[], int16_t level);
 public:
-    linex_node *root;
+    byte *root_data;
     linex();
     ~linex();
     char *get(const char *key, int16_t key_len, int16_t *pValueLen);

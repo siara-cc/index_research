@@ -13,7 +13,7 @@ typedef unsigned char byte;
 #define IDX_BLK_SIZE 128
 #define IDX_HDR_SIZE (MAX_PTR_BITMAP_BYTES+4)
 #define TRIE_PTR_AREA_SIZE (IDX_BLK_SIZE-IDX_HDR_SIZE)
-#define MAX_PTRS 46
+#define MAX_PTRS 47
 
 #define INSERT_MIDDLE1 1
 #define INSERT_MIDDLE2 2
@@ -26,8 +26,25 @@ typedef unsigned char byte;
 #define FILLED_SIZE buf[MAX_PTR_BITMAP_BYTES+1]
 #define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 2
 
-class dfox_var {
+class dfox_node_handler {
+private:
+    byte *trie;
+    static byte left_mask[8];
+    static byte ryte_mask[8];
+    static byte ryte_incl_mask[8];
+    static byte pos_mask[48];
+    inline void insAt(byte pos, byte b);
+    inline void insAt(byte pos, byte b1, byte b2);
+    inline void insAt(byte pos, byte b1, byte b2, byte b3);
+    inline void setAt(byte pos, byte b);
+    inline void append(byte b);
+    inline byte getAt(byte pos);
+    inline void delAt(byte pos);
+    inline void delAt(byte pos, int16_t count);
+    static byte *alignedAlloc();
 public:
+    byte *buf;
+    int16_t threads;
     byte tc;
     byte mask;
     byte msb5;
@@ -43,58 +60,28 @@ public:
     int16_t key_len;
     const char *key_at;
     int16_t key_at_len;
-    int16_t lastSearchPos;
-    dfox_var() {
-        init();
-    }
-    ~dfox_var() {
-    }
-    void init();
-};
-
-class dfox_node{
-private:
-    byte *trie;
-    static byte left_mask[8];
-    static byte ryte_mask[8];
-    static byte ryte_incl_mask[8];
-    static byte pos_mask[48];
-    inline void insAt(byte pos, byte b);
-    inline void insAt(byte pos, byte b1, byte b2);
-    inline void insAt(byte pos, byte b1, byte b2, byte b3);
-    inline void setAt(byte pos, byte b);
-    inline void append(byte b);
-    inline byte getAt(byte pos);
-    inline void delAt(byte pos);
-    inline void delAt(byte pos, int16_t count);
-    byte recurseSkip(dfox_var *v, byte skip_count, byte skip_size);
-    byte processTC(dfox_var *v);
-    static byte *alignedAlloc();
-public:
-    byte *buf;
-    int16_t threads;
-    dfox_node(byte *m);
-    void init();
+    const char *value;
+    int16_t value_len;
+    dfox_node_handler(byte *m);
+    void initBuf();
+    void initVars();
     void setBuf(byte *m);
-    bool isFull(int16_t kv_len, dfox_var *v);
+    bool isFull(int16_t kv_lens);
     inline bool isLeaf();
     inline void setLeaf(char isLeaf);
     int16_t filledSize();
     inline void setFilledSize(int16_t filledSize);
     inline int16_t getKVLastPos();
     inline void setKVLastPos(int16_t val);
-    void addData(int16_t idx, const char *value, int16_t value_len, dfox_var *v);
+    void addData(int16_t pos);
     byte *getChild(int16_t pos);
     byte *getKey(int16_t pos, int16_t *plen);
     byte *getData(int16_t pos, int16_t *plen);
     byte *split(int16_t *pbrk_idx);
     int16_t getPtr(int16_t pos);
     void insPtr(int16_t pos, int16_t kvIdx);
-    int16_t locate(const char *key, int16_t key_len, int16_t level, dfox_var *v);
-    bool recurseTrie(int16_t level, dfox_var *v);
-    byte recurseEntireTrie(int16_t level, dfox_var *v, long idx_list[],
-            int16_t *pidx_len);
-    void insertCurrent(dfox_var *v);
+    int16_t locate(int16_t level);
+    void insertCurrent();
 };
 
 class dfox {
@@ -103,14 +90,13 @@ private:
     int numLevels;
     int maxKeyCount;
     int blockCount;
-    byte *recursiveSearch(const char *key, int16_t key_len, byte *node_data,
-            int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx, dfox_var *v);
-    byte *recursiveSearchForGet(const char *key, int16_t key_len, int16_t *pIdx);
-    void recursiveUpdate(const char *key, int16_t key_len, byte *foundNode, int16_t pos,
-            const char *value, int16_t value_len, int16_t lastSearchPos[],
-            byte *node_paths[], int16_t level, dfox_var *v);
+    void recursiveSearch(dfox_node_handler *node, int16_t lastSearchPos[],
+            byte *node_paths[], int16_t *pIdx);
+    void recursiveSearchForGet(dfox_node_handler *node, int16_t *pIdx);
+    void recursiveUpdate(dfox_node_handler *node, int16_t pos, int16_t lastSearchPos[],
+            byte *node_paths[], int16_t level);
 public:
-    dfox_node *root;
+    byte *root_data;
     int maxThread;
     dfox();
     ~dfox();
