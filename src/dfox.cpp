@@ -391,10 +391,7 @@ byte *dfox_node_handler::getChild(int16_t pos) {
 }
 
 int16_t dfox_node_handler::getPtr(int16_t pos) {
-    byte *kvIdx = buf + IDX_BLK_SIZE;
-    kvIdx -= FILLED_SIZE;
-    kvIdx += pos;
-    int16_t idx = *kvIdx;
+    int16_t idx = buf[IDX_BLK_SIZE - FILLED_SIZE + pos];
     if (DATA_PTR_HIGH_BITS[pos >> 3] & pos_mask[pos])
         idx |= 256;
     return idx;
@@ -556,28 +553,28 @@ void dfox_node_handler::insertCurrent() {
 }
 
 int16_t dfox_node_handler::locate(int16_t level) {
-    register byte keyPos = 0;
-    register byte kc = key[keyPos++];
-    register byte pos = 0;
-    register byte i = 0;
+    register int16_t r_keyPos = 0;
+    register byte kc = key[r_keyPos++];
+    register int16_t pos = 0;
+    register int32_t i = 0;
     //register byte len = TRIE_LEN;
     while (1) {
         register byte tc = trie[i];
         if ((kc ^ tc) < 0x08) {
-            register byte leaves;
+            register byte r_leaves;
             register byte children;
-            register byte to_skip = 0;
+            register int16_t to_skip = 0;
             register byte offset = (kc & 0x07);
-            register byte mask = (0x80 >> offset);
+            register byte r_mask = (0x80 >> offset);
             if (isPut)
                 origPos = i;
             i++;
             children = 0;
-            leaves = 0;
+            r_leaves = 0;
             if (tc & 0x04)
                 children = trie[i++];
             if (tc & 0x02)
-                leaves = trie[i++];
+                r_leaves = trie[i++];
 //            switch (tc & 0x06) {
 //            case 0x02:
 //                leaves = trie[i++];
@@ -595,7 +592,7 @@ int16_t dfox_node_handler::locate(int16_t level) {
             //if (children > mask)
             to_skip = GenTree::bit_count[children & left_mask[offset]];
             //if (leaves > mask)
-            pos += GenTree::bit_count[leaves & left_mask[offset]];
+            pos += GenTree::bit_count[r_leaves & left_mask[offset]];
             while (to_skip) {
                 register byte child_tc = trie[i++];
                 if (child_tc & 0x04)
@@ -605,17 +602,17 @@ int16_t dfox_node_handler::locate(int16_t level) {
                 if (child_tc & 0x01)
                     to_skip--;
             }
-            if (children & mask) {
-                if (leaves & mask) {
-                    if (keyPos == key_len)
+            if (children & r_mask) {
+                if (r_leaves & r_mask) {
+                    if (r_keyPos == key_len)
                         return pos;
                     else
                         pos++;
                 } else {
-                    if (keyPos == key_len) {
+                    if (r_keyPos == key_len) {
                         if (isPut) {
-                            this->leaves = leaves;
-                            this->mask = mask;
+                            this->leaves = r_leaves;
+                            this->mask = r_mask;
                             triePos = i;
                             insertState = INSERT_LEAF;
                             need_count = 2;
@@ -624,27 +621,27 @@ int16_t dfox_node_handler::locate(int16_t level) {
                     }
                 }
             } else {
-                if (leaves & mask) {
+                if (r_leaves & r_mask) {
                     //pos++;
                     int16_t key_at_len;
                     const char *key_at = (char *) getKey(pos, &key_at_len);
                     int16_t cmp = util::compare(key, key_len, key_at,
-                            key_at_len, keyPos);
+                            key_at_len, r_keyPos);
                     if (cmp == 0)
                         return pos;
                     if (cmp > 0)
                         pos++;
                     if (isPut) {
                         triePos = i;
-                        this->mask = mask;
-                        this->keyPos = keyPos;
+                        this->mask = r_mask;
+                        this->keyPos = r_keyPos;
                         this->key_at = key_at;
                         this->key_at_len = key_at_len;
                         insertState = INSERT_THREAD;
                         if (cmp < 0)
                             cmp = -cmp;
-                        if (keyPos < cmp)
-                            cmp -= keyPos;
+                        if (r_keyPos < cmp)
+                            cmp -= r_keyPos;
                         need_count = cmp * 2;
                         need_count += 4;
                     }
@@ -652,17 +649,17 @@ int16_t dfox_node_handler::locate(int16_t level) {
                 } else {
                     if (isPut) {
                         triePos = i;
-                        this->mask = mask;
-                        this->leaves = leaves;
+                        this->mask = r_mask;
+                        this->leaves = r_leaves;
                         insertState = INSERT_LEAF;
                         need_count = 2;
                     }
                     return ~pos;
                 }
             }
-            kc = key[keyPos++];
+            kc = key[r_keyPos++];
         } else if (kc > tc) {
-            register byte to_skip = 0;
+            register int16_t to_skip = 0;
             if (isPut)
                 origPos = i;
             i++;
@@ -671,7 +668,7 @@ int16_t dfox_node_handler::locate(int16_t level) {
             if (tc & 0x02)
                 pos += GenTree::bit_count[trie[i++]];
             while (to_skip) {
-                byte child_tc = trie[i++];
+                register byte child_tc = trie[i++];
                 if (child_tc & 0x04)
                     to_skip += GenTree::bit_count[trie[i++]];
                 if (child_tc & 0x02)

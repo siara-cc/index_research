@@ -9,20 +9,20 @@ typedef unsigned char byte;
 class util {
 public:
     static inline int16_t getInt(byte *pos) {
-        int16_t *ptr = (int16_t *) pos;
-        return *ptr;
-//        int16_t ret = *pos * 256;
-//        pos++;
-//        ret += *pos;
-//        return ret;
+//        int16_t *ptr = (int16_t *) pos;
+//        return *ptr;
+        int16_t ret = *pos << 8;
+        pos++;
+        ret += *pos;
+        return ret;
     }
 
     static inline void setInt(byte *pos, int16_t val) {
-        int16_t *ptr = (int16_t *) pos;
-        *ptr = val;
-//        *pos = val / 256;
-//        pos++;
-//        *pos = val % 256;
+//        int16_t *ptr = (int16_t *) pos;
+//        *ptr = val;
+        *pos = val >> 8;
+        pos++;
+        *pos = val % 256;
     }
 
     static void ptrToFourBytes(unsigned long addr_num, char *addr) {
