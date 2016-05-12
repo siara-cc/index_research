@@ -31,7 +31,7 @@ public:
     bool isFull(int16_t kv_lens);
     inline bool isLeaf();
     inline void setLeaf(char isLeaf);
-    int16_t filledUpto();
+    inline int16_t filledUpto();
     inline void setFilledUpto(int16_t filledUpto);
     inline int16_t getKVLastPos();
     inline void setKVLastPos(int16_t val);

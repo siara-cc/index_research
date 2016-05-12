@@ -70,8 +70,13 @@ public:
     }
 
     static byte *alignedAlloc(int16_t blockSize) {
+#ifdef _MSC_VER
+        return (byte *) malloc(blockSize);
+#elif defined(__MINGW32_VERSION)
+        return (byte *) __mingw_aligned_malloc(blockSize, 64);
+#else
         return (byte *) memalign(64, blockSize);
-        //return (byte *) __mingw_aligned_malloc(blockSize, 64);
+#endif
     }
 };
 

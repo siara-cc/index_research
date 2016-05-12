@@ -6,13 +6,18 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <tr1/unordered_map>
 #include "art.h"
 #include "linex.h"
 #include "dfox.h"
+#ifdef _MSC_VER
+#include <windows.h>
+#include <unordered_map>
+#else
+#include <tr1/unordered_map>
 #include <sys/time.h>
+#endif
 
-#define NUM_ENTRIES 3000000
+#define NUM_ENTRIES 2000000
 
 using namespace std::tr1;
 using namespace std;
@@ -22,15 +27,27 @@ void insert(unordered_map<string, string>& m) {
     char v[100];
     srand(time(NULL));
     for (long l = 0; l < NUM_ENTRIES; l++) {
-//        k[0] = 48 + (rand() % 64);
-//        k[1] = 48 + (rand() % 64);
-//        k[2] = 48 + (rand() % 64);
-//        k[3] = 48 + (rand() % 64);
-//        k[4] = 48 + (rand() % 64);
-//        k[5] = 48 + (rand() % 64);
-//        k[6] = 48 + (rand() % 64);
-//        k[7] = 48 + (rand() % 64);
+
+//        k[0] = 32 + (rand() % 95);
+//        k[1] = 32 + (rand() % 95);
+//        k[2] = 32 + (rand() % 95);
+//        k[3] = 32 + (rand() % 95);
+//        k[4] = 32 + (rand() % 95);
+//        k[5] = 32 + (rand() % 95);
+//        k[6] = 32 + (rand() % 95);
+//        k[7] = 32 + (rand() % 95);
 //        k[8] = 0;
+
+//        k[0] = (rand() % 255);
+//        k[1] = (rand() % 255);
+//        k[2] = (rand() % 255);
+//        k[3] = (rand() % 255);
+//        k[4] = (rand() % 255);
+//        k[5] = (rand() % 255);
+//        k[6] = (rand() % 255);
+//        k[7] = (rand() % 255);
+//        k[8] = 0;
+
         long r = rand() * rand();
         for (int16_t b = 0; b < 4; b++) {
             char c = (r >> (24 - (3 - b) * 8));
@@ -44,6 +61,7 @@ void insert(unordered_map<string, string>& m) {
             k[b * 2 + 1] = 48 + (c & 0x0F);
         }
         k[8] = 0;
+
 //        k[0] = (l >> 24) & 0xFF;
 //        k[1] = (l >> 16) & 0xFF;
 //        k[2] = (l >> 8) & 0xFF;
@@ -53,6 +71,7 @@ void insert(unordered_map<string, string>& m) {
 //        if (k[2] == 0) k[2]++;
 //        if (k[3] == 0) k[3]++;
 //        k[4] = 0;
+
         for (int16_t i = 0; i < 4; i++)
             v[3 - i] = k[i];
         v[4] = 0;
@@ -65,9 +84,21 @@ void insert(unordered_map<string, string>& m) {
     }
 }
 
-float timedifference_msec(struct timeval t0, struct timeval t1) {
-    return (t1.tv_sec - t0.tv_sec) * 1000.0f
-            + (t1.tv_usec - t0.tv_usec) / 1000.0f;
+uint32_t getTimeVal() {
+#ifdef _MSC_VER
+    return GetTickCount() * 1000;
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec * 1000000) + tv.tv_usec;
+#endif
+}
+
+double timedifference(uint32_t t0, uint32_t t1) {
+    double ret = t1;
+    ret -= t0;
+    ret /= 1000;
+    return ret;
 }
 
 void print(dfox *dx, const char *key, int16_t key_len) {
@@ -98,8 +129,8 @@ void print(linex *dx, const char *key, int16_t key_len) {
 
 int main2() {
     GenTree::generateBitCounts();
-    //dfox *dx = new dfox();
-    linex *dx = new linex();
+    dfox *dx = new dfox();
+    //linex *dx = new linex();
     dx->put("Hello", 5, "World", 5);
     dx->put("Nice", 4, "Place", 5);
     dx->put("Arun", 4, "Hello", 5);
@@ -198,6 +229,7 @@ int main2() {
 
     dx->printMaxKeyCount(24);
     dx->printNumLevels();
+    cout << "Trie size: " << (int) dx->root_data[MAX_PTR_BITMAP_BYTES] << endl;
     return 0;
 }
 
@@ -310,12 +342,12 @@ int main() {
 
     GenTree::generateBitCounts();
 
-    struct timeval stop, start;
     unordered_map<string, string> m;
-    gettimeofday(&start, NULL);
+    uint32_t start, stop;
+    start = getTimeVal();
     insert(m);
-    gettimeofday(&stop, NULL);
-    cout << "HashMap insert time:" << timedifference_msec(start, stop) << endl;
+    stop = getTimeVal();
+    cout << "HashMap insert time:" << timedifference(start, stop) << endl;
     cout << "HashMap size:" << m.size() << endl;
     //getchar();
 /*
@@ -323,13 +355,13 @@ int main() {
 
      map<string, string> m1;
      m.begin();
-     gettimeofday(&start, NULL);
+    start = getTimeVal();
      it = m.begin();
      for (; it != m.end(); ++it) {
      m1.insert(pair<string, string>(it->first, it->second));
      }
-     gettimeofday(&stop, NULL);
-     cout << "RB Tree insert time:" << timedifference_msec(start, stop) << endl;
+    stop = getTimeVal();
+     cout << "RB Tree insert time:" << timedifference(start, stop) << endl;
      it = m.begin();
      gettimeofday(&start, NULL);
      for (; it != m.end(); ++it) {
@@ -344,28 +376,28 @@ int main() {
 
     art_tree at;
     art_tree_init(&at);
-    gettimeofday(&start, NULL);
+    start = getTimeVal();
     it1 = m.begin();
     for (; it1 != m.end(); ++it1) {
         art_insert(&at, (unsigned char*) it1->first.c_str(), it1->first.length(),
                 (void *) it1->second.c_str());
     }
-    gettimeofday(&stop, NULL);
-    cout << "ART Insert Time:" << timedifference_msec(start, stop) << endl;
+    stop = getTimeVal();
+    cout << "ART Insert Time:" << timedifference(start, stop) << endl;
     //getchar();
     it1 = m.begin();
-    gettimeofday(&start, NULL);
+    start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
         art_search(&at, (unsigned char*) it1->first.c_str(), it1->first.length());
     }
-    gettimeofday(&stop, NULL);
-    cout << "ART Get Time:" << timedifference_msec(start, stop) << endl;
+    stop = getTimeVal();
+    cout << "ART Get Time:" << timedifference(start, stop) << endl;
     cout << "ART Size:" << art_size(&at) << endl;
     //getchar();
 
-    int16_t null_ctr = 0;
-    int16_t ctr = 0;
-    int16_t cmp = 0;
+    int null_ctr = 0;
+    int ctr = 0;
+    int cmp = 0;
 
 //            it = m.begin();
 //            for (; it != m.end(); ++it) {
@@ -380,20 +412,20 @@ int main() {
     cmp = 0;
     dfox *dx = new dfox();
     it1 = m.begin();
-    gettimeofday(&start, NULL);
+    start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
         dx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
                 it1->second.length());
         ctr++;
     }
-    gettimeofday(&stop, NULL);
-    cout << "DFox+Tree insert time:" << timedifference_msec(start, stop)
+    stop = getTimeVal();
+    cout << "DFox+Tree insert time:" << timedifference(start, stop)
             << endl;
     //getchar();
 
     ctr = 0;
     it1 = m.begin();
-    gettimeofday(&start, NULL);
+    start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
         int16_t len;
         char *value = dx->get(it1->first.c_str(), it1->first.length(), &len);
@@ -413,10 +445,10 @@ int main() {
         }
         ctr++;
     }
-    gettimeofday(&stop, NULL);
+    stop = getTimeVal();
     cout << "Null:" << null_ctr << endl;
     cout << "Cmp:" << cmp << endl;
-    cout << "DFox+Tree get time:" << timedifference_msec(start, stop) << endl;
+    cout << "DFox+Tree get time:" << timedifference(start, stop) << endl;
     std::cout << "Trie Size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES] << endl;
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
@@ -428,19 +460,19 @@ int main() {
     cmp = 0;
     linex *lx = new linex();
     it1 = m.begin();
-    gettimeofday(&start, NULL);
+    start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
         lx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
                 it1->second.length());
         ctr++;
     }
-    gettimeofday(&stop, NULL);
-    cout << "B+Tree insert time:" << timedifference_msec(start, stop) << endl;
+    stop = getTimeVal();
+    cout << "B+Tree insert time:" << timedifference(start, stop) << endl;
     //getchar();
 
     ctr = 0;
     it1 = m.begin();
-    gettimeofday(&start, NULL);
+    start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
         int16_t len;
         char *value = lx->get(it1->first.c_str(), it1->first.length(), &len);
@@ -460,8 +492,8 @@ int main() {
         }
         ctr++;
     }
-    gettimeofday(&stop, NULL);
-    cout << "B+Tree Get Time:" << timedifference_msec(start, stop) << endl;
+    stop = getTimeVal();
+    cout << "B+Tree Get Time:" << timedifference(start, stop) << endl;
     cout << "Null:" << null_ctr << endl;
     cout << "Cmp:" << cmp << endl;
     lx->printMaxKeyCount(NUM_ENTRIES);

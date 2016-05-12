@@ -75,8 +75,8 @@ void linex::recursiveSearch(linex_node_handler *node, int16_t lastSearchPos[],
 
 void linex::put(const char *key, int16_t key_len, const char *value,
         int16_t value_len) {
-    int16_t lastSearchPos[numLevels];
-    byte *block_paths[numLevels];
+    int16_t lastSearchPos[10];
+    byte *block_paths[10];
     linex_node_handler node(root_data);
     node.key = key;
     node.key_len = key_len;
