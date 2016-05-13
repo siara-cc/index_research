@@ -7,25 +7,25 @@
 class GenTree {
 public:
     static byte bit_count[256];
-    static int *roots;
-    static int *left;
-    static int *ryte;
-    static int *parent;
-    static int ixRoots;
-    static int ixLeft;
-    static int ixRyte;
-    static int ixPrnt;
+    static int16_t *roots;
+    static int16_t *left;
+    static int16_t *ryte;
+    static int16_t *parent;
+    static int16_t ixRoots;
+    static int16_t ixLeft;
+    static int16_t ixRyte;
+    static int16_t ixPrnt;
 
-    static int simulateBinarySearch(int idx) {
-        int first, last;
-        int middle, prevMiddle;
+    static int16_t simulateBinarySearch(int16_t idx) {
+        int16_t first, last;
+        int16_t middle, prevMiddle;
         last = TREE_SIZE - 1;
         first = 0;
         middle = (last - first) / 2;
         prevMiddle = middle;
         while (first <= last) {
             if (idx == middle) {
-                int oldLast = last;
+                int16_t oldLast = last;
                 parent[ixPrnt++] = prevMiddle;
                 last = middle - 1;
                 if (first <= last)
@@ -55,17 +55,17 @@ public:
         ixLeft = 0;
         ixRyte = 0;
         ixPrnt = 0;
-        roots = new int[TREE_SIZE];
-        left = new int[TREE_SIZE];
-        ryte = new int[TREE_SIZE];
-        parent = new int[TREE_SIZE];
-        int j = 0;
-        int nxt = 1;
-        for (int i = 0; i < TREE_SIZE; i++) {
+        roots = new int16_t[TREE_SIZE];
+        left = new int16_t[TREE_SIZE];
+        ryte = new int16_t[TREE_SIZE];
+        parent = new int16_t[TREE_SIZE];
+        int16_t j = 0;
+        int16_t nxt = 1;
+        for (int16_t i = 0; i < TREE_SIZE; i++) {
             if (i == 0)
                 roots[ixRoots++] = 0;
             else {
-                int root = (1 << nxt);
+                int16_t root = (1 << nxt);
                 root--;
                 if (i + 1 == TREE_SIZE) {
                     roots[ixRoots] = roots[ixRoots - 1];
@@ -83,14 +83,14 @@ public:
     }
 
     static void generateBitCounts() {
-        for (int i = 0; i < 256; i++) {
+        for (int16_t i = 0; i < 256; i++) {
             bit_count[i] = countSetBits(i);
         }
     }
 
     // Function to get no of set bits in binary
     // representation of passed binary no.
-    inline static byte countSetBits(int n) {
+    inline static byte countSetBits(int16_t n) {
         byte count = 0;
         while (n > 0) {
             n &= (n - 1);
