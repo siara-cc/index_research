@@ -5,7 +5,7 @@
 #include "dfox.h"
 #include "GenTree.h"
 
-//#define FAVOUR_SIZE
+#define FAVOUR_SIZE
 
 char *dfox::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     int16_t pos = -1;
@@ -374,13 +374,13 @@ void dfox_node_handler::setFilledSize(int16_t filledSize) {
 
 bool dfox_node_handler::isFull(int16_t kv_len) {
 #ifndef FAVOUR_SIZE
-    need_count += 2;
+    need_count++;
 #endif
     if (TRIE_LEN+ need_count + FILLED_SIZE >= TRIE_PTR_AREA_SIZE)
     return true;
     if (FILLED_SIZE> MAX_PTRS)
     return true;
-    if ((getKVLastPos() - kv_len - 4) < IDX_BLK_SIZE)
+    if ((getKVLastPos() - kv_len - 2) < IDX_BLK_SIZE)
         return true;
     return false;
 }
@@ -613,8 +613,8 @@ int16_t dfox_node_handler::locate(int16_t level) {
     register byte kc = key[r_keyPos++];
     register int16_t pos = 0;
     register int32_t i = 0;
-    //register byte len = TRIE_LEN;
-    while (1) {
+    register byte len = TRIE_LEN;
+    do {
         register byte tc = trie[i];
         if ((kc ^ tc) < 0x08) {
             register byte r_leaves;
@@ -774,6 +774,14 @@ int16_t dfox_node_handler::locate(int16_t level) {
             }
             return ~pos;
         }
+    } while (i < TRIE_LEN);
+    if (isPut) {
+        triePos = i;
+        this->tc = tc;
+        this->mask = (0x80 >> (kc & 0x07));
+        msb5 = (kc & 0xF8);
+        insertState = INSERT_MIDDLE1;
+        need_count = 2;
     }
     return ~pos;
 }

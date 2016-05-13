@@ -17,7 +17,7 @@
 #include <sys/time.h>
 #endif
 
-#define NUM_ENTRIES 2000000
+#define NUM_ENTRIES 1000000
 
 using namespace std::tr1;
 using namespace std;
@@ -28,15 +28,15 @@ void insert(unordered_map<string, string>& m) {
     srand(time(NULL));
     for (long l = 0; l < NUM_ENTRIES; l++) {
 
-//        k[0] = 32 + (rand() % 95);
-//        k[1] = 32 + (rand() % 95);
-//        k[2] = 32 + (rand() % 95);
-//        k[3] = 32 + (rand() % 95);
-//        k[4] = 32 + (rand() % 95);
-//        k[5] = 32 + (rand() % 95);
-//        k[6] = 32 + (rand() % 95);
-//        k[7] = 32 + (rand() % 95);
-//        k[8] = 0;
+        k[0] = 32 + (rand() % 95);
+        k[1] = 32 + (rand() % 95);
+        k[2] = 32 + (rand() % 95);
+        k[3] = 32 + (rand() % 95);
+        k[4] = 32 + (rand() % 95);
+        k[5] = 32 + (rand() % 95);
+        k[6] = 32 + (rand() % 95);
+        k[7] = 32 + (rand() % 95);
+        k[8] = 0;
 
 //        k[0] = (rand() % 255);
 //        k[1] = (rand() % 255);
@@ -47,20 +47,24 @@ void insert(unordered_map<string, string>& m) {
 //        k[6] = (rand() % 255);
 //        k[7] = (rand() % 255);
 //        k[8] = 0;
+//        for (int i=0; i<8; i++) {
+//            if (k[i] == 0)
+//                k[i] = i+1;
+//        }
 
-        long r = rand() * rand();
-        for (int16_t b = 0; b < 4; b++) {
-            char c = (r >> (24 - (3 - b) * 8));
-            k[b * 2] = 48 + (c >> 4);
-            k[b * 2 + 1] = 48 + (c & 0x0F);
-        }
-        r = rand() * rand();
-        for (int16_t b = 4; b < 8; b++) {
-            char c = (r >> (24 - (b - 4) * 8));
-            k[b * 2] = 48 + (c >> 4);
-            k[b * 2 + 1] = 48 + (c & 0x0F);
-        }
-        k[8] = 0;
+//        long r = rand() * rand();
+//        for (int16_t b = 0; b < 4; b++) {
+//            char c = (r >> (24 - (3 - b) * 8));
+//            k[b * 2] = 48 + (c >> 4);
+//            k[b * 2 + 1] = 48 + (c & 0x0F);
+//        }
+//        r = rand() * rand();
+//        for (int16_t b = 4; b < 8; b++) {
+//            char c = (r >> (24 - (b - 4) * 8));
+//            k[b * 2] = 48 + (c >> 4);
+//            k[b * 2 + 1] = 48 + (c & 0x0F);
+//        }
+//        k[8] = 0;
 
 //        k[0] = (l >> 24) & 0xFF;
 //        k[1] = (l >> 16) & 0xFF;
@@ -350,7 +354,7 @@ int main() {
     cout << "HashMap insert time:" << timedifference(start, stop) << endl;
     cout << "HashMap size:" << m.size() << endl;
     //getchar();
-/*
+
     unordered_map<string, string>::iterator it;
 
      map<string, string> m1;
@@ -363,14 +367,13 @@ int main() {
     stop = getTimeVal();
      cout << "RB Tree insert time:" << timedifference(start, stop) << endl;
      it = m.begin();
-     gettimeofday(&start, NULL);
+     start = getTimeVal();
      for (; it != m.end(); ++it) {
      m1[it->first];
      }
-     gettimeofday(&stop, NULL);
-     cout << "RB Tree get time:" << timedifference_msec(start, stop) << endl;
+     stop = getTimeVal();
+     cout << "RB Tree get time:" << timedifference(start, stop) << endl;
      cout << "RB Tree size:" << m1.size() << endl;
-*/
 
      unordered_map<string, string>::iterator it1;
 
