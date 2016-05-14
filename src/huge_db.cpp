@@ -9,6 +9,7 @@
 #include "art.h"
 #include "linex.h"
 #include "dfox.h"
+#include "rb_tree.h"
 #ifdef _MSC_VER
 #include <windows.h>
 #include <unordered_map>
@@ -105,6 +106,19 @@ double timedifference(uint32_t t0, uint32_t t1) {
     return ret;
 }
 
+void print(rb_tree *dx, const char *key, int16_t key_len) {
+    int16_t len;
+    char *value = dx->get(key, key_len, &len);
+    if (value == null || len == 0) {
+        std::cout << "Value for " << key << " is null" << endl;
+        return;
+    }
+    char s[100];
+    strncpy(s, value, len);
+    s[len] = 0;
+    std::cout << "Key: " << key << ", Value:" << s << endl;
+}
+
 void print(dfox *dx, const char *key, int16_t key_len) {
     int16_t len;
     char *value = dx->get(key, key_len, &len);
@@ -131,105 +145,104 @@ void print(linex *dx, const char *key, int16_t key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
-int main2() {
+int main() {
     GenTree::generateBitCounts();
-    dfox *dx = new dfox();
+    rb_tree *dx = new rb_tree();
+    //dfox *dx = new dfox();
     //linex *dx = new linex();
     dx->put("Hello", 5, "World", 5);
     dx->put("Nice", 4, "Place", 5);
-    dx->put("Arun", 4, "Hello", 5);
-    dx->put("arun", 4, "0", 1);
-    dx->put("resin", 5, "34623", 5);
-    dx->put("rinse", 5, "2", 1);
-    dx->put("rickshaw", 8, "4", 1);
-    dx->put("ride", 4, "5", 1);
-    dx->put("rider", 5, "6", 1);
-    dx->put("rice", 4, "7", 1);
-    dx->put("rick", 4, "8", 1);
-    dx->put("aruna", 5, "9", 1);
-    dx->put("hello", 5, "10", 2);
-    dx->put("world", 5, "11", 2);
-    dx->put("how", 3, "12", 2);
-    dx->put("are", 3, "13", 2);
-    dx->put("you", 3, "14", 2);
-    dx->put("hundred", 7, "100", 3);
-    dx->put("boy", 3, "15", 2);
-    dx->put("boat", 4, "16", 2);
-    dx->put("thousand", 8, "1000", 4);
-    dx->put("buoy", 4, "17", 2);
-    dx->put("boast", 5, "18", 2);
-    dx->put("January", 7, "first", 5);
-    dx->put("February", 8, "second", 6);
-    dx->put("March", 5, "third", 5);
-    dx->put("April", 5, "forth", 5);
-    dx->put("May", 3, "fifth", 5);
-    dx->put("June", 4, "sixth", 5);
-    dx->put("July", 4, "seventh", 7);
-    dx->put("August", 6, "eighth", 6);
-    dx->put("September", 9, "ninth", 5);
-    dx->put("October", 7, "tenth", 5);
-    dx->put("November", 8, "eleventh", 8);
-    dx->put("December", 8, "twelfth", 7);
-    dx->put("Sunday", 6, "one", 3);
-    dx->put("Monday", 6, "two", 3);
-    dx->put("Tuesday", 7, "three", 5);
-    dx->put("Wednesday", 9, "four", 4);
-    dx->put("Thursday", 8, "five", 4);
-    dx->put("Friday", 6, "six", 3);
-    dx->put("Saturday", 8, "seven", 7);
-    dx->put("casa", 4, "nova", 4);
-    dx->put("young", 5, "19", 2);
-    dx->put("methyl", 6, "alcohol", 7);
-    dx->put("youth", 5, "20", 2);
-    dx->put("yousuf", 6, "21", 2);
+//    dx->put("Arun", 4, "Hello", 5);
+//    dx->put("arun", 4, "0", 1);
+//    dx->put("resin", 5, "34623", 5);
+//    dx->put("rinse", 5, "2", 1);
+//    dx->put("rickshaw", 8, "4", 1);
+//    dx->put("ride", 4, "5", 1);
+//    dx->put("rider", 5, "6", 1);
+//    dx->put("rice", 4, "7", 1);
+//    dx->put("rick", 4, "8", 1);
+//    dx->put("aruna", 5, "9", 1);
+//    dx->put("hello", 5, "10", 2);
+//    dx->put("world", 5, "11", 2);
+//    dx->put("how", 3, "12", 2);
+//    dx->put("are", 3, "13", 2);
+//    dx->put("you", 3, "14", 2);
+//    dx->put("hundred", 7, "100", 3);
+//    dx->put("boy", 3, "15", 2);
+//    dx->put("boat", 4, "16", 2);
+//    dx->put("thousand", 8, "1000", 4);
+//    dx->put("buoy", 4, "17", 2);
+//    dx->put("boast", 5, "18", 2);
+//    dx->put("January", 7, "first", 5);
+//    dx->put("February", 8, "second", 6);
+//    dx->put("March", 5, "third", 5);
+//    dx->put("April", 5, "forth", 5);
+//    dx->put("May", 3, "fifth", 5);
+//    dx->put("June", 4, "sixth", 5);
+//    dx->put("July", 4, "seventh", 7);
+//    dx->put("August", 6, "eighth", 6);
+//    dx->put("September", 9, "ninth", 5);
+//    dx->put("October", 7, "tenth", 5);
+//    dx->put("November", 8, "eleventh", 8);
+//    dx->put("December", 8, "twelfth", 7);
+//    dx->put("Sunday", 6, "one", 3);
+//    dx->put("Monday", 6, "two", 3);
+//    dx->put("Tuesday", 7, "three", 5);
+//    dx->put("Wednesday", 9, "four", 4);
+//    dx->put("Thursday", 8, "five", 4);
+//    dx->put("Friday", 6, "six", 3);
+//    dx->put("Saturday", 8, "seven", 7);
+//    dx->put("casa", 4, "nova", 4);
+//    dx->put("young", 5, "19", 2);
+//    dx->put("youth", 5, "20", 2);
+//    dx->put("yousuf", 6, "21", 2);
 
     print(dx, "Hello", 5);
     print(dx, "Nice", 4);
-    print(dx, "Arun", 4);
-    print(dx, "arun", 4);
-    print(dx, "resin", 5);
-    print(dx, "rinse", 5);
-    print(dx, "rickshaw", 8);
-    print(dx, "ride", 4);
-    print(dx, "rider", 5);
-    print(dx, "rice", 4);
-    print(dx, "rick", 4);
-    print(dx, "aruna", 5);
-    print(dx, "hello", 5);
-    print(dx, "world", 5);
-    print(dx, "how", 3);
-    print(dx, "are", 3);
-    print(dx, "you", 3);
-    print(dx, "hundred", 7);
-    print(dx, "boy", 3);
-    print(dx, "boat", 4);
-    print(dx, "thousand", 8);
-    print(dx, "buoy", 4);
-    print(dx, "boast", 5);
-    print(dx, "January", 7);
-    print(dx, "February", 8);
-    print(dx, "March", 5);
-    print(dx, "April", 5);
-    print(dx, "May", 3);
-    print(dx, "June", 4);
-    print(dx, "July", 4);
-    print(dx, "August", 6);
-    print(dx, "September", 9);
-    print(dx, "October", 7);
-    print(dx, "November", 8);
-    print(dx, "December", 8);
-    print(dx, "Sunday", 6);
-    print(dx, "Monday", 6);
-    print(dx, "Tuesday", 7);
-    print(dx, "Wednesday", 9);
-    print(dx, "Thursday", 8);
-    print(dx, "Friday", 6);
-    print(dx, "Saturday", 8);
-    print(dx, "casa", 4);
-    print(dx, "young", 5);
-    print(dx, "methyl", 6);
-    print(dx, "youth", 5);
-    print(dx, "yousuf", 6);
+//    print(dx, "Arun", 4);
+//    print(dx, "arun", 4);
+//    print(dx, "resin", 5);
+//    print(dx, "rinse", 5);
+//    print(dx, "rickshaw", 8);
+//    print(dx, "ride", 4);
+//    print(dx, "rider", 5);
+//    print(dx, "rice", 4);
+//    print(dx, "rick", 4);
+//    print(dx, "aruna", 5);
+//    print(dx, "hello", 5);
+//    print(dx, "world", 5);
+//    print(dx, "how", 3);
+//    print(dx, "are", 3);
+//    print(dx, "you", 3);
+//    print(dx, "hundred", 7);
+//    print(dx, "boy", 3);
+//    print(dx, "boat", 4);
+//    print(dx, "thousand", 8);
+//    print(dx, "buoy", 4);
+//    print(dx, "boast", 5);
+//    print(dx, "January", 7);
+//    print(dx, "February", 8);
+//    print(dx, "March", 5);
+//    print(dx, "April", 5);
+//    print(dx, "May", 3);
+//    print(dx, "June", 4);
+//    print(dx, "July", 4);
+//    print(dx, "August", 6);
+//    print(dx, "September", 9);
+//    print(dx, "October", 7);
+//    print(dx, "November", 8);
+//    print(dx, "December", 8);
+//    print(dx, "Sunday", 6);
+//    print(dx, "Monday", 6);
+//    print(dx, "Tuesday", 7);
+//    print(dx, "Wednesday", 9);
+//    print(dx, "Thursday", 8);
+//    print(dx, "Friday", 6);
+//    print(dx, "Saturday", 8);
+//    print(dx, "casa", 4);
+//    print(dx, "young", 5);
+//    print(dx, "youth", 5);
+//    print(dx, "yousuf", 6);
 
     dx->printMaxKeyCount(24);
     dx->printNumLevels();
@@ -342,7 +355,7 @@ int main1() {
     return 0;
 }
 
-int main() {
+int main2() {
 
     GenTree::generateBitCounts();
 

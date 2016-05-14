@@ -93,6 +93,84 @@ void linex::put(const char *key, int16_t key_len, const char *value,
     }
 }
 
+void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
+        int16_t lastSearchPos[], byte *node_paths[], int16_t level) {
+    int16_t idx = pos; // lastSearchPos[level];
+    if (idx < 0) {
+        idx = ~idx;
+        if (node->isFull(node->key_len + node->value_len)) {
+            //std::cout << "Full\n" << std::endl;
+            //if (maxKeyCount < block->filledSize())
+            //    maxKeyCount = block->filledSize();
+            //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
+            maxKeyCount += node->filledUpto();
+            int16_t brk_idx;
+            byte *b = node->split(&brk_idx);
+            linex_node_handler new_block(b);
+            blockCount++;
+            bool isRoot = false;
+            if (root_data == node->buf)
+                isRoot = true;
+            int16_t first_key_len = node->key_len;
+            byte *old_buf = node->buf;
+            const char *new_block_first_key = node->key;
+            if (idx > brk_idx) {
+                node->setBuf(new_block.buf);
+                idx -= brk_idx;
+                idx--;
+                if (idx > 0) {
+                    new_block_first_key = (char *) new_block.getKey(0,
+                            &first_key_len);
+                }
+            } else {
+                new_block_first_key = (char *) new_block.getKey(0,
+                        &first_key_len);
+            }
+            if (isRoot) {
+                root_data = util::alignedAlloc(LINEX_NODE_SIZE);
+                linex_node_handler root(root_data);
+                root.initBuf();
+                blockCount++;
+                char addr[5];
+                util::ptrToFourBytes((unsigned long) old_buf, addr);
+                root.key = "";
+                root.key_len = 1;
+                root.value = addr;
+                root.value_len = sizeof(char *);
+                root.addData(0);
+                util::ptrToFourBytes((unsigned long) new_block.buf, addr);
+                root.key = new_block_first_key;
+                root.key_len = first_key_len;
+                root.value = addr;
+                root.value_len = sizeof(char *);
+                root.addData(1);
+                root.setLeaf(false);
+                numLevels++;
+            } else {
+                int16_t prev_level = level - 1;
+                byte *parent = node_paths[prev_level];
+                linex_node_handler parent_node(parent);
+                char addr[5];
+                util::ptrToFourBytes((unsigned long) new_block.buf, addr);
+                parent_node.key = new_block_first_key;
+                parent_node.key_len = first_key_len;
+                parent_node.value = addr;
+                parent_node.value_len = sizeof(char *);
+                recursiveUpdate(&parent_node,
+                        ~(lastSearchPos[prev_level] + 1),
+                        lastSearchPos, node_paths, prev_level);
+            }
+        }
+        node->addData(idx);
+    } else {
+        //if (node->isLeaf) {
+        //    int16_t vIdx = idx + mSizeBy2;
+        //    returnValue = (V) arr[vIdx];
+        //    arr[vIdx] = value;
+        //}
+    }
+}
+
 void linex_node_handler::setKVLastPos(int16_t val) {
     util::setInt(&buf[3], val);
 }
@@ -183,84 +261,6 @@ byte *linex_node_handler::split(int16_t *pbrk_idx) {
     new_block.setFilledUpto(new_size - 1); // Set filled upto for new block
     *pbrk_idx = brk_idx;
     return b;
-}
-
-void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
-        int16_t lastSearchPos[], byte *node_paths[], int16_t level) {
-    int16_t idx = pos; // lastSearchPos[level];
-    if (idx < 0) {
-        idx = ~idx;
-        if (node->isFull(node->key_len + node->value_len)) {
-            //std::cout << "Full\n" << std::endl;
-            //if (maxKeyCount < block->filledSize())
-            //    maxKeyCount = block->filledSize();
-            //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
-            maxKeyCount += node->filledUpto();
-            int16_t brk_idx;
-            byte *b = node->split(&brk_idx);
-            linex_node_handler new_block(b);
-            blockCount++;
-            bool isRoot = false;
-            if (root_data == node->buf)
-                isRoot = true;
-            int16_t first_key_len = node->key_len;
-            byte *old_buf = node->buf;
-            const char *new_block_first_key = node->key;
-            if (idx > brk_idx) {
-                node->setBuf(new_block.buf);
-                idx -= brk_idx;
-                idx--;
-                if (idx > 0) {
-                    new_block_first_key = (char *) new_block.getKey(0,
-                            &first_key_len);
-                }
-            } else {
-                new_block_first_key = (char *) new_block.getKey(0,
-                        &first_key_len);
-            }
-            if (isRoot) {
-                root_data = util::alignedAlloc(LINEX_NODE_SIZE);
-                linex_node_handler root(root_data);
-                root.initBuf();
-                blockCount++;
-                char addr[5];
-                util::ptrToFourBytes((unsigned long) old_buf, addr);
-                root.key = "";
-                root.key_len = 1;
-                root.value = addr;
-                root.value_len = sizeof(char *);
-                root.addData(0);
-                util::ptrToFourBytes((unsigned long) new_block.buf, addr);
-                root.key = new_block_first_key;
-                root.key_len = first_key_len;
-                root.value = addr;
-                root.value_len = sizeof(char *);
-                root.addData(1);
-                root.setLeaf(false);
-                numLevels++;
-            } else {
-                int16_t prev_level = level - 1;
-                byte *parent = node_paths[prev_level];
-                linex_node_handler parent_node(parent);
-                char addr[5];
-                util::ptrToFourBytes((unsigned long) new_block.buf, addr);
-                parent_node.key = new_block_first_key;
-                parent_node.key_len = first_key_len;
-                parent_node.value = addr;
-                parent_node.value_len = sizeof(char *);
-                recursiveUpdate(&parent_node,
-                        ~(lastSearchPos[prev_level] + 1),
-                        lastSearchPos, node_paths, prev_level);
-            }
-        }
-        node->addData(idx);
-    } else {
-        //if (node->isLeaf) {
-        //    int16_t vIdx = idx + mSizeBy2;
-        //    returnValue = (V) arr[vIdx];
-        //    arr[vIdx] = value;
-        //}
-    }
 }
 
 int16_t linex_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {

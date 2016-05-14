@@ -24,7 +24,7 @@ using namespace std;
 #define PARENT_PTR_POS 5
 #define KEY_LEN_POS 7
 
-class rb_tree_node {
+class rb_tree_node_handler {
 private:
     int16_t binarySearchLeaf(const char *key, int16_t key_len);
     int16_t binarySearchNode(const char *key, int16_t key_len);
@@ -32,7 +32,7 @@ private:
     inline int16_t getRight(int16_t n);
     inline int16_t getParent(int16_t n);
     int16_t getSibling(int16_t n);
-    inline inline int16_t getUncle(int16_t n);
+    inline int16_t getUncle(int16_t n);
     inline int16_t getGrandParent(int16_t n);
     inline int16_t getRoot();
     inline int16_t getColor(int16_t n);
@@ -51,9 +51,16 @@ private:
     void insertCase5(int16_t n);
 public:
     byte *buf;
-    rb_tree_node(byte *m);
+    byte isPut;
+    const char *key;
+    int16_t key_len;
+    const char *key_at;
+    int16_t key_at_len;
+    const char *value;
+    int16_t value_len;
+    rb_tree_node_handler(byte *m);
     inline void setBuf(byte *m);
-    inline void init();
+    inline void initBuf();
     inline bool isLeaf();
     inline void setLeaf(char isLeaf);
     inline void setFilledUpto(int16_t filledUpto);
@@ -61,9 +68,8 @@ public:
     inline void setDataEndPos(int16_t pos);
     int16_t filledUpto();
     bool isFull(int16_t kv_len);
-    int16_t locate(const char *key, int16_t key_len, int16_t level);
-    void addData(int16_t idx, const char *key, int16_t key_len,
-            const char *value, int16_t value_len);
+    int16_t locate(int16_t level);
+    void addData(int16_t idx);
     byte *getChild(int16_t pos);
     byte *getKey(int16_t pos, int16_t *plen);
     byte *getData(int16_t pos, int16_t *plen);
@@ -76,15 +82,13 @@ private:
     int16_t numLevels;
     int16_t maxKeyCount;
     int16_t blockCount;
-    byte *recursiveSearch(const char *key, int16_t key_len, byte *node_data,
-            int16_t lastSearchPos[], byte *node_paths[], int16_t *pIdx);
-    byte *recursiveSearchForGet(const char *key, int16_t key_len,
-            int16_t *pIdx);
-    void recursiveUpdate(const char *key, int16_t key_len, byte *foundNode,
-            int16_t pos, const char *value, int16_t value_len,
-            int16_t lastSearchPos[], byte *node_paths[], int16_t level);
+    void recursiveSearch(rb_tree_node_handler *node, int16_t lastSearchPos[],
+            byte *node_paths[], int16_t *pIdx);
+    void recursiveSearchForGet(rb_tree_node_handler *node, int16_t *pIdx);
+    void recursiveUpdate(rb_tree_node_handler *node, int16_t pos, int16_t lastSearchPos[],
+            byte *node_paths[], int16_t level);
 public:
-    rb_tree_node *root;
+    byte *root_data;
     rb_tree();
     ~rb_tree();
     char *get(const char *key, int16_t key_len, int16_t *pValueLen);

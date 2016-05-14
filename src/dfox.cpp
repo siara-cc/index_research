@@ -609,11 +609,16 @@ void dfox_node_handler::insertCurrent() {
 }
 
 int16_t dfox_node_handler::locate(int16_t level) {
-    register int16_t r_keyPos = 0;
-    register byte kc = key[r_keyPos++];
-    register int16_t pos = 0;
+    register int16_t keyPos = 0;
     register int32_t i = 0;
-    register byte len = TRIE_LEN;
+//    if (level && keyPos > 3) {
+//        keyPos -= 2;
+//        i = keyPos * 2;
+//    } else
+//        keyPos = 0;
+    register byte kc = key[keyPos++];
+    register int16_t pos = 0;
+    //register byte len = TRIE_LEN;
     do {
         register byte tc = trie[i];
         if ((kc ^ tc) < 0x08) {
@@ -668,12 +673,12 @@ int16_t dfox_node_handler::locate(int16_t level) {
             }
             if (children & r_mask) {
                 if (r_leaves & r_mask) {
-                    if (r_keyPos == key_len)
+                    if (keyPos == key_len)
                         return pos;
                     else
                         pos++;
                 } else {
-                    if (r_keyPos == key_len) {
+                    if (keyPos == key_len) {
                         if (isPut) {
                             this->leaves = r_leaves;
                             this->mask = r_mask;
@@ -690,7 +695,7 @@ int16_t dfox_node_handler::locate(int16_t level) {
                     int16_t key_at_len;
                     const char *key_at = (char *) getKey(pos, &key_at_len);
                     int16_t cmp = util::compare(key, key_len, key_at,
-                            key_at_len, r_keyPos);
+                            key_at_len, keyPos);
                     if (cmp == 0)
                         return pos;
                     if (cmp > 0)
@@ -698,14 +703,14 @@ int16_t dfox_node_handler::locate(int16_t level) {
                     if (isPut) {
                         triePos = i;
                         this->mask = r_mask;
-                        this->keyPos = r_keyPos;
+                        this->keyPos = keyPos;
                         this->key_at = key_at;
                         this->key_at_len = key_at_len;
                         insertState = INSERT_THREAD;
                         if (cmp < 0)
                             cmp = -cmp;
-                        if (r_keyPos < cmp)
-                            cmp -= r_keyPos;
+                        if (keyPos < cmp)
+                            cmp -= keyPos;
 #ifdef FAVOUR_SIZE
                         need_count = cmp * 2;
 #else
@@ -725,7 +730,7 @@ int16_t dfox_node_handler::locate(int16_t level) {
                     return ~pos;
                 }
             }
-            kc = key[r_keyPos++];
+            kc = key[keyPos++];
         } else if (kc > tc) {
             register int16_t to_skip = 0;
             if (isPut)
@@ -774,15 +779,7 @@ int16_t dfox_node_handler::locate(int16_t level) {
             }
             return ~pos;
         }
-    } while (i < TRIE_LEN);
-    if (isPut) {
-        triePos = i;
-        this->tc = tc;
-        this->mask = (0x80 >> (kc & 0x07));
-        msb5 = (kc & 0xF8);
-        insertState = INSERT_MIDDLE1;
-        need_count = 2;
-    }
+    } while (1);
     return ~pos;
 }
 
@@ -835,7 +832,7 @@ byte dfox_node_handler::getAt(byte pos) {
 }
 
 void dfox_node_handler::initVars() {
-    keyPos = 0;
+    //keyPos = 0;
     triePos = 0;
     need_count = 0;
     insertState = 0;
