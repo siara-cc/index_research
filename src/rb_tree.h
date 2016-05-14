@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define RB_TREE_NODE_SIZE 512
+#define RB_TREE_NODE_SIZE 32767
 #define RB_TREE_HDR_SIZE 7
 #define IS_LEAF_POS 0
 #define FILLED_UPTO_POS 1
@@ -58,6 +58,7 @@ public:
     int16_t key_at_len;
     const char *value;
     int16_t value_len;
+    int16_t depth;
     rb_tree_node_handler(byte *m);
     inline void setBuf(byte *m);
     inline void initBuf();
@@ -91,6 +92,7 @@ public:
     byte *root_data;
     rb_tree();
     ~rb_tree();
+    rb_tree_node_handler *root;
     char *get(const char *key, int16_t key_len, int16_t *pValueLen);
     void put(const char *key, int16_t key_len, const char *value,
             int16_t value_len);

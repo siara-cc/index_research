@@ -17,6 +17,7 @@ void rb_tree::recursiveSearchForGet(rb_tree_node_handler *node, int16_t *pIdx) {
     int16_t level = 0;
     int16_t pos = -1;
     byte *node_data = node->buf;
+    node->depth = 0;
     //node->initVars();
     while (!node->isLeaf()) {
         pos = node->locate(level);
@@ -38,6 +39,8 @@ void rb_tree::recursiveSearchForGet(rb_tree_node_handler *node, int16_t *pIdx) {
         level++;
     }
     pos = node->locate(level);
+    if (root->depth<node->depth)
+        root->depth = node->depth;
     *pIdx = pos;
     return;
 }
@@ -227,6 +230,7 @@ void rb_tree_node_handler::addData(int16_t idx) {
 byte *rb_tree_node_handler::split(int16_t *pbrk_idx) {
     int16_t filled_upto = filledUpto();
     rb_tree_node_handler new_block(util::alignedAlloc(RB_TREE_NODE_SIZE));
+    new_block.initBuf();
     if (!isLeaf())
         new_block.setLeaf(false);
     int16_t data_end_pos = util::getInt(buf + DATA_END_POS);
@@ -302,6 +306,7 @@ void rb_tree_node_handler::setDataEndPos(int16_t pos) {
 int16_t rb_tree_node_handler::binarySearchLeaf(const char *key,
         int16_t key_len) {
     int16_t middle = getRoot();
+    int16_t d = 1;
     do {
         int16_t middle_key_len;
         char *middle_key = (char *) getKey(middle, &middle_key_len);
@@ -310,9 +315,15 @@ int16_t rb_tree_node_handler::binarySearchLeaf(const char *key,
             middle = getLeft(middle);
         else if (cmp < 0)
             middle = getRight(middle);
-        else
+        else {
+            if (d > depth)
+                depth = d;
             return middle;
+        }
+        d++;
     } while (middle > 0);
+    if (d > depth)
+        depth = d;
     return ~middle;
 }
 
@@ -362,8 +373,9 @@ rb_tree::~rb_tree() {
 rb_tree::rb_tree() {
     GenTree::generateLists();
     root_data = util::alignedAlloc(RB_TREE_NODE_SIZE);
-    rb_tree_node_handler root(root_data);
-    root.initBuf();
+    rb_tree_node_handler *r = new rb_tree_node_handler(root_data);
+    r->initBuf();
+    root = r;
     total_size = 0;
     numLevels = 1;
     maxKeyCount = 0;
@@ -420,16 +432,15 @@ byte *rb_tree_node_handler::getChild(int16_t pos) {
 }
 
 byte *rb_tree_node_handler::getKey(int16_t pos, int16_t *plen) {
-    byte *kvIdx = buf + pos;
-    *plen = kvIdx[KEY_LEN_POS];
-    kvIdx += *plen;
+    byte *kvIdx = buf + pos + KEY_LEN_POS;
+    *plen = kvIdx[0];
     kvIdx++;
     return kvIdx;
 }
 
 byte *rb_tree_node_handler::getData(int16_t pos, int16_t *plen) {
-    byte *kvIdx = buf + pos;
-    *plen = kvIdx[KEY_LEN_POS];
+    byte *kvIdx = buf + pos + KEY_LEN_POS;
+    *plen = kvIdx[0];
     kvIdx += *plen;
     kvIdx++;
     *plen = kvIdx[0];
@@ -569,15 +580,15 @@ int16_t rb_tree_node_handler::getColor(int16_t n) {
 }
 
 void rb_tree_node_handler::setLeft(int16_t n, int16_t l) {
-    util::setInt(buf + n + 1, l);
+    util::setInt(buf + n + LEFT_PTR_POS, l);
 }
 
 void rb_tree_node_handler::setRight(int16_t n, int16_t r) {
-    util::setInt(buf + n + 3, r);
+    util::setInt(buf + n + RYTE_PTR_POS, r);
 }
 
 void rb_tree_node_handler::setParent(int16_t n, int16_t p) {
-    util::setInt(buf + n + 5, p);
+    util::setInt(buf + n + PARENT_PTR_POS, p);
 }
 
 void rb_tree_node_handler::setRoot(int16_t n) {
