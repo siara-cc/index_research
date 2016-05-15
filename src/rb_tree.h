@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define RB_TREE_NODE_SIZE 32767
+#define RB_TREE_NODE_SIZE 512
 #define RB_TREE_HDR_SIZE 7
 #define IS_LEAF_POS 0
 #define FILLED_UPTO_POS 1
@@ -73,6 +73,9 @@ public:
     void addData(int16_t idx);
     byte *getChild(int16_t pos);
     byte *getKey(int16_t pos, int16_t *plen);
+    byte *getFirstKey(int16_t *plen);
+    int16_t getFirst();
+    int16_t getNext(int16_t n);
     byte *getData(int16_t pos, int16_t *plen);
     byte *split(int16_t *pbrk_idx);
 };
