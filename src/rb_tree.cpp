@@ -21,18 +21,18 @@ void rb_tree::recursiveSearchForGet(rb_tree_node_handler *node, int16_t *pIdx) {
     //node->initVars();
     while (!node->isLeaf()) {
         pos = node->locate(level);
-        if (pos < 0) {
+        if (pos < 0)
             pos = ~pos;
-        } else {
-            do {
-                node_data = node->getChild(pos);
-                node->setBuf(node_data);
-                level++;
-                pos = node->getFirst();
-            } while (!node->isLeaf());
-            *pIdx = pos;
-            return;
-        }
+//        } else {
+//            do {
+//                node_data = node->getChild(pos);
+//                node->setBuf(node_data);
+//                level++;
+//                pos = node->getFirst();
+//            } while (!node->isLeaf());
+//            *pIdx = pos;
+//            return;
+//        }
         node_data = node->getChild(pos);
         node->setBuf(node_data);
         //node->initVars();
@@ -278,11 +278,11 @@ byte *rb_tree_node_handler::split(int16_t *pbrk_idx) {
 
     int16_t new_blk_new_len = data_end_pos - brk_kv_pos;
     memcpy(new_block.buf + RB_TREE_HDR_SIZE, buf + brk_kv_pos, new_blk_new_len);
-    int16_t n = filled_upto - brk_idx;
+    int16_t n = filled_upto - brk_idx - 1;
     new_block.setFilledUpto(n);
     int16_t pos = RB_TREE_HDR_SIZE;
     brk_kv_pos -= RB_TREE_HDR_SIZE;
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i <= n; i++) {
         int16_t ptr = new_block.getLeft(pos);
         if (ptr)
             new_block.setLeft(pos, ptr - brk_kv_pos);
@@ -300,7 +300,7 @@ byte *rb_tree_node_handler::split(int16_t *pbrk_idx) {
     }
     new_block.setRoot(getRoot() - brk_kv_pos);
     setRoot(new_block_root1);
-    new_block.setDataEndPos(RB_TREE_HDR_SIZE + new_blk_new_len);
+    new_block.setDataEndPos(pos);
 
     *pbrk_idx = brk_idx;
     return new_block.buf;
@@ -362,7 +362,7 @@ int16_t rb_tree_node_handler::binarySearchNode(const char *key,
                 else if (cmp < 0)
                     new_middle = getRight(middle);
                 else
-                    return middle;
+                    return next;
             } else
                 return ~middle;
         } else
@@ -429,10 +429,10 @@ int16_t rb_tree_node_handler::filledUpto() {
 }
 
 bool rb_tree_node_handler::isFull(int16_t kv_len) {
-    kv_len += 9; // 3 int16_t pointer, 1 byte key len, 1 byte value len, 1 flag
+    kv_len += 10; // 3 int16_t pointer, 1 byte key len, 1 byte value len, 1 flag
     int16_t spaceLeft = RB_TREE_NODE_SIZE - util::getInt(buf + DATA_END_POS);
     spaceLeft -= RB_TREE_HDR_SIZE;
-    if (spaceLeft < kv_len)
+    if (spaceLeft <= kv_len)
         return true;
     return false;
 }
