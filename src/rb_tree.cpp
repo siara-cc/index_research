@@ -21,18 +21,18 @@ void rb_tree::recursiveSearchForGet(rb_tree_node_handler *node, int16_t *pIdx) {
     //node->initVars();
     while (!node->isLeaf()) {
         pos = node->locate(level);
-        if (pos < 0)
+        if (pos < 0) {
             pos = ~pos;
-//        } else {
-//            do {
-//                node_data = node->getChild(pos);
-//                node->setBuf(node_data);
-//                level++;
-//                pos = node->getFirst();
-//            } while (!node->isLeaf());
-//            *pIdx = pos;
-//            return;
-//        }
+        } else {
+            do {
+                node_data = node->getChild(pos);
+                node->setBuf(node_data);
+                level++;
+                pos = node->getFirst();
+            } while (!node->isLeaf());
+            *pIdx = pos;
+            return;
+        }
         node_data = node->getChild(pos);
         node->setBuf(node_data);
         //node->initVars();
@@ -318,7 +318,6 @@ int16_t rb_tree_node_handler::binarySearchLeaf(const char *key,
         int16_t key_len) {
     register int16_t middle;
     register int16_t new_middle = getRoot();
-    int16_t d = 1;
     do {
         middle = new_middle;
         int16_t middle_key_len;
@@ -329,14 +328,9 @@ int16_t rb_tree_node_handler::binarySearchLeaf(const char *key,
         else if (cmp < 0)
             new_middle = getRight(middle);
         else {
-            if (d > depth)
-                depth = d;
             return middle;
         }
-        d++;
     } while (new_middle > 0);
-    if (d > depth)
-        depth = d;
     return ~middle;
 }
 

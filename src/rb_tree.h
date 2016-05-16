@@ -83,9 +83,10 @@ public:
 class rb_tree {
 private:
     long total_size;
-    int16_t numLevels;
-    int16_t maxKeyCount;
-    int16_t blockCount;
+    int numLevels;
+    int maxKeyCount;
+    int blockCount;
+    int maxDepth;
     void recursiveSearch(rb_tree_node_handler *node, int16_t lastSearchPos[],
             byte *node_paths[], int16_t *pIdx);
     void recursiveSearchForGet(rb_tree_node_handler *node, int16_t *pIdx);
