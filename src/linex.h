@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define LINEX_NODE_SIZE 512
+#define LINEX_NODE_SIZE 32767
 #define BLK_HDR_SIZE 5
 
 class linex_node_handler {
@@ -27,7 +27,7 @@ public:
     linex_node_handler(byte *m);
     void initBuf();
     void initVars();
-    void setBuf(byte *m);
+    inline void setBuf(byte *m);
     bool isFull(int16_t kv_lens);
     inline bool isLeaf();
     inline void setLeaf(char isLeaf);

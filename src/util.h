@@ -48,8 +48,8 @@ public:
         return ret;
     }
 
-    static int16_t compare(const char *v1, int16_t len1, const char *v2, int16_t len2, int16_t k = 0) {
-        int16_t lim = len1;
+    static int16_t compare(const char *v1, int16_t len1, const char *v2, int16_t len2, int k = 0) {
+        register int lim = len1;
         if (len2 < len1)
             lim = len2;
         while (k < lim) {
@@ -69,13 +69,13 @@ public:
         return (x > y ? y : x);
     }
 
-    static byte *alignedAlloc(int16_t blockSize) {
+    static void *alignedAlloc(int16_t blockSize) {
 #ifdef _MSC_VER
-        return (byte *) malloc(blockSize);
+        return malloc(blockSize);
 #elif defined(__MINGW32_VERSION)
-        return (byte *) __mingw_aligned_malloc(blockSize, 64);
+        return __mingw_aligned_malloc(blockSize, 64);
 #else
-        return (byte *) memalign(64, blockSize);
+        return memalign(64, blockSize);
 #endif
     }
 };

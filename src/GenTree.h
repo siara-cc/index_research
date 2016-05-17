@@ -2,7 +2,7 @@
 #define GENTREE_H
 #include "util.h"
 
-#define TREE_SIZE 2048
+#define TREE_SIZE 4096
 
 class GenTree {
 public:
@@ -55,10 +55,14 @@ public:
         ixLeft = 0;
         ixRyte = 0;
         ixPrnt = 0;
-        roots = new int16_t[TREE_SIZE];
-        left = new int16_t[TREE_SIZE];
-        ryte = new int16_t[TREE_SIZE];
-        parent = new int16_t[TREE_SIZE];
+        roots = (int16_t *) util::alignedAlloc(TREE_SIZE * 2);
+        left = (int16_t *) util::alignedAlloc(TREE_SIZE * 2);
+        ryte = (int16_t *) util::alignedAlloc(TREE_SIZE * 2);
+        parent = (int16_t *) util::alignedAlloc(TREE_SIZE * 2);
+//        roots = new int16_t[TREE_SIZE];
+//        left = new int16_t[TREE_SIZE];
+//        ryte = new int16_t[TREE_SIZE];
+//        parent = new int16_t[TREE_SIZE];
         int16_t j = 0;
         int16_t nxt = 1;
         for (int16_t i = 0; i < TREE_SIZE; i++) {

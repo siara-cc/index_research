@@ -122,7 +122,7 @@ void dfox::recursiveUpdate(dfox_node_handler *node, int16_t pos,
             new_block.isPut = true;
             blockCount++;
             if (root_data == node->buf) {
-                root_data = util::alignedAlloc(DFOX_NODE_SIZE);
+                root_data = (byte *) util::alignedAlloc(DFOX_NODE_SIZE);
                 dfox_node_handler root(root_data);
                 root.initBuf();
                 root.isPut = true;
@@ -183,7 +183,7 @@ void dfox::recursiveUpdate(dfox_node_handler *node, int16_t pos,
 
 byte *dfox_node_handler::split(int16_t *pbrk_idx) {
     int16_t orig_filled_size = filledSize();
-    byte *b = util::alignedAlloc(DFOX_NODE_SIZE);
+    byte *b = (byte *) util::alignedAlloc(DFOX_NODE_SIZE);
     dfox_node_handler old_block(this->buf);
     old_block.isPut = true;
     dfox_node_handler new_block(b);
@@ -273,7 +273,7 @@ byte *dfox_node_handler::split(int16_t *pbrk_idx) {
 }
 
 dfox::dfox() {
-    root_data = util::alignedAlloc(DFOX_NODE_SIZE);
+    root_data = (byte *) util::alignedAlloc(DFOX_NODE_SIZE);
     dfox_node_handler root(root_data);
     root.initBuf();
     total_size = 0;
@@ -609,8 +609,8 @@ void dfox_node_handler::insertCurrent() {
 }
 
 int16_t dfox_node_handler::locate(int16_t level) {
-    register int16_t keyPos = 0;
-    register int32_t i = 0;
+    register int keyPos = 0;
+    register int i = 0;
 //    if (level && keyPos > 3) {
 //        keyPos -= 2;
 //        i = keyPos * 2;

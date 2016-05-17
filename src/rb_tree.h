@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define RB_TREE_NODE_SIZE 512
+#define RB_TREE_NODE_SIZE 32767
 #define RB_TREE_HDR_SIZE 7
 #define IS_LEAF_POS 0
 #define FILLED_UPTO_POS 1
@@ -58,6 +58,7 @@ public:
     int16_t key_at_len;
     const char *value;
     int16_t value_len;
+    byte last_direction;
     int16_t depth;
     rb_tree_node_handler(byte *m);
     inline void setBuf(byte *m);
@@ -88,10 +89,10 @@ private:
     int blockCount;
     int maxDepth;
     void recursiveSearch(rb_tree_node_handler *node, int16_t lastSearchPos[],
-            byte *node_paths[], int16_t *pIdx);
+            byte lastSearchDir[], byte *node_paths[], int16_t *pIdx);
     void recursiveSearchForGet(rb_tree_node_handler *node, int16_t *pIdx);
     void recursiveUpdate(rb_tree_node_handler *node, int16_t pos, int16_t lastSearchPos[],
-            byte *node_paths[], int16_t level);
+            byte lastSearchDir[], byte *node_paths[], int16_t level);
 public:
     byte *root_data;
     rb_tree();
