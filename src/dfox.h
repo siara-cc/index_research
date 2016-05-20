@@ -29,6 +29,7 @@ typedef unsigned char byte;
 class dfox_node_handler {
 private:
     byte *trie;
+    const static byte eight = 0x08;
     static byte left_mask[8];
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];

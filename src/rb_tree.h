@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define RB_TREE_NODE_SIZE 32767
+#define RB_TREE_NODE_SIZE 512
 #define RB_TREE_HDR_SIZE 7
 #define IS_LEAF_POS 0
 #define FILLED_UPTO_POS 1

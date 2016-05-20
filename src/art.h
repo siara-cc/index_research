@@ -79,6 +79,7 @@ typedef struct {
  */
 typedef struct {
     void *value;
+    uint32_t value_len;
     uint32_t key_len;
     unsigned char key[];
 } art_leaf;
@@ -137,7 +138,7 @@ inline uint64_t art_size(art_tree *t) {
  * @return NULL if the item was newly inserted, otherwise
  * the old value pointer is returned.
  */
-void* art_insert(art_tree *t, const unsigned char *key, int key_len, void *value);
+void* art_insert(art_tree *t, const unsigned char *key, int key_len, void *value, int value_len);
 
 /**
  * Deletes a value from the ART tree
@@ -157,7 +158,7 @@ void* art_delete(art_tree *t, const unsigned char *key, int key_len);
  * @return NULL if the item was not found, otherwise
  * the value pointer is returned.
  */
-void* art_search(const art_tree *t, const unsigned char *key, int key_len);
+void* art_search(const art_tree *t, const unsigned char *key, int key_len, int *pvalue_len);
 
 /**
  * Returns the minimum valued leaf

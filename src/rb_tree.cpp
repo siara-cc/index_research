@@ -112,7 +112,8 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
             int16_t brk_idx;
             byte *b = node->split(&brk_idx);
             rb_tree_node_handler new_block(b);
-            blockCount++;
+            if (node->isLeaf())
+                blockCount++;
             bool isRoot = false;
             if (root_data == node->buf)
                 isRoot = true;
@@ -128,7 +129,6 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
                 root_data = (byte *) util::alignedAlloc(RB_TREE_NODE_SIZE);
                 rb_tree_node_handler root(root_data);
                 root.initBuf();
-                blockCount++;
                 char addr[5];
                 util::ptrToFourBytes((unsigned long) old_buf, addr);
                 root.key = "";
@@ -154,7 +154,7 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
                 parent_node.key_len = first_key_len;
                 parent_node.value = addr;
                 parent_node.value_len = sizeof(char *);
-                recursiveUpdate(&parent_node, ~lastSearchPos[prev_level],
+                recursiveUpdate(&parent_node, -1, // ~lastSearchPos[prev_level],
                         lastSearchPos, lastSearchDir, node_paths, prev_level);
             }
             idx = -1;
@@ -166,6 +166,8 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
 }
 
 void rb_tree_node_handler::addData(int16_t idx) {
+
+    //idx = -1; // !!!!!
 
     int16_t filled_upto = filledUpto();
     filled_upto++;
@@ -189,7 +191,7 @@ void rb_tree_node_handler::addData(int16_t idx) {
     if (getRoot() == 0) {
         setRoot(inserted_node);
     } else {
-        if (idx < 0) {
+        if (idx <= 0) {
             n = getRoot();
             while (1) {
                 int16_t key_at_len;
@@ -358,6 +360,7 @@ int16_t rb_tree_node_handler::binarySearchNode(const char *key,
             last_direction = 'l';
         } else if (cmp < 0) {
             register int16_t next = getNext(middle);
+            last_direction = 'r';
             if (next != 0) {
                 register int16_t plus1_key_len;
                 register char *plus1_key = (char *) getKey(next,
@@ -366,7 +369,6 @@ int16_t rb_tree_node_handler::binarySearchNode(const char *key,
                 if (cmp > 0)
                     return ~middle;
                 else if (cmp < 0) {
-                    last_direction = 'r';
                     new_middle = getRight(middle);
                 } else
                     return next;

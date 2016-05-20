@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define LINEX_NODE_SIZE 32767
+#define LINEX_NODE_SIZE 512
 #define BLK_HDR_SIZE 5
 
 class linex_node_handler {
