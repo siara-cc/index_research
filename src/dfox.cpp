@@ -5,8 +5,6 @@
 #include "dfox.h"
 #include "GenTree.h"
 
-#define FAVOUR_SIZE
-
 char *dfox::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     int16_t pos = -1;
     byte *node_data = root_data;
@@ -373,15 +371,12 @@ void dfox_node_handler::setFilledSize(int16_t filledSize) {
 }
 
 bool dfox_node_handler::isFull(int16_t kv_len) {
-#ifndef FAVOUR_SIZE
-    need_count++;
-#endif
-    if (TRIE_LEN+ need_count + FILLED_SIZE >= TRIE_PTR_AREA_SIZE)
+    if (TRIE_LEN+ need_count + FILLED_SIZE + FILLED_SIZE - MAX_PTR_BITMAP_BYTES >= TRIE_PTR_AREA_SIZE)
     return true;
     if (FILLED_SIZE> MAX_PTRS)
     return true;
     if ((getKVLastPos() - kv_len - 2) < IDX_BLK_SIZE)
-        return true;
+    return true;
     return false;
 }
 
@@ -430,12 +425,7 @@ void dfox_node_handler::insertCurrent() {
     if (TRIE_LEN== 0) {
         byte kc = key[0];
         byte offset = (kc & 0x07);
-#ifdef FAVOUR_SIZE
         append((kc & 0xF8) | 0x05);
-#else
-        append((kc & 0xF8) | 0x07);
-        append(0x00);
-#endif
         append(0x80 >> offset);
         insertState = 0;
         return;
@@ -445,29 +435,18 @@ void dfox_node_handler::insertCurrent() {
     case INSERT_MIDDLE1:
         tc &= 0xFB;
         setAt(origPos, tc);
-#ifdef FAVOUR_SIZE
         insAt(triePos, (msb5 | 0x05), mask);
         triePos += 2;
-#else
-        insAt(triePos, (msb5 | 0x07), 0, mask);
-        triePos += 3;
-#endif
         break;
     case INSERT_MIDDLE2:
-#ifdef FAVOUR_SIZE
         insAt(triePos, (msb5 | 0x01), mask);
         triePos += 2;
-#else
-        insAt(triePos, (msb5 | 0x03), 0, mask);
-        triePos += 3;
-#endif
         break;
     case INSERT_LEAF:
-#ifdef FAVOUR_SIZE
         origTC = getAt(origPos);
         leafPos = origPos + 1;
         if (origTC & 0x02)
-        leafPos++;
+            leafPos++;
         if (origTC & 0x01) {
             leaves |= mask;
             setAt(leafPos, leaves);
@@ -476,15 +455,9 @@ void dfox_node_handler::insertCurrent() {
             triePos++;
             setAt(origPos, (origTC | 0x01));
         }
-#else
-        leafPos = origPos + 2;
-        leaves |= mask;
-        setAt(leafPos, leaves);
-#endif
         break;
     case INSERT_THREAD:
         threads++;
-#ifdef FAVOUR_SIZE
         childPos = origPos + 1;
         child = mask;
         origTC = getAt(origPos);
@@ -497,13 +470,6 @@ void dfox_node_handler::insertCurrent() {
             origTC |= 0x02;
             setAt(origPos, origTC);
         }
-#else
-        origTC = getAt(origPos);
-        childPos = origPos + 1;
-        child = mask;
-        child |= getAt(childPos);
-        setAt(childPos, child);
-#endif
         pos = keyPos - 1;
         min = util::min(key_len, key_at_len);
         byte c1, c2;
@@ -516,18 +482,14 @@ void dfox_node_handler::insertCurrent() {
                 leafPos++;
                 byte leaf = getAt(leafPos);
                 leaf &= ~mask;
-#ifdef FAVOUR_SIZE
                 if (leaf)
-                setAt(leafPos, leaf);
+                    setAt(leafPos, leaf);
                 else {
                     delAt(leafPos);
                     triePos--;
                     origTC &= 0xFE;
                     setAt(origPos, origTC);
                 }
-#else
-                setAt(leafPos, leaf);
-#endif
             }
             do {
                 c1 = key[pos];
@@ -560,30 +522,19 @@ void dfox_node_handler::insertCurrent() {
                         c2leaf = (0x80 >> offc2);
                         msb5c2 |= 0x05;
                         msb5c1 |= 0x01;
-#ifdef FAVOUR_SIZE
                         insAt(triePos, msb5c2, c2leaf);
-#else
-                        msb5c2 |= 0x03;
-                        insAt(triePos, msb5c2, 0, c2leaf);
-#endif
                     }
                 }
-#ifdef FAVOUR_SIZE
                 if (c1leaf != 0 && c1child != 0) {
-#else
-                msb5c1 |= 0x03;
-#endif
-                insAt(triePos, msb5c1, c1child, c1leaf);
-                triePos += 3;
-#ifdef FAVOUR_SIZE
-            } else if (c1leaf != 0) {
-                insAt(triePos, msb5c1, c1leaf);
-                triePos += 2;
-            } else {
-                insAt(triePos, msb5c1, c1child);
-                triePos += 2;
-            }
-#endif
+                    insAt(triePos, msb5c1, c1child, c1leaf);
+                    triePos += 3;
+                } else if (c1leaf != 0) {
+                    insAt(triePos, msb5c1, c1leaf);
+                    triePos += 2;
+                } else {
+                    insAt(triePos, msb5c1, c1child);
+                    triePos += 2;
+                }
                 if (c1 != c2)
                     break;
                 pos++;
@@ -593,15 +544,9 @@ void dfox_node_handler::insertCurrent() {
             c2 = (pos == key_at_len ? key[pos] : key_at[pos]);
             int16_t msb5c2 = (c2 & 0xF8);
             int16_t offc2 = (c2 & 0x07);
-#ifdef FAVOUR_SIZE
             msb5c2 |= 0x05;
             insAt(triePos, msb5c2, (0x80 >> offc2));
             triePos += 2;
-#else
-            msb5c2 |= 0x07;
-            insAt(triePos, msb5c2, 0, (0x80 >> offc2));
-            triePos += 3;
-#endif
         }
         break;
     }
@@ -611,17 +556,10 @@ void dfox_node_handler::insertCurrent() {
 int16_t dfox_node_handler::locate(int16_t level) {
     register int keyPos = 0;
     register int i = 0;
-//    if (level && keyPos > 3) {
-//        keyPos -= 2;
-//        i = keyPos * 2;
-//    } else
-//        keyPos = 0;
     register byte kc = key[keyPos++];
     register int16_t pos = 0;
-    //register byte len = TRIE_LEN;
     do {
         register byte tc = trie[i];
-        //if ((tc >> 3) == (kc >> 3)) {
         if ((kc ^ tc) < eight) {
             register byte r_leaves;
             register byte children;
@@ -631,44 +569,20 @@ int16_t dfox_node_handler::locate(int16_t level) {
             if (isPut)
                 origPos = i;
             i++;
-#ifdef FAVOUR_SIZE
             children = 0;
             r_leaves = 0;
             if (tc & 0x02)
-#endif
-            children = trie[i++];
-#ifdef FAVOUR_SIZE
+                children = trie[i++];
             if (tc & 0x01)
-#endif
-            r_leaves = trie[i++];
-//            switch (tc & 0x03) {
-//            case 0x01:
-//                leaves = trie[i++];
-//                children = 0;
-//                break;
-//            case 0x02:
-//                children = trie[i++];
-//                leaves = 0;
-//                break;
-//            case 0x03:
-//                children = trie[i++];
-//                leaves = trie[i++];
-//                break;
-//            }
-            //if (children > mask)
+                r_leaves = trie[i++];
             to_skip = GenTree::bit_count[children & left_mask[offset]];
-            //if (leaves > mask)
             pos += GenTree::bit_count[r_leaves & left_mask[offset]];
             while (to_skip) {
                 register byte child_tc = trie[i++];
-#ifdef FAVOUR_SIZE
                 if (child_tc & 0x02)
-#endif
-                to_skip += GenTree::bit_count[trie[i++]];
-#ifdef FAVOUR_SIZE
+                    to_skip += GenTree::bit_count[trie[i++]];
                 if (child_tc & 0x01)
-#endif
-                pos += GenTree::bit_count[trie[i++]];
+                    pos += GenTree::bit_count[trie[i++]];
                 if (child_tc & 0x04)
                     to_skip--;
             }
@@ -692,7 +606,6 @@ int16_t dfox_node_handler::locate(int16_t level) {
                 }
             } else {
                 if (r_leaves & r_mask) {
-                    //pos++;
                     int16_t key_at_len;
                     const char *key_at = (char *) getKey(pos, &key_at_len);
                     int16_t cmp = util::compare(key, key_len, key_at,
@@ -712,11 +625,7 @@ int16_t dfox_node_handler::locate(int16_t level) {
                             cmp = -cmp;
                         if (keyPos < cmp)
                             cmp -= keyPos;
-#ifdef FAVOUR_SIZE
                         need_count = cmp * 2;
-#else
-                        need_count = cmp * 3;
-#endif
                         need_count += 4;
                     }
                     return ~pos;
@@ -737,24 +646,16 @@ int16_t dfox_node_handler::locate(int16_t level) {
             if (isPut)
                 origPos = i;
             i++;
-#ifdef FAVOUR_SIZE
             if (tc & 0x02)
-#endif
-            to_skip += GenTree::bit_count[trie[i++]];
-#ifdef FAVOUR_SIZE
+                to_skip += GenTree::bit_count[trie[i++]];
             if (tc & 0x01)
-#endif
-            pos += GenTree::bit_count[trie[i++]];
+                pos += GenTree::bit_count[trie[i++]];
             while (to_skip) {
                 register byte child_tc = trie[i++];
-#ifdef FAVOUR_SIZE
                 if (child_tc & 0x02)
-#endif
-                to_skip += GenTree::bit_count[trie[i++]];
-#ifdef FAVOUR_SIZE
+                    to_skip += GenTree::bit_count[trie[i++]];
                 if (child_tc & 0x01)
-#endif
-                pos += GenTree::bit_count[trie[i++]];
+                    pos += GenTree::bit_count[trie[i++]];
                 if (child_tc & 0x04)
                     to_skip--;
             }
