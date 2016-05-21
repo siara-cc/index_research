@@ -18,10 +18,10 @@
 #include <sys/time.h>
 #endif
 
-#define NUM_ENTRIES 1000000
-
 using namespace std::tr1;
 using namespace std;
+
+long NUM_ENTRIES=1000000;
 
 void insert(unordered_map<string, string>& m) {
     char k[100];
@@ -29,16 +29,41 @@ void insert(unordered_map<string, string>& m) {
     srand(time(NULL));
     for (long l = 0; l < NUM_ENTRIES; l++) {
 
-        k[0] = 32 + (rand() % 95);
-        k[1] = 32 + (rand() % 95);
-        k[2] = 32 + (rand() % 95);
-        k[3] = 32 + (rand() % 95);
-        k[4] = 32 + (rand() % 95);
-        k[5] = 32 + (rand() % 95);
-        k[6] = 32 + (rand() % 95);
-        k[7] = 32 + (rand() % 95);
+// Printable character set
+//        k[0] = 32 + (rand() % 95);
+//        k[1] = 32 + (rand() % 95);
+//        k[2] = 32 + (rand() % 95);
+//        k[3] = 32 + (rand() % 95);
+//        k[4] = 32 + (rand() % 95);
+//        k[5] = 32 + (rand() % 95);
+//        k[6] = 32 + (rand() % 95);
+//        k[7] = 32 + (rand() % 95);
+//        k[8] = 0;
+
+// Number only character set
+        k[0] = 48 + (rand() % 10);
+        k[1] = 48 + (rand() % 10);
+        k[2] = 48 + (rand() % 10);
+        k[3] = 48 + (rand() % 10);
+        k[4] = 48 + (rand() % 10);
+        k[5] = 48 + (rand() % 10);
+        k[6] = 48 + (rand() % 10);
+        k[7] = 48 + (rand() % 10);
+        k[7] = 48 + (rand() % 10);
         k[8] = 0;
 
+// One per octet character set
+//        k[0] = ((rand() % 32) << 3) | 0x07;
+//        k[1] = ((rand() % 32) << 3) | 0x07;
+//        k[2] = ((rand() % 32) << 3) | 0x07;
+//        k[3] = ((rand() % 32) << 3) | 0x07;
+//        k[4] = ((rand() % 32) << 3) | 0x07;
+//        k[5] = ((rand() % 32) << 3) | 0x07;
+//        k[6] = ((rand() % 32) << 3) | 0x07;
+//        k[7] = ((rand() % 32) << 3) | 0x07;
+//        k[8] = 0;
+
+// 255 random character set
 //        k[0] = (rand() % 255);
 //        k[1] = (rand() % 255);
 //        k[2] = (rand() % 255);
@@ -53,20 +78,7 @@ void insert(unordered_map<string, string>& m) {
 //                k[i] = i+1;
 //        }
 
-//        long r = rand() * rand();
-//        for (int16_t b = 0; b < 4; b++) {
-//            char c = (r >> (24 - (3 - b) * 8));
-//            k[b * 2] = 48 + (c >> 4);
-//            k[b * 2 + 1] = 48 + (c & 0x0F);
-//        }
-//        r = rand() * rand();
-//        for (int16_t b = 4; b < 8; b++) {
-//            char c = (r >> (24 - (b - 4) * 8));
-//            k[b * 2] = 48 + (c >> 4);
-//            k[b * 2 + 1] = 48 + (c & 0x0F);
-//        }
-//        k[8] = 0;
-
+// 255 dense character set
 //        k[0] = (l >> 24) & 0xFF;
 //        k[1] = (l >> 16) & 0xFF;
 //        k[2] = (l >> 8) & 0xFF;
@@ -87,6 +99,7 @@ void insert(unordered_map<string, string>& m) {
             cout << "key:" << k << endl;
         m.insert(pair<string, string>(k, v));
     }
+    NUM_ENTRIES = m.size();
 }
 
 uint32_t getTimeVal() {
@@ -534,7 +547,8 @@ int main() {
     null_ctr = 0;
     ctr = 0;
     cmp = 0;
-    linex *lx = new linex();
+    //linex *lx = new linex();
+    rb_tree *lx = new rb_tree();
     it1 = m.begin();
     start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
