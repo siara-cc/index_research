@@ -8,8 +8,8 @@
 using namespace std;
 
 typedef unsigned char byte;
-#define dfos_NODE_SIZE 512
-#define IDX_HDR_SIZE 4
+#define DFOS_NODE_SIZE 512
+#define IDX_HDR_SIZE 5
 
 #define INSERT_MIDDLE1 1
 #define INSERT_MIDDLE2 2
@@ -17,23 +17,27 @@ typedef unsigned char byte;
 #define INSERT_LEAF 4
 
 #define IS_LEAF_BYTE buf[0]
-#define TRIE_LEN buf[0]
-#define FILLED_SIZE buf[1]
-#define LAST_DATA_PTR buf+2
+#define TRIE_LEN buf[1]
+#define FILLED_SIZE buf[2]
+#define LAST_DATA_PTR buf+3
 
 class dfos_node_handler {
 private:
     byte *trie;
-    const static byte eight = 0x08;
     static byte left_mask[8];
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];
     static byte pos_mask[48];
     inline void insAt(byte pos, byte b);
+    inline void insAt(byte pos, int16_t i);
     inline void insAt(byte pos, byte b1, byte b2);
     inline void insAt(byte pos, byte b1, byte b2, byte b3);
+    inline byte insAt(byte pos, byte tc, byte leaf, int16_t c1_kv_pos);
+    inline byte insAt(byte pos, byte tc, byte child, byte leaf,
+            int16_t c1_kv_pos);
+    inline byte insAt(byte pos, byte tc, byte child, byte leaf,
+            int16_t c1_kv_pos, int16_t c2_kv_pos, byte c2_mask);
     inline void setAt(byte pos, byte b);
-    inline void append(byte b);
     inline byte getAt(byte pos);
     inline void delAt(byte pos);
     inline void delAt(byte pos, int16_t count);
@@ -68,15 +72,13 @@ public:
     inline void setFilledSize(int16_t filledSize);
     inline int16_t getKVLastPos();
     inline void setKVLastPos(int16_t val);
-    void addData(int16_t pos);
-    byte *getChild(int16_t pos);
-    byte *getKey(int16_t pos, int16_t *plen);
-    byte *getData(int16_t pos, int16_t *plen);
+    void addData(int16_t ptr);
+    byte *getChild(int16_t ptr);
+    byte *getKey(int16_t ptr, int16_t *plen);
+    byte *getData(int16_t ptr, int16_t *plen);
     byte *split(int16_t *pbrk_idx);
-    int16_t getPtr(int16_t pos);
-    void insPtr(int16_t pos, int16_t kvIdx);
     int16_t locate(int16_t level);
-    void insertCurrent();
+    void insertCurrent(int16_t kv_pos);
 };
 
 class dfos {
