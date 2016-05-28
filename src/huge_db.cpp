@@ -8,7 +8,7 @@
 #include <map>
 #include "art.h"
 #include "linex.h"
-#include "dfox.h"
+#include "dfos.h"
 #include "rb_tree.h"
 #ifdef _MSC_VER
 #include <windows.h>
@@ -21,7 +21,7 @@
 using namespace std::tr1;
 using namespace std;
 
-long NUM_ENTRIES=1000000;
+long NUM_ENTRIES = 40;
 
 void insert(unordered_map<string, string>& m) {
     char k[100];
@@ -30,27 +30,27 @@ void insert(unordered_map<string, string>& m) {
     for (long l = 0; l < NUM_ENTRIES; l++) {
 
 // Printable character set
-//        k[0] = 32 + (rand() % 95);
-//        k[1] = 32 + (rand() % 95);
-//        k[2] = 32 + (rand() % 95);
-//        k[3] = 32 + (rand() % 95);
-//        k[4] = 32 + (rand() % 95);
-//        k[5] = 32 + (rand() % 95);
-//        k[6] = 32 + (rand() % 95);
-//        k[7] = 32 + (rand() % 95);
-//        k[8] = 0;
+        k[0] = 32 + (rand() % 95);
+        k[1] = 32 + (rand() % 95);
+        k[2] = 32 + (rand() % 95);
+        k[3] = 32 + (rand() % 95);
+        k[4] = 32 + (rand() % 95);
+        k[5] = 32 + (rand() % 95);
+        k[6] = 32 + (rand() % 95);
+        k[7] = 32 + (rand() % 95);
+        k[8] = 0;
 
 // Number only character set
-        k[0] = 48 + (rand() % 10);
-        k[1] = 48 + (rand() % 10);
-        k[2] = 48 + (rand() % 10);
-        k[3] = 48 + (rand() % 10);
-        k[4] = 48 + (rand() % 10);
-        k[5] = 48 + (rand() % 10);
-        k[6] = 48 + (rand() % 10);
-        k[7] = 48 + (rand() % 10);
-        k[7] = 48 + (rand() % 10);
-        k[8] = 0;
+//        k[0] = 48 + (rand() % 10);
+//        k[1] = 48 + (rand() % 10);
+//        k[2] = 48 + (rand() % 10);
+//        k[3] = 48 + (rand() % 10);
+//        k[4] = 48 + (rand() % 10);
+//        k[5] = 48 + (rand() % 10);
+//        k[6] = 48 + (rand() % 10);
+//        k[7] = 48 + (rand() % 10);
+//        k[7] = 48 + (rand() % 10);
+//        k[8] = 0;
 
 // One per octet character set
 //        k[0] = ((rand() % 32) << 3) | 0x07;
@@ -132,7 +132,7 @@ void print(rb_tree *dx, const char *key, int16_t key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
-void print(dfox *dx, const char *key, int16_t key_len) {
+void print(dfos *dx, const char *key, int16_t key_len) {
     int16_t len;
     char *value = dx->get(key, key_len, &len);
     if (value == null || len == 0) {
@@ -144,7 +144,20 @@ void print(dfox *dx, const char *key, int16_t key_len) {
     s[len] = 0;
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
-
+/*
+ void print(dfox *dx, const char *key, int16_t key_len) {
+ int16_t len;
+ char *value = dx->get(key, key_len, &len);
+ if (value == null || len == 0) {
+ std::cout << "Value for " << key << " is null" << endl;
+ return;
+ }
+ char s[100];
+ strncpy(s, value, len);
+ s[len] = 0;
+ std::cout << "Key: " << key << ", Value:" << s << endl;
+ }
+ */
 void print(linex *dx, const char *key, int16_t key_len) {
     int16_t len;
     char *value = dx->get(key, key_len, &len);
@@ -158,10 +171,10 @@ void print(linex *dx, const char *key, int16_t key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
-int main2() {
+int main() {
     GenTree::generateBitCounts();
     //rb_tree *dx = new rb_tree();
-    dfox *dx = new dfox();
+    dfos *dx = new dfos();
     //linex *dx = new linex();
     dx->put("Hello", 5, "World", 5);
     dx->put("Nice", 4, "Place", 5);
@@ -172,43 +185,44 @@ int main2() {
     dx->put("rickshaw", 8, "4", 1);
     dx->put("ride", 4, "5", 1);
     dx->put("rider", 5, "6", 1);
+    dx->put("rid", 3, "5.5", 3);
     dx->put("rice", 4, "7", 1);
     dx->put("rick", 4, "8", 1);
     dx->put("aruna", 5, "9", 1);
     dx->put("hello", 5, "10", 2);
-    dx->put("world", 5, "11", 2);
-    dx->put("how", 3, "12", 2);
-    dx->put("are", 3, "13", 2);
-    dx->put("you", 3, "14", 2);
-    dx->put("hundred", 7, "100", 3);
-    dx->put("boy", 3, "15", 2);
-    dx->put("boat", 4, "16", 2);
-    dx->put("thousand", 8, "1000", 4);
-    dx->put("buoy", 4, "17", 2);
-    dx->put("boast", 5, "18", 2);
-    dx->put("January", 7, "first", 5);
-    dx->put("February", 8, "second", 6);
-    dx->put("March", 5, "third", 5);
-    dx->put("April", 5, "forth", 5);
-    dx->put("May", 3, "fifth", 5);
-    dx->put("June", 4, "sixth", 5);
-    dx->put("July", 4, "seventh", 7);
-    dx->put("August", 6, "eighth", 6);
-    dx->put("September", 9, "ninth", 5);
-    dx->put("October", 7, "tenth", 5);
-    dx->put("November", 8, "eleventh", 8);
-    dx->put("December", 8, "twelfth", 7);
-    dx->put("Sunday", 6, "one", 3);
-    dx->put("Monday", 6, "two", 3);
-    dx->put("Tuesday", 7, "three", 5);
-    dx->put("Wednesday", 9, "four", 4);
-    dx->put("Thursday", 8, "five", 4);
-    dx->put("Friday", 6, "six", 3);
-    dx->put("Saturday", 8, "seven", 7);
-    dx->put("casa", 4, "nova", 4);
-    dx->put("young", 5, "19", 2);
-    dx->put("youth", 5, "20", 2);
-    dx->put("yousuf", 6, "21", 2);
+//    dx->put("world", 5, "11", 2);
+//    dx->put("how", 3, "12", 2);
+//    dx->put("are", 3, "13", 2);
+//    dx->put("you", 3, "14", 2);
+//    dx->put("hundred", 7, "100", 3);
+//    dx->put("boy", 3, "15", 2);
+//    dx->put("boat", 4, "16", 2);
+//    dx->put("thousand", 8, "1000", 4);
+//    dx->put("buoy", 4, "17", 2);
+//    dx->put("boast", 5, "18", 2);
+//    dx->put("January", 7, "first", 5);
+//    dx->put("February", 8, "second", 6);
+//    dx->put("March", 5, "third", 5);
+//    dx->put("April", 5, "forth", 5);
+//    dx->put("May", 3, "fifth", 5);
+//    dx->put("June", 4, "sixth", 5);
+//    dx->put("July", 4, "seventh", 7);
+//    dx->put("August", 6, "eighth", 6);
+//    dx->put("September", 9, "ninth", 5);
+//    dx->put("October", 7, "tenth", 5);
+//    dx->put("November", 8, "eleventh", 8);
+//    dx->put("December", 8, "twelfth", 7);
+//    dx->put("Sunday", 6, "one", 3);
+//    dx->put("Monday", 6, "two", 3);
+//    dx->put("Tuesday", 7, "three", 5);
+//    dx->put("Wednesday", 9, "four", 4);
+//    dx->put("Thursday", 8, "five", 4);
+//    dx->put("Friday", 6, "six", 3);
+//    dx->put("Saturday", 8, "seven", 7);
+//    dx->put("casa", 4, "nova", 4);
+//    dx->put("young", 5, "19", 2);
+//    dx->put("youth", 5, "20", 2);
+//    dx->put("yousuf", 6, "21", 2);
 
     print(dx, "Hello", 5);
     print(dx, "Nice", 4);
@@ -219,6 +233,7 @@ int main2() {
     print(dx, "rickshaw", 8);
     print(dx, "ride", 4);
     print(dx, "rider", 5);
+    print(dx, "rid", 3);
     print(dx, "rice", 4);
     print(dx, "rick", 4);
     print(dx, "aruna", 5);
@@ -233,40 +248,41 @@ int main2() {
     print(dx, "thousand", 8);
     print(dx, "buoy", 4);
     print(dx, "boast", 5);
-    print(dx, "January", 7);
-    print(dx, "February", 8);
-    print(dx, "March", 5);
-    print(dx, "April", 5);
-    print(dx, "May", 3);
-    print(dx, "June", 4);
-    print(dx, "July", 4);
-    print(dx, "August", 6);
-    print(dx, "September", 9);
-    print(dx, "October", 7);
-    print(dx, "November", 8);
-    print(dx, "December", 8);
-    print(dx, "Sunday", 6);
-    print(dx, "Monday", 6);
-    print(dx, "Tuesday", 7);
-    print(dx, "Wednesday", 9);
-    print(dx, "Thursday", 8);
-    print(dx, "Friday", 6);
-    print(dx, "Saturday", 8);
-    print(dx, "casa", 4);
-    print(dx, "young", 5);
-    print(dx, "youth", 5);
-    print(dx, "yousuf", 6);
+//    print(dx, "January", 7);
+//    print(dx, "February", 8);
+//    print(dx, "March", 5);
+//    print(dx, "April", 5);
+//    print(dx, "May", 3);
+//    print(dx, "June", 4);
+//    print(dx, "July", 4);
+//    print(dx, "August", 6);
+//    print(dx, "September", 9);
+//    print(dx, "October", 7);
+//    print(dx, "November", 8);
+//    print(dx, "December", 8);
+//    print(dx, "Sunday", 6);
+//    print(dx, "Monday", 6);
+//    print(dx, "Tuesday", 7);
+//    print(dx, "Wednesday", 9);
+//    print(dx, "Thursday", 8);
+//    print(dx, "Friday", 6);
+//    print(dx, "Saturday", 8);
+//    print(dx, "casa", 4);
+//    print(dx, "young", 5);
+//    print(dx, "youth", 5);
+//    print(dx, "yousuf", 6);
 
     dx->printMaxKeyCount(24);
     dx->printNumLevels();
-    cout << "Trie size: " << (int) dx->root_data[MAX_PTR_BITMAP_BYTES] << endl;
+    cout << "Trie size: " << (int) dx->root_data[1] << endl;
+    cout << "Filled size: " << (int) dx->root_data[2] << endl;
     return 0;
 }
 
 int main3() {
     GenTree::generateBitCounts();
     //linex *dx = new linex();
-    dfox *dx = new dfox();
+    dfos *dx = new dfos();
     dx->put("\001\001\001\001", 4, "one", 3);
     dx->put("\001\001\001\x80", 4, "two", 3);
     print(dx, "\001\001\001\001", 4);
@@ -278,134 +294,176 @@ int main1() {
     GenTree::generateBitCounts();
     //linex *dx = new linex();
     //dfox *dx = new dfox();
-    rb_tree *dx = new rb_tree();
-    dx->put("io-+yu4F", 8, "+-oi", 4);
-    dx->put("a6FC-wX ", 8, "CF6a", 4);
-    dx->put("[X<?zzky", 8, "?<X[", 4);
-    dx->put("%%\\#9IV#", 8, "#\\%%", 4);
-    dx->put("6n|+gTJo", 8, "+|n6", 4);
-    dx->put("1GoTOaDK", 8, "ToG1", 4);
-    dx->put("rJKD~`  ", 8, "DKJr", 4);
-    dx->put("*LCzBNpI", 8, "zCL*", 4);
-    dx->put("{EJj,)e7", 8, "jJE{", 4);
-    dx->put("Sxx6TW4^", 8, "6xxS", 4);
-    dx->put("g^1PtTZO", 8, "P1^g", 4);
-    dx->put("ov6%~0O&", 8, "%6vo", 4);
-    dx->put("H\\GkDVN,", 8, "kG\\H", 4);
-    dx->put("(M/5Cg2b", 8, "5/M(", 4);
-    dx->put("N\\57zEFz", 8, "75\\N", 4);
-    dx->put("A$WcZ&oa", 8, "cW$A", 4);
-    dx->put("\"`8EJZL2", 8, "E8`\"", 4);
-    dx->put("! fxE+po", 8, "xf !", 4);
-    dx->put("q:mVk6C*", 8, "Vm:q", 4);
-    dx->put("2SD3w1cv", 8, "3DS2", 4);
-    dx->put("QET75+yI", 8, "7TEQ", 4);
-    dx->put("Gdv<9Oh?", 8, "<vdG", 4);
-    dx->put("QLeR(A'i", 8, "ReLQ", 4);
-    dx->put("$TVC!DlO", 8, "CVT$", 4);
-    dx->put("f}24KR6;", 8, "42}f", 4);
-    dx->put("UqqBdZ^}", 8, "BqqU", 4);
-    dx->put("Q7.$Tn{7", 8, "$.7Q", 4);
-    dx->put("z#qzdxQ5", 8, "zq#z", 4);
-    dx->put("gBDCG9@Q", 8, "CDBg", 4);
-    dx->put("Mo1!#d*U", 8, "!1oM", 4);
-    dx->put("?%A>b>?t", 8, ">A%?", 4);
-    dx->put("[Aa3TAm;", 8, "3aA[", 4);
-    dx->put("(7vtajRF", 8, "tv7(", 4);
-    dx->put("P\"0^O%<e", 8, "^0\"P", 4);
-    dx->put("*dE,6pU/", 8, ",Ed*", 4);
-    dx->put("l(ud#^[T", 8, "du(l", 4);
-    dx->put("exH,]%w|", 8, ",Hxe", 4);
-    dx->put("*#mkj>3/", 8, "km#*", 4);
-    dx->put("L,LsClB'", 8, "sL,L", 4);
-    dx->put("&Dg+T=`w", 8, "+gD&", 4);
-    dx->put("iS~In>?`", 8, "I~Si", 4);
-    dx->put("zlkUW5_Y", 8, "Uklz", 4);
-    dx->put("}U891Mw`", 8, "98U}", 4);
-    dx->put("`i00nMs]", 8, "00i`", 4);
-    dx->put("q`)ini`}", 8, "i)`q", 4);
-    dx->put("(2k`eEaL", 8, "`k2(", 4);
-    dx->put(">C0BYLl^", 8, "B0C>", 4);
-    dx->put(".NR^-s*n", 8, "^RN.", 4);
-    dx->put("FK7PFd_n", 8, "P7KF", 4);
-    dx->put("FLAFZmI,", 8, "FALF", 4);
-    dx->put("\"W0SC-j)", 8, "S0W\"", 4);
-    dx->put(" 'L9V2U)", 8, "9L' ", 4);
-    dx->put("4}J@$0UX", 8, "@J}4", 4);
-    dx->put("YSM0|7kV", 8, "0MSY", 4);
-    dx->put("'MUuhqVa", 8, "uUM'", 4);
-    dx->put(")L`cPMB\"", 8, "c`L)", 4);
-    dx->put("jR;3%QNH", 8, "3;Rj", 4);
-    dx->put("<QpDpt+x", 8, "DpQ<", 4);
-    dx->put("QF?klrk>", 8, "k?FQ", 4);
-    dx->put("T5ua*|M2", 8, "au5T", 4);
-    print(dx, "io-+yu4F", 8);
-    print(dx, "a6FC-wX ", 8);
-    print(dx, "[X<?zzky", 8);
-    print(dx, "%%\\#9IV#", 8);
-    print(dx, "6n|+gTJo", 8);
-    print(dx, "1GoTOaDK", 8);
-    print(dx, "rJKD~`  ", 8);
-    print(dx, "*LCzBNpI", 8);
-    print(dx, "{EJj,)e7", 8);
-    print(dx, "Sxx6TW4^", 8);
-    print(dx, "g^1PtTZO", 8);
-    print(dx, "ov6%~0O&", 8);
-    print(dx, "H\\GkDVN,", 8);
-    print(dx, "(M/5Cg2b", 8);
-    print(dx, "N\\57zEFz", 8);
-    print(dx, "A$WcZ&oa", 8);
-    print(dx, "\"`8EJZL2", 8);
-    print(dx, "! fxE+po", 8);
-    print(dx, "q:mVk6C*", 8);
-    print(dx, "2SD3w1cv", 8);
-    print(dx, "QET75+yI", 8);
-    print(dx, "Gdv<9Oh?", 8);
-    print(dx, "QLeR(A'i", 8);
-    print(dx, "$TVC!DlO", 8);
-    print(dx, "f}24KR6;", 8);
-    print(dx, "UqqBdZ^}", 8);
-    print(dx, "Q7.$Tn{7", 8);
-    print(dx, "z#qzdxQ5", 8);
-    print(dx, "gBDCG9@Q", 8);
-    print(dx, "Mo1!#d*U", 8);
-    print(dx, "?%A>b>?t", 8);
-    print(dx, "[Aa3TAm;", 8);
-    print(dx, "(7vtajRF", 8);
-    print(dx, "P\"0^O%<e", 8);
-    print(dx, "*dE,6pU/", 8);
-    print(dx, "l(ud#^[T", 8);
-    print(dx, "exH,]%w|", 8);
-    print(dx, "*#mkj>3/", 8);
-    print(dx, "L,LsClB'", 8);
-    print(dx, "&Dg+T=`w", 8);
-    print(dx, "iS~In>?`", 8);
-    print(dx, "zlkUW5_Y", 8);
-    print(dx, "}U891Mw`", 8);
-    print(dx, "`i00nMs]", 8);
-    print(dx, "q`)ini`}", 8);
-    print(dx, "(2k`eEaL", 8);
-    print(dx, ">C0BYLl^", 8);
-    print(dx, ".NR^-s*n", 8);
-    print(dx, "FK7PFd_n", 8);
-    print(dx, "FLAFZmI,", 8);
-    print(dx, "\"W0SC-j)", 8);
-    print(dx, " 'L9V2U)", 8);
-    print(dx, "4}J@$0UX", 8);
-    print(dx, "YSM0|7kV", 8);
-    print(dx, "'MUuhqVa", 8);
-    print(dx, ")L`cPMB\"", 8);
-    print(dx, "jR;3%QNH", 8);
-    print(dx, "<QpDpt+x", 8);
-    print(dx, "QF?klrk>", 8);
-    print(dx, "T5ua*|M2", 8);
+    //rb_tree *dx = new rb_tree();
+    dfos *dx = new dfos();
+    dx->put("95092354",8,"9059",4);
+    dx->put("81389267",8,"8318",4);
+    dx->put("10586447",8,"8501",4);
+    dx->put("24033543",8,"3042",4);
+    dx->put("22390302",8,"9322",4);
+    dx->put("07481457",8,"8470",4);
+    dx->put("38019107",8,"1083",4);
+    dx->put("14851776",8,"5841",4);
+    dx->put("93241121",8,"4239",4);
+    dx->put("67233682",8,"3276",4);
+    dx->put("62246422",8,"4226",4);
+    dx->put("96101902",8,"0169",4);
+    dx->put("59723753",8,"2795",4);
+    dx->put("12455151",8,"5421",4);
+    dx->put("07981817",8,"8970",4);
+    dx->put("28363048",8,"6382",4);
+    dx->put("79621176",8,"2697",4);
+    dx->put("78140292",8,"4187",4);
+    dx->put("14346258",8,"4341",4);
+    dx->put("01210415",8,"1210",4);
+    print(dx, "95092354",8);
+    print(dx, "81389267",8);
+    print(dx, "10586447",8);
+    print(dx, "24033543",8);
+    print(dx, "22390302",8);
+    print(dx, "07481457",8);
+    print(dx, "38019107",8);
+    print(dx, "14851776",8);
+    print(dx, "93241121",8);
+    print(dx, "67233682",8);
+    print(dx, "62246422",8);
+    print(dx, "96101902",8);
+    print(dx, "59723753",8);
+    print(dx, "12455151",8);
+    print(dx, "07981817",8);
+    print(dx, "28363048",8);
+    print(dx, "79621176",8);
+    print(dx, "78140292",8);
+    print(dx, "14346258",8);
+    print(dx, "01210415",8);
+//    dx->put("io-+yu4F", 8, "+-oi", 4);
+//    dx->put("a6FC-wX ", 8, "CF6a", 4);
+//    dx->put("[X<?zzky", 8, "?<X[", 4);
+//    dx->put("%%\\#9IV#", 8, "#\\%%", 4);
+//    dx->put("6n|+gTJo", 8, "+|n6", 4);
+//    dx->put("1GoTOaDK", 8, "ToG1", 4);
+//    dx->put("rJKD~`  ", 8, "DKJr", 4);
+//    dx->put("*LCzBNpI", 8, "zCL*", 4);
+//    dx->put("{EJj,)e7", 8, "jJE{", 4);
+//    dx->put("Sxx6TW4^", 8, "6xxS", 4);
+//    dx->put("g^1PtTZO", 8, "P1^g", 4);
+//    dx->put("ov6%~0O&", 8, "%6vo", 4);
+//    dx->put("H\\GkDVN,", 8, "kG\\H", 4);
+//    dx->put("(M/5Cg2b", 8, "5/M(", 4);
+//    dx->put("N\\57zEFz", 8, "75\\N", 4);
+//    dx->put("A$WcZ&oa", 8, "cW$A", 4);
+//    dx->put("\"`8EJZL2", 8, "E8`\"", 4);
+//    dx->put("! fxE+po", 8, "xf !", 4);
+//    dx->put("q:mVk6C*", 8, "Vm:q", 4);
+//    dx->put("2SD3w1cv", 8, "3DS2", 4);
+//    dx->put("QET75+yI", 8, "7TEQ", 4);
+//    dx->put("Gdv<9Oh?", 8, "<vdG", 4);
+//    dx->put("QLeR(A'i", 8, "ReLQ", 4);
+//    dx->put("$TVC!DlO", 8, "CVT$", 4);
+//    dx->put("f}24KR6;", 8, "42}f", 4);
+//    dx->put("UqqBdZ^}", 8, "BqqU", 4);
+//    dx->put("Q7.$Tn{7", 8, "$.7Q", 4);
+//    dx->put("z#qzdxQ5", 8, "zq#z", 4);
+//    dx->put("gBDCG9@Q", 8, "CDBg", 4);
+//    dx->put("Mo1!#d*U", 8, "!1oM", 4);
+//    dx->put("?%A>b>?t", 8, ">A%?", 4);
+//    dx->put("[Aa3TAm;", 8, "3aA[", 4);
+//    dx->put("(7vtajRF", 8, "tv7(", 4);
+//    dx->put("P\"0^O%<e", 8, "^0\"P", 4);
+//    dx->put("*dE,6pU/", 8, ",Ed*", 4);
+//    dx->put("l(ud#^[T", 8, "du(l", 4);
+//    dx->put("exH,]%w|", 8, ",Hxe", 4);
+//    dx->put("*#mkj>3/", 8, "km#*", 4);
+//    dx->put("L,LsClB'", 8, "sL,L", 4);
+//    dx->put("&Dg+T=`w", 8, "+gD&", 4);
+//    dx->put("iS~In>?`", 8, "I~Si", 4);
+//    dx->put("zlkUW5_Y", 8, "Uklz", 4);
+//    dx->put("}U891Mw`", 8, "98U}", 4);
+//    dx->put("`i00nMs]", 8, "00i`", 4);
+//    dx->put("q`)ini`}", 8, "i)`q", 4);
+//    dx->put("(2k`eEaL", 8, "`k2(", 4);
+//    dx->put(">C0BYLl^", 8, "B0C>", 4);
+//    dx->put(".NR^-s*n", 8, "^RN.", 4);
+//    dx->put("FK7PFd_n", 8, "P7KF", 4);
+//    dx->put("FLAFZmI,", 8, "FALF", 4);
+//    dx->put("\"W0SC-j)", 8, "S0W\"", 4);
+//    dx->put(" 'L9V2U)", 8, "9L' ", 4);
+//    dx->put("4}J@$0UX", 8, "@J}4", 4);
+//    dx->put("YSM0|7kV", 8, "0MSY", 4);
+//    dx->put("'MUuhqVa", 8, "uUM'", 4);
+//    dx->put(")L`cPMB\"", 8, "c`L)", 4);
+//    dx->put("jR;3%QNH", 8, "3;Rj", 4);
+//    dx->put("<QpDpt+x", 8, "DpQ<", 4);
+//    dx->put("QF?klrk>", 8, "k?FQ", 4);
+//    dx->put("T5ua*|M2", 8, "au5T", 4);
+//    print(dx, "io-+yu4F", 8);
+//    print(dx, "a6FC-wX ", 8);
+//    print(dx, "[X<?zzky", 8);
+//    print(dx, "%%\\#9IV#", 8);
+//    print(dx, "6n|+gTJo", 8);
+//    print(dx, "1GoTOaDK", 8);
+//    print(dx, "rJKD~`  ", 8);
+//    print(dx, "*LCzBNpI", 8);
+//    print(dx, "{EJj,)e7", 8);
+//    print(dx, "Sxx6TW4^", 8);
+//    print(dx, "g^1PtTZO", 8);
+//    print(dx, "ov6%~0O&", 8);
+//    print(dx, "H\\GkDVN,", 8);
+//    print(dx, "(M/5Cg2b", 8);
+//    print(dx, "N\\57zEFz", 8);
+//    print(dx, "A$WcZ&oa", 8);
+//    print(dx, "\"`8EJZL2", 8);
+//    print(dx, "! fxE+po", 8);
+//    print(dx, "q:mVk6C*", 8);
+//    print(dx, "2SD3w1cv", 8);
+//    print(dx, "QET75+yI", 8);
+//    print(dx, "Gdv<9Oh?", 8);
+//    print(dx, "QLeR(A'i", 8);
+//    print(dx, "$TVC!DlO", 8);
+//    print(dx, "f}24KR6;", 8);
+//    print(dx, "UqqBdZ^}", 8);
+//    print(dx, "Q7.$Tn{7", 8);
+//    print(dx, "z#qzdxQ5", 8);
+//    print(dx, "gBDCG9@Q", 8);
+//    print(dx, "Mo1!#d*U", 8);
+//    print(dx, "?%A>b>?t", 8);
+//    print(dx, "[Aa3TAm;", 8);
+//    print(dx, "(7vtajRF", 8);
+//    print(dx, "P\"0^O%<e", 8);
+//    print(dx, "*dE,6pU/", 8);
+//    print(dx, "l(ud#^[T", 8);
+//    print(dx, "exH,]%w|", 8);
+//    print(dx, "*#mkj>3/", 8);
+//    print(dx, "L,LsClB'", 8);
+//    print(dx, "&Dg+T=`w", 8);
+//    print(dx, "iS~In>?`", 8);
+//    print(dx, "zlkUW5_Y", 8);
+//    print(dx, "}U891Mw`", 8);
+//    print(dx, "`i00nMs]", 8);
+//    print(dx, "q`)ini`}", 8);
+//    print(dx, "(2k`eEaL", 8);
+//    print(dx, ">C0BYLl^", 8);
+//    print(dx, ".NR^-s*n", 8);
+//    print(dx, "FK7PFd_n", 8);
+//    print(dx, "FLAFZmI,", 8);
+//    print(dx, "\"W0SC-j)", 8);
+//    print(dx, " 'L9V2U)", 8);
+//    print(dx, "4}J@$0UX", 8);
+//    print(dx, "YSM0|7kV", 8);
+//    print(dx, "'MUuhqVa", 8);
+//    print(dx, ")L`cPMB\"", 8);
+//    print(dx, "jR;3%QNH", 8);
+//    print(dx, "<QpDpt+x", 8);
+//    print(dx, "QF?klrk>", 8);
+//    print(dx, "T5ua*|M2", 8);
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
     std::cout << "Size:" << dx->size() << endl;
+    std::cout << "Trie Size:" << (int) dx->root_data[1] << endl;
     return 0;
 }
 
-int main() {
+int main2() {
 
     GenTree::generateBitCounts();
 
@@ -497,7 +555,7 @@ int main() {
     null_ctr = 0;
     ctr = 0;
     cmp = 0;
-    dfox *dx = new dfox();
+    dfos *dx = new dfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();
     start = getTimeVal();
@@ -536,12 +594,10 @@ int main() {
     cout << "Null:" << null_ctr << endl;
     cout << "Cmp:" << cmp << endl;
     cout << "DFox+Tree get time:" << timedifference(start, stop) << endl;
-    std::cout << "Trie Size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES]
-            << endl;
+    std::cout << "Trie Size:" << (int) dx->root_data[1] << endl;
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
-    cout << "Root filled size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES + 1]
-            << endl;
+    cout << "Root filled size:" << (int) dx->root_data[2] << endl;
     //getchar();
 
     null_ctr = 0;

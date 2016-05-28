@@ -420,8 +420,11 @@ void dfos_node_handler::insertCurrent(int16_t kv_pos) {
                 triePos += 2;
             }
         } else {
-            insAt(leafPos, mask, (kv_pos >= 256 ? mask : 0), (byte) (kv_pos & 0xFF));
-            triePos += 4;
+            if (DFOS_NODE_SIZE == 512)
+                insAt(leafPos, mask, (kv_pos >= 256 ? mask : 0), (byte) (kv_pos & 0xFF));
+            else
+                insAt(leafPos, mask, (byte) (kv_pos >> 8), (byte) (kv_pos & 0xFF));
+            triePos += 3;
             setAt(origPos, (origTC | 0x01));
         }
         break;
@@ -453,16 +456,17 @@ void dfos_node_handler::insertCurrent(int16_t kv_pos) {
                 leaf &= ~mask;
                 if (leaf) {
                     setAt(leafPos, leaf);
-                    byte ptr_count = GenTree::bit_count[leaves & ~(mask - 1)];
+                    byte ptr_count = GenTree::bit_count[leaf & ~(mask - 1)];
                     leafPos++;
                     if (DFOS_NODE_SIZE == 512) {
-                        c2_kv_pos = getAt(leafPos + ptr_count);
                         if (getAt(leafPos) & mask)
-                            c2_kv_pos += 256;
+                            c2_kv_pos = 256;
+                        leafPos++;
+                        c2_kv_pos += getAt(leafPos + ptr_count);
                         delAt(leafPos + ptr_count);
                         triePos--;
                     } else {
-                        c2_kv_pos = util::getInt(trie + leafPos + ptr_count);
+                        c2_kv_pos = util::getInt(trie + leafPos + ptr_count * 2);
                         delAt(leafPos + ptr_count * 2, 2);
                         triePos -= 2;
                     }
@@ -558,8 +562,9 @@ void dfos_node_handler::insertCurrent(int16_t kv_pos) {
                         setAt(leafPos, bitmap);
                         setAt(leafPos + ptr_count, kv_pos & 0xFF);
                     } else {
-                        c2_kv_pos = util::getInt(trie + leafPos + ptr_count);
-                        setAt(leafPos + ptr_count, kv_pos);
+                        ptr_count--; // re-evaluate
+                        c2_kv_pos = util::getInt(trie + leafPos + ptr_count * 2);
+                        setAt(leafPos + ptr_count * 2, kv_pos);
                     }
                 }
                 c2 = key_at[pos];
@@ -609,7 +614,7 @@ int16_t dfos_node_handler::locate(int16_t level) {
                             else
                                 ptr = trie[i + leaf_count];
                         } else
-                            ptr = util::getInt(trie + i + leaf_count);
+                            ptr = util::getInt(trie + i + leaf_count * 2);
                         return ptr;
                     }
                 } else {
@@ -662,7 +667,7 @@ int16_t dfos_node_handler::locate(int16_t level) {
                         if (bitmap & r_mask)
                             ptr += 256;
                     } else {
-                        ptr = util::getInt(trie + i + leaf_count);
+                        ptr = util::getInt(trie + i + leaf_count * 2);
                         i += GenTree::bit_count[r_leaves];
                     }
                     i += GenTree::bit_count[r_leaves];
@@ -708,9 +713,10 @@ int16_t dfos_node_handler::locate(int16_t level) {
                 } else {
                     if (isPut) {
                         triePos = GenTree::bit_count[r_leaves];
-                        if (DFOS_NODE_SIZE != 512) {
+                        if (DFOS_NODE_SIZE == 512)
+                            triePos++;
+                        else
                             triePos <<= 1;
-                        }
                         triePos += i;
                         this->tc = tc;
                         this->mask = r_mask;
