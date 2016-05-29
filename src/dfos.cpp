@@ -423,7 +423,7 @@ void dfos_node_handler::insertCurrent(int16_t kv_pos) {
             if (DFOS_NODE_SIZE == 512)
                 insAt(leafPos, mask, (kv_pos >= 256 ? mask : 0), (byte) (kv_pos & 0xFF));
             else
-                insAt(leafPos, mask, (byte) (kv_pos >> 8), (byte) (kv_pos & 0xFF));
+                insAt(leafPos, mask, kv_pos);
             triePos += 3;
             setAt(origPos, (origTC | 0x01));
         }
@@ -828,6 +828,14 @@ void dfos_node_handler::insAt(byte pos, byte b1, byte b2, byte b3) {
     trie[pos++] = b1;
     trie[pos++] = b2;
     trie[pos] = b3;
+    TRIE_LEN += 3;
+}
+
+void dfos_node_handler::insAt(byte pos, byte b1, int16_t i1) {
+    byte *ptr = trie + pos;
+    memmove(ptr + 3, ptr, TRIE_LEN - pos);
+    trie[pos++] = b1;
+    util::setInt(trie + pos, i1);
     TRIE_LEN += 3;
 }
 

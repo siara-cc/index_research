@@ -28,15 +28,15 @@ private:
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];
     static byte pos_mask[48];
-    inline void insAt(byte pos, byte b);
-    inline void insAt(byte pos, int16_t i);
-    inline void insAt(byte pos, byte b1, byte b2);
-    inline void insAt(byte pos, byte b1, byte b2, byte b3);
-    inline byte insAt(byte pos, byte tc, byte leaf, int16_t c1_kv_pos);
-    inline byte insAt(byte pos, byte tc, byte child, byte leaf,
-            int16_t c1_kv_pos);
-    inline byte insAt(byte pos, byte tc, byte child, byte leaf,
-            int16_t c1_kv_pos, int16_t c2_kv_pos, byte c2_mask);
+    void insAt(byte pos, byte b);
+    void insAt(byte pos, int16_t i);
+    void insAt(byte pos, byte b1, int16_t i1);
+    void insAt(byte pos, byte b1, byte b2);
+    void insAt(byte pos, byte b1, byte b2, byte b3);
+    byte insAt(byte pos, byte tc, byte leaf, int16_t c1_kv_pos);
+    byte insAt(byte pos, byte tc, byte child, byte leaf, int16_t c1_kv_pos);
+    byte insAt(byte pos, byte tc, byte child, byte leaf, int16_t c1_kv_pos,
+            int16_t c2_kv_pos, byte c2_mask);
     inline void setAt(byte pos, byte b);
     inline byte getAt(byte pos);
     inline void delAt(byte pos);

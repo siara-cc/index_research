@@ -21,7 +21,7 @@
 using namespace std::tr1;
 using namespace std;
 
-long NUM_ENTRIES = 40;
+long NUM_ENTRIES = 110;
 
 void insert(unordered_map<string, string>& m) {
     char k[100];
@@ -30,15 +30,15 @@ void insert(unordered_map<string, string>& m) {
     for (long l = 0; l < NUM_ENTRIES; l++) {
 
 // Printable character set
-        k[0] = 32 + (rand() % 95);
-        k[1] = 32 + (rand() % 95);
-        k[2] = 32 + (rand() % 95);
-        k[3] = 32 + (rand() % 95);
-        k[4] = 32 + (rand() % 95);
-        k[5] = 32 + (rand() % 95);
-        k[6] = 32 + (rand() % 95);
-        k[7] = 32 + (rand() % 95);
-        k[8] = 0;
+//        k[0] = 32 + (rand() % 95);
+//        k[1] = 32 + (rand() % 95);
+//        k[2] = 32 + (rand() % 95);
+//        k[3] = 32 + (rand() % 95);
+//        k[4] = 32 + (rand() % 95);
+//        k[5] = 32 + (rand() % 95);
+//        k[6] = 32 + (rand() % 95);
+//        k[7] = 32 + (rand() % 95);
+//        k[8] = 0;
 
 // Number only character set
 //        k[0] = 48 + (rand() % 10);
@@ -79,15 +79,15 @@ void insert(unordered_map<string, string>& m) {
 //        }
 
 // 255 dense character set
-//        k[0] = (l >> 24) & 0xFF;
-//        k[1] = (l >> 16) & 0xFF;
-//        k[2] = (l >> 8) & 0xFF;
-//        k[3] = (l & 0xFF);
-//        if (k[0] == 0) k[0]++;
-//        if (k[1] == 0) k[1]++;
-//        if (k[2] == 0) k[2]++;
-//        if (k[3] == 0) k[3]++;
-//        k[4] = 0;
+        k[0] = (l >> 24) & 0xFF;
+        k[1] = (l >> 16) & 0xFF;
+        k[2] = (l >> 8) & 0xFF;
+        k[3] = (l & 0xFF);
+        if (k[0] == 0) k[0]++;
+        if (k[1] == 0) k[1]++;
+        if (k[2] == 0) k[2]++;
+        if (k[3] == 0) k[3]++;
+        k[4] = 0;
 
         for (int16_t i = 0; i < 4; i++)
             v[3 - i] = k[i];
@@ -171,7 +171,7 @@ void print(linex *dx, const char *key, int16_t key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
-int main() {
+int main2() {
     GenTree::generateBitCounts();
     //rb_tree *dx = new rb_tree();
     dfos *dx = new dfos();
@@ -190,26 +190,26 @@ int main() {
     dx->put("rick", 4, "8", 1);
     dx->put("aruna", 5, "9", 1);
     dx->put("hello", 5, "10", 2);
-//    dx->put("world", 5, "11", 2);
-//    dx->put("how", 3, "12", 2);
-//    dx->put("are", 3, "13", 2);
-//    dx->put("you", 3, "14", 2);
-//    dx->put("hundred", 7, "100", 3);
-//    dx->put("boy", 3, "15", 2);
-//    dx->put("boat", 4, "16", 2);
-//    dx->put("thousand", 8, "1000", 4);
-//    dx->put("buoy", 4, "17", 2);
-//    dx->put("boast", 5, "18", 2);
-//    dx->put("January", 7, "first", 5);
-//    dx->put("February", 8, "second", 6);
-//    dx->put("March", 5, "third", 5);
-//    dx->put("April", 5, "forth", 5);
-//    dx->put("May", 3, "fifth", 5);
-//    dx->put("June", 4, "sixth", 5);
-//    dx->put("July", 4, "seventh", 7);
-//    dx->put("August", 6, "eighth", 6);
-//    dx->put("September", 9, "ninth", 5);
-//    dx->put("October", 7, "tenth", 5);
+    dx->put("world", 5, "11", 2);
+    dx->put("how", 3, "12", 2);
+    dx->put("are", 3, "13", 2);
+    dx->put("you", 3, "14", 2);
+    dx->put("hundred", 7, "100", 3);
+    dx->put("boy", 3, "15", 2);
+    dx->put("boat", 4, "16", 2);
+    dx->put("thousand", 8, "1000", 4);
+    dx->put("buoy", 4, "17", 2);
+    dx->put("boast", 5, "18", 2);
+    dx->put("January", 7, "first", 5);
+    dx->put("February", 8, "second", 6);
+    dx->put("March", 5, "third", 5);
+    dx->put("April", 5, "forth", 5);
+    dx->put("May", 3, "fifth", 5);
+    dx->put("June", 4, "sixth", 5);
+    dx->put("July", 4, "seventh", 7);
+    dx->put("August", 6, "eighth", 6);
+    dx->put("September", 9, "ninth", 5);
+    dx->put("October", 7, "tenth", 5);
 //    dx->put("November", 8, "eleventh", 8);
 //    dx->put("December", 8, "twelfth", 7);
 //    dx->put("Sunday", 6, "one", 3);
@@ -248,16 +248,16 @@ int main() {
     print(dx, "thousand", 8);
     print(dx, "buoy", 4);
     print(dx, "boast", 5);
-//    print(dx, "January", 7);
-//    print(dx, "February", 8);
-//    print(dx, "March", 5);
-//    print(dx, "April", 5);
-//    print(dx, "May", 3);
-//    print(dx, "June", 4);
-//    print(dx, "July", 4);
-//    print(dx, "August", 6);
-//    print(dx, "September", 9);
-//    print(dx, "October", 7);
+    print(dx, "January", 7);
+    print(dx, "February", 8);
+    print(dx, "March", 5);
+    print(dx, "April", 5);
+    print(dx, "May", 3);
+    print(dx, "June", 4);
+    print(dx, "July", 4);
+    print(dx, "August", 6);
+    print(dx, "September", 9);
+    print(dx, "October", 7);
 //    print(dx, "November", 8);
 //    print(dx, "December", 8);
 //    print(dx, "Sunday", 6);
@@ -463,7 +463,7 @@ int main1() {
     return 0;
 }
 
-int main2() {
+int main() {
 
     GenTree::generateBitCounts();
 
