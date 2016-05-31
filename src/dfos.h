@@ -8,7 +8,7 @@
 using namespace std;
 
 typedef unsigned char byte;
-#define DFOS_NODE_SIZE 4096
+#define DFOS_NODE_SIZE 513
 #define IDX_HDR_SIZE 5
 
 #define INSERT_MIDDLE1 1
@@ -21,6 +21,8 @@ typedef unsigned char byte;
 #define FILLED_SIZE buf[2]
 #define LAST_DATA_PTR buf+3
 
+#define TRIE_MAX_DEPTH 20
+
 class dfos_node_handler {
 private:
     byte *trie;
@@ -28,6 +30,8 @@ private:
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];
     static byte pos_mask[48];
+    void copyToNewBlock(int i, int depth, dfos_node_handler *new_block);
+    void removeFromTrie(int i, int depth, int which);
     void insAt(byte pos, byte b);
     void insAt(byte pos, int16_t i);
     void insAt(byte pos, byte b1, int16_t i1);
@@ -61,6 +65,11 @@ public:
     int16_t key_at_len;
     const char *value;
     int16_t value_len;
+    int16_t brk_idx;
+    int16_t brk_kv_pos;
+    int16_t half_kv_len;
+    int16_t range_from;
+    int16_t start_pos;
     dfos_node_handler(byte *m);
     void initBuf();
     void initVars();
@@ -76,7 +85,7 @@ public:
     byte *getChild(int16_t ptr);
     byte *getKey(int16_t ptr, int16_t *plen);
     byte *getData(int16_t ptr, int16_t *plen);
-    byte *split(int16_t *pbrk_idx);
+    byte *split();
     int16_t locate(int16_t level);
     void insertCurrent(int16_t kv_pos);
 };
