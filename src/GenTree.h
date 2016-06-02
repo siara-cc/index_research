@@ -7,6 +7,7 @@
 class GenTree {
 public:
     static byte bit_count[256];
+    static byte last_bit_mask[256];
     static int16_t *roots;
     static int16_t *left;
     static int16_t *ryte;
@@ -90,6 +91,9 @@ public:
         for (int16_t i = 0; i < 256; i++) {
             bit_count[i] = countSetBits(i);
         }
+        for (int16_t i = 0; i < 256; i++) {
+            last_bit_mask[i] = lastBitMask(i);
+        }
     }
 
     // Function to get no of set bits in binary
@@ -101,6 +105,14 @@ public:
             count++;
         }
         return (byte) count;
+    }
+
+    inline static byte lastBitMask(int16_t n) {
+        byte mask = 0x01;
+        while (0 == (n & mask) && mask) {
+            mask <<= 1;
+        }
+        return mask;
     }
 
 };

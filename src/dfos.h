@@ -8,7 +8,7 @@
 using namespace std;
 
 typedef unsigned char byte;
-#define DFOS_NODE_SIZE 513
+#define DFOS_NODE_SIZE 512
 #define IDX_HDR_SIZE 5
 
 #define INSERT_MIDDLE1 1
@@ -27,11 +27,12 @@ class dfos_node_handler {
 private:
     byte *trie;
     static byte left_mask[8];
+    static byte left_incl_mask[8];
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];
     static byte pos_mask[48];
-    void copyToNewBlock(int i, int depth, dfos_node_handler *new_block);
-    void removeFromTrie(int i, int depth, int which);
+    int copyToNewBlock(int i, int depth, dfos_node_handler *new_block);
+    int splitTrie(int i, int depth, dfos_node_handler *new_block, byte *old_trie);
     void insAt(byte pos, byte b);
     void insAt(byte pos, int16_t i);
     void insAt(byte pos, byte b1, int16_t i1);
@@ -68,8 +69,6 @@ public:
     int16_t brk_idx;
     int16_t brk_kv_pos;
     int16_t half_kv_len;
-    int16_t range_from;
-    int16_t start_pos;
     dfos_node_handler(byte *m);
     void initBuf();
     void initVars();
@@ -83,6 +82,8 @@ public:
     inline void setKVLastPos(int16_t val);
     void addData(int16_t ptr);
     byte *getChild(int16_t ptr);
+    int16_t getFirstPtr();
+    byte *getFirstKey(int16_t *plen);
     byte *getKey(int16_t ptr, int16_t *plen);
     byte *getData(int16_t ptr, int16_t *plen);
     byte *split();
