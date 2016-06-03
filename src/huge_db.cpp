@@ -9,6 +9,7 @@
 #include "art.h"
 #include "linex.h"
 #include "dfos.h"
+#include "dfox.h"
 #include "rb_tree.h"
 #ifdef _MSC_VER
 #include <windows.h>
@@ -21,7 +22,15 @@
 using namespace std::tr1;
 using namespace std;
 
-long NUM_ENTRIES = 110;
+#define CS_PRINTABLE 1
+#define CS_NUMBER_ONLY 2
+#define CS_ONE_PER_OCTET 3
+#define CS_255_RANDOM 4
+#define CS_255_DENSE 5
+
+long NUM_ENTRIES = 24;
+int CHAR_SET = 1;
+int KEY_LEN = 8;
 
 void insert(unordered_map<string, string>& m) {
     char k[100];
@@ -29,65 +38,66 @@ void insert(unordered_map<string, string>& m) {
     srand(time(NULL));
     for (long l = 0; l < NUM_ENTRIES; l++) {
 
-// Printable character set
-//        k[0] = 32 + (rand() % 95);
-//        k[1] = 32 + (rand() % 95);
-//        k[2] = 32 + (rand() % 95);
-//        k[3] = 32 + (rand() % 95);
-//        k[4] = 32 + (rand() % 95);
-//        k[5] = 32 + (rand() % 95);
-//        k[6] = 32 + (rand() % 95);
-//        k[7] = 32 + (rand() % 95);
-//        k[8] = 0;
-
-// Number only character set
-//        k[0] = 48 + (rand() % 10);
-//        k[1] = 48 + (rand() % 10);
-//        k[2] = 48 + (rand() % 10);
-//        k[3] = 48 + (rand() % 10);
-//        k[4] = 48 + (rand() % 10);
-//        k[5] = 48 + (rand() % 10);
-//        k[6] = 48 + (rand() % 10);
-//        k[7] = 48 + (rand() % 10);
-//        k[7] = 48 + (rand() % 10);
-//        k[8] = 0;
-
-// One per octet character set
-//        k[0] = ((rand() % 32) << 3) | 0x07;
-//        k[1] = ((rand() % 32) << 3) | 0x07;
-//        k[2] = ((rand() % 32) << 3) | 0x07;
-//        k[3] = ((rand() % 32) << 3) | 0x07;
-//        k[4] = ((rand() % 32) << 3) | 0x07;
-//        k[5] = ((rand() % 32) << 3) | 0x07;
-//        k[6] = ((rand() % 32) << 3) | 0x07;
-//        k[7] = ((rand() % 32) << 3) | 0x07;
-//        k[8] = 0;
-
-// 255 random character set
-//        k[0] = (rand() % 255);
-//        k[1] = (rand() % 255);
-//        k[2] = (rand() % 255);
-//        k[3] = (rand() % 255);
-//        k[4] = (rand() % 255);
-//        k[5] = (rand() % 255);
-//        k[6] = (rand() % 255);
-//        k[7] = (rand() % 255);
-//        k[8] = 0;
-//        for (int i=0; i<8; i++) {
-//            if (k[i] == 0)
-//                k[i] = i+1;
-//        }
-
-// 255 dense character set
-        k[0] = (l >> 24) & 0xFF;
-        k[1] = (l >> 16) & 0xFF;
-        k[2] = (l >> 8) & 0xFF;
-        k[3] = (l & 0xFF);
-        if (k[0] == 0) k[0]++;
-        if (k[1] == 0) k[1]++;
-        if (k[2] == 0) k[2]++;
-        if (k[3] == 0) k[3]++;
-        k[4] = 0;
+        if (CHAR_SET == CS_PRINTABLE) {
+            k[0] = 32 + (rand() % 95);
+            k[1] = 32 + (rand() % 95);
+            k[2] = 32 + (rand() % 95);
+            k[3] = 32 + (rand() % 95);
+            k[4] = 32 + (rand() % 95);
+            k[5] = 32 + (rand() % 95);
+            k[6] = 32 + (rand() % 95);
+            k[7] = 32 + (rand() % 95);
+            k[KEY_LEN] = 0;
+        } else if (CHAR_SET == CS_NUMBER_ONLY) {
+            k[0] = 48 + (rand() % 10);
+            k[1] = 48 + (rand() % 10);
+            k[2] = 48 + (rand() % 10);
+            k[3] = 48 + (rand() % 10);
+            k[4] = 48 + (rand() % 10);
+            k[5] = 48 + (rand() % 10);
+            k[6] = 48 + (rand() % 10);
+            k[7] = 48 + (rand() % 10);
+            k[7] = 48 + (rand() % 10);
+            k[KEY_LEN] = 0;
+        } else if (CHAR_SET == CS_ONE_PER_OCTET) {
+            k[0] = ((rand() % 32) << 3) | 0x07;
+            k[1] = ((rand() % 32) << 3) | 0x07;
+            k[2] = ((rand() % 32) << 3) | 0x07;
+            k[3] = ((rand() % 32) << 3) | 0x07;
+            k[4] = ((rand() % 32) << 3) | 0x07;
+            k[5] = ((rand() % 32) << 3) | 0x07;
+            k[6] = ((rand() % 32) << 3) | 0x07;
+            k[7] = ((rand() % 32) << 3) | 0x07;
+            k[KEY_LEN] = 0;
+        } else if (CHAR_SET == CS_255_RANDOM) {
+            k[0] = (rand() % 255);
+            k[1] = (rand() % 255);
+            k[2] = (rand() % 255);
+            k[3] = (rand() % 255);
+            k[4] = (rand() % 255);
+            k[5] = (rand() % 255);
+            k[6] = (rand() % 255);
+            k[7] = (rand() % 255);
+            k[KEY_LEN] = 0;
+            for (int i = 0; i < 8; i++) {
+                if (k[i] == 0)
+                    k[i] = i + 1;
+            }
+        } else if (CHAR_SET == CS_255_DENSE) {
+            k[0] = (l >> 24) & 0xFF;
+            k[1] = (l >> 16) & 0xFF;
+            k[2] = (l >> 8) & 0xFF;
+            k[3] = (l & 0xFF);
+            if (k[0] == 0)
+                k[0]++;
+            if (k[1] == 0)
+                k[1]++;
+            if (k[2] == 0)
+                k[2]++;
+            if (k[3] == 0)
+                k[3]++;
+            k[4] = 0;
+        }
 
         for (int16_t i = 0; i < 4; i++)
             v[3 - i] = k[i];
@@ -118,7 +128,7 @@ double timedifference(uint32_t t0, uint32_t t1) {
     ret /= 1000;
     return ret;
 }
-
+/*
 void print(rb_tree *dx, const char *key, int16_t key_len) {
     int16_t len;
     char *value = dx->get(key, key_len, &len);
@@ -131,6 +141,7 @@ void print(rb_tree *dx, const char *key, int16_t key_len) {
     s[len] = 0;
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
+*/
 
 void print(dfos *dx, const char *key, int16_t key_len) {
     int16_t len;
@@ -144,7 +155,7 @@ void print(dfos *dx, const char *key, int16_t key_len) {
     s[len] = 0;
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
-/*
+
  void print(dfox *dx, const char *key, int16_t key_len) {
  int16_t len;
  char *value = dx->get(key, key_len, &len);
@@ -157,7 +168,7 @@ void print(dfos *dx, const char *key, int16_t key_len) {
  s[len] = 0;
  std::cout << "Key: " << key << ", Value:" << s << endl;
  }
- */
+
 void print(linex *dx, const char *key, int16_t key_len) {
     int16_t len;
     char *value = dx->get(key, key_len, &len);
@@ -171,10 +182,11 @@ void print(linex *dx, const char *key, int16_t key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
-int main2() {
+int main() {
     GenTree::generateBitCounts();
     //rb_tree *dx = new rb_tree();
     dfos *dx = new dfos();
+    //dfox *dx = new dfox();
     //linex *dx = new linex();
     dx->put("Hello", 5, "World", 5);
     dx->put("Nice", 4, "Place", 5);
@@ -210,19 +222,19 @@ int main2() {
     dx->put("August", 6, "eighth", 6);
     dx->put("September", 9, "ninth", 5);
     dx->put("October", 7, "tenth", 5);
-//    dx->put("November", 8, "eleventh", 8);
-//    dx->put("December", 8, "twelfth", 7);
-//    dx->put("Sunday", 6, "one", 3);
-//    dx->put("Monday", 6, "two", 3);
-//    dx->put("Tuesday", 7, "three", 5);
-//    dx->put("Wednesday", 9, "four", 4);
-//    dx->put("Thursday", 8, "five", 4);
-//    dx->put("Friday", 6, "six", 3);
-//    dx->put("Saturday", 8, "seven", 7);
-//    dx->put("casa", 4, "nova", 4);
-//    dx->put("young", 5, "19", 2);
-//    dx->put("youth", 5, "20", 2);
-//    dx->put("yousuf", 6, "21", 2);
+    dx->put("November", 8, "eleventh", 8);
+    dx->put("December", 8, "twelfth", 7);
+    dx->put("Sunday", 6, "one", 3);
+    dx->put("Monday", 6, "two", 3);
+    dx->put("Tuesday", 7, "three", 5);
+    dx->put("Wednesday", 9, "four", 4);
+    dx->put("Thursday", 8, "five", 4);
+    dx->put("Friday", 6, "six", 3);
+    dx->put("Saturday", 8, "seven", 7);
+    dx->put("casa", 4, "nova", 4);
+    dx->put("young", 5, "19", 2);
+    dx->put("youth", 5, "20", 2);
+    dx->put("yousuf", 6, "21", 2);
 
     print(dx, "Hello", 5);
     print(dx, "Nice", 4);
@@ -258,19 +270,19 @@ int main2() {
     print(dx, "August", 6);
     print(dx, "September", 9);
     print(dx, "October", 7);
-//    print(dx, "November", 8);
-//    print(dx, "December", 8);
-//    print(dx, "Sunday", 6);
-//    print(dx, "Monday", 6);
-//    print(dx, "Tuesday", 7);
-//    print(dx, "Wednesday", 9);
-//    print(dx, "Thursday", 8);
-//    print(dx, "Friday", 6);
-//    print(dx, "Saturday", 8);
-//    print(dx, "casa", 4);
-//    print(dx, "young", 5);
-//    print(dx, "youth", 5);
-//    print(dx, "yousuf", 6);
+    print(dx, "November", 8);
+    print(dx, "December", 8);
+    print(dx, "Sunday", 6);
+    print(dx, "Monday", 6);
+    print(dx, "Tuesday", 7);
+    print(dx, "Wednesday", 9);
+    print(dx, "Thursday", 8);
+    print(dx, "Friday", 6);
+    print(dx, "Saturday", 8);
+    print(dx, "casa", 4);
+    print(dx, "young", 5);
+    print(dx, "youth", 5);
+    print(dx, "yousuf", 6);
 
     dx->printMaxKeyCount(24);
     dx->printNumLevels();
@@ -283,6 +295,7 @@ int main3() {
     GenTree::generateBitCounts();
     //linex *dx = new linex();
     dfos *dx = new dfos();
+    //dfox *dx = new dfox();
     dx->put("\001\001\001\001", 4, "one", 3);
     dx->put("\001\001\001\x80", 4, "two", 3);
     print(dx, "\001\001\001\001", 4);
@@ -296,46 +309,46 @@ int main1() {
     //dfox *dx = new dfox();
     //rb_tree *dx = new rb_tree();
     dfos *dx = new dfos();
-    dx->put("95092354",8,"9059",4);
-    dx->put("81389267",8,"8318",4);
-    dx->put("10586447",8,"8501",4);
-    dx->put("24033543",8,"3042",4);
-    dx->put("22390302",8,"9322",4);
-    dx->put("07481457",8,"8470",4);
-    dx->put("38019107",8,"1083",4);
-    dx->put("14851776",8,"5841",4);
-    dx->put("93241121",8,"4239",4);
-    dx->put("67233682",8,"3276",4);
-    dx->put("62246422",8,"4226",4);
-    dx->put("96101902",8,"0169",4);
-    dx->put("59723753",8,"2795",4);
-    dx->put("12455151",8,"5421",4);
-    dx->put("07981817",8,"8970",4);
-    dx->put("28363048",8,"6382",4);
-    dx->put("79621176",8,"2697",4);
-    dx->put("78140292",8,"4187",4);
-    dx->put("14346258",8,"4341",4);
-    dx->put("01210415",8,"1210",4);
-    print(dx, "95092354",8);
-    print(dx, "81389267",8);
-    print(dx, "10586447",8);
-    print(dx, "24033543",8);
-    print(dx, "22390302",8);
-    print(dx, "07481457",8);
-    print(dx, "38019107",8);
-    print(dx, "14851776",8);
-    print(dx, "93241121",8);
-    print(dx, "67233682",8);
-    print(dx, "62246422",8);
-    print(dx, "96101902",8);
-    print(dx, "59723753",8);
-    print(dx, "12455151",8);
-    print(dx, "07981817",8);
-    print(dx, "28363048",8);
-    print(dx, "79621176",8);
-    print(dx, "78140292",8);
-    print(dx, "14346258",8);
-    print(dx, "01210415",8);
+    dx->put("95092354", 8, "9059", 4);
+    dx->put("81389267", 8, "8318", 4);
+    dx->put("10586447", 8, "8501", 4);
+    dx->put("24033543", 8, "3042", 4);
+    dx->put("22390302", 8, "9322", 4);
+    dx->put("07481457", 8, "8470", 4);
+    dx->put("38019107", 8, "1083", 4);
+    dx->put("14851776", 8, "5841", 4);
+    dx->put("93241121", 8, "4239", 4);
+    dx->put("67233682", 8, "3276", 4);
+    dx->put("62246422", 8, "4226", 4);
+    dx->put("96101902", 8, "0169", 4);
+    dx->put("59723753", 8, "2795", 4);
+    dx->put("12455151", 8, "5421", 4);
+    dx->put("07981817", 8, "8970", 4);
+    dx->put("28363048", 8, "6382", 4);
+    dx->put("79621176", 8, "2697", 4);
+    dx->put("78140292", 8, "4187", 4);
+    dx->put("14346258", 8, "4341", 4);
+    dx->put("01210415", 8, "1210", 4);
+    print(dx, "95092354", 8);
+    print(dx, "81389267", 8);
+    print(dx, "10586447", 8);
+    print(dx, "24033543", 8);
+    print(dx, "22390302", 8);
+    print(dx, "07481457", 8);
+    print(dx, "38019107", 8);
+    print(dx, "14851776", 8);
+    print(dx, "93241121", 8);
+    print(dx, "67233682", 8);
+    print(dx, "62246422", 8);
+    print(dx, "96101902", 8);
+    print(dx, "59723753", 8);
+    print(dx, "12455151", 8);
+    print(dx, "07981817", 8);
+    print(dx, "28363048", 8);
+    print(dx, "79621176", 8);
+    print(dx, "78140292", 8);
+    print(dx, "14346258", 8);
+    print(dx, "01210415", 8);
 //    dx->put("io-+yu4F", 8, "+-oi", 4);
 //    dx->put("a6FC-wX ", 8, "CF6a", 4);
 //    dx->put("[X<?zzky", 8, "?<X[", 4);
@@ -463,7 +476,17 @@ int main1() {
     return 0;
 }
 
-int main() {
+int main2(int argc, char *argv[]) {
+
+    if (argc > 1) {
+        NUM_ENTRIES = atol(argv[1]);
+    }
+    if (argc > 2) {
+        CHAR_SET = atoi(argv[2]);
+    }
+    if (argc > 3) {
+        KEY_LEN = atoi(argv[3]);
+    }
 
     GenTree::generateBitCounts();
 
@@ -555,6 +578,7 @@ int main() {
     null_ctr = 0;
     ctr = 0;
     cmp = 0;
+    //dfox *dx = new dfox();
     dfos *dx = new dfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();

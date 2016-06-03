@@ -9,19 +9,17 @@ using namespace std;
 
 typedef unsigned char byte;
 #define DFOS_NODE_SIZE 512
-#define IDX_HDR_SIZE 5
+#define DFOS_IDX_HDR_SIZE 5
 
-#define INSERT_MIDDLE1 1
-#define INSERT_MIDDLE2 2
-#define INSERT_THREAD 3
-#define INSERT_LEAF 4
+#define DFOS_INSERT_MIDDLE1 1
+#define DFOS_INSERT_MIDDLE2 2
+#define DFOS_INSERT_THREAD 3
+#define DFOS_INSERT_LEAF 4
 
-#define IS_LEAF_BYTE buf[0]
-#define TRIE_LEN buf[1]
-#define FILLED_SIZE buf[2]
-#define LAST_DATA_PTR buf+3
-
-#define TRIE_MAX_DEPTH 20
+#define DFOS_IS_LEAF buf[0]
+#define DFOS_TRIE_LEN buf[1]
+#define DFOS_FILLED_SIZE buf[2]
+#define DFOS_LAST_DATA_PTR buf+3
 
 class dfos_node_handler {
 private:
@@ -32,7 +30,8 @@ private:
     static byte ryte_incl_mask[8];
     static byte pos_mask[48];
     int copyToNewBlock(int i, int depth, dfos_node_handler *new_block);
-    int splitTrie(int i, int depth, dfos_node_handler *new_block, byte *old_trie);
+    int splitTrie(int i, int depth, dfos_node_handler *new_block,
+            byte *old_trie);
     void insAt(byte pos, byte b);
     void insAt(byte pos, int16_t i);
     void insAt(byte pos, byte b1, int16_t i1);
@@ -82,7 +81,7 @@ public:
     inline void setKVLastPos(int16_t val);
     void addData(int16_t ptr);
     byte *getChild(int16_t ptr);
-    int16_t getFirstPtr();
+    int16_t getFirstPtr(int i = 0);
     byte *getFirstKey(int16_t *plen);
     byte *getKey(int16_t ptr, int16_t *plen);
     byte *getData(int16_t ptr, int16_t *plen);

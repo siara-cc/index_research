@@ -90,8 +90,6 @@ public:
     static void generateBitCounts() {
         for (int16_t i = 0; i < 256; i++) {
             bit_count[i] = countSetBits(i);
-        }
-        for (int16_t i = 0; i < 256; i++) {
             last_bit_mask[i] = lastBitMask(i);
         }
     }
