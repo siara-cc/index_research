@@ -38,9 +38,8 @@ private:
     void insAt(byte pos, byte b1, byte b2);
     void insAt(byte pos, byte b1, byte b2, byte b3);
     byte insAt(byte pos, byte tc, byte leaf, int16_t c1_kv_pos);
-    byte insAt(byte pos, byte tc, byte child, byte leaf, int16_t c1_kv_pos);
     byte insAt(byte pos, byte tc, byte child, byte leaf, int16_t c1_kv_pos,
-            int16_t c2_kv_pos, byte c2_mask);
+            int16_t c2_kv_pos = 0, byte c2_mask = 0);
     inline void setAt(byte pos, byte b);
     inline byte getAt(byte pos);
     inline void delAt(byte pos);
@@ -65,6 +64,7 @@ public:
     int16_t key_at_len;
     const char *value;
     int16_t value_len;
+    int16_t last_ptr;
     int16_t brk_idx;
     int16_t brk_kv_pos;
     int16_t half_kv_len;
@@ -87,6 +87,7 @@ public:
     byte *getData(int16_t ptr, int16_t *plen);
     byte *split();
     int16_t locate(int16_t level);
+    int16_t locate(int16_t level, int16_t *ptr, int i = 0);
     void insertCurrent(int16_t kv_pos);
 };
 
