@@ -131,8 +131,6 @@ void dfos::recursiveUpdate(dfos_node_handler *node, int16_t pos,
                 dfos_node_handler root(root_data);
                 root.initBuf();
                 root.isPut = true;
-                int16_t first_len;
-                char *first_key;
                 char addr[5];
                 util::ptrToFourBytes((unsigned long) old_buf, addr);
                 root.initVars();
@@ -141,11 +139,10 @@ void dfos::recursiveUpdate(dfos_node_handler *node, int16_t pos,
                 root.value = addr;
                 root.value_len = sizeof(char *);
                 root.addData(0);
-                first_key = (char *) new_block.getKey(0, &first_len);
                 util::ptrToFourBytes((unsigned long) new_block.buf, addr);
                 root.initVars();
-                root.key = first_key;
-                root.key_len = first_len;
+                root.key = new_block_first_key;
+                root.key_len = first_key_len;
                 root.value = addr;
                 root.value_len = sizeof(char *);
                 root.locate(0);
@@ -160,7 +157,8 @@ void dfos::recursiveUpdate(dfos_node_handler *node, int16_t pos,
                 util::ptrToFourBytes((unsigned long) new_block.buf, addr);
                 parent.initVars();
                 parent.isPut = true;
-                parent.key = (char *) new_block.getKey(0, &parent.key_len);
+                parent.key = new_block_first_key;
+                parent.key_len = first_key_len;
                 parent.value = addr;
                 parent.value_len = sizeof(char *);
                 parent.locate(prev_level);
@@ -224,8 +222,6 @@ int dfos_node_handler::copyToNewBlock(int i, int depth,
                 int kv_len = (key_len + value_len + 2);
                 int16_t kv_last_pos = new_block->getKVLastPos();
                 memcpy(new_block->buf + kv_last_pos, buf + ptr, kv_len);
-                kv_last_pos += kv_len;
-                new_block->setKVLastPos(kv_last_pos);
                 if ((DFOS_NODE_SIZE - kv_last_pos) < half_kv_len) {
                     if (brk_kv_pos == 0) {
                         brk_idx++;
@@ -244,6 +240,8 @@ int dfos_node_handler::copyToNewBlock(int i, int depth,
                     util::setInt(new_block->trie + ptr_pos, kv_last_pos);
                     ptr_pos += 2;
                 }
+                kv_last_pos += kv_len;
+                new_block->setKVLastPos(kv_last_pos);
             }
             if (children & mask)
                 i = copyToNewBlock(i, depth + 1, new_block);
@@ -290,10 +288,11 @@ int dfos_node_handler::splitTrie(int i, int depth, dfos_node_handler *old_block,
                 if (ptr < brk_kv_pos) {
                     ptr += DFOS_NODE_SIZE;
                     ptr -= old_block->half_kv_len;
-                    old_block->key_len = buf[ptr];
-                    old_block->key = (const char *) buf + ptr + 1;
-                    old_block->value_len = key[key_len];
-                    old_block->value = key + key_len + 1;
+                    ptr -= old_block->getKVLastPos();
+                    old_block->key_len = old_block->buf[ptr];
+                    old_block->key = (const char *) old_block->buf + ptr + 1;
+                    old_block->value_len = old_block->key[old_block->key_len];
+                    old_block->value = old_block->key + old_block->key_len + 1;
                     old_block->locate(0);
                     old_block->insertCurrent(ptr);
                     old_block->DFOS_FILLED_SIZE++;
@@ -335,17 +334,18 @@ byte *dfos_node_handler::split() {
     old_block.copyToNewBlock(0, 0, &new_block);
     memcpy(old_block.buf, new_block.buf, DFOS_NODE_SIZE);
     old_block.half_kv_len = old_block.brk_kv_pos - kv_last_pos;
-    memmove(old_block.buf + DFOS_NODE_SIZE - old_block.half_kv_len, old_block.buf + kv_last_pos,
-            old_block.half_kv_len);
+    memmove(old_block.buf + DFOS_NODE_SIZE - old_block.half_kv_len,
+            old_block.buf + kv_last_pos, old_block.half_kv_len);
     // assumption: trie is shorter than half the data
     memcpy(old_block.buf + kv_last_pos, new_block.trie, trie_len);
     old_block.DFOS_TRIE_LEN = 0;
     old_block.DFOS_FILLED_SIZE = 0;
-    old_block.setKVLastPos(DFOS_NODE_SIZE - half_kv_len); // one of these is wrong
     new_block.DFOS_TRIE_LEN = 0;
     new_block.DFOS_FILLED_SIZE = 0;
-    new_block.setKVLastPos(brk_kv_pos);
+    new_block.setKVLastPos(new_block.brk_kv_pos);
+    old_block.setKVLastPos(kv_last_pos);
     new_block.splitTrie(0, 0, &old_block, old_block.buf + kv_last_pos);
+    old_block.setKVLastPos(DFOS_NODE_SIZE - old_block.half_kv_len);
 
     return new_block.buf;
 }
@@ -815,13 +815,15 @@ int16_t dfos_node_handler::locate(int16_t level) {
                 if (r_leaves & r_mask) {
                     int16_t ptr;
                     register int leaf_count = GenTree::bit_count[r_leaves
-                            & left_mask[offset]];
+                            & left_incl_mask[offset]];
                     if (DFOS_NODE_SIZE == 512) {
-                        register byte bitmap = trie[i++];
+                        register byte bitmap = trie[i];
                         ptr = trie[i + leaf_count];
                         if (bitmap & r_mask)
                             ptr += 256;
+                        i++;
                     } else {
+                        leaf_count--;
                         ptr = util::getInt(trie + i + leaf_count * 2);
                         i += GenTree::bit_count[r_leaves];
                     }
@@ -867,11 +869,12 @@ int16_t dfos_node_handler::locate(int16_t level) {
                         this->key_at = key_at;
                         this->key_at_len = key_at_len;
                         insertState = DFOS_INSERT_THREAD;
-                        if (cmp < 0)
-                            cmp = -cmp;
-                        if (keyPos < cmp)
-                            cmp -= keyPos;
-                        need_count = cmp * 2;
+                        need_count = cmp;
+                        if (need_count < 0)
+                            need_count = -need_count;
+                        if (keyPos < need_count)
+                            need_count -= keyPos;
+                        need_count *= 2;
                         need_count += 8;
                     }
                     return ~(cmp > 0 ? ptr : last_ptr);
