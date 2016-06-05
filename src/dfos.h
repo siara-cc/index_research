@@ -55,7 +55,7 @@ public:
     byte leaves;
     byte triePos;
     byte origPos;
-    byte need_count;
+    int16_t need_count;
     byte insertState;
     byte isPut;
     const char *key;
@@ -87,7 +87,7 @@ public:
     byte *getData(int16_t ptr, int16_t *plen);
     byte *split();
     int16_t locate(int16_t level);
-    int16_t locate(int16_t level, int16_t *ptr, int i = 0);
+    int16_t locate(int16_t level, int16_t *ptr, int i, byte *ret);
     void insertCurrent(int16_t kv_pos);
 };
 
