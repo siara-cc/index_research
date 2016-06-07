@@ -23,13 +23,14 @@ using namespace std::tr1;
 using namespace std;
 
 #define CS_PRINTABLE 1
-#define CS_NUMBER_ONLY 2
-#define CS_ONE_PER_OCTET 3
-#define CS_255_RANDOM 4
-#define CS_255_DENSE 5
+#define CS_ALPHA_ONLY 2
+#define CS_NUMBER_ONLY 3
+#define CS_ONE_PER_OCTET 4
+#define CS_255_RANDOM 5
+#define CS_255_DENSE 6
 
-long NUM_ENTRIES = 24;
-int CHAR_SET = 1;
+long NUM_ENTRIES = 600;
+int CHAR_SET = 6;
 int KEY_LEN = 8;
 
 void insert(unordered_map<string, string>& m) {
@@ -47,6 +48,17 @@ void insert(unordered_map<string, string>& m) {
             k[5] = 32 + (rand() % 95);
             k[6] = 32 + (rand() % 95);
             k[7] = 32 + (rand() % 95);
+            k[KEY_LEN] = 0;
+        } else if (CHAR_SET == CS_ALPHA_ONLY) {
+            k[0] = 97 + (rand() % 26);
+            k[1] = 97 + (rand() % 26);
+            k[2] = 97 + (rand() % 26);
+            k[3] = 97 + (rand() % 26);
+            k[4] = 97 + (rand() % 26);
+            k[5] = 97 + (rand() % 26);
+            k[6] = 97 + (rand() % 26);
+            k[7] = 97 + (rand() % 26);
+            k[7] = 97 + (rand() % 26);
             k[KEY_LEN] = 0;
         } else if (CHAR_SET == CS_NUMBER_ONLY) {
             k[0] = 48 + (rand() % 10);
@@ -128,7 +140,7 @@ double timedifference(uint32_t t0, uint32_t t1) {
     ret /= 1000;
     return ret;
 }
-/*
+
 void print(rb_tree *dx, const char *key, int16_t key_len) {
     int16_t len;
     char *value = dx->get(key, key_len, &len);
@@ -141,7 +153,6 @@ void print(rb_tree *dx, const char *key, int16_t key_len) {
     s[len] = 0;
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
-*/
 
 void print(dfos *dx, const char *key, int16_t key_len) {
     int16_t len;
@@ -156,18 +167,18 @@ void print(dfos *dx, const char *key, int16_t key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
- void print(dfox *dx, const char *key, int16_t key_len) {
- int16_t len;
- char *value = dx->get(key, key_len, &len);
- if (value == null || len == 0) {
- std::cout << "Value for " << key << " is null" << endl;
- return;
- }
- char s[100];
- strncpy(s, value, len);
- s[len] = 0;
- std::cout << "Key: " << key << ", Value:" << s << endl;
- }
+void print(dfox *dx, const char *key, int16_t key_len) {
+    int16_t len;
+    char *value = dx->get(key, key_len, &len);
+    if (value == null || len == 0) {
+        std::cout << "Value for " << key << " is null" << endl;
+        return;
+    }
+    char s[100];
+    strncpy(s, value, len);
+    s[len] = 0;
+    std::cout << "Key: " << key << ", Value:" << s << endl;
+}
 
 void print(linex *dx, const char *key, int16_t key_len) {
     int16_t len;
@@ -182,16 +193,16 @@ void print(linex *dx, const char *key, int16_t key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
-int main() {
+int main2() {
     GenTree::generateBitCounts();
     //rb_tree *dx = new rb_tree();
-    dfos *dx = new dfos();
-    //dfox *dx = new dfox();
+    //dfos *dx = new dfos();
+    dfox *dx = new dfox();
     //linex *dx = new linex();
     dx->put("Hello", 5, "World", 5);
     dx->put("Nice", 4, "Place", 5);
     dx->put("Arun", 4, "Hello", 5);
-    dx->put("arun", 4, "0", 1);
+    dx->put("arun", 4, "dale", 4);
     dx->put("resin", 5, "34623", 5);
     dx->put("rinse", 5, "2", 1);
     dx->put("rickshaw", 8, "4", 1);
@@ -306,49 +317,92 @@ int main3() {
 int main1() {
     GenTree::generateBitCounts();
     //linex *dx = new linex();
-    //dfox *dx = new dfox();
+    dfox *dx = new dfox();
     //rb_tree *dx = new rb_tree();
-    dfos *dx = new dfos();
-    dx->put("95092354", 8, "9059", 4);
-    dx->put("81389267", 8, "8318", 4);
-    dx->put("10586447", 8, "8501", 4);
-    dx->put("24033543", 8, "3042", 4);
-    dx->put("22390302", 8, "9322", 4);
-    dx->put("07481457", 8, "8470", 4);
-    dx->put("38019107", 8, "1083", 4);
-    dx->put("14851776", 8, "5841", 4);
-    dx->put("93241121", 8, "4239", 4);
-    dx->put("67233682", 8, "3276", 4);
-    dx->put("62246422", 8, "4226", 4);
-    dx->put("96101902", 8, "0169", 4);
-    dx->put("59723753", 8, "2795", 4);
-    dx->put("12455151", 8, "5421", 4);
-    dx->put("07981817", 8, "8970", 4);
-    dx->put("28363048", 8, "6382", 4);
-    dx->put("79621176", 8, "2697", 4);
-    dx->put("78140292", 8, "4187", 4);
-    dx->put("14346258", 8, "4341", 4);
-    dx->put("01210415", 8, "1210", 4);
-    print(dx, "95092354", 8);
-    print(dx, "81389267", 8);
-    print(dx, "10586447", 8);
-    print(dx, "24033543", 8);
-    print(dx, "22390302", 8);
-    print(dx, "07481457", 8);
-    print(dx, "38019107", 8);
-    print(dx, "14851776", 8);
-    print(dx, "93241121", 8);
-    print(dx, "67233682", 8);
-    print(dx, "62246422", 8);
-    print(dx, "96101902", 8);
-    print(dx, "59723753", 8);
-    print(dx, "12455151", 8);
-    print(dx, "07981817", 8);
-    print(dx, "28363048", 8);
-    print(dx, "79621176", 8);
-    print(dx, "78140292", 8);
-    print(dx, "14346258", 8);
-    print(dx, "01210415", 8);
+    //dfos *dx = new dfos();
+
+    dx->put("l6@uFU;.",8,"u@6l",4);
+    dx->put("^O9]A)9|",8,"]9O^",4);
+    dx->put("*VCv@z[e",8,"vCV*",4);
+    dx->put("vLl6dA7M",8,"6lLv",4);
+    dx->put("\\.t\\' }B",8,"\\t.\\",4);
+    dx->put("_34fB0`[",8,"f43_",4);
+    dx->put(" )r3b7#a",8,"3r) ",4);
+    dx->put("jY:td#+(",8,"t:Yj",4);
+    dx->put(".u~S4tH;",8,"S~u.",4);
+    dx->put("!)Q.IXlp",8,".Q)!",4);
+    dx->put("m_,1V]No",8,"1,_m",4);
+    dx->put("U^R7%Td?",8,"7R^U",4);
+    dx->put("v/sb2$J]",8,"bs/v",4);
+    dx->put("hzX`cR-H",8,"`Xzh",4);
+    dx->put(",y~=Wj!+",8,"=~y,",4);
+    dx->put("#c^+TO(Y",8,"+^c#",4);
+    dx->put("~(SOLvKb",8,"OS(~",4);
+    dx->put("+%.Vafmk",8,"V.%+",4);
+    dx->put("8zKQ)Mi*",8,"QKz8",4);
+    dx->put(")(rRMEz+",8,"Rr()",4);
+    dx->put("b#g>T2dF",8,">g#b",4);
+    dx->put("H4jnE(w3",8,"nj4H",4);
+    dx->put("e:P|\\QEX",8,"|P:e",4);
+    dx->put("\\6!Rb;b ",8,"R!6\\",4);
+    dx->put("C:&h7!3a",8,"h&:C",4);
+    dx->put("dLt|]a5H",8,"|tLd",4);
+    dx->put("!|xGB<PL",8,"Gx|!",4);
+    dx->put("${?y{${'",8,"y?{$",4);
+    dx->put("[n\\Ryx8$",8,"R\\n[",4);
+    dx->put("6='0.oLP",8,"0'=6",4);
+    dx->put("D0-d,^B*",8,"d-0D",4);
+    dx->put("=sZViK\\'",8,"VZs=",4);
+//    dx->put("8Dj;#d1|",8,";jD8",4);
+//    dx->put("y8)rp:<5",8,"r)8y",4);
+//    dx->put("/RT)$~fz",8,")TR/",4);
+//    dx->put("B,t >7W ",8," t,B",4);
+//    dx->put("G3HAYE?\\",8,"AH3G",4);
+//    dx->put("~#EF B ;",8,"FE#~",4);
+//    dx->put("[KO0BMU*",8,"0OK[",4);
+//    dx->put("Y=_?t~a&",8,"?_=Y",4);
+
+    print(dx, "l6@uFU;.",8);
+    print(dx, "^O9]A)9|",8);
+    print(dx, "*VCv@z[e",8);
+    print(dx, "vLl6dA7M",8);
+    print(dx, "\\.t\\' }B",8);
+    print(dx, "_34fB0`[",8);
+    print(dx, " )r3b7#a",8);
+    print(dx, "jY:td#+(",8);
+    print(dx, ".u~S4tH;",8);
+    print(dx, "!)Q.IXlp",8);
+    print(dx, "m_,1V]No",8);
+    print(dx, "U^R7%Td?",8);
+    print(dx, "v/sb2$J]",8);
+    print(dx, "hzX`cR-H",8);
+    print(dx, ",y~=Wj!+",8);
+    print(dx, "#c^+TO(Y",8);
+    print(dx, "~(SOLvKb",8);
+    print(dx, "+%.Vafmk",8);
+    print(dx, "8zKQ)Mi*",8);
+    print(dx, ")(rRMEz+",8);
+    print(dx, "b#g>T2dF",8);
+    print(dx, "H4jnE(w3",8);
+    print(dx, "e:P|\\QEX",8);
+    print(dx, "\\6!Rb;b ",8);
+    print(dx, "C:&h7!3a",8);
+    print(dx, "dLt|]a5H",8);
+    print(dx, "!|xGB<PL",8);
+    print(dx, "${?y{${'",8);
+    print(dx, "[n\\Ryx8$",8);
+    print(dx, "6='0.oLP",8);
+    print(dx, "D0-d,^B*",8);
+    print(dx, "=sZViK\\'",8);
+    print(dx, "8Dj;#d1|",8);
+    print(dx, "y8)rp:<5",8);
+    print(dx, "/RT)$~fz",8);
+    print(dx, "B,t >7W ",8);
+    print(dx, "G3HAYE?\\",8);
+    print(dx, "~#EF B ;",8);
+    print(dx, "[KO0BMU*",8);
+    print(dx, "Y=_?t~a&",8);
+
 //    dx->put("io-+yu4F", 8, "+-oi", 4);
 //    dx->put("a6FC-wX ", 8, "CF6a", 4);
 //    dx->put("[X<?zzky", 8, "?<X[", 4);
@@ -476,7 +530,7 @@ int main1() {
     return 0;
 }
 
-int main2(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 
     if (argc > 1) {
         NUM_ENTRIES = atol(argv[1]);
@@ -501,23 +555,23 @@ int main2(int argc, char *argv[]) {
 
     unordered_map<string, string>::iterator it;
 
-    map<string, string> m1;
-    m.begin();
-    start = getTimeVal();
-    it = m.begin();
-    for (; it != m.end(); ++it) {
-        m1.insert(pair<string, string>(it->first, it->second));
-    }
-    stop = getTimeVal();
-    cout << "RB Tree insert time:" << timedifference(start, stop) << endl;
-    it = m.begin();
-    start = getTimeVal();
-    for (; it != m.end(); ++it) {
-        m1[it->first];
-    }
-    stop = getTimeVal();
-    cout << "RB Tree get time:" << timedifference(start, stop) << endl;
-    cout << "RB Tree size:" << m1.size() << endl;
+//    map<string, string> m1;
+//    m.begin();
+//    start = getTimeVal();
+//    it = m.begin();
+//    for (; it != m.end(); ++it) {
+//        m1.insert(pair<string, string>(it->first, it->second));
+//    }
+//    stop = getTimeVal();
+//    cout << "RB Tree insert time:" << timedifference(start, stop) << endl;
+//    it = m.begin();
+//    start = getTimeVal();
+//    for (; it != m.end(); ++it) {
+//        m1[it->first];
+//    }
+//    stop = getTimeVal();
+//    cout << "RB Tree get time:" << timedifference(start, stop) << endl;
+//    cout << "RB Tree size:" << m1.size() << endl;
 
     unordered_map<string, string>::iterator it1;
 
@@ -537,6 +591,49 @@ int main2(int argc, char *argv[]) {
     stop = getTimeVal();
     cout << "ART Insert Time:" << timedifference(start, stop) << endl;
     //getchar();
+
+//    ctr = 0;
+//    it = m.begin();
+//    for (; it != m.end(); ++it) {
+//        cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
+//                << "\"," << endl;
+//        if (ctr++ > 90)
+//            break;
+//    }
+
+    null_ctr = 0;
+    ctr = 0;
+    cmp = 0;
+    dfox *dx = new dfox();
+    //dfos *dx = new dfos();
+    //rb_tree *dx = new rb_tree();
+    it1 = m.begin();
+    start = getTimeVal();
+    for (; it1 != m.end(); ++it1) {
+        dx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
+                it1->second.length());
+        ctr++;
+    }
+    stop = getTimeVal();
+    cout << "DFox+Tree insert time:" << timedifference(start, stop) << endl;
+    //getchar();
+
+    null_ctr = 0;
+    ctr = 0;
+    cmp = 0;
+    //linex *lx = new linex();
+    rb_tree *lx = new rb_tree();
+    it1 = m.begin();
+    start = getTimeVal();
+    for (; it1 != m.end(); ++it1) {
+        lx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
+                it1->second.length());
+        ctr++;
+    }
+    stop = getTimeVal();
+    cout << "B+Tree insert time:" << timedifference(start, stop) << endl;
+    //getchar();
+
     it1 = m.begin();
     start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
@@ -564,32 +661,6 @@ int main2(int argc, char *argv[]) {
     cout << "Null:" << null_ctr << endl;
     cout << "Cmp:" << cmp << endl;
     cout << "ART Size:" << art_size(&at) << endl;
-    //getchar();
-
-//    ctr = 0;
-//            it = m.begin();
-//            for (; it != m.end(); ++it) {
-//                cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
-//                        << "\"," << endl;
-//                if (ctr++ > 90)
-//                    break;
-//            }
-
-    null_ctr = 0;
-    ctr = 0;
-    cmp = 0;
-    //dfox *dx = new dfox();
-    dfos *dx = new dfos();
-    //rb_tree *dx = new rb_tree();
-    it1 = m.begin();
-    start = getTimeVal();
-    for (; it1 != m.end(); ++it1) {
-        dx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
-                it1->second.length());
-        ctr++;
-    }
-    stop = getTimeVal();
-    cout << "DFox+Tree insert time:" << timedifference(start, stop) << endl;
     //getchar();
 
     ctr = 0;
@@ -622,22 +693,6 @@ int main2(int argc, char *argv[]) {
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
     cout << "Root filled size:" << (int) dx->root_data[2] << endl;
-    //getchar();
-
-    null_ctr = 0;
-    ctr = 0;
-    cmp = 0;
-    //linex *lx = new linex();
-    rb_tree *lx = new rb_tree();
-    it1 = m.begin();
-    start = getTimeVal();
-    for (; it1 != m.end(); ++it1) {
-        lx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
-                it1->second.length());
-        ctr++;
-    }
-    stop = getTimeVal();
-    cout << "B+Tree insert time:" << timedifference(start, stop) << endl;
     //getchar();
 
     ctr = 0;

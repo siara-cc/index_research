@@ -9,26 +9,24 @@ using namespace std;
 
 typedef unsigned char byte;
 #define DFOX_NODE_SIZE 512
-#define MAX_PTR_BITMAP_BYTES 6
-#define IDX_BLK_SIZE 128
-#define IDX_HDR_SIZE (MAX_PTR_BITMAP_BYTES+4)
+#define MAX_PTR_BITMAP_BYTES 8
+#define IDX_HDR_SIZE (MAX_PTR_BITMAP_BYTES+5)
 #define TRIE_PTR_AREA_SIZE (IDX_BLK_SIZE-IDX_HDR_SIZE)
-#define MAX_PTRS 47
+#define MAX_PTRS 63
 
 #define INSERT_MIDDLE1 1
 #define INSERT_MIDDLE2 2
 #define INSERT_THREAD 3
 #define INSERT_LEAF 4
 
-#define IS_LEAF_BYTE buf[MAX_PTR_BITMAP_BYTES-1]
 #define DATA_PTR_HIGH_BITS buf
-#define TRIE_LEN buf[MAX_PTR_BITMAP_BYTES]
-#define FILLED_SIZE buf[MAX_PTR_BITMAP_BYTES+1]
-#define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 2
+#define IS_LEAF_BYTE buf[MAX_PTR_BITMAP_BYTES]
+#define TRIE_LEN buf[MAX_PTR_BITMAP_BYTES+1]
+#define FILLED_SIZE buf[MAX_PTR_BITMAP_BYTES+2]
+#define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 3
 
 class dfox_node_handler {
 private:
-    byte *trie;
     const static byte eight = 0x08;
     static byte left_mask[8];
     static byte ryte_mask[8];
@@ -42,9 +40,11 @@ private:
     inline byte getAt(byte pos);
     inline void delAt(byte pos);
     inline void delAt(byte pos, int16_t count);
+    inline void insBit(uint64_t *ui64, int16_t pos, int16_t kv_pos);
     static byte *alignedAlloc();
 public:
     byte *buf;
+    byte *trie;
     int16_t threads;
     byte tc;
     byte mask;
@@ -63,6 +63,7 @@ public:
     int16_t key_at_len;
     const char *value;
     int16_t value_len;
+    uint64_t *bitmap;
     dfox_node_handler(byte *m);
     void initBuf();
     void initVars();
@@ -117,6 +118,8 @@ public:
     long size() {
         return total_size;
     }
+    static uint64_t left_mask64[64];
+    static uint64_t ryte_mask64[64];
 
 };
 
