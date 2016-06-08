@@ -40,12 +40,11 @@ private:
     inline byte getAt(byte pos);
     inline void delAt(byte pos);
     inline void delAt(byte pos, int16_t count);
-    inline void insBit(uint64_t *ui64, int16_t pos, int16_t kv_pos);
+    inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     static byte *alignedAlloc();
 public:
     byte *buf;
     byte *trie;
-    int16_t threads;
     byte tc;
     byte mask;
     byte msb5;
@@ -63,7 +62,9 @@ public:
     int16_t key_at_len;
     const char *value;
     int16_t value_len;
-    uint64_t *bitmap;
+    uint32_t *bitmap1;
+    uint32_t *bitmap2;
+    byte skip_list[20];
     dfox_node_handler(byte *m);
     void initBuf();
     void initVars();
@@ -77,10 +78,10 @@ public:
     inline void setKVLastPos(int16_t val);
     void addData(int16_t pos);
     byte *getChild(int16_t pos);
-    byte *getKey(int16_t pos, int16_t *plen);
+    inline byte *getKey(int16_t pos, int16_t *plen);
     byte *getData(int16_t pos, int16_t *plen);
     byte *split(int16_t *pbrk_idx);
-    int16_t getPtr(int16_t pos);
+    inline int16_t getPtr(int16_t pos);
     void insPtr(int16_t pos, int16_t kvIdx);
     int16_t locate(int16_t level);
     void insertCurrent();
@@ -118,8 +119,9 @@ public:
     long size() {
         return total_size;
     }
-    static uint64_t left_mask64[64];
-    static uint64_t ryte_mask64[64];
+    static uint32_t left_mask32[32];
+    static uint32_t ryte_mask32[32];
+    static uint32_t mask32[32];
 
 };
 
