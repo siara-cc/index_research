@@ -9,18 +9,13 @@ typedef unsigned char byte;
 class util {
 public:
     static inline int16_t getInt(byte *pos) {
-//        int16_t *ptr = (int16_t *) pos;
-//        return *ptr;
-        int16_t ret = *pos << 8;
-        pos++;
-        ret += *pos;
-        return ret;
+//        return (int16_t *) pos; // fast endian-dependent
+        return ((*pos << 8) | *(pos + 1)); // slow endian independent
     }
 
     static inline void setInt(byte *pos, int16_t val) {
-//        int16_t *ptr = (int16_t *) pos;
-//        *ptr = val;
-        *pos = val >> 8;
+//        *((int16_t *) pos) = val; // fast endian-dependent
+        *pos = val >> 8; // slow endian independent
         pos++;
         *pos = val % 256;
     }
@@ -48,7 +43,8 @@ public:
         return ret;
     }
 
-    static int16_t compare(const char *v1, int16_t len1, const char *v2, int16_t len2, int k = 0) {
+    static int16_t compare(const char *v1, int16_t len1, const char *v2,
+            int16_t len2, int k = 0) {
         register int lim = len1;
         if (len2 < len1)
             lim = len2;
@@ -56,9 +52,9 @@ public:
             byte c1 = v1[k];
             byte c2 = v2[k];
             if (c1 < c2) {
-                return -1-k;
+                return -1 - k;
             } else if (c1 > c2) {
-                return k+1;
+                return k + 1;
             }
             k++;
         }

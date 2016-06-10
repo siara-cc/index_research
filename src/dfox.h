@@ -60,6 +60,7 @@ public:
     int16_t key_len;
     const char *key_at;
     int16_t key_at_len;
+    int16_t key_at_pos;
     const char *value;
     int16_t value_len;
     uint32_t *bitmap1;
@@ -82,6 +83,7 @@ public:
     byte *getData(int16_t pos, int16_t *plen);
     byte *split(int16_t *pbrk_idx);
     inline int16_t getPtr(int16_t pos);
+    inline void setPtr(int16_t pos, int16_t ptr);
     void insPtr(int16_t pos, int16_t kvIdx);
     int16_t locate(int16_t level);
     void insertCurrent();

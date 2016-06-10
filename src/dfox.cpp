@@ -247,7 +247,7 @@ byte *dfox_node_handler::split(int16_t *pbrk_idx) {
         (*new_block.bitmap1) <<= (brk_idx - 32);
     } else {
         (*new_block.bitmap1) <<= brk_idx;
-        (*new_block.bitmap1) |= ((*new_block.bitmap2) >> (32-brk_idx));
+        (*new_block.bitmap1) |= ((*new_block.bitmap2) >> (32 - brk_idx));
     }
 
     if (IS_LEAF_BYTE)
@@ -331,13 +331,17 @@ int16_t dfox_node_handler::getKVLastPos() {
 
 void dfox_node_handler::addData(int16_t pos) {
 
+    if (TRIE_LEN == 0)
+        keyPos = 1;
     insertCurrent();
-    register int16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
+    int16_t key_left = key_len - keyPos;
+    register int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
     setKVLastPos(kv_last_pos);
-    buf[kv_last_pos] = key_len;
-    memcpy(buf + kv_last_pos + 1, key, key_len);
-    buf[kv_last_pos + key_len + 1] = value_len;
-    memcpy(buf + kv_last_pos + key_len + 2, value, value_len);
+    buf[kv_last_pos] = key_left;
+    if (key_left)
+        memcpy(buf + kv_last_pos + 1, key + keyPos, key_left);
+    buf[kv_last_pos + key_left + 1] = value_len;
+    memcpy(buf + kv_last_pos + key_left + 2, value, value_len);
 
     insPtr(pos, kv_last_pos);
 
@@ -406,11 +410,26 @@ byte *dfox_node_handler::getChild(int16_t pos) {
     return ret;
 }
 
+void dfox_node_handler::setPtr(int16_t pos, int16_t ptr) {
+    buf[IDX_HDR_SIZE + pos] = (ptr & 0xFF);
+    if (pos & 0xFFE0) {
+        pos -= 32;
+        if (ptr >= 256)
+            *bitmap2 |= dfox::mask32[pos];
+        else
+            *bitmap2 &= ~dfox::mask32[pos];
+    } else {
+        if (ptr >= 256)
+            *bitmap1 |= dfox::mask32[pos];
+        else
+            *bitmap1 &= ~dfox::mask32[pos];
+    }
+}
+
 int16_t dfox_node_handler::getPtr(register int16_t pos) {
-    int idx = pos;
     int16_t ptr = buf[IDX_HDR_SIZE + pos];
-    if (idx & 0xFFE0) {
-        if (*bitmap2 & dfox::mask32[idx-32])
+    if (pos & 0xFFE0) {
+        if (*bitmap2 & dfox::mask32[pos - 32])
             ptr |= 256;
     } else {
         if (*bitmap1 & dfox::mask32[pos])
@@ -437,11 +456,6 @@ byte *dfox_node_handler::getData(int16_t pos, int16_t *plen) {
 }
 
 void dfox_node_handler::insertCurrent() {
-    register byte child;
-    register byte origTC;
-    register byte leafPos;
-    register byte childPos;
-    register int16_t pos, min;
 
     if (TRIE_LEN == 0) {
         byte kc = key[0];
@@ -451,13 +465,9 @@ void dfox_node_handler::insertCurrent() {
         return;
     }
 
-//    int skip_count = 0;
-//    for (int i=0; i<keyPos; i++) {
-//        if (skip_list[keyPos])
-//            skip_count++;
-//    }
-//    if (skip_count)
-//        cout << "SC:" << skip_count << " ";
+    register byte origTC;
+    register byte leafPos;
+
     switch (insertState) {
     case INSERT_MIDDLE1:
         tc &= 0xFB;
@@ -481,6 +491,9 @@ void dfox_node_handler::insertCurrent() {
         }
         break;
     case INSERT_THREAD:
+        register byte child;
+        register byte childPos;
+        register int16_t c_pos, c_pos_at, min;
         childPos = origPos + 1;
         child = mask;
         origTC = getAt(origPos);
@@ -493,13 +506,14 @@ void dfox_node_handler::insertCurrent() {
             origTC |= 0x02;
             setAt(origPos, origTC);
         }
-        pos = keyPos - 1;
-        min = util::min(key_len, key_at_len);
+        c_pos = keyPos; // - 1;
+        min = util::min(key_len, c_pos + key_at_len);
         byte c1, c2;
-        c1 = key[pos];
-        c2 = key_at[pos];
-        pos++;
-        if (pos < min) {
+        c1 = key[c_pos];
+        c2 = key_at[0];
+        //c_pos++;
+        c_pos_at = c_pos;
+        if (c_pos < min) {
             leafPos = childPos;
             if (origTC & 0x01) {
                 leafPos++;
@@ -515,8 +529,8 @@ void dfox_node_handler::insertCurrent() {
                 }
             }
             do {
-                c1 = key[pos];
-                c2 = key_at[pos];
+                c1 = key[c_pos];
+                c2 = key_at[c_pos - keyPos];
                 if (c1 > c2) {
                     byte swap = c1;
                     c1 = c2;
@@ -531,7 +545,7 @@ void dfox_node_handler::insertCurrent() {
                 byte c1child = 0;
                 if (c1 == c2) {
                     c1child = (0x80 >> offc1);
-                    if (pos + 1 == min) {
+                    if (c_pos + 1 == min) {
                         c1leaf = (0x80 >> offc1);
                         msb5c1 |= 0x07;
                     } else
@@ -558,18 +572,34 @@ void dfox_node_handler::insertCurrent() {
                     insAt(triePos, msb5c1, c1child);
                     triePos += 2;
                 }
+                c_pos++;
                 if (c1 != c2)
                     break;
-                pos++;
-            } while (pos < min);
+            } while (c_pos < min);
+        }
+        if (c_pos > c_pos_at) {
+            int16_t key_at_ptr = getPtr(key_at_pos);
+            int16_t new_len = buf[key_at_ptr];
+            int16_t diff = (c_pos - c_pos_at);
+            new_len -= diff;
+            key_at_ptr += diff;
+            buf[key_at_ptr] = new_len;
+            setPtr(key_at_pos, key_at_ptr);
         }
         if (c1 == c2) {
-            c2 = (pos == key_at_len ? key[pos] : key_at[pos]);
+            if (keyPos == (key_len - 1))
+                c2 = key_at[c_pos];
+            else {
+                c2 = key[c_pos];
+                c_pos++;
+            }
             int16_t msb5c2 = (c2 & 0xF8);
             int16_t offc2 = (c2 & 0x07);
             msb5c2 |= 0x05;
             insAt(triePos, msb5c2, (0x80 >> offc2));
         }
+        if (keyPos < key_len)
+            keyPos = c_pos;
         break;
     }
 }
@@ -578,7 +608,7 @@ int16_t dfox_node_handler::locate(int16_t level) {
     keyPos = 0;
     register int i = 0;
     register int skip_count = 0;
-    register byte kc = key[keyPos++];
+    byte kc = key[keyPos++];
     register int16_t pos = 0;
     memset(skip_list, 0, sizeof(skip_list));
     do {
@@ -639,12 +669,12 @@ int16_t dfox_node_handler::locate(int16_t level) {
                 }
             } else {
                 if (r_leaves & r_mask) {
-                    int16_t key_at_len;
-                    const char *key_at = (char *) getKey(pos, &key_at_len);
-                    int16_t cmp = util::compare(key, key_len, key_at,
-                            key_at_len, keyPos);
+                    key_at = (char *) getKey(pos, &key_at_len);
+                    int16_t cmp = util::compare(key + keyPos, key_len - keyPos,
+                            key_at, key_at_len);
                     if (cmp == 0)
                         return pos;
+                    key_at_pos = pos;
                     if (cmp > 0)
                         pos++;
                     if (isPut) {

@@ -246,7 +246,7 @@ byte *rb_tree_node_handler::split(int16_t *pbrk_idx) {
     int16_t stack[(int) log2(filled_upto) + 1];
     int16_t level = 0;
     int16_t node = getRoot();
-    int16_t new_block_root1;
+    int16_t new_block_root1 = 0;
     for (new_idx = 0; new_idx <= filled_upto;) {
         if (node == 0) {
             node = stack[--level];
