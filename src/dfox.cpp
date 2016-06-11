@@ -333,7 +333,35 @@ void dfox_node_handler::addData(int16_t pos) {
 
     if (TRIE_LEN == 0)
         keyPos = 1;
+
     insertCurrent();
+
+    if (insertState == INSERT_THREAD) {
+        int16_t diff = 0;
+        int i;
+        for (i = keyPos; i < key_len && (i - keyPos) < key_at_len; i++) {
+            if (key[i] == key_at[i - keyPos])
+                diff++;
+            else
+                break;
+        }
+        keyPos += diff;
+        keyPos++;
+        if (i >= key_len)
+            keyPos = key_len;
+        if ((i - keyPos) < key_at_len)
+            diff++;
+        if (diff) {
+            int16_t key_at_ptr = getPtr(key_at_pos);
+            int16_t new_len = buf[key_at_ptr];
+            new_len -= diff;
+            key_at_ptr += diff;
+            if (new_len >= 0) {
+                buf[key_at_ptr] = new_len;
+                setPtr(key_at_pos, key_at_ptr);
+            }
+        }
+    }
     int16_t key_left = key_len - keyPos;
     register int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
     setKVLastPos(kv_last_pos);
@@ -456,6 +484,11 @@ byte *dfox_node_handler::getData(int16_t pos, int16_t *plen) {
 }
 
 void dfox_node_handler::insertCurrent() {
+    register byte child;
+    register byte origTC;
+    register byte leafPos;
+    register byte childPos;
+    register int16_t pos, min;
 
     if (TRIE_LEN == 0) {
         byte kc = key[0];
@@ -465,9 +498,13 @@ void dfox_node_handler::insertCurrent() {
         return;
     }
 
-    register byte origTC;
-    register byte leafPos;
-
+//    int skip_count = 0;
+//    for (int i=0; i<keyPos; i++) {
+//        if (skip_list[keyPos])
+//            skip_count++;
+//    }
+//    if (skip_count)
+//        cout << "SC:" << skip_count << " ";
     switch (insertState) {
     case INSERT_MIDDLE1:
         tc &= 0xFB;
@@ -491,9 +528,6 @@ void dfox_node_handler::insertCurrent() {
         }
         break;
     case INSERT_THREAD:
-        register byte child;
-        register byte childPos;
-        register int16_t c_pos, c_pos_at, min;
         childPos = origPos + 1;
         child = mask;
         origTC = getAt(origPos);
@@ -506,14 +540,13 @@ void dfox_node_handler::insertCurrent() {
             origTC |= 0x02;
             setAt(origPos, origTC);
         }
-        c_pos = keyPos; // - 1;
-        min = util::min(key_len, c_pos + key_at_len);
+        pos = keyPos - 1;
+        min = util::min(key_len, keyPos + key_at_len);
         byte c1, c2;
-        c1 = key[c_pos];
-        c2 = key_at[0];
-        //c_pos++;
-        c_pos_at = c_pos;
-        if (c_pos < min) {
+        c1 = key[pos];
+        c2 = c1;
+        pos++;
+        if (pos < min) {
             leafPos = childPos;
             if (origTC & 0x01) {
                 leafPos++;
@@ -529,8 +562,8 @@ void dfox_node_handler::insertCurrent() {
                 }
             }
             do {
-                c1 = key[c_pos];
-                c2 = key_at[c_pos - keyPos];
+                c1 = key[pos];
+                c2 = key_at[pos - keyPos];
                 if (c1 > c2) {
                     byte swap = c1;
                     c1 = c2;
@@ -545,7 +578,7 @@ void dfox_node_handler::insertCurrent() {
                 byte c1child = 0;
                 if (c1 == c2) {
                     c1child = (0x80 >> offc1);
-                    if (c_pos + 1 == min) {
+                    if (pos + 1 == min) {
                         c1leaf = (0x80 >> offc1);
                         msb5c1 |= 0x07;
                     } else
@@ -572,36 +605,18 @@ void dfox_node_handler::insertCurrent() {
                     insAt(triePos, msb5c1, c1child);
                     triePos += 2;
                 }
-                c_pos++;
                 if (c1 != c2)
                     break;
-            } while (c_pos < min);
+                pos++;
+            } while (pos < min);
         }
-        if (keyPos == key_len)
-            c_pos++;
-        if (c_pos > c_pos_at) {
-            int16_t key_at_ptr = getPtr(key_at_pos);
-            int16_t new_len = buf[key_at_ptr];
-            int16_t diff = (c_pos - c_pos_at);
-            new_len -= diff;
-            key_at_ptr += diff;
-            buf[key_at_ptr] = new_len;
-            setPtr(key_at_pos, key_at_ptr);
-        }
-        if (c1 == c2 || keyPos == key_len) {
-            if (keyPos == (key_len - 1))
-                c2 = key_at[c_pos];
-            else if (keyPos != key_len) {
-                c2 = key[c_pos];
-                c_pos++;
-            }
+        if (c1 == c2) {
+            c2 = (pos == key_len ? key_at[pos - keyPos] : key[pos]);
             int16_t msb5c2 = (c2 & 0xF8);
             int16_t offc2 = (c2 & 0x07);
             msb5c2 |= 0x05;
             insAt(triePos, msb5c2, (0x80 >> offc2));
         }
-        if (keyPos < key_len)
-            keyPos = c_pos;
         break;
     }
 }
