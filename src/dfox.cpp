@@ -577,6 +577,8 @@ void dfox_node_handler::insertCurrent() {
                     break;
             } while (c_pos < min);
         }
+        if (keyPos == key_len)
+            c_pos++;
         if (c_pos > c_pos_at) {
             int16_t key_at_ptr = getPtr(key_at_pos);
             int16_t new_len = buf[key_at_ptr];
@@ -586,10 +588,10 @@ void dfox_node_handler::insertCurrent() {
             buf[key_at_ptr] = new_len;
             setPtr(key_at_pos, key_at_ptr);
         }
-        if (c1 == c2) {
+        if (c1 == c2 || keyPos == key_len) {
             if (keyPos == (key_len - 1))
                 c2 = key_at[c_pos];
-            else {
+            else if (keyPos != key_len) {
                 c2 = key[c_pos];
                 c_pos++;
             }
@@ -679,9 +681,8 @@ int16_t dfox_node_handler::locate(int16_t level) {
                         pos++;
                     if (isPut) {
                         triePos = i;
+                        this->leaves = r_leaves;
                         this->mask = r_mask;
-                        this->key_at = key_at;
-                        this->key_at_len = key_at_len;
                         insertState = INSERT_THREAD;
                         if (cmp < 0)
                             cmp = -cmp;
