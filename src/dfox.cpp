@@ -180,6 +180,42 @@ void dfox::recursiveUpdate(dfox_node_handler *node, int16_t pos,
     }
 }
 
+int16_t dfox_node_handler::nextKey(dfox_iterator_status& s) {
+    if (s.i == 0) {
+        keyPos = 0;
+        s.offset_a[keyPos] = 8;
+    }
+    do {
+        if (s.offset_a[keyPos] & 0x08) {
+            s.tc_a[keyPos] = trie[s.i++];
+            s.leaf_a[keyPos] = 0;
+            s.child_a[keyPos] = 0;
+            if (tc & 0x02)
+                s.child_a[keyPos] = trie[s.i++];
+            if (tc & 0x01)
+                s.leaf_a[keyPos] = trie[s.i++];
+            s.offset_a[keyPos] = 0;
+        }
+        mask = 0x80 >> s.offset_a[keyPos];
+        if (s.leaf_a[keyPos] & mask) {
+            s.partial_key[keyPos] = tc & 0xF8;
+            s.partial_key[keyPos] |= s.offset_a[keyPos];
+            return keyPos + 1;
+        }
+        if (s.child_a[keyPos] & mask) {
+            s.partial_key[keyPos] = tc & 0xF8;
+            s.partial_key[keyPos] |= s.offset_a[keyPos];
+            keyPos++;
+            s.offset_a[keyPos] = 8;
+        }
+        if (s.tc_a[keyPos] & 0x04) {
+            keyPos--;
+            s.offset_a[keyPos]++;
+        }
+    } while (keyPos > 0);
+    return -1;
+}
+
 byte *dfox_node_handler::split(int16_t *pbrk_idx) {
     int16_t orig_filled_size = filledSize();
     byte *b = (byte *) util::alignedAlloc(DFOX_NODE_SIZE);
@@ -198,9 +234,21 @@ byte *dfox_node_handler::split(int16_t *pbrk_idx) {
     int16_t brk_idx = -1;
     int16_t brk_kv_pos = 0;
     int16_t tot_len = 0;
+    byte *old_block_ptrs = old_block.buf + IDX_HDR_SIZE;
+    int16_t brk_key_len = 0;
+    byte brk_key[40];
+    dfox_iterator_status s;
+    s.i = 0;
     // (1) move all data to new_block in order
     for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
-        int16_t src_idx = old_block.getPtr(new_idx);
+        int16_t src_idx = old_block_ptrs[new_idx];
+        if (new_idx & 0xFFE0) {
+            if (*bitmap2 & dfox::mask32[new_idx - 32])
+                src_idx |= 256;
+        } else {
+            if (*bitmap1 & dfox::mask32[new_idx])
+                src_idx |= 256;
+        }
         int16_t key_len = old_block.buf[src_idx];
         key_len++;
         int16_t value_len = old_block.buf[src_idx + key_len];
@@ -211,37 +259,27 @@ byte *dfox_node_handler::split(int16_t *pbrk_idx) {
         memcpy(new_block.buf + kv_last_pos, old_block.buf + src_idx, kv_len);
         new_block.insPtr(new_idx, kv_last_pos);
         kv_last_pos += kv_len;
+        brk_key_len = nextKey(s);
         if (tot_len > halfKVLen) {
             if (brk_idx == -1) {
                 brk_idx = new_idx;
                 brk_kv_pos = kv_last_pos;
+                memcpy(brk_key, s.partial_key, brk_key_len);
+                if (key_len) {
+                    memcpy(brk_key + brk_key_len, buf + src_idx + 1, key_len);
+                    brk_key_len += key_len;
+                }
             }
         }
     }
-    // (2) move top half of new_block to bottom half of old_block
+    memcpy(old_block.buf, new_block.buf, DFOX_NODE_SIZE);
+
     kv_last_pos = old_block.getKVLastPos();
     int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
-    memcpy(old_block.buf + DFOX_NODE_SIZE - old_blk_new_len,
-            new_block.buf + kv_last_pos, old_blk_new_len);
-    // (3) Insert pointers to the moved data in old block
-    old_block.FILLED_SIZE = 0;
-    old_block.TRIE_LEN = 0;
-    old_block.trie = buf + IDX_HDR_SIZE;
-    for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
-        int16_t src_idx = new_block.getPtr(new_idx);
-        src_idx += (DFOX_NODE_SIZE - brk_kv_pos);
-        old_block.insPtr(new_idx, src_idx);
-        if (new_idx == 0) // (5) Set Last data position for old block
-            old_block.setKVLastPos(src_idx);
-        old_block.initVars();
-        old_block.key = (char *) (old_block.buf + src_idx + 1);
-        old_block.key_len = old_block.buf[src_idx];
-        if (new_idx)
-            old_block.locate(0);
-        old_block.insertCurrent();
-    }
-    int16_t new_size = orig_filled_size - brk_idx - 1;
+    old_block.setKVLastPos(DFOX_NODE_SIZE - old_blk_new_len); // () Old Block Last position
+    old_block.setFilledSize(brk_idx); // () Filled Size for oldBlock
 
+    int16_t new_size = orig_filled_size - brk_idx - 1;
     if (brk_idx > 31) {
         (*new_block.bitmap1) = (*new_block.bitmap2);
         (*new_block.bitmap1) <<= (brk_idx - 32);
@@ -249,26 +287,145 @@ byte *dfox_node_handler::split(int16_t *pbrk_idx) {
         (*new_block.bitmap1) <<= brk_idx;
         (*new_block.bitmap1) |= ((*new_block.bitmap2) >> (32 - brk_idx));
     }
-
     if (IS_LEAF_BYTE)
         new_block.setLeaf(1);
-    new_block.setKVLastPos(brk_kv_pos); // (5) New Block Last position
-    //filled_size = brk_idx + 1;
-    //setFilledSize(filled_size); // (7) Filled Size for Old block
-    new_block.TRIE_LEN = 0;
     memmove(new_block.buf + IDX_HDR_SIZE,
             new_block.buf + IDX_HDR_SIZE + brk_idx + 1, new_size);
-    new_block.setFilledSize(new_size); // (8) Filled Size for New Block
-    new_block.trie = new_block.buf + IDX_HDR_SIZE + new_size;
-    for (int16_t i = 0; i < new_size; i++) {
-        new_block.initVars();
-        new_block.key = (char *) new_block.getKey(i, &new_block.key_len);
-        if (i)
-            new_block.locate(0);
-        new_block.insertCurrent();
-    }
+    new_block.setKVLastPos(brk_kv_pos); // () New Block Last position
+    new_block.setFilledSize(new_size); // () Filled Size for New Block
+
+    old_block.deleteTrieLastHalf(brk_idx, brk_key, brk_key_len);
+    new_block.deleteTrieFirstHalf(brk_idx, brk_key, brk_key_len);
+
     *pbrk_idx = brk_idx;
     return new_block.buf;
+}
+
+void dfox_node_handler::deleteTrieLastHalf(int brk_idx, byte *brk_key,
+        int16_t brk_key_len) {
+    keyPos = 0;
+    int i = 0;
+    int16_t pos = 0;
+    int16_t to_skip = 0;
+    byte kc = brk_key[keyPos++];
+    byte tc;
+    byte r_leaves = 0;
+    byte children = 0;
+    do {
+        tc = trie[i++];
+        if (tc & 0x02)
+            children = trie[i++];
+        if (tc & 0x01)
+            r_leaves = trie[i++];
+        while ((kc ^ tc) > 0x07) {
+            to_skip += GenTree::bit_count[children];
+            pos += GenTree::bit_count[r_leaves];
+            while (to_skip) {
+                byte child_tc = trie[i++];
+                if (child_tc & 0x02)
+                    to_skip += GenTree::bit_count[trie[i++]];
+                if (child_tc & 0x01)
+                    pos += GenTree::bit_count[trie[i++]];
+                if (child_tc & 0x04)
+                    to_skip--;
+            }
+            tc = trie[i++];
+            if (tc & 0x02)
+                children = trie[i++];
+            if (tc & 0x01)
+                r_leaves = trie[i++];
+        }
+        byte offset = tc & 0x07;
+        if (keyPos == brk_key_len)
+            children &= left_incl_mask[offset];
+        else
+            children &= left_mask[offset];
+        leaves &= left_incl_mask[offset];
+        tc |= 0x04;
+        pos += GenTree::bit_count[leaves];
+        if (tc & 0x03) {
+            trie[i - 1] = leaves;
+            trie[i - 2] = children;
+            trie[i - 3] = tc;
+        } else if (tc & 0x02) {
+            trie[i - 1] = children;
+            trie[i - 2] = tc;
+        } else {
+            trie[i - 1] = leaves;
+            trie[i - 2] = tc;
+        }
+        if (keyPos == brk_key_len) {
+            TRIE_LEN = i;
+            break;
+        }
+        kc = brk_key[keyPos++];
+    } while (i < TRIE_LEN);
+}
+
+void dfox_node_handler::deleteTrieFirstHalf(int brk_idx, byte *brk_key, int16_t brk_key_len) {
+    keyPos = 0;
+    int i = 0;
+    int delete_start = -1;
+    int16_t pos = 0;
+    int16_t to_skip = 0;
+    byte kc = brk_key[keyPos++];
+    byte tc;
+    leaves = 0;
+    children = 0;
+    do {
+        tc = trie[i++];
+        if (tc & 0x02)
+            children = trie[i++];
+        if (tc & 0x01)
+            leaves = trie[i++];
+        while ((kc ^ tc) > 0x07) {
+            if (delete_start == -1)
+                delete_start = i;
+            to_skip += GenTree::bit_count[children];
+            pos += GenTree::bit_count[leaves];
+            while (to_skip) {
+                byte child_tc = trie[i++];
+                if (child_tc & 0x02)
+                    to_skip += GenTree::bit_count[trie[i++]];
+                if (child_tc & 0x01)
+                    pos += GenTree::bit_count[trie[i++]];
+                if (child_tc & 0x04)
+                    to_skip--;
+            }
+            tc = trie[i++];
+            if (tc & 0x02)
+                children = trie[i++];
+            if (tc & 0x01)
+                leaves = trie[i++];
+        }
+        if (delete_start > -1) {
+            int to_delete = i - delete_start;
+            memmove(trie + delete_start, trie + i, to_delete);
+            TRIE_LEN -= to_delete;
+            i -= to_delete;
+            delete_start = -2;
+        }
+        byte offset = tc & 0x07;
+        children &= ryte_incl_mask[offset];
+        if (keyPos == brk_key_len)
+            leaves &= ryte_incl_mask[offset];
+        else
+            leaves &= ryte_mask[offset];
+        tc |= 0x04;
+        pos += GenTree::bit_count[leaves];
+        if (tc & 0x03) {
+            trie[i - 1] = leaves;
+            trie[i - 2] = children;
+            trie[i - 3] = tc;
+        } else if (tc & 0x02) {
+            trie[i - 1] = children;
+            trie[i - 2] = tc;
+        } else {
+            trie[i - 1] = leaves;
+            trie[i - 2] = tc;
+        }
+        kc = brk_key[keyPos++];
+    } while (i < TRIE_LEN);
 }
 
 dfox::dfox() {
@@ -298,7 +455,7 @@ dfox::~dfox() {
     delete root_data;
 }
 
-dfox_node_handler::dfox_node_handler(byte *m) {
+dfox_node_handler::dfox_node_handler(byte * m) {
     setBuf(m);
     isPut = false;
 }
@@ -498,13 +655,6 @@ void dfox_node_handler::insertCurrent() {
         return;
     }
 
-//    int skip_count = 0;
-//    for (int i=0; i<keyPos; i++) {
-//        if (skip_list[keyPos])
-//            skip_count++;
-//    }
-//    if (skip_count)
-//        cout << "SC:" << skip_count << " ";
     switch (insertState) {
     case INSERT_MIDDLE1:
         tc &= 0xFB;
@@ -824,6 +974,8 @@ void dfox_node_handler::initVars() {
 
 byte dfox_node_handler::left_mask[8] = { 0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8,
         0xFC, 0xFE };
+byte dfox_node_handler::left_incl_mask[8] = { 0x80, 0xC0, 0xE0, 0xF0, 0xF8,
+        0xFC, 0xFE, 0xFF };
 byte dfox_node_handler::ryte_mask[8] = { 0x7F, 0x3F, 0x1F, 0x0F, 0x07, 0x03,
         0x01, 0x00 };
 byte dfox_node_handler::ryte_incl_mask[8] = { 0xFF, 0x7F, 0x3F, 0x1F, 0x0F,

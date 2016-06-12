@@ -25,10 +25,23 @@ typedef unsigned char byte;
 #define FILLED_SIZE buf[MAX_PTR_BITMAP_BYTES+2]
 #define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 3
 
+#define MAX_KEY_PREFIX_LEN 10
+
+class dfox_iterator_status {
+public:
+    int16_t i;
+    byte partial_key[MAX_KEY_PREFIX_LEN];
+    byte tc_a[MAX_KEY_PREFIX_LEN];
+    byte child_a[MAX_KEY_PREFIX_LEN];
+    byte leaf_a[MAX_KEY_PREFIX_LEN];
+    byte offset_a[MAX_KEY_PREFIX_LEN];
+};
+
 class dfox_node_handler {
 private:
     const static byte eight = 0x08;
     static byte left_mask[8];
+    static byte left_incl_mask[8];
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];
     static byte pos_mask[48];
@@ -41,6 +54,9 @@ private:
     inline void delAt(byte pos);
     inline void delAt(byte pos, int16_t count);
     inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
+    int16_t nextKey(dfox_iterator_status& s);
+    void deleteTrieLastHalf(int brk_idx, byte *brk_key, int16_t brk_key_len);
+    void deleteTrieFirstHalf(int brk_idx, byte *brk_key, int16_t brk_key_len);
     static byte *alignedAlloc();
 public:
     byte *buf;
@@ -48,7 +64,6 @@ public:
     byte tc;
     byte mask;
     byte msb5;
-    byte keyPos;
     byte children;
     byte leaves;
     byte triePos;
@@ -56,6 +71,7 @@ public:
     byte need_count;
     byte insertState;
     byte isPut;
+    int16_t keyPos;
     const char *key;
     int16_t key_len;
     const char *key_at;
@@ -98,8 +114,8 @@ private:
     void recursiveSearch(dfox_node_handler *node, int16_t lastSearchPos[],
             byte *node_paths[], int16_t *pIdx);
     void recursiveSearchForGet(dfox_node_handler *node, int16_t *pIdx);
-    void recursiveUpdate(dfox_node_handler *node, int16_t pos, int16_t lastSearchPos[],
-            byte *node_paths[], int16_t level);
+    void recursiveUpdate(dfox_node_handler *node, int16_t pos,
+            int16_t lastSearchPos[], byte *node_paths[], int16_t level);
 public:
     byte *root_data;
     int maxThread;
