@@ -417,8 +417,6 @@ void dfox_node_handler::deleteTrieFirstHalf(int brk_idx, byte *brk_key,
         int16_t brk_key_len) {
     keyPos = 0;
     int i = 0;
-    int delete_start = -1;
-    int delete_end = -1;
     int16_t pos = 0;
     int16_t to_skip = 0;
     byte kc = brk_key[keyPos++];
@@ -432,6 +430,8 @@ void dfox_node_handler::deleteTrieFirstHalf(int brk_idx, byte *brk_key,
             children = trie[i++];
         if (tc & 0x01)
             leaves = trie[i++];
+        int delete_start = -1;
+        int delete_end = -1;
         while ((kc ^ tc) > 0x07) {
             if (delete_start == -1)
                 delete_start = prev_i;
@@ -457,20 +457,20 @@ void dfox_node_handler::deleteTrieFirstHalf(int brk_idx, byte *brk_key,
             if (tc & 0x01)
                 leaves = trie[i++];
         }
-        if (delete_start != -1 && delete_end == -1)
+        if (delete_start != -1) {
             delete_end = prev_i;
+            int to_delete = delete_end - delete_start;
+            TRIE_LEN -= to_delete;
+            i -= to_delete;
+            prev_i -= to_delete;
+            memmove(trie + delete_start, trie + delete_end,
+                    TRIE_LEN - delete_start);
+        }
         if (i >= TRIE_LEN)
             break;
         byte offset = kc & 0x07;
-        if (keyPos == brk_key_len) {
-            //leaves &= ryte_incl_mask[offset];
-        } else {
-        }
-        leaves &= ryte_mask[offset];
-        children &= ryte_incl_mask[offset];
-        pos += GenTree::bit_count[leaves];
-        to_skip += GenTree::bit_count[children];
-        pos += GenTree::bit_count[leaves];
+        to_skip = GenTree::bit_count[children & left_mask[offset]];
+        delete_start = i;
         while (to_skip) {
             byte child_tc = trie[i++];
             if (child_tc & 0x02)
@@ -479,9 +479,19 @@ void dfox_node_handler::deleteTrieFirstHalf(int brk_idx, byte *brk_key,
                 pos += GenTree::bit_count[trie[i++]];
             if (child_tc & 0x04)
                 to_skip--;
+            delete_end = i;
         }
-        int to_delete = 2;
+        if (i > delete_start) {
+            int to_delete = delete_end - delete_start;
+            TRIE_LEN -= to_delete;
+            i -= to_delete;
+            memmove(trie + delete_start, trie + delete_end,
+                    TRIE_LEN - delete_start);
+        }
+        leaves &= ryte_mask[offset];
+        children &= ryte_incl_mask[offset];
         if (children == 0 && leaves == 0) {
+            int to_delete = 2;
             if ((tc & 0x03) == 0x03)
                 to_delete++;
             TRIE_LEN -= to_delete;
@@ -505,11 +515,6 @@ void dfox_node_handler::deleteTrieFirstHalf(int brk_idx, byte *brk_key,
             break;
         kc = brk_key[keyPos++];
     } while (i < TRIE_LEN);
-    if (delete_start > -1) {
-        int to_delete = delete_end - delete_start;
-        TRIE_LEN -= to_delete;
-        memmove(trie + delete_start, trie + delete_end, TRIE_LEN);
-    }
 }
 
 dfox::dfox() {
