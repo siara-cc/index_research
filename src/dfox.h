@@ -97,7 +97,7 @@ public:
     byte *getChild(int16_t pos);
     inline byte *getKey(int16_t pos, int16_t *plen);
     byte *getData(int16_t pos, int16_t *plen);
-    byte *split(int16_t *pbrk_idx);
+    byte *split(int16_t *pbrk_idx, byte *first_key, int16_t *first_len_ptr);
     inline int16_t getPtr(int16_t pos);
     inline void setPtr(int16_t pos, int16_t ptr);
     void insPtr(int16_t pos, int16_t kvIdx);
