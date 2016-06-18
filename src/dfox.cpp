@@ -182,10 +182,11 @@ int16_t dfox_node_handler::nextKey(dfox_iterator_status& s) {
     if (s.i == 0) {
         keyPos = 0;
         s.offset_a[keyPos] = 8;
-    }
-    if (s.offset_a[keyPos] == 8 && (s.tc_a[keyPos] & 0x04)) {
-        keyPos--;
-        s.offset_a[keyPos]++;
+    } else {
+        if (s.offset_a[keyPos] == 8 && (s.tc_a[keyPos] & 0x04)) {
+            keyPos--;
+            s.offset_a[keyPos]++;
+        }
     }
     do {
         if (s.offset_a[keyPos] > 0x07) {
@@ -217,7 +218,7 @@ int16_t dfox_node_handler::nextKey(dfox_iterator_status& s) {
         while (s.offset_a[keyPos] == 7 && (s.tc_a[keyPos] & 0x04))
             keyPos--;
         s.offset_a[keyPos]++;
-    } while (keyPos >= 0);
+    } while (s.i < TRIE_LEN);
     return -1;
 }
 
@@ -372,8 +373,9 @@ void dfox_node_handler::deleteTrieLastHalf(int brk_idx, byte *brk_key,
             children &= left_incl_mask[offset];
         leaves &= left_incl_mask[offset];
         tc |= 0x04;
-        pos += GenTree::bit_count[leaves];
         to_skip += GenTree::bit_count[children];
+        if (keyPos != brk_key_len)
+            to_skip--;
         pos += GenTree::bit_count[leaves];
         while (to_skip) {
             byte child_tc = trie[i++];
@@ -385,7 +387,7 @@ void dfox_node_handler::deleteTrieLastHalf(int brk_idx, byte *brk_key,
                 to_skip--;
         }
         int to_delete = 2;
-        if (children == 0 && leaves == 0) {
+        if (0) { // children == 0 && leaves == 0) {
             if ((tc & 0x03) == 0x03)
                 to_delete++;
             TRIE_LEN -= to_delete;
@@ -404,10 +406,10 @@ void dfox_node_handler::deleteTrieLastHalf(int brk_idx, byte *brk_key,
                 trie[prev_i] = tc;
                 trie[prev_i + 1] = leaves;
             }
-            if (keyPos == brk_key_len) {
-                TRIE_LEN = i;
-                break;
-            }
+        }
+        if (keyPos == brk_key_len) {
+            TRIE_LEN = i;
+            break;
         }
         kc = brk_key[keyPos++];
     } while (i < TRIE_LEN);
@@ -490,7 +492,7 @@ void dfox_node_handler::deleteTrieFirstHalf(int brk_idx, byte *brk_key,
         }
         leaves &= ryte_mask[offset];
         children &= ryte_incl_mask[offset];
-        if (children == 0 && leaves == 0) {
+        if (0) { // children == 0 && leaves == 0) {
             int to_delete = 2;
             if ((tc & 0x03) == 0x03)
                 to_delete++;

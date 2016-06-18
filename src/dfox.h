@@ -25,7 +25,7 @@ typedef unsigned char byte;
 #define FILLED_SIZE buf[MAX_PTR_BITMAP_BYTES+2]
 #define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 3
 
-#define MAX_KEY_PREFIX_LEN 10
+#define MAX_KEY_PREFIX_LEN 20
 
 class dfox_iterator_status {
 public:
