@@ -10,3 +10,6 @@ int16_t GenTree::ixRoots;
 int16_t GenTree::ixLeft;
 int16_t GenTree::ixRyte;
 int16_t GenTree::ixPrnt;
+uint32_t GenTree::left_mask32[32];
+uint32_t GenTree::ryte_mask32[32];
+uint32_t GenTree::mask32[32];

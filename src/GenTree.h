@@ -16,6 +16,9 @@ public:
     static int16_t ixLeft;
     static int16_t ixRyte;
     static int16_t ixPrnt;
+    static uint32_t left_mask32[32];
+    static uint32_t ryte_mask32[32];
+    static uint32_t mask32[32];
 
     static int16_t simulateBinarySearch(int16_t idx) {
         int16_t first, last;
@@ -91,6 +94,18 @@ public:
         for (int16_t i = 0; i < 256; i++) {
             bit_count[i] = countSetBits(i);
             last_bit_mask[i] = lastBitMask(i);
+        }
+        uint32_t ui32 = 1;
+        for (int i = 0; i < 32; i++) {
+            mask32[i] = (0x80000000 >> i);
+            if (i == 0) {
+                ryte_mask32[i] = 0xFFFFFFFF;
+                left_mask32[i] = 0;
+            } else {
+                ryte_mask32[i] = (ui32 << (32 - i));
+                ryte_mask32[i]--;
+                left_mask32[i] = ~(ryte_mask32[i]);
+            }
         }
     }
 

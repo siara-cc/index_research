@@ -176,8 +176,35 @@ int16_t linex_node_handler::getKVLastPos() {
     return util::getInt(buf + 3);
 }
 
-void linex_node_handler::addData(int16_t pos) {
+void linex_node_handler::insBit(uint32_t *ui32, int pos, int16_t kv_pos) {
+    uint32_t ryte_part = (*ui32) & GenTree::ryte_mask32[pos];
+    ryte_part >>= 1;
+    if (kv_pos >= 256)
+        ryte_part |= GenTree::mask32[pos];
+    (*ui32) = (ryte_part | ((*ui32) & GenTree::left_mask32[pos]));
 
+}
+
+void linex_node_handler::insPtr(int16_t pos, int16_t kv_last_pos) {
+#if LINEX_NODE_SIZE == 512
+    byte *kvIdx = buf + BLK_HDR_SIZE;
+    kvIdx += pos;
+    int16_t filled_upto = filledUpto();
+    filled_upto++;
+    if (pos < filled_upto)
+        memmove(kvIdx + 1, kvIdx, filled_upto - pos);
+    kvIdx[0] = (kv_last_pos & 0xFF);
+    if (pos > 31) {
+        int idx = pos - 32;
+        insBit(bitmap2, idx, kv_last_pos);
+    } else {
+        byte last_bit = (*bitmap1 & 0x01);
+        insBit(bitmap1, pos, kv_last_pos);
+        *bitmap2 >>= 1;
+        if (last_bit)
+            *bitmap2 |= *GenTree::mask32;
+    }
+#else
     byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     kvIdx += pos;
@@ -185,15 +212,20 @@ void linex_node_handler::addData(int16_t pos) {
     filled_upto++;
     if (pos < filled_upto)
         memmove(kvIdx + 2, kvIdx, (filled_upto - pos) * 2);
-
+    util::setInt(kvIdx, kv_last_pos);
+#endif
     util::setInt(buf + 1, filled_upto);
+
+}
+void linex_node_handler::addData(int16_t pos) {
+
     int16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
     setKVLastPos(kv_last_pos);
     buf[kv_last_pos] = key_len;
     memcpy(buf + kv_last_pos + 1, key, key_len);
     buf[kv_last_pos + key_len + 1] = value_len;
     memcpy(buf + kv_last_pos + key_len + 2, value, value_len);
-    util::setInt(kvIdx, kv_last_pos);
+    insPtr(pos, kv_last_pos);
 }
 
 byte *linex_node_handler::split(int16_t *pbrk_idx) {
@@ -206,16 +238,14 @@ byte *linex_node_handler::split(int16_t *pbrk_idx) {
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = LINEX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
-    byte *kv_idx = buf + BLK_HDR_SIZE;
     byte *new_kv_idx = new_block.buf + BLK_HDR_SIZE;
     int16_t new_idx;
     int16_t brk_idx = -1;
     int16_t brk_kv_pos = 0;
-    int16_t new_pos = 0;
     int16_t tot_len = 0;
     // Copy all data to new block in ascending order
     for (new_idx = 0; new_idx <= filled_upto; new_idx++) {
-        int16_t src_idx = util::getInt(kv_idx + new_pos);
+        int16_t src_idx = getPtr(new_idx);
         int16_t new_key_len = buf[src_idx];
         new_key_len++;
         int16_t new_value_len = buf[src_idx + new_key_len];
@@ -224,9 +254,8 @@ byte *linex_node_handler::split(int16_t *pbrk_idx) {
         kv_len += new_value_len;
         tot_len += kv_len;
         memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
-        util::setInt(new_kv_idx + new_pos, kv_last_pos);
+        new_block.insPtr(new_idx, kv_last_pos);
         kv_last_pos += kv_len;
-        new_pos += 2;
         if (tot_len > halfKVLen && brk_idx == -1) {
             brk_idx = new_idx;
             brk_kv_pos = kv_last_pos;
@@ -238,21 +267,30 @@ byte *linex_node_handler::split(int16_t *pbrk_idx) {
     memcpy(buf + LINEX_NODE_SIZE - old_blk_new_len, new_block.buf + kv_last_pos,
             old_blk_new_len); // Copy back first half to old block
     //memset(new_block.buf + kv_last_pos, '\0', old_blk_new_len);
-    new_pos = 0;
     for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
-        int16_t src_idx = util::getInt(new_kv_idx + new_pos);
+        int16_t src_idx = new_block.getPtr(new_idx);
         src_idx += (LINEX_NODE_SIZE - brk_kv_pos);
-        util::setInt(kv_idx + new_pos, src_idx);
+        insPtr(new_idx, src_idx);
         if (new_idx == 0) // Set KV Last pos in old block
             setKVLastPos(src_idx);
-        new_pos += 2;
     } // Set index of copied first half in old block
     int16_t new_size = filled_upto - brk_idx;
     // Move index of second half to first half in new block
-    memcpy(new_kv_idx, new_kv_idx + new_pos, new_size * 2);
+#if LINEX_NODE_SIZE == 512
+    memcpy(new_kv_idx, new_kv_idx + new_idx, new_size);
+    if (brk_idx > 31) {
+        (*new_block.bitmap1) = (*new_block.bitmap2);
+        (*new_block.bitmap1) <<= (brk_idx - 32);
+    } else {
+        (*new_block.bitmap1) <<= brk_idx;
+        (*new_block.bitmap1) |= ((*new_block.bitmap2) >> (32 - brk_idx));
+    }
+#else
+    memcpy(new_kv_idx, new_kv_idx + new_idx * 2, new_size * 2);
+#endif
     //memset(new_kv_idx + new_size * 2, '\0', new_pos);
     // Set KV Last pos for new block
-    new_block.setKVLastPos(util::getInt(new_kv_idx));
+    new_block.setKVLastPos(new_block.getPtr(0));
     filled_upto = brk_idx;
     setFilledUpto(filled_upto); // Set filled upto for old block
     new_block.setFilledUpto(new_size - 1); // Set filled upto for new block
@@ -430,6 +468,10 @@ linex_node_handler::linex_node_handler(byte *b) {
 
 void linex_node_handler::setBuf(byte *b) {
     buf = b;
+#if LINEX_NODE_SIZE == 512
+    bitmap1 = (uint32_t *) (buf + BITMAP_POS);
+    bitmap2 = bitmap1 + 1;
+#endif
 }
 
 void linex_node_handler::initBuf() {
@@ -437,6 +479,10 @@ void linex_node_handler::initBuf() {
     setLeaf(1);
     setFilledUpto(-1);
     setKVLastPos(LINEX_NODE_SIZE);
+#if LINEX_NODE_SIZE == 512
+    bitmap1 = (uint32_t *) (buf + BITMAP_POS);
+    bitmap2 = bitmap1 + 1;
+#endif
 }
 
 bool linex_node_handler::isLeaf() {
@@ -452,9 +498,15 @@ void linex_node_handler::setFilledUpto(int16_t filledUpto) {
 }
 
 bool linex_node_handler::isFull(int16_t kv_len) {
-    kv_len += 4; // one int16_t pointer, 1 byte key len, 1 byte value len
+    kv_len += 2; // 1 byte key len, 1 byte value len
     int16_t spaceLeft = getKVLastPos();
+#if LINEX_NODE_SIZE == 512
+    kv_len++;
+    spaceLeft -= filledUpto();
+#else
+    kv_len += 2;
     spaceLeft -= (filledUpto() * 2);
+#endif
     spaceLeft -= 2;
     spaceLeft -= BLK_HDR_SIZE;
     if (spaceLeft < kv_len)
@@ -466,13 +518,28 @@ int16_t linex_node_handler::filledUpto() {
     return util::getInt(buf + 1);
 }
 
-byte *linex_node_handler::getChild(int16_t pos) {
+int16_t linex_node_handler::getPtr(int16_t pos) {
+#if LINEX_NODE_SIZE == 512
+    int16_t ptr = buf[BLK_HDR_SIZE + pos];
+    if (pos & 0xFFE0) {
+        if (*bitmap2 & GenTree::mask32[pos - 32])
+            ptr |= 256;
+    } else {
+        if (*bitmap1 & GenTree::mask32[pos])
+            ptr |= 256;
+    }
+    return ptr;
+#else
     byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     kvIdx += pos;
-    kvIdx = buf + util::getInt(kvIdx);
-    byte *idx = kvIdx;
-    idx += kvIdx[0];
+    return util::getInt(kvIdx);
+#endif
+}
+
+byte *linex_node_handler::getChild(int16_t pos) {
+    byte *idx = buf + getPtr(pos);
+    idx += idx[0];
     idx += 2;
     unsigned long addr_num = util::fourBytesToPtr(idx);
     byte *ret = (byte *) addr_num;
@@ -480,22 +547,15 @@ byte *linex_node_handler::getChild(int16_t pos) {
 }
 
 byte *linex_node_handler::getKey(int16_t pos, int16_t *plen) {
-    byte *kvIdx = buf + BLK_HDR_SIZE;
-    kvIdx += pos;
-    kvIdx += pos;
-    kvIdx = buf + util::getInt(kvIdx);
+    byte *kvIdx = buf + getPtr(pos);
     *plen = kvIdx[0];
     kvIdx++;
     return kvIdx;
 }
 
 byte *linex_node_handler::getData(int16_t pos, int16_t *plen) {
-    byte *kvIdx = buf + BLK_HDR_SIZE;
-    kvIdx += pos;
-    kvIdx += pos;
-    kvIdx = buf + util::getInt(kvIdx);
-    byte *ret = kvIdx;
-    ret += kvIdx[0];
+    byte *ret = buf + getPtr(pos);
+    ret += ret[0];
     ret++;
     *plen = ret[0];
     ret++;

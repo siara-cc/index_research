@@ -44,9 +44,13 @@
 						</toolChain>
 					</folderInfo>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1182156698.1454315745" name="rb_tree.h" rcbsApplicability="disable" resourcePath="src/rb_tree.h" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1182156698.1147964159" name="dfos.h" rcbsApplicability="disable" resourcePath="src/dfos.h" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1182156698.634236903" name="idx.cpp" rcbsApplicability="disable" resourcePath="src/idx.cpp" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.1797401979.461123884">
+						<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.1797401979.461123884" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.1797401979"/>
+					</fileInfo>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1182156698.1708039047" name="bp_tree.h" rcbsApplicability="disable" resourcePath="src/bp_tree.h" toolsToInvoke=""/>
 					<sourceEntries>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="idx.cpp|dfos.h|dfos.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -67,7 +71,7 @@
 					<folderInfo id="cdt.managedbuild.config.gnu.exe.release.101111951." name="/" resourcePath="">
 						<toolChain id="cdt.managedbuild.toolchain.gnu.base.964284309" name="Linux GCC" nonInternalBuilderId="cdt.managedbuild.target.gnu.builder.base" superClass="cdt.managedbuild.toolchain.gnu.base">
 							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="cdt.managedbuild.target.gnu.platform.base.1964981792" name="Debug Platform" osList="linux,hpux,aix,qnx" superClass="cdt.managedbuild.target.gnu.platform.base"/>
-							<builder autoBuildTarget="all" buildPath="${workspace_loc:/huge_db/Release}" cleanBuildTarget="clean" id="org.eclipse.cdt.build.core.internal.builder.1510037781" incrementalBuildTarget="all" managedBuildOn="true" name="CDT Internal Builder" superClass="org.eclipse.cdt.build.core.internal.builder"/>
+							<builder autoBuildTarget="all" buildPath="${workspace_loc:/huge_db/Release}" cleanBuildTarget="clean" id="org.eclipse.cdt.build.core.internal.builder.1510037781" incrementalBuildTarget="all" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="CDT Internal Builder" superClass="org.eclipse.cdt.build.core.internal.builder"/>
 							<tool id="cdt.managedbuild.tool.gnu.archiver.base.2099497435" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.base"/>
 							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.base.1215354105" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.base">
 								<option id="gnu.cpp.compiler.option.include.paths.1150580051" name="Include paths (-I)" superClass="gnu.cpp.compiler.option.include.paths" valueType="includePath">
@@ -96,8 +100,11 @@
 					</folderInfo>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.101111951.622070691" name="rb_tree.h" rcbsApplicability="disable" resourcePath="src/rb_tree.h" toolsToInvoke=""/>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.101111951.2070577423" name="dfos.h" rcbsApplicability="disable" resourcePath="src/dfos.h" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.101111951.67444971" name="idx.cpp" rcbsApplicability="disable" resourcePath="src/idx.cpp" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.base.1215354105.1579589478">
+						<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.base.1215354105.1579589478" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.base.1215354105"/>
+					</fileInfo>
 					<sourceEntries>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="idx.cpp|dfos.h|dfos.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

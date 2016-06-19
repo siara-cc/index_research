@@ -137,10 +137,6 @@ public:
     long size() {
         return total_size;
     }
-    static uint32_t left_mask32[32];
-    static uint32_t ryte_mask32[32];
-    static uint32_t mask32[32];
-
 };
 
 #endif
