@@ -55,8 +55,8 @@ private:
     inline void delAt(byte pos, int16_t count);
     inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     int16_t nextKey(dfox_iterator_status& s);
-    void deleteTrieLastHalf(int brk_idx, byte *brk_key, int16_t brk_key_len);
-    void deleteTrieFirstHalf(int brk_idx, byte *brk_key, int16_t brk_key_len);
+    void deleteTrieLastHalf(byte *brk_key, int16_t brk_key_len);
+    void deleteTrieFirstHalf(byte *brk_key, int16_t brk_key_len);
     static byte *alignedAlloc();
 public:
     byte *buf;
