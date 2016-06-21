@@ -29,7 +29,7 @@ typedef unsigned char byte;
 
 class dfox_iterator_status {
 public:
-    int16_t i;
+    byte *t;
     byte partial_key[MAX_KEY_PREFIX_LEN];
     byte tc_a[MAX_KEY_PREFIX_LEN];
     byte child_a[MAX_KEY_PREFIX_LEN];
@@ -66,8 +66,8 @@ public:
     byte msb5;
     byte children;
     byte leaves;
-    byte triePos;
-    byte origPos;
+    byte *triePos;
+    byte *origPos;
     byte need_count;
     byte insertState;
     byte isPut;
@@ -84,7 +84,7 @@ public:
     byte skip_list[20];
     dfox_node_handler(byte *m);
     void initBuf();
-    void initVars();
+    inline void initVars();
     void setBuf(byte *m);
     bool isFull(int16_t kv_lens);
     inline bool isLeaf();

@@ -105,7 +105,7 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
             int16_t brk_idx;
             byte *b = node->split(&brk_idx);
             linex_node_handler new_block(b);
-            if (node->isLeaf())
+            //if (node->isLeaf())
                 blockCount++;
             bool isRoot = false;
             if (root_data == node->buf)
@@ -126,6 +126,7 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
                         &first_key_len);
             }
             if (isRoot) {
+                blockCount++;
                 root_data = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
                 linex_node_handler root(root_data);
                 root.initBuf();

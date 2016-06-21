@@ -45,9 +45,6 @@
 					</folderInfo>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1182156698.1454315745" name="rb_tree.h" rcbsApplicability="disable" resourcePath="src/rb_tree.h" toolsToInvoke=""/>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1182156698.1147964159" name="dfos.h" rcbsApplicability="disable" resourcePath="src/dfos.h" toolsToInvoke=""/>
-					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1182156698.634236903" name="idx.cpp" rcbsApplicability="disable" resourcePath="src/idx.cpp" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.1797401979.461123884">
-						<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.1797401979.461123884" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.1797401979"/>
-					</fileInfo>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1182156698.1708039047" name="bp_tree.h" rcbsApplicability="disable" resourcePath="src/bp_tree.h" toolsToInvoke=""/>
 					<sourceEntries>
 						<entry excluding="idx.cpp|dfos.h|dfos.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
@@ -100,9 +97,6 @@
 					</folderInfo>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.101111951.622070691" name="rb_tree.h" rcbsApplicability="disable" resourcePath="src/rb_tree.h" toolsToInvoke=""/>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.101111951.2070577423" name="dfos.h" rcbsApplicability="disable" resourcePath="src/dfos.h" toolsToInvoke=""/>
-					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.101111951.67444971" name="idx.cpp" rcbsApplicability="disable" resourcePath="src/idx.cpp" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.base.1215354105.1579589478">
-						<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.base.1215354105.1579589478" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.base.1215354105"/>
-					</fileInfo>
 					<sourceEntries>
 						<entry excluding="idx.cpp|dfos.h|dfos.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>

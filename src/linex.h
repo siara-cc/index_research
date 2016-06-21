@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define LINEX_NODE_SIZE 513
+#define LINEX_NODE_SIZE 512
 #if LINEX_NODE_SIZE == 512
 #define BLK_HDR_SIZE 13
 #define BITMAP_POS 5

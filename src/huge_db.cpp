@@ -496,18 +496,19 @@ int main2() {
 }
 
 int main3() {
+    int numKeys = 10;
     GenTree::generateBitCounts();
     //linex *dx = new linex();
     //dfos *dx = new dfos();
     dfox *dx = new dfox();
     char k[5] = "\001\001\001\000";
-    for (int i = 1; i<100; i++) {
+    for (int i = 1; i<numKeys; i++) {
         char v[5];
         k[3] = i;
         itoa(i, v, 10);
         dx->put(k, 4, v, strlen(v));
     }
-    for (int i = 1; i<100; i++) {
+    for (int i = 1; i<numKeys; i++) {
         char v[5];
         k[3] = i;
         itoa(i, v, 10);
@@ -1411,8 +1412,8 @@ int main(int argc, char *argv[]) {
     //getchar();
 
     ctr = 0;
-    //linex *lx = new linex();
-    rb_tree *lx = new rb_tree();
+    linex *lx = new linex();
+    //rb_tree *lx = new rb_tree();
     it1 = m.begin();
     start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
