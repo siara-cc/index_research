@@ -68,10 +68,10 @@ public:
     byte leaves;
     byte *triePos;
     byte *origPos;
-    byte need_count;
+    int16_t need_count;
     byte insertState;
     byte isPut;
-    int16_t keyPos;
+    int keyPos;
     const char *key;
     int16_t key_len;
     const char *key_at;

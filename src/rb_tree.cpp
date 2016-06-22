@@ -122,7 +122,7 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
             const char *new_block_first_key = (char *) new_block.getFirstKey(
                     &first_key_len);
             int16_t cmp = util::compare(new_block_first_key, first_key_len,
-                    node->key, node->key_len, 0);
+                    node->key, node->key_len);
             if (cmp <= 0)
                 node->setBuf(new_block.buf);
             if (isRoot) {
@@ -197,7 +197,7 @@ void rb_tree_node_handler::addData(int16_t idx) {
                 int16_t key_at_len;
                 char *key_at = (char *) getKey(n, &key_at_len);
                 int16_t comp_result = util::compare(key, key_len, key_at,
-                        key_at_len, 0);
+                        key_at_len);
                 if (comp_result == 0) {
                     //setValue(n, value);
                     return;

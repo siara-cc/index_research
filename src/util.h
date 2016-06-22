@@ -44,19 +44,19 @@ public:
     }
 
     static int16_t compare(const char *v1, int16_t len1, const char *v2,
-            int16_t len2, int k = 0) {
+            int16_t len2) {
+        register int k = 0;
         register int lim = len1;
         if (len2 < len1)
             lim = len2;
         while (k < lim) {
             byte c1 = v1[k];
             byte c2 = v2[k];
-            if (c1 < c2) {
-                return -1 - k;
-            } else if (c1 > c2) {
-                return k + 1;
-            }
             k++;
+            if (c1 < c2)
+                return -k;
+            else if (c1 > c2)
+                return k;
         }
         return len1 - len2;
     }
