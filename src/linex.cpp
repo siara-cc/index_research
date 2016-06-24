@@ -2,8 +2,7 @@
 
 char *linex::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     int16_t pos = -1;
-    byte *node_data = root_data;
-    linex_node_handler node(node_data);
+    linex_node_handler node(root_data);
     node.key = key;
     node.key_len = key_len;
     recursiveSearchForGet(&node, &pos);
@@ -233,8 +232,8 @@ byte *linex_node_handler::split(int16_t *pbrk_idx) {
     byte *new_kv_idx = new_block.buf + BLK_HDR_SIZE;
     int16_t new_idx;
     int16_t brk_idx = -1;
-    int16_t brk_kv_pos = 0;
-    int16_t tot_len = 0;
+    int16_t brk_kv_pos, tot_len;
+    brk_kv_pos = tot_len = 0;
     // Copy all data to new block in ascending order
     for (new_idx = 0; new_idx <= filled_upto; new_idx++) {
         int16_t src_idx = getPtr(new_idx);
@@ -443,10 +442,8 @@ linex::linex() {
     root_data = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
     linex_node_handler root(root_data);
     root.initBuf();
-    total_size = 0;
-    numLevels = 1;
-    maxKeyCount = 0;
-    blockCount = 1;
+    total_size = maxKeyCount = 0;
+    numLevels = blockCount = 1;
 }
 
 linex_node_handler::linex_node_handler(byte *b) {
@@ -511,8 +508,7 @@ int16_t linex_node_handler::getPtr(int16_t pos) {
     return ptr;
 #else
     byte *kvIdx = buf + BLK_HDR_SIZE;
-    kvIdx += pos;
-    kvIdx += pos;
+    kvIdx += (pos << 1);
     return util::getInt(kvIdx);
 #endif
 }
