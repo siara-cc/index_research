@@ -39,12 +39,10 @@ public:
 
 class dfox_node_handler {
 private:
-    const static byte eight = 0x08;
     static byte left_mask[8];
     static byte left_incl_mask[8];
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];
-    static byte pos_mask[48];
     inline void insAt(byte pos, byte b);
     inline void insAt(byte pos, byte b1, byte b2);
     inline void insAt(byte pos, byte b1, byte b2, byte b3);
@@ -53,7 +51,7 @@ private:
     inline byte getAt(byte pos);
     inline void delAt(byte pos);
     inline void delAt(byte pos, int16_t count);
-    inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
+    inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     int16_t nextKey(dfox_iterator_status& s);
     void deleteTrieLastHalf(byte *brk_key, int16_t brk_key_len);
     void deleteTrieFirstHalf(byte *brk_key, int16_t brk_key_len);
@@ -61,11 +59,6 @@ private:
 public:
     byte *buf;
     byte *trie;
-    byte tc;
-    byte mask;
-    byte msb5;
-    byte children;
-    byte leaves;
     byte *triePos;
     byte *origPos;
     int16_t need_count;
@@ -79,8 +72,7 @@ public:
     int16_t key_at_pos;
     const char *value;
     int16_t value_len;
-    uint32_t *bitmap1;
-    uint32_t *bitmap2;
+    uint64_t *bitmap;
     byte skip_list[20];
     dfox_node_handler(byte *m);
     void initBuf();

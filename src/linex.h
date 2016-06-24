@@ -22,8 +22,7 @@ private:
     int16_t binarySearchNode(const char *key, int16_t key_len);
 public:
     byte *buf;
-    uint32_t *bitmap1;
-    uint32_t *bitmap2;
+    uint64_t *bitmap;
     byte isPut;
     const char *key;
     int16_t key_len;
@@ -48,7 +47,8 @@ public:
     byte *getData(int16_t pos, int16_t *plen);
     byte *split(int16_t *pbrk_idx);
     int16_t getPtr(int16_t pos);
-    inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
+    void setPtr(int16_t pos, int16_t ptr);
+    inline void insBit(uint64_t *ui32, int pos, int16_t kv_pos);
     void insPtr(int16_t pos, int16_t kvIdx);
     int16_t locate(int16_t level);
     void insertCurrent();

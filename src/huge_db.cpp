@@ -29,7 +29,7 @@ using namespace std;
 #define CS_255_RANDOM 5
 #define CS_255_DENSE 6
 
-long NUM_ENTRIES = 1500;
+long NUM_ENTRIES = 2000;
 int CHAR_SET = 2;
 int KEY_LEN = 8;
 
@@ -40,58 +40,26 @@ void insert(unordered_map<string, string>& m) {
     for (long l = 0; l < NUM_ENTRIES; l++) {
 
         if (CHAR_SET == CS_PRINTABLE) {
-            k[0] = 32 + (rand() % 95);
-            k[1] = 32 + (rand() % 95);
-            k[2] = 32 + (rand() % 95);
-            k[3] = 32 + (rand() % 95);
-            k[4] = 32 + (rand() % 95);
-            k[5] = 32 + (rand() % 95);
-            k[6] = 32 + (rand() % 95);
-            k[7] = 32 + (rand() % 95);
+            for (int i=0; i<KEY_LEN; i++)
+                k[i] = 32 + (rand() % 95);
             k[KEY_LEN] = 0;
         } else if (CHAR_SET == CS_ALPHA_ONLY) {
-            k[0] = 97 + (rand() % 26);
-            k[1] = 97 + (rand() % 26);
-            k[2] = 97 + (rand() % 26);
-            k[3] = 97 + (rand() % 26);
-            k[4] = 97 + (rand() % 26);
-            k[5] = 97 + (rand() % 26);
-            k[6] = 97 + (rand() % 26);
-            k[7] = 97 + (rand() % 26);
-            k[7] = 97 + (rand() % 26);
+            for (int i=0; i<KEY_LEN; i++)
+                k[i] = 97 + (rand() % 26);
             k[KEY_LEN] = 0;
         } else if (CHAR_SET == CS_NUMBER_ONLY) {
-            k[0] = 48 + (rand() % 10);
-            k[1] = 48 + (rand() % 10);
-            k[2] = 48 + (rand() % 10);
-            k[3] = 48 + (rand() % 10);
-            k[4] = 48 + (rand() % 10);
-            k[5] = 48 + (rand() % 10);
-            k[6] = 48 + (rand() % 10);
-            k[7] = 48 + (rand() % 10);
-            k[7] = 48 + (rand() % 10);
+            for (int i=0; i<KEY_LEN; i++)
+                k[i] = 48 + (rand() % 10);
             k[KEY_LEN] = 0;
         } else if (CHAR_SET == CS_ONE_PER_OCTET) {
-            k[0] = ((rand() % 32) << 3) | 0x07;
-            k[1] = ((rand() % 32) << 3) | 0x07;
-            k[2] = ((rand() % 32) << 3) | 0x07;
-            k[3] = ((rand() % 32) << 3) | 0x07;
-            k[4] = ((rand() % 32) << 3) | 0x07;
-            k[5] = ((rand() % 32) << 3) | 0x07;
-            k[6] = ((rand() % 32) << 3) | 0x07;
-            k[7] = ((rand() % 32) << 3) | 0x07;
+            for (int i=0; i<KEY_LEN; i++)
+                k[i] = ((rand() % 32) << 3) | 0x07;
             k[KEY_LEN] = 0;
         } else if (CHAR_SET == CS_255_RANDOM) {
-            k[0] = (rand() % 255);
-            k[1] = (rand() % 255);
-            k[2] = (rand() % 255);
-            k[3] = (rand() % 255);
-            k[4] = (rand() % 255);
-            k[5] = (rand() % 255);
-            k[6] = (rand() % 255);
-            k[7] = (rand() % 255);
+            for (int i=0; i<KEY_LEN; i++)
+                k[i] = (rand() % 255);
             k[KEY_LEN] = 0;
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < KEY_LEN; i++) {
                 if (k[i] == 0)
                     k[i] = i + 1;
             }
@@ -110,7 +78,6 @@ void insert(unordered_map<string, string>& m) {
                 k[3]++;
             k[4] = 0;
         }
-
         for (int16_t i = 0; i < 4; i++)
             v[3 - i] = k[i];
         v[4] = 0;

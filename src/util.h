@@ -62,7 +62,9 @@ public:
     }
 
     static inline int16_t min(int16_t x, int16_t y) {
-        return (x > y ? y : x);
+        if (x > y)
+            return y;
+        return x;
     }
 
     static void *alignedAlloc(int16_t blockSize) {
