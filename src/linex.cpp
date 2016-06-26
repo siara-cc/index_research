@@ -226,23 +226,20 @@ byte *linex_node_handler::split(int16_t *pbrk_idx) {
     new_block.initBuf();
     if (!isLeaf())
         new_block.setLeaf(false);
-    int16_t kv_last_pos = getKVLastPos();
+    register int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = LINEX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
-    byte *new_kv_idx = new_block.buf + BLK_HDR_SIZE;
-    int16_t new_idx;
-    int16_t brk_idx = -1;
+    register int16_t new_idx;
+    register int16_t brk_idx = -1;
     int16_t brk_kv_pos, tot_len;
     brk_kv_pos = tot_len = 0;
     // Copy all data to new block in ascending order
     for (new_idx = 0; new_idx <= filled_upto; new_idx++) {
-        int16_t src_idx = getPtr(new_idx);
-        int16_t new_key_len = buf[src_idx];
-        new_key_len++;
-        int16_t new_value_len = buf[src_idx + new_key_len];
-        new_value_len++;
-        int16_t kv_len = new_key_len;
-        kv_len += new_value_len;
+        register int16_t src_idx = getPtr(new_idx);
+        register int16_t kv_len = buf[src_idx];
+        kv_len++;
+        kv_len += buf[src_idx + kv_len];
+        kv_len++;
         tot_len += kv_len;
         memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
         new_block.insPtr(new_idx, kv_last_pos);
@@ -260,13 +257,12 @@ byte *linex_node_handler::split(int16_t *pbrk_idx) {
     //memset(new_block.buf + kv_last_pos, '\0', old_blk_new_len);
     int diff = (LINEX_NODE_SIZE - brk_kv_pos);
     for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
-        int16_t src_idx = new_block.getPtr(new_idx);
-        src_idx += diff;
-        setPtr(new_idx, src_idx);
+        setPtr(new_idx, new_block.getPtr(new_idx) + diff);
     } // Set index of copied first half in old block
     setKVLastPos(getPtr(0));
     int16_t new_size = filled_upto - brk_idx;
     // Move index of second half to first half in new block
+    byte *new_kv_idx = new_block.buf + BLK_HDR_SIZE;
 #if LINEX_NODE_SIZE == 512
     memcpy(new_kv_idx, new_kv_idx + new_idx, new_size);
     (*new_block.bitmap) <<= brk_idx;
