@@ -193,7 +193,7 @@ void linex_node_handler::insPtr(int16_t pos, int16_t kv_last_pos) {
     filled_upto++;
     if (pos < filled_upto)
         memmove(kvIdx + 1, kvIdx, filled_upto - pos);
-    kvIdx[0] = (kv_last_pos & 0xFF);
+    kvIdx[0] = kv_last_pos;
     insBit(bitmap, pos, kv_last_pos);
 #else
     byte *kvIdx = buf + BLK_HDR_SIZE;

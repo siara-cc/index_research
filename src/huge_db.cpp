@@ -17,6 +17,7 @@
 #else
 #include <tr1/unordered_map>
 #include <sys/time.h>
+#include <stx/btree_map.h>
 #endif
 
 using namespace std::tr1;
@@ -1294,17 +1295,21 @@ int main1() {
     return 0;
 }
 
+int main4() {
+    stx::btree_map<string, string> bm;
+    bm.insert(pair<string, string>("hello", "world"));
+    cout << bm["hello"] << endl;
+    return 1;
+}
+
 int main(int argc, char *argv[]) {
 
-    if (argc > 1) {
+    if (argc > 1)
         NUM_ENTRIES = atol(argv[1]);
-    }
-    if (argc > 2) {
+    if (argc > 2)
         CHAR_SET = atoi(argv[2]);
-    }
-    if (argc > 3) {
+    if (argc > 3)
         KEY_LEN = atoi(argv[3]);
-    }
 
     GenTree::generateBitCounts();
 
@@ -1318,41 +1323,46 @@ int main(int argc, char *argv[]) {
     //getchar();
 
     unordered_map<string, string>::iterator it;
+    int ctr = 0;
+    int null_ctr = 0;
+    int cmp = 0;
 
-//    map<string, string> m1;
+//    stx::btree_map<string, string> m1;
+//    //map<string, string> m1;
 //    m.begin();
 //    start = getTimeVal();
 //    it = m.begin();
-//    for (; it != m.end(); ++it) {
+//    for (; it != m.end(); ++it)
 //        m1.insert(pair<string, string>(it->first, it->second));
-//    }
 //    stop = getTimeVal();
 //    cout << "RB Tree insert time:" << timedifference(start, stop) << endl;
 //    it = m.begin();
 //    start = getTimeVal();
 //    for (; it != m.end(); ++it) {
-//        m1[it->first];
+//        string value = m1[it->first.c_str()];
+//        char v[100];
+//        if (value.length() == 0) {
+//            null_ctr++;
+//        } else {
+//            int16_t d = util::compare(it->second.c_str(), it->second.length(),
+//                    value.c_str(), value.length());
+//            if (d != 0) {
+//                cmp++;
+//                strncpy(v, value.c_str(), value.length());
+//                v[it->first.length()] = 0;
+//                cout << cmp << ":" << it->first.c_str() << "=========="
+//                        << it->second.c_str() << "----------->" << v << endl;
+//            }
+//        }
+//        ctr++;
 //    }
 //    stop = getTimeVal();
 //    cout << "RB Tree get time:" << timedifference(start, stop) << endl;
+//    cout << "Null:" << null_ctr << endl;
+//    cout << "Cmp:" << cmp << endl;
 //    cout << "RB Tree size:" << m1.size() << endl;
 
     unordered_map<string, string>::iterator it1;
-
-    int ctr = 0;
-    art_tree at;
-    art_tree_init(&at);
-    start = getTimeVal();
-    it1 = m.begin();
-    for (; it1 != m.end(); ++it1) {
-        art_insert(&at, (unsigned char*) it1->first.c_str(),
-                it1->first.length(), (void *) it1->second.c_str(),
-                it1->second.length());
-        ctr++;
-    }
-    stop = getTimeVal();
-    cout << "ART Insert Time:" << timedifference(start, stop) << endl;
-    //getchar();
 
 //    ctr = 0;
 //    it = m.begin();
@@ -1379,6 +1389,21 @@ int main(int argc, char *argv[]) {
     //getchar();
 
     ctr = 0;
+    art_tree at;
+    art_tree_init(&at);
+    start = getTimeVal();
+    it1 = m.begin();
+    for (; it1 != m.end(); ++it1) {
+        art_insert(&at, (unsigned char*) it1->first.c_str(),
+                it1->first.length(), (void *) it1->second.c_str(),
+                it1->second.length());
+        ctr++;
+    }
+    stop = getTimeVal();
+    cout << "ART Insert Time:" << timedifference(start, stop) << endl;
+    //getchar();
+
+    ctr = 0;
     linex *lx = new linex();
     //rb_tree *lx = new rb_tree();
     it1 = m.begin();
@@ -1390,38 +1415,6 @@ int main(int argc, char *argv[]) {
     }
     stop = getTimeVal();
     cout << "B+Tree insert time:" << timedifference(start, stop) << endl;
-    //getchar();
-
-    int null_ctr = 0;
-    int cmp = 0;
-    ctr = 0;
-    it1 = m.begin();
-    start = getTimeVal();
-    for (; it1 != m.end(); ++it1) {
-        int len;
-        char *value = (char *) art_search(&at,
-                (unsigned char*) it1->first.c_str(), it1->first.length(), &len);
-        char v[100];
-        if (value == null) {
-            null_ctr++;
-        } else {
-            int16_t d = util::compare(it1->second.c_str(), it1->second.length(),
-                    value, len);
-            if (d != 0) {
-                cmp++;
-                strncpy(v, value, len);
-                v[it1->first.length()] = 0;
-                cout << cmp << ":" << it1->first.c_str() << "=========="
-                        << it1->second.c_str() << "----------->" << v << endl;
-            }
-        }
-        ctr++;
-    }
-    stop = getTimeVal();
-    cout << "ART Get Time:" << timedifference(start, stop) << endl;
-    cout << "Null:" << null_ctr << endl;
-    cout << "Cmp:" << cmp << endl;
-    cout << "ART Size:" << art_size(&at) << endl;
     //getchar();
 
     null_ctr = 0;
@@ -1465,6 +1458,38 @@ int main(int argc, char *argv[]) {
                     << "\"," << endl;
         }
     }
+
+    null_ctr = 0;
+    cmp = 0;
+    ctr = 0;
+    it1 = m.begin();
+    start = getTimeVal();
+    for (; it1 != m.end(); ++it1) {
+        int len;
+        char *value = (char *) art_search(&at,
+                (unsigned char*) it1->first.c_str(), it1->first.length(), &len);
+        char v[100];
+        if (value == null) {
+            null_ctr++;
+        } else {
+            int16_t d = util::compare(it1->second.c_str(), it1->second.length(),
+                    value, len);
+            if (d != 0) {
+                cmp++;
+                strncpy(v, value, len);
+                v[it1->first.length()] = 0;
+                cout << cmp << ":" << it1->first.c_str() << "=========="
+                        << it1->second.c_str() << "----------->" << v << endl;
+            }
+        }
+        ctr++;
+    }
+    stop = getTimeVal();
+    cout << "ART Get Time:" << timedifference(start, stop) << endl;
+    cout << "Null:" << null_ctr << endl;
+    cout << "Cmp:" << cmp << endl;
+    cout << "ART Size:" << art_size(&at) << endl;
+    //getchar();
 
     null_ctr = 0;
     cmp = 0;

@@ -48,7 +48,7 @@ public:
     byte *split(int16_t *pbrk_idx);
     inline int16_t getPtr(int16_t pos);
     inline void setPtr(int16_t pos, int16_t ptr);
-    inline void insBit(uint64_t *ui32, int pos, int16_t kv_pos);
+    inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     void insPtr(int16_t pos, int16_t kvIdx);
     int16_t locate(int16_t level);
     void insertCurrent();

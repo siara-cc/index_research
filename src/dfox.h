@@ -44,8 +44,10 @@ private:
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];
     inline void insAt(byte pos, byte b);
-    inline void insAt(byte pos, byte b1, byte b2);
-    inline void insAt(byte pos, byte b1, byte b2, byte b3);
+    inline byte insAt(byte pos, byte b1, byte b2);
+    inline byte insAt(byte pos, byte b1, byte b2, byte b3);
+    inline byte insChildAndLeafAt(byte pos, byte b1, byte b2);
+    inline byte ins4BytesAt(byte pos, byte b1, byte b2, byte b3, byte b4);
     inline void setAt(byte pos, byte b);
     inline void append(byte b);
     inline byte getAt(byte pos);
@@ -73,7 +75,7 @@ public:
     const char *value;
     int16_t value_len;
     uint64_t *bitmap;
-    byte skip_list[20];
+    byte *skip_list[16];
     dfox_node_handler(byte *m);
     void initBuf();
     inline void initVars();
