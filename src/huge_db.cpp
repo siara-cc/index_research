@@ -473,13 +473,13 @@ int main3() {
     for (int i = 1; i<numKeys; i++) {
         char v[5];
         k[3] = i;
-        itoa(i, v, 10);
+        sprintf(v, "%d", i);
         dx->put(k, 4, v, strlen(v));
     }
     for (int i = 1; i<numKeys; i++) {
         char v[5];
         k[3] = i;
-        itoa(i, v, 10);
+        sprintf(v, "%d", i);
         print(dx, (char *) k, 4);
     }
     return 0;
@@ -1374,21 +1374,6 @@ int main(int argc, char *argv[]) {
 //    }
 
     ctr = 0;
-    dfox *dx = new dfox();
-    //dfos *dx = new dfos();
-    //rb_tree *dx = new rb_tree();
-    it1 = m.begin();
-    start = getTimeVal();
-    for (; it1 != m.end(); ++it1) {
-        dx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
-                it1->second.length());
-        ctr++;
-    }
-    stop = getTimeVal();
-    cout << "DFox+Tree insert time:" << timedifference(start, stop) << endl;
-    //getchar();
-
-    ctr = 0;
     art_tree at;
     art_tree_init(&at);
     start = getTimeVal();
@@ -1417,38 +1402,19 @@ int main(int argc, char *argv[]) {
     cout << "B+Tree insert time:" << timedifference(start, stop) << endl;
     //getchar();
 
-    null_ctr = 0;
-    cmp = 0;
     ctr = 0;
+    dfox *dx = new dfox();
+    //dfos *dx = new dfos();
+    //rb_tree *dx = new rb_tree();
     it1 = m.begin();
     start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
-        int16_t len;
-        char *value = dx->get(it1->first.c_str(), it1->first.length(), &len);
-        char v[100];
-        if (value == null) {
-            null_ctr++;
-        } else {
-            int16_t d = util::compare(it1->second.c_str(), it1->second.length(),
-                    value, len);
-            if (d != 0) {
-                cmp++;
-                strncpy(v, value, len);
-                v[it1->first.length()] = 0;
-                cout << cmp << ":" << it1->first.c_str() << "=========="
-                        << it1->second.c_str() << "----------->" << v << endl;
-            }
-        }
+        dx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
+                it1->second.length());
         ctr++;
     }
     stop = getTimeVal();
-    cout << "Null:" << null_ctr << endl;
-    cout << "Cmp:" << cmp << endl;
-    cout << "DFox+Tree get time:" << timedifference(start, stop) << endl;
-    std::cout << "Trie Size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES+1] << endl;
-    dx->printMaxKeyCount(NUM_ENTRIES);
-    dx->printNumLevels();
-    cout << "Root filled size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES+2] << endl;
+    cout << "DFox+Tree insert time:" << timedifference(start, stop) << endl;
     //getchar();
 
     if (null_ctr > 0 || cmp > 0) {
@@ -1522,6 +1488,40 @@ int main(int argc, char *argv[]) {
     lx->printMaxKeyCount(NUM_ENTRIES);
     lx->printNumLevels();
     cout << "Root filled size:" << util::getInt(lx->root_data + 1) << endl;
+
+    null_ctr = 0;
+    cmp = 0;
+    ctr = 0;
+    it1 = m.begin();
+    start = getTimeVal();
+    for (; it1 != m.end(); ++it1) {
+        int16_t len;
+        char *value = dx->get(it1->first.c_str(), it1->first.length(), &len);
+        char v[100];
+        if (value == null) {
+            null_ctr++;
+        } else {
+            int16_t d = util::compare(it1->second.c_str(), it1->second.length(),
+                    value, len);
+            if (d != 0) {
+                cmp++;
+                strncpy(v, value, len);
+                v[it1->first.length()] = 0;
+                cout << cmp << ":" << it1->first.c_str() << "=========="
+                        << it1->second.c_str() << "----------->" << v << endl;
+            }
+        }
+        ctr++;
+    }
+    stop = getTimeVal();
+    cout << "Null:" << null_ctr << endl;
+    cout << "Cmp:" << cmp << endl;
+    cout << "DFox+Tree get time:" << timedifference(start, stop) << endl;
+    std::cout << "Trie Size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES+1] << endl;
+    dx->printMaxKeyCount(NUM_ENTRIES);
+    dx->printNumLevels();
+    cout << "Root filled size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES+2] << endl;
+    //getchar();
 
     return 0;
 

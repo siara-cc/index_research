@@ -43,6 +43,19 @@ private:
     static byte left_incl_mask[8];
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];
+    static const byte x00 = 0;
+    static const byte x01 = 1;
+    static const byte x02 = 2;
+    static const byte x03 = 3;
+    static const byte x04 = 4;
+    static const byte x05 = 5;
+    static const byte x06 = 6;
+    static const byte x07 = 7;
+    static const byte x08 = 8;
+    static const byte x80 = 0x80;
+    static const byte xF8 = 0xF8;
+    static const byte xFB = 0xFB;
+    static const byte xFE = 0xFE;
     inline void insAt(byte pos, byte b);
     inline byte insAt(byte pos, byte b1, byte b2);
     inline byte insAt(byte pos, byte b1, byte b2, byte b3);
@@ -68,7 +81,7 @@ public:
     byte isPut;
     int keyPos;
     const char *key;
-    int16_t key_len;
+    int key_len;
     const char *key_at;
     int16_t key_at_len;
     int16_t key_at_pos;
