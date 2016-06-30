@@ -70,6 +70,8 @@ private:
     int16_t nextKey(dfox_iterator_status& s);
     void deleteTrieLastHalf(byte *brk_key, int16_t brk_key_len);
     void deleteTrieFirstHalf(byte *brk_key, int16_t brk_key_len);
+    void splitTrie(byte *brk_key, int16_t brk_key_len, byte *first_key,
+            int16_t first_len, dfox_node_handler& new_block);
     static byte *alignedAlloc();
 public:
     byte *buf;
