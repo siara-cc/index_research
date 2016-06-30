@@ -277,7 +277,7 @@ byte *dfox_node_handler::split(int16_t *pbrk_idx, byte *first_key,
     kv_last_pos = getKVLastPos();
     memcpy(new_block.trie, trie, TRIE_LEN);
     new_block.TRIE_LEN = TRIE_LEN;
-    memcpy(buf, new_block.buf, IDX_HDR_SIZE + FILLED_SIZE);
+    memcpy(buf, new_block.buf, IDX_HDR_SIZE + brk_idx);
 
     deleteTrieLastHalf(brk_key, brk_key_len);
     new_block.deleteTrieFirstHalf(first_key, new_brk_key_len);
@@ -576,9 +576,9 @@ void dfox_node_handler::insertCurrent() {
     register byte *leafPos;
 
     if (TRIE_LEN == 0) {
-        byte kc = key[0];
-        append((kc & xF8) | x05);
-        append(x80 >> (kc & x07));
+        key_char = *key;
+        append((key_char & xF8) | x05);
+        append(x80 >> (key_char & x07));
         return;
     }
 
@@ -603,7 +603,7 @@ void dfox_node_handler::insertCurrent() {
         }
         break;
     case INSERT_THREAD:
-        int16_t pos, min;
+        int16_t p, min;
         byte c1, c2;
         byte *childPos = origPos + 1;
         origTC = *origPos;
@@ -629,20 +629,20 @@ void dfox_node_handler::insertCurrent() {
                 *origPos = origTC;
             }
         }
-        min = util::min(key_len, keyPos + key_at_len);
         c1 = key_char;
         c2 = c1;
-        pos = keyPos;
-        while (pos < min) {
-            c1 = key[pos];
-            c2 = key_at[pos - keyPos];
+        p = keyPos;
+        min = util::min(key_len, keyPos + key_at_len);
+        while (p < min) {
+            c1 = key[p];
+            c2 = key_at[p - keyPos];
             if (c1 > c2) {
                 byte swap = c1;
                 c1 = c2;
                 c2 = swap;
             }
             switch (c1 == c2 ?
-                    (pos + 1 == min) ? 0 : 1 : ((c1 ^ c2) < x08 ? 2 : 3)) {
+                    (p + 1 == min) ? 0 : 1 : ((c1 ^ c2) < x08 ? 2 : 3)) {
             case 3:
                 triePos += ins4BytesAt(triePos - trie, (c1 & xF8) | x01,
                         x80 >> (c1 & x07), (c2 & xF8) | x05, x80 >> (c2 & x07));
@@ -662,25 +662,23 @@ void dfox_node_handler::insertCurrent() {
             }
             if (c1 != c2)
                 break;
-            pos++;
+            p++;
         }
         if (c1 == c2) {
-            c2 = (pos == key_len ? key_at[pos - keyPos] : key[pos]);
+            c2 = (p == key_len ? key_at[p - keyPos] : key[p]);
             insAt(triePos - trie, (c2 & xF8) | x05, (x80 >> (c2 & x07)));
         }
-        int16_t diff = pos - keyPos;
-        keyPos = pos;
-        keyPos++;
-        if (diff < key_at_len)
-            diff++;
-        if (diff) {
-            int16_t key_at_ptr = getPtr(key_at_pos);
-            int16_t new_len = buf[key_at_ptr];
-            new_len -= diff;
-            key_at_ptr += diff;
-            if (new_len >= 0) {
-                buf[key_at_ptr] = new_len;
-                setPtr(key_at_pos, key_at_ptr);
+        min = p - keyPos;
+        keyPos = p + 1;
+        if (min < key_at_len)
+            min++;
+        if (min) {
+            p = getPtr(key_at_pos);
+            key_at_len -= min;
+            p += min;
+            if (key_at_len >= 0) {
+                buf[p] = key_at_len;
+                setPtr(key_at_pos, p);
             }
         }
         break;
@@ -688,8 +686,8 @@ void dfox_node_handler::insertCurrent() {
 }
 
 int16_t dfox_node_handler::locate(int16_t level) {
-    keyPos = 0;
-    register byte key_char = key[keyPos++];
+    keyPos = 1;
+    register byte key_char = *key;
     register int16_t pos = 0;
     register byte *t = trie;
     do {
