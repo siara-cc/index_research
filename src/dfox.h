@@ -30,6 +30,7 @@ typedef unsigned char byte;
 class dfox_iterator_status {
 public:
     byte *t;
+    byte *tp[MAX_KEY_PREFIX_LEN];
     byte partial_key[MAX_KEY_PREFIX_LEN];
     byte tc_a[MAX_KEY_PREFIX_LEN];
     byte child_a[MAX_KEY_PREFIX_LEN];
@@ -68,10 +69,8 @@ private:
     inline void delAt(byte pos, int16_t count);
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     int16_t nextKey(dfox_iterator_status& s);
-    void deleteTrieLastHalf(byte *brk_key, int16_t brk_key_len);
-    void deleteTrieFirstHalf(byte *brk_key, int16_t brk_key_len);
-    void splitTrie(byte *brk_key, int16_t brk_key_len, byte *first_key,
-            int16_t first_len, dfox_node_handler *old_block);
+    void deleteTrieLastHalf(byte *brk_key, int16_t brk_key_len, dfox_iterator_status& s);
+    void deleteTrieFirstHalf(byte *brk_key, int16_t brk_key_len, dfox_iterator_status& s, dfox_node_handler& new_block);
     static byte *alignedAlloc();
 public:
     byte *buf;
