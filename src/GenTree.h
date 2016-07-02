@@ -8,6 +8,7 @@ class GenTree {
 public:
     static byte bit_count[256];
     static byte last_bit_mask[256];
+    static byte first_bit_offset[256];
     static int16_t *roots;
     static int16_t *left;
     static int16_t *ryte;
@@ -94,6 +95,7 @@ public:
         for (int16_t i = 0; i < 256; i++) {
             bit_count[i] = countSetBits(i);
             last_bit_mask[i] = lastBitMask(i);
+            first_bit_offset[i] = firstBitOffset(i);
         }
         uint64_t ui64 = 1;
         for (int i = 0; i < 64; i++) {
@@ -126,6 +128,17 @@ public:
             mask <<= 1;
         }
         return mask;
+    }
+
+    inline static byte firstBitOffset(int16_t n) {
+        byte offset = 0;
+        do {
+            byte mask = 0x80 >> offset;
+            if (n & mask)
+                return offset;
+            offset++;
+        } while (offset);
+        return 0x08;
     }
 
 };
