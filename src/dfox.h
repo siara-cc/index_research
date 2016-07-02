@@ -18,6 +18,7 @@ typedef unsigned char byte;
 #define INSERT_MIDDLE2 2
 #define INSERT_THREAD 3
 #define INSERT_LEAF 4
+#define INSERT_EMPTY 5
 
 #define DATA_PTR_HIGH_BITS buf
 #define IS_LEAF_BYTE buf[MAX_PTR_BITMAP_BYTES]
@@ -70,7 +71,7 @@ private:
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     int16_t nextKey(dfox_iterator_status& s);
     void deleteTrieLastHalf(int16_t brk_key_len, dfox_iterator_status& s);
-    void deleteTrieFirstHalf(int16_t brk_key_len, dfox_iterator_status& s, dfox_node_handler& new_block);
+    void deleteTrieFirstHalf(int16_t brk_key_len, dfox_iterator_status& s);
     static byte *alignedAlloc();
 public:
     byte *buf;
