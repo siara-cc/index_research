@@ -6,6 +6,24 @@
 typedef unsigned char byte;
 #define null 0
 
+// Check windows
+#if _WIN32 || _WIN64
+   #if _WIN64
+     #define ENV64BIT
+  #else
+    #define ENV32BIT
+  #endif
+#endif
+
+// Check GCC
+#if __GNUC__
+  #if __x86_64__ || __ppc64__
+    #define ENV64BIT
+  #else
+    #define ENV32BIT
+  #endif
+#endif
+
 class util {
 public:
     static inline int16_t getInt(byte *pos) {
@@ -15,8 +33,7 @@ public:
 
     static inline void setInt(byte *pos, int16_t val) {
 //        *((int16_t *) pos) = val; // fast endian-dependent
-        *pos = val >> 8; // slow endian independent
-        pos++;
+        *pos++ = val >> 8; // slow endian independent
         *pos = val % 256;
     }
 

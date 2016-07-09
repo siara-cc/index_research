@@ -7,6 +7,8 @@
 
 using namespace std;
 
+//#define DX_INT64MAP 1
+
 typedef unsigned char byte;
 #define DFOX_NODE_SIZE 512
 #define MAX_PTR_BITMAP_BYTES 8
@@ -58,6 +60,7 @@ private:
     static const byte xF8 = 0xF8;
     static const byte xFB = 0xFB;
     static const byte xFE = 0xFE;
+    static const byte xFF = 0xFF;
     inline void insAt(byte *ptr, byte b);
     inline byte insAt(byte *ptr, byte b1, byte b2);
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3);
@@ -68,8 +71,12 @@ private:
     inline byte getAt(byte pos);
     inline void delAt(byte *ptr);
     inline void delAt(byte *ptr, int16_t count);
+    inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
-    int16_t findPos(dfox_iterator_status& s, int brk_idx, byte *t);
+    int16_t checkPos(dfox_iterator_status& s, int brk_idx, byte tp[],
+            byte offset[], byte leaves, int pos, int count);
+    int16_t findPos(dfox_iterator_status& s, int brk_idx, byte tp[],
+            byte offset[]);
     int16_t nextKey(dfox_iterator_status& s);
     void deleteTrieLastHalf(int16_t brk_key_len, dfox_iterator_status& s);
     void deleteTrieFirstHalf(int16_t brk_key_len, dfox_iterator_status& s);
@@ -90,7 +97,12 @@ public:
     int16_t key_at_pos;
     const char *value;
     int16_t value_len;
+#if defined(DX_INT64MAP)
     uint64_t *bitmap;
+#else
+    uint32_t *bitmap1;
+    uint32_t *bitmap2;
+#endif
     byte *skip_list[16];
     dfox_node_handler(byte *m);
     void initBuf();

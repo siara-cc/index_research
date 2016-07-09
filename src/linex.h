@@ -16,13 +16,20 @@ using namespace std;
 #define BLK_HDR_SIZE 5
 #endif
 
+//#define LX_INT64MAP 1
+
 class linex_node_handler {
 private:
     int16_t binarySearchLeaf(const char *key, int16_t key_len);
     int16_t binarySearchNode(const char *key, int16_t key_len);
 public:
     byte *buf;
+#if defined(LX_INT64MAP)
     uint64_t *bitmap;
+#else
+    uint32_t *bitmap1;
+    uint32_t *bitmap2;
+#endif
     byte isPut;
     const char *key;
     int16_t key_len;
@@ -48,6 +55,7 @@ public:
     byte *split(int16_t *pbrk_idx);
     inline int16_t getPtr(int16_t pos);
     inline void setPtr(int16_t pos, int16_t ptr);
+    inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     void insPtr(int16_t pos, int16_t kvIdx);
     int16_t locate(int16_t level);
