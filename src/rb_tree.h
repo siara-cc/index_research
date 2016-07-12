@@ -9,20 +9,34 @@
 using namespace std;
 
 #define RB_TREE_NODE_SIZE 512
+#if RB_TREE_NODE_SIZE == 512
+#define RB_TREE_HDR_SIZE 6
+#define DATA_END_POS 2
+#define ROOT_NODE_POS 4
+#else
 #define RB_TREE_HDR_SIZE 7
-#define IS_LEAF_POS 0
-#define FILLED_UPTO_POS 1
 #define DATA_END_POS 3
 #define ROOT_NODE_POS 5
+#endif
+#define IS_LEAF_POS 0
+#define FILLED_UPTO_POS 1
 
 #define RB_RED 0
 #define RB_BLACK 1
 
+#if RB_TREE_NODE_SIZE == 512
+#define RBT_BITMAP_POS 0
+#define LEFT_PTR_POS 1
+#define RYTE_PTR_POS 2
+#define PARENT_PTR_POS 3
+#define KEY_LEN_POS 4
+#else
 #define COLOR_POS 0
 #define LEFT_PTR_POS 1
 #define RYTE_PTR_POS 3
 #define PARENT_PTR_POS 5
 #define KEY_LEN_POS 7
+#endif
 
 class rb_tree_node_handler {
 private:

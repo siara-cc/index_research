@@ -7,7 +7,7 @@
 
 using namespace std;
 
-//#define DX_INT64MAP 1
+#define DX_INT64MAP 1
 
 typedef unsigned char byte;
 #define DFOX_NODE_SIZE 512
@@ -73,10 +73,7 @@ private:
     inline void delAt(byte *ptr, int16_t count);
     inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
-    int16_t checkPos(dfox_iterator_status& s, int brk_idx, byte tp[],
-            byte offset[], byte leaves, int pos, int count);
-    int16_t findPos(dfox_iterator_status& s, int brk_idx, byte tp[],
-            byte offset[]);
+    int16_t findPos(dfox_iterator_status& s, int brk_idx);
     int16_t nextKey(dfox_iterator_status& s);
     void deleteTrieLastHalf(int16_t brk_key_len, dfox_iterator_status& s);
     void deleteTrieFirstHalf(int16_t brk_key_len, dfox_iterator_status& s);

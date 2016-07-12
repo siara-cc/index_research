@@ -250,12 +250,13 @@ byte *linex_node_handler::split(int16_t *pbrk_idx) {
     register int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = LINEX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
-    register int16_t new_idx;
+
     register int16_t brk_idx = -1;
     int16_t brk_kv_pos;
     register int16_t tot_len;
     brk_kv_pos = tot_len = 0;
     // Copy all data to new block in ascending order
+    register int16_t new_idx;
     for (new_idx = 0; new_idx <= filled_upto; new_idx++) {
         register int16_t src_idx = getPtr(new_idx);
         register int16_t kv_len = buf[src_idx];
@@ -266,9 +267,11 @@ byte *linex_node_handler::split(int16_t *pbrk_idx) {
         memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
         new_block.insPtr(new_idx, kv_last_pos);
         kv_last_pos += kv_len;
-        if (tot_len > halfKVLen && brk_idx == -1) {
-            brk_idx = new_idx;
-            brk_kv_pos = kv_last_pos;
+        if (brk_idx == -1) {
+            if (tot_len > halfKVLen) {
+                brk_idx = new_idx;
+                brk_kv_pos = kv_last_pos;
+            }
         }
     }
     //memset(buf + BLK_HDR_SIZE, '\0', LINEX_NODE_SIZE - BLK_HDR_SIZE);
@@ -542,7 +545,7 @@ int16_t linex_node_handler::getPtr(int16_t pos) {
     int16_t ptr = buf[BLK_HDR_SIZE + pos];
 #if defined(LX_INT64MAP)
     if (*bitmap & GenTree::mask64[pos])
-        ptr |= 256;
+    ptr |= 256;
 #else
     if (pos & 0xFFE0) {
         if (*bitmap2 & GenTree::mask32[pos - 32])
@@ -566,9 +569,9 @@ void linex_node_handler::setPtr(int16_t pos, int16_t ptr) {
     buf[BLK_HDR_SIZE + pos] = ptr;
 #if defined(LX_INT64MAP)
     if (ptr >= 256)
-        *bitmap |= GenTree::mask64[pos];
+    *bitmap |= GenTree::mask64[pos];
     else
-        *bitmap &= ~GenTree::mask64[pos];
+    *bitmap &= ~GenTree::mask64[pos];
 #else
     if (pos & 0xFFE0) {
         pos -= 32;
