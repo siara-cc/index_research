@@ -225,7 +225,7 @@ int16_t dfox_node_handler::findPos(dfox_iterator_status& s, int brk_idx) {
         } else {
             pos += GenTree::bit_count[leaves];
             if (pos >= brk_idx) {
-                s.offset_a[keyPos] = GenTree::last_bit_offset[leaves];
+                s.offset_a[keyPos] = 7;
                 do {
                     if (leaves & (x80 >> s.offset_a[keyPos])) {
                         if (pos == brk_idx)
@@ -299,19 +299,14 @@ int16_t dfox_node_handler::nextKey(dfox_iterator_status& s) {
         }
         register byte mask = x80 >> s.offset_a[keyPos];
         if (s.leaf_a[keyPos] & mask) {
-            s.partial_key[keyPos] = (s.tc_a[keyPos] & xF8) | s.offset_a[keyPos];
-            //s.partial_key[keyPos + 1] = 0;
-            //cout << "Next: " << s.partial_key << endl;
             if (s.child_a[keyPos] & mask)
                 s.leaf_a[keyPos] &= ~mask;
             else
                 s.offset_a[keyPos]++;
             return keyPos;
         }
-        if (s.child_a[keyPos] & mask) {
-            s.partial_key[keyPos] = (s.tc_a[keyPos] & xF8) | s.offset_a[keyPos];
+        if (s.child_a[keyPos] & mask)
             s.offset_a[++keyPos] = x08;
-        }
         while (s.offset_a[keyPos] == x07 && (s.tc_a[keyPos] & x04))
             keyPos--;
         s.offset_a[keyPos]++;
@@ -365,13 +360,8 @@ byte *dfox_node_handler::split(int16_t *pbrk_idx, byte *first_key,
         dfox_iterator_status s;
         register int16_t brk_key_len = findPos(s, brk_idx);
         deleteTrieLastHalf(brk_key_len, s);
-        while (brk_key_len--) {
-            s.partial_key[brk_key_len] = (s.tc_a[brk_key_len] & xF8)
-                    | s.offset_a[brk_key_len];
-        }
 
         brk_key_len = nextKey(s) + 1;
-        memcpy(first_key, s.partial_key, brk_key_len);
         new_block.key_at = (char *) new_block.getKey(brk_idx,
                 &new_block.key_at_len);
         if (new_block.key_at_len) {
@@ -382,6 +372,11 @@ byte *dfox_node_handler::split(int16_t *pbrk_idx, byte *first_key,
             *first_len_ptr = brk_key_len;
         brk_key_len--;
         new_block.deleteTrieFirstHalf(brk_key_len, s);
+        s.offset_a[brk_key_len]--;
+        do {
+            first_key[brk_key_len] = (s.tc_a[brk_key_len] & xF8)
+                    | s.offset_a[brk_key_len];
+        } while (brk_key_len--);
     }
 
     {

@@ -34,7 +34,6 @@ class dfox_iterator_status {
 public:
     byte *t;
     byte tp[MAX_KEY_PREFIX_LEN];
-    byte partial_key[MAX_KEY_PREFIX_LEN];
     byte tc_a[MAX_KEY_PREFIX_LEN];
     byte child_a[MAX_KEY_PREFIX_LEN];
     byte leaf_a[MAX_KEY_PREFIX_LEN];
