@@ -185,54 +185,9 @@ void dfox::recursiveUpdate(dfox_node_handler *node, int16_t pos,
 }
 
 int16_t dfox_node_handler::findPos(dfox_iterator_status& s, int brk_idx) {
-//    register int pos = 0;
-//    register byte *t = trie;
-//    register byte tc, children, leaves, offset;
-//    keyPos = 0;
-//    offset = x08;
-//    tc = leaves = children = 0;
-//    do {
-//        if (offset > x07) {
-//            s.tp[keyPos] = t - trie;
-//            tc = s.tc_a[keyPos] = *t++;
-//            children = s.child_a[keyPos] = (tc & x02 ? *t++ : x00);
-//            leaves = s.leaf_a[keyPos] = (tc & x01 ? *t++ : x00);
-//            offset = s.offset_a[keyPos] = GenTree::first_bit_offset[children
-//                    | leaves];
-//        }
-//        register byte mask = x80 >> offset;
-//        if (leaves & mask) {
-//            if (children & mask)
-//                leaves &= ~mask;
-//            if (pos == brk_idx) {
-//                s.t = t;
-//                s.leaf_a[keyPos] = leaves;
-//                s.offset_a[keyPos] = offset;
-//                if (!(children & mask))
-//                    s.offset_a[keyPos]++;
-//                return keyPos;
-//            }
-//            pos++;
-//        }
-//        if (children & mask) {
-//            s.leaf_a[keyPos] = leaves;
-//            s.offset_a[keyPos] = offset;
-//            keyPos++;
-//            offset = x08;
-//        }
-//        while (offset == x07 && (tc & x04)) {
-//            keyPos--;
-//            tc = s.tc_a[keyPos];
-//            children = s.child_a[keyPos];
-//            leaves = s.leaf_a[keyPos];
-//            offset = s.offset_a[keyPos];
-//        }
-//        offset++;
-//    } while (1); // (s.t - trie) < TRIE_LEN);
-//    return -1;
     register byte *t = trie;
     register int pos = 0;
-    keyPos = 0;
+    register int keyPos = 0;
     do {
         register byte tc = s.tc_a[keyPos] = *t;
         s.tp[keyPos] = t - trie;
@@ -257,6 +212,7 @@ int16_t dfox_node_handler::findPos(dfox_iterator_status& s, int brk_idx) {
                 s.leaf_a[keyPos] = leaves & ryte_mask[s.offset_a[keyPos]];
                 if ((children & (x80 >> s.offset_a[keyPos])) == 0)
                     s.offset_a[keyPos]++;
+                this->keyPos = keyPos;
                 return keyPos;
             }
             b = ~b;
@@ -267,9 +223,9 @@ int16_t dfox_node_handler::findPos(dfox_iterator_status& s, int brk_idx) {
             if (!children)
                 continue;
         } else {
-            s.offset_a[keyPos] = 7;
             pos += GenTree::bit_count[leaves];
             if (pos >= brk_idx) {
+                s.offset_a[keyPos] = GenTree::last_bit_offset[leaves];
                 do {
                     if (leaves & (x80 >> s.offset_a[keyPos])) {
                         if (pos == brk_idx)
@@ -281,6 +237,7 @@ int16_t dfox_node_handler::findPos(dfox_iterator_status& s, int brk_idx) {
                 s.offset_a[keyPos]++;
                 s.child_a[keyPos] = 0;
                 s.leaf_a[keyPos] = leaves & ryte_incl_mask[s.offset_a[keyPos]];
+                this->keyPos = keyPos;
                 return keyPos;
             }
         }
@@ -307,6 +264,7 @@ int16_t dfox_node_handler::findPos(dfox_iterator_status& s, int brk_idx) {
                     s.leaf_a[keyPos] &= ~(x80 >> s.offset_a[keyPos]);
                 else
                     s.offset_a[keyPos]++;
+                this->keyPos = keyPos;
                 return keyPos;
             }
             if (children) {
@@ -334,12 +292,9 @@ int16_t dfox_node_handler::nextKey(dfox_iterator_status& s) {
         if (s.offset_a[keyPos] > x07) {
             register byte tc, children, leaves;
             s.tp[keyPos] = s.t - trie;
-            tc = *s.t++;
-            children = (tc & x02 ? *s.t++ : x00);
-            leaves = (tc & x01 ? *s.t++ : x00);
-            s.tc_a[keyPos] = tc;
-            s.child_a[keyPos] = children;
-            s.leaf_a[keyPos] = leaves;
+            tc = s.tc_a[keyPos] = *s.t++;
+            children = s.child_a[keyPos] = (tc & x02 ? *s.t++ : x00);
+            leaves = s.leaf_a[keyPos] = (tc & x01 ? *s.t++ : x00);
             s.offset_a[keyPos] = GenTree::first_bit_offset[children | leaves];
         }
         register byte mask = x80 >> s.offset_a[keyPos];
@@ -848,20 +803,21 @@ void dfox_node_handler::insertCurrent() {
                 break;
             p++;
         }
-        min = p - keyPos;
+        int16_t diff;
+        diff = p - keyPos;
         keyPos = p + 1;
         if (c1 == c2) {
-            c2 = (p == key_len ? key_at[min] : key[p]);
+            c2 = (p == key_len ? key_at[diff] : key[p]);
             insAt(triePos, (c2 & xF8) | x05, (x80 >> (c2 & x07)));
             if (p == key_len)
                 keyPos--;
         }
-        if (min < key_at_len)
-            min++;
-        if (min) {
+        if (diff < key_at_len)
+            diff++;
+        if (diff) {
             p = getPtr(key_at_pos);
-            key_at_len -= min;
-            p += min;
+            key_at_len -= diff;
+            p += diff;
             if (key_at_len >= 0) {
                 buf[p] = key_at_len;
                 setPtr(key_at_pos, p);
