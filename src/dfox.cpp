@@ -185,6 +185,51 @@ void dfox::recursiveUpdate(dfox_node_handler *node, int16_t pos,
 }
 
 int16_t dfox_node_handler::findPos(dfox_iterator_status& s, int brk_idx) {
+//    register int pos = 0;
+//    register byte *t = trie;
+//    register byte tc, children, leaves, offset;
+//    keyPos = 0;
+//    offset = x08;
+//    tc = leaves = children = 0;
+//    do {
+//        if (offset > x07) {
+//            s.tp[keyPos] = t - trie;
+//            tc = s.tc_a[keyPos] = *t++;
+//            children = s.child_a[keyPos] = (tc & x02 ? *t++ : x00);
+//            leaves = s.leaf_a[keyPos] = (tc & x01 ? *t++ : x00);
+//            offset = s.offset_a[keyPos] = GenTree::first_bit_offset[children
+//                    | leaves];
+//        }
+//        register byte mask = x80 >> offset;
+//        if (leaves & mask) {
+//            if (children & mask)
+//                leaves &= ~mask;
+//            if (pos == brk_idx) {
+//                s.t = t;
+//                s.leaf_a[keyPos] = leaves;
+//                s.offset_a[keyPos] = offset;
+//                if (!(children & mask))
+//                    s.offset_a[keyPos]++;
+//                return keyPos;
+//            }
+//            pos++;
+//        }
+//        if (children & mask) {
+//            s.leaf_a[keyPos] = leaves;
+//            s.offset_a[keyPos] = offset;
+//            keyPos++;
+//            offset = x08;
+//        }
+//        while (offset == x07 && (tc & x04)) {
+//            keyPos--;
+//            tc = s.tc_a[keyPos];
+//            children = s.child_a[keyPos];
+//            leaves = s.leaf_a[keyPos];
+//            offset = s.offset_a[keyPos];
+//        }
+//        offset++;
+//    } while (1); // (s.t - trie) < TRIE_LEN);
+//    return -1;
     register byte *t = trie;
     register int pos = 0;
     keyPos = 0;
@@ -349,6 +394,7 @@ byte *dfox_node_handler::split(int16_t *pbrk_idx, byte *first_key,
         new_block.insPtr(idx, kv_last_pos);
         kv_last_pos += kv_len;
         if (brk_idx == -1) {
+            //brk_key_len = nextKey(s);
             if (tot_len > halfKVLen) {
                 brk_idx = idx + 1;
                 brk_kv_pos = kv_last_pos;
