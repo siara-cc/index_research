@@ -750,8 +750,7 @@ void dfox_node_handler::insertCurrent() {
             origTC |= x02;
             *origPos = origTC;
         }
-        c1 = key_char;
-        c2 = c1;
+        c1 = c2 = key_char;
         p = keyPos;
         min = util::min(key_len, keyPos + key_at_len);
         if ((origTC & x01) && (p < min)) {
@@ -776,8 +775,8 @@ void dfox_node_handler::insertCurrent() {
                 c1 = c2;
                 c2 = swap;
             }
-            switch (c1 == c2 ?
-                    (p + 1 == min) ? 3 : 2 : ((c1 ^ c2) < x08 ? 1 : 0)) {
+            switch ((c1 ^ c2) > x07 ?
+                    0 : (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1)) {
             case 0:
                 triePos += ins4BytesAt(triePos, (c1 & xF8) | x01,
                         x80 >> (c1 & x07), (c2 & xF8) | x05, x80 >> (c2 & x07));
@@ -837,8 +836,8 @@ int16_t dfox_node_handler::locate(int16_t level) {
     do {
         register byte trie_char = *t;
         register int to_skip;
-        switch ((key_char ^ trie_char) < x08 ?
-                1 : (key_char > trie_char ? 0 : 2)) {
+        switch ((key_char ^ trie_char) > x07 ?
+                (key_char > trie_char ? 0 : 2) : 1) {
         case 0:
             origPos = t++;
             to_skip = (trie_char & x02 ? GenTree::bit_count[*t++] : x00);
@@ -881,11 +880,14 @@ int16_t dfox_node_handler::locate(int16_t level) {
                     to_skip--;
             }
             r_mask = (x80 >> key_char);
-            switch (r_children & r_mask ?
-                    (r_leaves & r_mask ?
-                            (keyPos == key_len ? 3 : 4) :
-                            (keyPos == key_len ? 0 : 1)) :
-                    (r_leaves & r_mask ? 2 : 0)) {
+            switch (r_leaves & r_mask ?
+                    (r_children & r_mask ? (keyPos == key_len ? 3 : 4) : 2) :
+                    (r_children & r_mask ? (keyPos == key_len ? 0 : 1) : 0)) {
+            //switch (r_children & r_mask ?
+            //        (r_leaves & r_mask ?
+            //                ((keyPos ^ key_len) ? 4 : 3) :
+            //                ((keyPos ^ key_len) ? 1 : 0)) :
+            //        (r_leaves & r_mask ? 2 : 0)) {
             case 0:
                 if (isPut) {
                     insertState = INSERT_LEAF;
