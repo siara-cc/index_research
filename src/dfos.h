@@ -8,7 +8,7 @@
 using namespace std;
 
 typedef unsigned char byte;
-#define DFOS_NODE_SIZE 512
+#define DFOS_NODE_SIZE 1024
 #define DFOS_IDX_HDR_SIZE 5
 
 #define DFOS_INSERT_MIDDLE1 1

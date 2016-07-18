@@ -123,7 +123,7 @@ void dfos::recursiveUpdate(dfos_node_handler *node, int16_t pos,
             const char *new_block_first_key = (char *) new_block.getFirstKey(
                     &first_key_len);
             int16_t cmp = util::compare(new_block_first_key, first_key_len,
-                    node->key, node->key_len, 0);
+                    node->key, node->key_len);
             if (cmp <= 0)
                 node->setBuf(new_block.buf);
             if (isRoot) {

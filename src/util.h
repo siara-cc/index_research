@@ -61,8 +61,8 @@ public:
     }
 
     static int16_t compare(const char *v1, int16_t len1, const char *v2,
-            int16_t len2) {
-        register int k = 0;
+            int16_t len2, int k = 0) {
+        //register int k = 0;
         register int lim = len1;
         if (len2 < len1)
             lim = len2;

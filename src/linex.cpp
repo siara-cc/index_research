@@ -557,9 +557,7 @@ int16_t linex_node_handler::getPtr(int16_t pos) {
 #endif
     return ptr;
 #else
-    byte *kvIdx = buf + BLK_HDR_SIZE;
-    kvIdx += pos;
-    kvIdx += pos;
+    byte *kvIdx = buf + BLK_HDR_SIZE + (pos << 1);
     return util::getInt(kvIdx);
 #endif
 }
@@ -587,8 +585,7 @@ void linex_node_handler::setPtr(int16_t pos, int16_t ptr) {
     }
 #endif
 #else
-    byte *kvIdx = buf + BLK_HDR_SIZE;
-    kvIdx += (pos << 1);
+    byte *kvIdx = buf + BLK_HDR_SIZE + (pos << 1);
     return util::setInt(kvIdx, ptr);
 #endif
 }

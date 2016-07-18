@@ -9,24 +9,26 @@ using namespace std;
 
 #define DX_INT64MAP 1
 
-typedef unsigned char byte;
 #define DFOX_NODE_SIZE 512
+
+#if DFOX_NODE_SIZE == 512
 #define MAX_PTR_BITMAP_BYTES 8
-#define IDX_HDR_SIZE (MAX_PTR_BITMAP_BYTES+5)
-#define TRIE_PTR_AREA_SIZE (IDX_BLK_SIZE-IDX_HDR_SIZE)
 #define MAX_PTRS 63
+#else
+#define MAX_PTR_BITMAP_BYTES 0
+#define MAX_PTRS 240
+#endif
+#define DFOX_HDR_SIZE (MAX_PTR_BITMAP_BYTES+6)
+#define IS_LEAF_BYTE buf[MAX_PTR_BITMAP_BYTES]
+#define FILLED_SIZE buf + MAX_PTR_BITMAP_BYTES + 1
+#define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 3
+#define TRIE_LEN buf[MAX_PTR_BITMAP_BYTES+5]
 
 #define INSERT_MIDDLE1 1
 #define INSERT_MIDDLE2 2
 #define INSERT_THREAD 3
 #define INSERT_LEAF 4
 #define INSERT_EMPTY 5
-
-#define DATA_PTR_HIGH_BITS buf
-#define IS_LEAF_BYTE buf[MAX_PTR_BITMAP_BYTES]
-#define TRIE_LEN buf[MAX_PTR_BITMAP_BYTES+1]
-#define FILLED_SIZE buf[MAX_PTR_BITMAP_BYTES+2]
-#define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 3
 
 #define MAX_KEY_PREFIX_LEN 20
 

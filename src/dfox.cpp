@@ -354,7 +354,11 @@ byte *dfox_node_handler::split(int16_t *pbrk_idx, byte *first_key,
     kv_last_pos = getKVLastPos();
     memcpy(new_block.trie, trie, TRIE_LEN);
     new_block.TRIE_LEN = TRIE_LEN;
-    memcpy(buf, new_block.buf, IDX_HDR_SIZE + brk_idx);
+#if DFOX_NODE_SIZE == 512
+    memcpy(buf, new_block.buf, DFOX_HDR_SIZE + brk_idx);
+#else
+    memcpy(buf, new_block.buf, DFOX_HDR_SIZE + (brk_idx << 1));
+#endif
 
     {
         dfox_iterator_status s;
@@ -387,14 +391,19 @@ byte *dfox_node_handler::split(int16_t *pbrk_idx, byte *first_key,
         idx = brk_idx;
         while (idx--)
             setPtr(idx, getPtr(idx) + diff);
-        byte *block_ptrs = buf + IDX_HDR_SIZE + brk_idx;
+#if DFOX_NODE_SIZE == 512
+        byte *block_ptrs = buf + DFOX_HDR_SIZE + brk_idx;
+#else
+        byte *block_ptrs = buf + DFOX_HDR_SIZE + (brk_idx << 1);
+#endif
         memmove(block_ptrs, trie, TRIE_LEN);
+        trie = block_ptrs;
         setKVLastPos(DFOX_NODE_SIZE - old_blk_new_len);
         setFilledSize(brk_idx);
-        trie = block_ptrs;
     }
 
     {
+#if DFOX_NODE_SIZE == 512
 #if defined(DX_INT64MAP)
         (*new_block.bitmap) <<= brk_idx;
 #else
@@ -405,14 +414,21 @@ byte *dfox_node_handler::split(int16_t *pbrk_idx, byte *first_key,
             *new_block.bitmap1 |= (*new_block.bitmap2 >> (32 - brk_idx));
         }
 #endif
-
+#endif
         int16_t new_size = orig_filled_size - brk_idx;
-        byte *block_ptrs = new_block.buf + IDX_HDR_SIZE;
+        byte *block_ptrs = new_block.buf + DFOX_HDR_SIZE;
+#if DFOX_NODE_SIZE == 512
         memmove(block_ptrs, block_ptrs + brk_idx,
                 new_size + new_block.TRIE_LEN);
+        new_block.trie = block_ptrs + new_size;
+#else
+        memmove(block_ptrs, block_ptrs + (brk_idx << 1),
+                (new_size << 1) + new_block.TRIE_LEN);
+        new_block.trie = block_ptrs
+        + (new_size * (DFOX_NODE_SIZE == 512 ? 1 : 2));
+#endif
         new_block.setKVLastPos(brk_kv_pos);
         new_block.setFilledSize(new_size);
-        new_block.trie = block_ptrs + new_size;
     }
 
     *pbrk_idx = brk_idx;
@@ -526,9 +542,10 @@ dfox_node_handler::dfox_node_handler(byte * m) {
 void dfox_node_handler::initBuf() {
     memset(buf, '\0', DFOX_NODE_SIZE);
     setLeaf(1);
-    FILLED_SIZE = TRIE_LEN = 0;
+    setFilledSize(0);
+    TRIE_LEN = 0;
     setKVLastPos(DFOX_NODE_SIZE);
-    trie = buf + IDX_HDR_SIZE;
+    trie = buf + DFOX_HDR_SIZE;
 #if defined(DX_INT64MAP)
     bitmap = (uint64_t *) buf;
 #else
@@ -539,7 +556,7 @@ void dfox_node_handler::initBuf() {
 
 void dfox_node_handler::setBuf(byte *m) {
     buf = m;
-    trie = buf + IDX_HDR_SIZE + FILLED_SIZE;
+    trie = buf + DFOX_HDR_SIZE + filledSize() * (DFOX_NODE_SIZE == 512 ? 1 : 2);
 #if defined(DX_INT64MAP)
     bitmap = (uint64_t *) buf;
 #else
@@ -575,10 +592,10 @@ void dfox_node_handler::addData(int16_t pos) {
 
 void dfox_node_handler::insPtr(int16_t pos, int16_t kv_pos) {
     int16_t filledSz = filledSize();
-    byte *kvIdx = buf + IDX_HDR_SIZE + pos;
+#if DFOX_NODE_SIZE == 512
+    byte *kvIdx = buf + DFOX_HDR_SIZE + pos;
     memmove(kvIdx + 1, kvIdx, filledSz - pos + TRIE_LEN);
     *kvIdx = kv_pos;
-    filledSz++;
     trie++;
 #if defined(DX_INT64MAP)
     insBit(bitmap, pos, kv_pos);
@@ -593,7 +610,14 @@ void dfox_node_handler::insPtr(int16_t pos, int16_t kv_pos) {
         *bitmap2 |= *GenTree::mask32;
     }
 #endif
-    FILLED_SIZE = filledSz;
+#else
+    byte *kvIdx = buf + DFOX_HDR_SIZE + (pos << 1);
+    memmove(kvIdx + 2, kvIdx, (filledSz - pos) * 2 + TRIE_LEN);
+    util::setInt(kvIdx, kv_pos);
+    trie += 2;
+#endif
+    setFilledSize(filledSz + 1);
+
 }
 
 void dfox_node_handler::insBit(uint32_t *ui32, int pos, int16_t kv_pos) {
@@ -622,22 +646,21 @@ void dfox_node_handler::setLeaf(char isLeaf) {
 }
 
 void dfox_node_handler::setFilledSize(int16_t filledSize) {
-    FILLED_SIZE = filledSize;
+    util::setInt(FILLED_SIZE, filledSize);
 }
 
 bool dfox_node_handler::isFull(int16_t kv_len) {
-    //if (TRIE_LEN + need_count + FILLED_SIZE >= TRIE_PTR_AREA_SIZE)
-    //    return true;
+    int16_t ptr_size = filledSize() * (DFOX_NODE_SIZE == 512 ? 1 : 2);
     if ((getKVLastPos() - kv_len - 2)
-            < (IDX_HDR_SIZE + TRIE_LEN + need_count + FILLED_SIZE))
+            < (DFOX_HDR_SIZE + TRIE_LEN + need_count + ptr_size))
         return true;
-    if (FILLED_SIZE > MAX_PTRS)
+    if (filledSize() > MAX_PTRS)
         return true;
     return false;
 }
 
 int16_t dfox_node_handler::filledSize() {
-    return FILLED_SIZE;
+    return util::getInt(FILLED_SIZE);
 }
 
 byte *dfox_node_handler::getChild(int16_t pos) {
@@ -648,7 +671,8 @@ byte *dfox_node_handler::getChild(int16_t pos) {
 }
 
 void dfox_node_handler::setPtr(int16_t pos, int16_t ptr) {
-    buf[IDX_HDR_SIZE + pos] = ptr;
+#if DFOX_NODE_SIZE == 512
+    buf[DFOX_HDR_SIZE + pos] = ptr;
 #if defined(DX_INT64MAP)
     if (ptr >= 256)
         *bitmap |= GenTree::mask64[pos];
@@ -668,10 +692,15 @@ void dfox_node_handler::setPtr(int16_t pos, int16_t ptr) {
         *bitmap1 &= ~GenTree::mask32[pos];
     }
 #endif
+#else
+    byte *kvIdx = buf + DFOX_HDR_SIZE + (pos << 1);
+    util::setInt(kvIdx, ptr);
+#endif
 }
 
 int16_t dfox_node_handler::getPtr(int16_t pos) {
-    int16_t ptr = buf[IDX_HDR_SIZE + pos];
+#if DFOX_NODE_SIZE == 512
+    int16_t ptr = buf[DFOX_HDR_SIZE + pos];
 #if defined(DX_INT64MAP)
     if (*bitmap & GenTree::mask64[pos])
         ptr |= 256;
@@ -685,6 +714,10 @@ int16_t dfox_node_handler::getPtr(int16_t pos) {
     }
 #endif
     return ptr;
+#else
+    byte *kvIdx = buf + DFOX_HDR_SIZE + (pos << 1);
+    return util::getInt(kvIdx);
+#endif
 }
 
 byte *dfox_node_handler::getKey(int16_t pos, int16_t *plen) {
