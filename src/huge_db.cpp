@@ -31,7 +31,7 @@ using namespace std;
 #define CS_255_RANDOM 5
 #define CS_255_DENSE 6
 
-long NUM_ENTRIES = 30;
+long NUM_ENTRIES = 40;
 int CHAR_SET = 2;
 int KEY_LEN = 8;
 int VALUE_LEN = 4;

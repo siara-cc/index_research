@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define LINEX_NODE_SIZE 512
+#define LINEX_NODE_SIZE 1024
 
 #if LINEX_NODE_SIZE == 512
 #define BLK_HDR_SIZE 13
@@ -21,8 +21,7 @@ using namespace std;
 
 class linex_node_handler {
 private:
-    int16_t binarySearchLeaf(const char *key, int16_t key_len);
-    int16_t binarySearchNode(const char *key, int16_t key_len);
+    int16_t binarySearch(const char *key, int16_t key_len);
 public:
     byte *buf;
 #if defined(LX_INT64MAP)

@@ -19,6 +19,8 @@ void linex::recursiveSearchForGet(linex_node_handler *node, int16_t *pIdx) {
         pos = node->locate(level);
         if (pos < 0) {
             pos = ~pos;
+            if (pos)
+                pos--;
         } else {
             do {
                 node_data = node->getChild(pos);
@@ -48,6 +50,8 @@ void linex::recursiveSearch(linex_node_handler *node, int16_t lastSearchPos[],
         node_paths[level] = node->buf;
         if (lastSearchPos[level] < 0) {
             lastSearchPos[level] = ~lastSearchPos[level];
+            if (lastSearchPos[level])
+                lastSearchPos[level]--;
         } else {
             do {
                 node_data = node->getChild(lastSearchPos[level]);
@@ -313,7 +317,7 @@ byte *linex_node_handler::split(int16_t *pbrk_idx) {
     return b;
 }
 
-//int16_t linex_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {
+//int16_t linex_node_handler::binarySearch(const char *key, int16_t key_len) {
 //    register int middle, filled_upto;
 //    filled_upto = filledUpto();
 //    middle = GenTree::roots[filled_upto];
@@ -332,40 +336,8 @@ byte *linex_node_handler::split(int16_t *pbrk_idx) {
 //    } while (middle >= 0);
 //    return middle;
 //}
-//
-//int16_t linex_node_handler::binarySearchNode(const char *key, int16_t key_len) {
-//    register int middle, filled_upto;
-//    filled_upto = filledUpto();
-//    middle = GenTree::roots[filled_upto];
-//    do {
-//        register int16_t middle_key_len;
-//        register char *middle_key = (char *) getKey(middle, &middle_key_len);
-//        register int16_t cmp = util::compare(middle_key, middle_key_len, key, key_len);
-//        if (cmp > 0)
-//            middle = GenTree::left[middle];
-//        else if (cmp < 0) {
-//            if (filled_upto > middle) {
-//                register int16_t plus1_key_len;
-//                register char *plus1_key = (char *) getKey(middle + 1,
-//                        &plus1_key_len);
-//                cmp = util::compare(plus1_key, plus1_key_len, key, key_len);
-//                if (cmp > 0)
-//                    return ~middle;
-//                else if (cmp < 0) {
-//                    middle = GenTree::ryte[middle];
-//                    while (middle > filled_upto)
-//                        middle = GenTree::left[middle];
-//                } else
-//                    return (middle + 1);
-//            } else
-//                return ~middle;
-//        } else
-//            return middle;
-//    } while (middle >= 0);
-//    return middle;
-//}
 
-int16_t linex_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {
+int16_t linex_node_handler::binarySearch(const char *key, int16_t key_len) {
     register int middle, first, filled_upto;
     register int16_t cmp;
     first = 0;
@@ -380,38 +352,6 @@ int16_t linex_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {
         else if (cmp > 0)
             filled_upto = middle;
         else
-            return middle;
-    }
-    return ~filled_upto;
-}
-
-int16_t linex_node_handler::binarySearchNode(const char *key, int16_t key_len) {
-    register int middle, first, filled_upto;
-    register int16_t cmp;
-    first = 0;
-    filled_upto = filledUpto() + 1;
-    while (first < filled_upto) {
-        middle = (first + filled_upto) >> 1;
-        register int16_t middle_key_len;
-        register char *middle_key = (char *) getKey(middle, &middle_key_len);
-        cmp = util::compare(middle_key, middle_key_len, key, key_len);
-        if (cmp > 0)
-            filled_upto = middle;
-        else if (cmp < 0) {
-            if (filledUpto() > middle) {
-                register int16_t plus1_key_len;
-                register char *plus1_key = (char *) getKey(middle + 1,
-                        &plus1_key_len);
-                cmp = util::compare(plus1_key, plus1_key_len, key, key_len);
-                if (cmp > 0)
-                    return ~middle;
-                else if (cmp < 0) {
-                    first = middle + 1;
-                } else
-                    return (middle + 1);
-            } else
-                return ~middle;
-        } else
             return middle;
     }
     return ~filled_upto;
@@ -455,11 +395,12 @@ int16_t linex_node_handler::binarySearchNode(const char *key, int16_t key_len) {
 
 int16_t linex_node_handler::locate(int16_t level) {
     int16_t ret = -1;
-    if (isLeaf()) {
-        ret = binarySearchLeaf(key, key_len);
-    } else {
-        ret = binarySearchNode(key, key_len);
-    }
+    ret = binarySearch(key, key_len);
+//    if (isLeaf()) {
+//        ret = binarySearchLeaf(key, key_len);
+//    } else {
+//        ret = binarySearchNode(key, key_len);
+//    }
     return ret;
 }
 

@@ -121,8 +121,22 @@ void dfox::recursiveUpdate(dfox_node_handler *node, int16_t pos,
             int16_t first_len;
             byte *b = node->split(&brk_idx, first_key, &first_len);
             dfox_node_handler new_block(b);
-            new_block.initVars();
             new_block.isPut = true;
+            int16_t cmp = util::compare((char *) first_key, first_len,
+                    node->key, node->key_len);
+            if (cmp <= 0) {
+                new_block.initVars();
+                new_block.key = node->key;
+                new_block.key_len = node->key_len;
+                new_block.value = node->value;
+                new_block.value_len = node->value_len;
+                idx = ~new_block.locate(level);
+                new_block.addData(idx);
+            } else {
+                node->initVars();
+                idx = ~node->locate(level);
+                node->addData(idx);
+            }
             //if (node->isLeaf())
             blockCount++;
             if (root_data == node->buf) {
@@ -166,13 +180,6 @@ void dfox::recursiveUpdate(dfox_node_handler *node, int16_t pos,
                 recursiveUpdate(&parent, lastSearchPos[prev_level],
                         lastSearchPos, node_paths, prev_level);
             }
-            int16_t cmp = util::compare((char *) first_key, first_len,
-                    node->key, node->key_len);
-            if (cmp <= 0)
-                node->setBuf(new_block.buf);
-            node->initVars();
-            idx = ~node->locate(level);
-            node->addData(idx);
         } else
             node->addData(idx);
     } else {
@@ -182,6 +189,57 @@ void dfox::recursiveUpdate(dfox_node_handler *node, int16_t pos,
         //    arr[vIdx] = value;
         //}
     }
+}
+
+int16_t dfox_node_handler::findMid(dfox_iterator_status& s, byte *mid) {
+    register byte *t = trie;
+    register int pos = 0;
+    register int keyPos = 0;
+    do {
+        register byte tc = s.tc_a[keyPos] = *t;
+        s.tp[keyPos] = t - trie;
+        t++;
+        register byte children = (tc & x02 ? *t++ : x00);
+        register byte leaves = (tc & x01 ? *t++ : x00);
+        if (children) {
+            register byte b = GenTree::first_bit_offset[children];
+            s.offset_a[keyPos] = b;
+            b = left_incl_mask[b];
+            pos += GenTree::bit_count[leaves & b];
+            b = ~b;
+            children &= b;
+            s.child_a[keyPos] = children;
+            s.leaf_a[keyPos] = leaves & b;
+            keyPos++;
+            if (!children)
+                continue;
+        } else {
+            pos += GenTree::bit_count[leaves];
+            s.offset_a[keyPos] = GenTree::first_bit_offset[leaves];
+        }
+        if (t > mid)
+            return keyPos;
+        while (!children && (tc & 0x04)) {
+            keyPos--;
+            tc = s.tc_a[keyPos];
+            children = s.child_a[keyPos];
+            leaves = s.leaf_a[keyPos];
+            register byte b =
+                    children ? GenTree::first_bit_offset[children] : x07;
+            s.offset_a[keyPos] = b;
+            b = left_incl_mask[b];
+            pos += GenTree::bit_count[leaves & b];
+            if (children) {
+                b = ~b;
+                children &= b;
+                s.child_a[keyPos] = children;
+                s.leaf_a[keyPos] = leaves & b;
+                keyPos++;
+                break;
+            }
+        }
+    } while (1); // (t - trie) < TRIE_LEN);
+    return -1;
 }
 
 int16_t dfox_node_handler::findPos(dfox_iterator_status& s, int brk_idx) {

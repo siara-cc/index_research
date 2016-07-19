@@ -22,6 +22,11 @@ void rb_tree::recursiveSearchForGet(rb_tree_node_handler *node, int16_t *pIdx) {
         pos = node->locate(level);
         if (pos < 0) {
             pos = ~pos;
+            if (node->last_direction == 'l') {
+                int16_t p = node->getPrevious(pos);
+                if (p)
+                    pos = p;
+            }
         } else {
             do {
                 node_data = node->getChild(pos);
@@ -52,6 +57,12 @@ void rb_tree::recursiveSearch(rb_tree_node_handler *node,
         node_paths[level] = node->buf;
         if (lastSearchPos[level] < 0) {
             lastSearchPos[level] = ~lastSearchPos[level];
+            if (node->last_direction == 'l') {
+                int16_t p = node->getPrevious(lastSearchPos[level]);
+                if (p) {
+                    lastSearchPos[level] = p;
+                }
+            }
         } else {
             do {
                 node_data = node->getChild(lastSearchPos[level]);
@@ -112,7 +123,7 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
             int16_t brk_idx;
             byte *b = node->split(&brk_idx);
             rb_tree_node_handler new_block(b);
-            if (node->isLeaf())
+            //if (node->isLeaf())
                 blockCount++;
             bool isRoot = false;
             if (root_data == node->buf)
@@ -126,6 +137,7 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
             if (cmp <= 0)
                 node->setBuf(new_block.buf);
             if (isRoot) {
+                blockCount++;
                 root_data = (byte *) util::alignedAlloc(RB_TREE_NODE_SIZE);
                 rb_tree_node_handler root(root_data);
                 root.initBuf();
@@ -323,7 +335,7 @@ void rb_tree_node_handler::setDataEndPos(int16_t pos) {
     util::setInt(buf + DATA_END_POS, pos);
 }
 
-int16_t rb_tree_node_handler::binarySearchLeaf(const char *key,
+int16_t rb_tree_node_handler::binarySearch(const char *key,
         int16_t key_len) {
     register int middle;
     register int new_middle = getRoot();
@@ -345,44 +357,8 @@ int16_t rb_tree_node_handler::binarySearchLeaf(const char *key,
     return ~middle;
 }
 
-int16_t rb_tree_node_handler::binarySearchNode(const char *key,
-        int16_t key_len) {
-    register int middle;
-    register int new_middle = getRoot();
-    do {
-        middle = new_middle;
-        register int16_t middle_key_len;
-        register char *middle_key = (char *) getKey(middle, &middle_key_len);
-        register int16_t cmp = util::compare(middle_key, middle_key_len, key,
-                key_len);
-        if (cmp > 0) {
-            new_middle = getLeft(middle);
-            last_direction = 'l';
-        } else if (cmp < 0) {
-            register int16_t next = getNext(middle);
-            last_direction = 'r';
-            if (next != 0) {
-                register int16_t plus1_key_len;
-                register char *plus1_key = (char *) getKey(next,
-                        &plus1_key_len);
-                cmp = util::compare(plus1_key, plus1_key_len, key, key_len);
-                if (cmp > 0)
-                    return ~middle;
-                else if (cmp < 0) {
-                    new_middle = getRight(middle);
-                } else
-                    return next;
-            } else
-                return ~middle;
-        } else
-            return middle;
-    } while (new_middle > 0);
-    return ~middle;
-}
-
 int16_t rb_tree_node_handler::locate(int16_t level) {
-    return isLeaf() ?
-            binarySearchLeaf(key, key_len) : binarySearchNode(key, key_len);
+    return binarySearch(key, key_len);
 }
 
 rb_tree::~rb_tree() {
@@ -505,6 +481,25 @@ int16_t rb_tree_node_handler::getNext(int16_t n) {
     }
     int16_t p = getParent(n);
     while (p && n == getRight(p)) {
+        n = p;
+        p = getParent(p);
+    }
+    return p;
+}
+
+int16_t rb_tree_node_handler::getPrevious(int16_t n) {
+    int16_t l = getLeft(n);
+    if (l) {
+        int16_t r;
+        do {
+            r = getRight(l);
+            if (r)
+                l = r;
+        } while (r);
+        return l;
+    }
+    int16_t p = getParent(n);
+    while (p && n == getLeft(p)) {
         n = p;
         p = getParent(p);
     }

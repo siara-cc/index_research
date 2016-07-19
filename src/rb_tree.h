@@ -8,7 +8,8 @@
 
 using namespace std;
 
-#define RB_TREE_NODE_SIZE 512
+#define RB_TREE_NODE_SIZE 1024
+
 #if RB_TREE_NODE_SIZE == 512
 #define RB_TREE_HDR_SIZE 6
 #define DATA_END_POS 2
@@ -40,8 +41,7 @@ using namespace std;
 
 class rb_tree_node_handler {
 private:
-    int16_t binarySearchLeaf(const char *key, int16_t key_len);
-    int16_t binarySearchNode(const char *key, int16_t key_len);
+    int16_t binarySearch(const char *key, int16_t key_len);
     inline int16_t getLeft(int16_t n);
     inline int16_t getRight(int16_t n);
     inline int16_t getParent(int16_t n);
@@ -91,6 +91,7 @@ public:
     byte *getFirstKey(int16_t *plen);
     int16_t getFirst();
     int16_t getNext(int16_t n);
+    int16_t getPrevious(int16_t n);
     byte *getData(int16_t pos, int16_t *plen);
     byte *split(int16_t *pbrk_idx);
 };

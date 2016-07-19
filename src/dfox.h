@@ -9,7 +9,7 @@ using namespace std;
 
 #define DX_INT64MAP 1
 
-#define DFOX_NODE_SIZE 512
+#define DFOX_NODE_SIZE 1024
 
 #if DFOX_NODE_SIZE == 512
 #define MAX_PTR_BITMAP_BYTES 8
@@ -74,6 +74,7 @@ private:
     inline void delAt(byte *ptr, int16_t count);
     inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
+    int16_t findMid(dfox_iterator_status& s, byte *mid);
     int16_t findPos(dfox_iterator_status& s, int brk_idx);
     int16_t nextKey(dfox_iterator_status& s);
     void deleteTrieLastHalf(int16_t brk_key_len, dfox_iterator_status& s);
