@@ -384,7 +384,7 @@ void rb_tree_node_handler::setBuf(byte *b) {
 }
 
 void rb_tree_node_handler::initBuf() {
-    memset(buf, '\0', RB_TREE_NODE_SIZE);
+    //memset(buf, '\0', RB_TREE_NODE_SIZE);
     setLeaf(1);
     setFilledUpto(-1);
     setDataEndPos(RB_TREE_HDR_SIZE);

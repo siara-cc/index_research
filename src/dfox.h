@@ -8,10 +8,12 @@
 using namespace std;
 
 #define DX_INT64MAP 1
+#define DX_UNIT_SZ_3 1
+#define DX_9_BIT_PTR 0
 
-#define DFOX_NODE_SIZE 1024
+#define DFOX_NODE_SIZE 512
 
-#if DFOX_NODE_SIZE == 512
+#if DX_9_BIT_PTR == 1
 #define MAX_PTR_BITMAP_BYTES 8
 #define MAX_PTRS 63
 #else
@@ -66,6 +68,7 @@ private:
     inline byte insAt(byte *ptr, byte b1, byte b2);
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3);
     inline byte ins4BytesAt(byte *ptr, byte b1, byte b2, byte b3, byte b4);
+    inline byte ins6BytesAt(byte *ptr, byte b1, byte b2, byte b3, byte b4, byte b5, byte b6);
     inline byte insChildAndLeafAt(byte *ptr, byte b1, byte b2);
     inline void setAt(byte pos, byte b);
     inline void append(byte b);

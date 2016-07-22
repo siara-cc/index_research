@@ -199,7 +199,7 @@ void linex_node_handler::insBit(uint64_t *ui64, int pos, int16_t kv_pos) {
 }
 
 void linex_node_handler::insPtr(int16_t pos, int16_t kv_last_pos) {
-#if LINEX_NODE_SIZE == 512
+#ifdef LX_9_BIT_PTR
     byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     int16_t filled_upto = filledUpto();
@@ -292,7 +292,7 @@ byte *linex_node_handler::split(int16_t *pbrk_idx) {
     int16_t new_size = filled_upto - brk_idx;
     // Move index of second half to first half in new block
     byte *new_kv_idx = new_block.buf + BLK_HDR_SIZE;
-#if LINEX_NODE_SIZE == 512
+#ifdef LX_9_BIT_PTR
     memcpy(new_kv_idx, new_kv_idx + new_idx, new_size);
 #if defined(LX_INT64MAP)
     (*new_block.bitmap) <<= brk_idx;
@@ -394,14 +394,7 @@ int16_t linex_node_handler::binarySearch(const char *key, int16_t key_len) {
 //}
 
 int16_t linex_node_handler::locate(int16_t level) {
-    int16_t ret = -1;
-    ret = binarySearch(key, key_len);
-//    if (isLeaf()) {
-//        ret = binarySearchLeaf(key, key_len);
-//    } else {
-//        ret = binarySearchNode(key, key_len);
-//    }
-    return ret;
+    return binarySearch(key, key_len);
 }
 
 linex::~linex() {
@@ -423,7 +416,7 @@ linex_node_handler::linex_node_handler(byte *b) {
 
 void linex_node_handler::setBuf(byte *b) {
     buf = b;
-#if LINEX_NODE_SIZE == 512
+#ifdef LX_9_BIT_PTR
 #if defined(LX_INT64MAP)
     bitmap = (uint64_t *) (buf + BITMAP_POS);
 #else
@@ -434,11 +427,11 @@ void linex_node_handler::setBuf(byte *b) {
 }
 
 void linex_node_handler::initBuf() {
-    memset(buf, '\0', LINEX_NODE_SIZE);
+    //memset(buf, '\0', LINEX_NODE_SIZE);
     setLeaf(1);
     setFilledUpto(-1);
     setKVLastPos(LINEX_NODE_SIZE);
-#if LINEX_NODE_SIZE == 512
+#ifdef LX_9_BIT_PTR
 #if defined(LX_INT64MAP)
     bitmap = (uint64_t *) (buf + BITMAP_POS);
 #else
@@ -463,7 +456,7 @@ void linex_node_handler::setFilledUpto(int16_t filledUpto) {
 bool linex_node_handler::isFull(int16_t kv_len) {
     kv_len += 2; // 1 byte key len, 1 byte value len
     int16_t spaceLeft = getKVLastPos();
-#if LINEX_NODE_SIZE == 512
+#ifdef LX_9_BIT_PTR
     kv_len++;
     spaceLeft -= filledUpto();
 #else
@@ -482,7 +475,7 @@ int16_t linex_node_handler::filledUpto() {
 }
 
 int16_t linex_node_handler::getPtr(int16_t pos) {
-#if LINEX_NODE_SIZE == 512
+#ifdef LX_9_BIT_PTR
     int16_t ptr = buf[BLK_HDR_SIZE + pos];
 #if defined(LX_INT64MAP)
     if (*bitmap & GenTree::mask64[pos])
@@ -504,7 +497,7 @@ int16_t linex_node_handler::getPtr(int16_t pos) {
 }
 
 void linex_node_handler::setPtr(int16_t pos, int16_t ptr) {
-#if LINEX_NODE_SIZE == 512
+#ifdef LX_9_BIT_PTR
     buf[BLK_HDR_SIZE + pos] = ptr;
 #if defined(LX_INT64MAP)
     if (ptr >= 256)
