@@ -8,8 +8,8 @@
 using namespace std;
 
 #define DX_INT64MAP 1
-#define DX_UNIT_SZ_3 1
-#define DX_9_BIT_PTR 0
+#define DX_UNIT_SZ_3 0
+#define DX_9_BIT_PTR 1
 
 #define DFOX_NODE_SIZE 512
 
@@ -28,9 +28,9 @@ using namespace std;
 
 #define INSERT_MIDDLE1 1
 #define INSERT_MIDDLE2 2
-#define INSERT_THREAD 3
-#define INSERT_LEAF 4
-#define INSERT_EMPTY 5
+#define INSERT_LEAF 3
+#define INSERT_EMPTY 4
+#define INSERT_THREAD 5
 
 #define MAX_KEY_PREFIX_LEN 20
 
