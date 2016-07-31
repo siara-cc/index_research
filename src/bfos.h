@@ -37,6 +37,7 @@ using namespace std;
 class bfos_iterator_status {
 public:
     byte *t;
+    int keyPos;
     byte tp[MAX_KEY_PREFIX_LEN];
     byte offset_a[MAX_KEY_PREFIX_LEN];
 };
@@ -63,11 +64,7 @@ private:
     static const byte xFF = 0xFF;
     inline void insAt(byte *ptr, byte b);
     inline byte insAt(byte *ptr, byte b1, byte b2);
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3);
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4);
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4, byte b5);
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4, byte b5, byte b6);
-    inline byte insChildAndLeafAt(byte *ptr, byte b1, byte b2);
     inline void setAt(byte pos, byte b);
     inline void append(byte b);
     inline void appendPtr(int16_t p);
@@ -76,11 +73,10 @@ private:
     inline void delAt(byte *ptr, int16_t count);
     inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
-    int16_t findMid(bfos_iterator_status& s, byte *mid);
-    int16_t findPos(bfos_iterator_status& s, int brk_idx);
-    int16_t nextKey(bfos_iterator_status& s);
-    void deleteTrieLastHalf(int16_t brk_key_len, bfos_iterator_status& s);
-    void deleteTrieFirstHalf(int16_t brk_key_len, bfos_iterator_status& s);
+    byte *nextPtr(bfos_iterator_status& s);
+    void deleteMarked();
+    void deleteTrieLastHalf(bfos_iterator_status& s, int key_pos);
+    void deleteTrieFirstHalf(bfos_iterator_status& s, int key_pos);
     static byte *alignedAlloc();
 public:
     byte *buf;
@@ -114,9 +110,6 @@ public:
     inline byte *getKey(int16_t ptr, int16_t *plen);
     byte *getData(int16_t ptr, int16_t *plen);
     byte *split(int16_t *pbrk_idx, byte *first_key, int16_t *first_len_ptr);
-    inline int16_t getPtr(int16_t pos);
-    inline void setPtr(int16_t pos, int16_t ptr);
-    void insPtr(int16_t pos, int16_t kvIdx);
     int16_t locate(int16_t level);
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);

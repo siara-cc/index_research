@@ -114,7 +114,7 @@ void dfox::recursiveUpdate(dfox_node_handler *node, int16_t pos,
             //    maxKeyCount = block->filledSize();
             //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
             //cout << (int) node->TRIE_LEN << endl;
-            if (!node->isLeaf())
+            if (node->isLeaf())
                 maxKeyCount += node->filledSize();
             //maxKeyCount += node->TRIE_LEN;
             int16_t brk_idx;
@@ -138,7 +138,7 @@ void dfox::recursiveUpdate(dfox_node_handler *node, int16_t pos,
                 idx = ~node->locate(level);
                 node->addData(idx);
             }
-            if (!node->isLeaf())
+            if (node->isLeaf())
                 blockCount++;
             if (root_data == node->buf) {
                 //blockCount++;

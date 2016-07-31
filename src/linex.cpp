@@ -104,12 +104,13 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
             //if (maxKeyCount < block->filledSize())
             //    maxKeyCount = block->filledSize();
             //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
-            maxKeyCount += node->filledUpto();
+            if (node->isLeaf())
+                maxKeyCount += node->filledUpto();
             int16_t brk_idx;
             byte *b = node->split(&brk_idx);
             linex_node_handler new_block(b);
-            //if (node->isLeaf())
-            blockCount++;
+            if (node->isLeaf())
+                blockCount++;
             bool isRoot = false;
             if (root_data == node->buf)
                 isRoot = true;
@@ -129,7 +130,7 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
                         &first_key_len);
             }
             if (isRoot) {
-                blockCount++;
+                //blockCount++;
                 root_data = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
                 linex_node_handler root(root_data);
                 root.initBuf();
@@ -158,7 +159,8 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
                 parent_node.key_len = first_key_len;
                 parent_node.value = addr;
                 parent_node.value_len = sizeof(char *);
-                recursiveUpdate(&parent_node, ~(lastSearchPos[prev_level] + 1),
+                lastSearchPos[prev_level] = parent_node.locate(prev_level);
+                recursiveUpdate(&parent_node, lastSearchPos[prev_level],
                         lastSearchPos, node_paths, prev_level);
             }
         }
