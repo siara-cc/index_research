@@ -73,8 +73,7 @@ private:
     inline void delAt(byte *ptr, int16_t count);
     inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
-    byte *nextPtr(bfos_iterator_status& s, bfos_node_handler *other_trie,
-            bfos_iterator_status *s_last);
+    byte *nextPtr(bfos_iterator_status& s);
     void deleteMarked();
     void deleteTrieLastHalf(bfos_iterator_status& s, int key_pos);
     void deleteTrieFirstHalf(bfos_iterator_status& s, int key_pos);
