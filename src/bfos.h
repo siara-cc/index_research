@@ -38,13 +38,20 @@ class bfos_iterator_status {
 public:
     byte *t;
     int keyPos;
+    byte tc, children, leaves, orig_leaves, orig_children;
     byte tp[MAX_KEY_PREFIX_LEN];
     byte offset_a[MAX_KEY_PREFIX_LEN];
+    bfos_iterator_status(byte *trie) {
+        t = trie;
+        keyPos = 0;
+        offset_a[keyPos] = 0x08;
+        tc = children = leaves = orig_leaves = orig_children = 0;
+    }
 };
 
 class bfos_node_handler {
 private:
-    static byte left_mask[8];
+    static byte left_mask[9];
     static byte left_incl_mask[8];
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];
@@ -74,12 +81,15 @@ private:
     inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     byte *nextPtr(bfos_iterator_status& s);
+    int16_t prevPtr(byte *origPos, byte *trie_thread[], byte *prev_sibling[],
+            byte offset, int key_pos);
     void deleteMarked();
     void deleteTrieLastHalf(bfos_iterator_status& s, int key_pos);
     void deleteTrieFirstHalf(bfos_iterator_status& s, int key_pos);
     static byte *alignedAlloc();
 public:
     byte *buf;
+    byte buf1[512];
     byte *trie;
     byte *triePos;
     byte *origPos;
@@ -94,6 +104,7 @@ public:
     int16_t last_child_pos;
     const char *value;
     int16_t value_len;
+    static byte *zero_prev_sibling[MAX_KEY_PREFIX_LEN];
     bfos_node_handler(byte *m);
     void initBuf();
     inline void initVars();
@@ -113,6 +124,8 @@ public:
     int16_t locate(int16_t level);
     int16_t locateForNode(int16_t level);
     byte *getFirstPtr();
+    int16_t findLastPtr(byte *origPos, byte *trie_thread[],
+            byte *prev_sibling[], int16_t key_pos);
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);
 };
