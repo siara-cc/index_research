@@ -159,13 +159,13 @@ public:
     }
 
     inline static byte lastBitOffset(int16_t n) {
-        byte offset = 7;
+        int offset = 7;
         do {
             byte mask = 0x80 >> offset;
             if (n & mask)
                 return offset;
             offset--;
-        } while (offset);
+        } while (offset >= 0);
         return 0x08;
     }
 

@@ -82,7 +82,7 @@ private:
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     byte *nextPtr(bfos_iterator_status& s);
     int16_t prevPtr(byte *origPos, byte *trie_thread[], byte *prev_sibling[],
-            byte offset, int key_pos);
+            byte offset, int key_pos, bool is_prev_lvl);
     void deleteMarked();
     void deleteTrieLastHalf(bfos_iterator_status& s, int key_pos);
     void deleteTrieFirstHalf(bfos_iterator_status& s, int key_pos);
@@ -104,7 +104,6 @@ public:
     int16_t last_child_pos;
     const char *value;
     int16_t value_len;
-    static byte *zero_prev_sibling[MAX_KEY_PREFIX_LEN];
     bfos_node_handler(byte *m);
     void initBuf();
     inline void initVars();
@@ -144,6 +143,7 @@ private:
 public:
     byte *root_data;
     int maxThread;
+    static byte split_buf[BFOS_NODE_SIZE];
     bfos();
     ~bfos();
     char *get(const char *key, int16_t key_len, int16_t *pValueLen);
