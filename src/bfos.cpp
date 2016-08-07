@@ -438,9 +438,8 @@ int16_t bfos_node_handler::insertCurrent() {
     byte key_char;
     byte mask;
     byte *leafPos;
-    int16_t ret = 0;
-    int16_t ptr;
-    int16_t pos;
+    int16_t ret, ptr, pos;
+    ret = pos = 0;
 
     switch (insertState) {
     case INSERT_AFTER:
