@@ -53,7 +53,7 @@ class bfos_node_handler {
 private:
     static byte left_mask[9];
     static byte left_incl_mask[8];
-    static byte ryte_mask[8];
+    static byte ryte_mask[9];
     static byte ryte_incl_mask[8];
     static const byte x00 = 0;
     static const byte x01 = 1;
@@ -143,6 +143,7 @@ private:
 public:
     byte *root_data;
     int maxThread;
+    static int count;
     static byte split_buf[BFOS_NODE_SIZE];
     bfos();
     ~bfos();
@@ -158,6 +159,7 @@ public:
     }
     void printNumLevels() {
         std::cout << "Level Count:" << numLevels << std::endl;
+        std::cout << "Count:" << count << std::endl;
     }
     long size() {
         return total_size;
