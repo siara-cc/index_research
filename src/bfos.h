@@ -81,8 +81,8 @@ private:
     inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     byte *nextPtr(bfos_iterator_status& s);
-    int16_t prevPtr(byte *origPos, byte *trie_thread[], byte *prev_sibling[],
-            byte offset, int key_pos, bool is_prev_lvl);
+    int16_t prevPtr(byte *triePos, byte offset);
+    int16_t getLastPtrOfChild(byte *triePos);
     void deleteMarked();
     void deleteTrieLastHalf(bfos_iterator_status& s, int key_pos);
     void deleteTrieFirstHalf(bfos_iterator_status& s, int key_pos);
@@ -123,8 +123,6 @@ public:
     int16_t locate(int16_t level);
     int16_t locateForNode(int16_t level);
     byte *getFirstPtr();
-    int16_t findLastPtr(byte *origPos, byte *trie_thread[],
-            byte *prev_sibling[], int16_t key_pos);
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);
 };
