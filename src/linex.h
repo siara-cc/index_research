@@ -8,24 +8,23 @@
 
 using namespace std;
 
+#define LX_INT64MAP 0
 #define LX_9_BIT_PTR 0
 #define LINEX_NODE_SIZE 512
 
-#ifdef LX_9_BIT_PTR
+#if LX_9_BIT_PTR == 1
 #define BLK_HDR_SIZE 13
 #define BITMAP_POS 5
 #else
 #define BLK_HDR_SIZE 5
 #endif
 
-//#define LX_INT64MAP 1
-
 class linex_node_handler {
 private:
     int16_t binarySearch(const char *key, int16_t key_len);
 public:
     byte *buf;
-#if defined(LX_INT64MAP)
+#if LX_INT64MAP == 1
     uint64_t *bitmap;
 #else
     uint32_t *bitmap1;
@@ -53,7 +52,7 @@ public:
     byte *getChild(int16_t pos);
     byte *getKey(int16_t pos, int16_t *plen);
     byte *getData(int16_t pos, int16_t *plen);
-    byte *split(int16_t *pbrk_idx);
+    byte *split(int16_t *pbrk_idx, byte *first_key, int16_t *first_len_ptr);
     inline int16_t getPtr(int16_t pos);
     inline void setPtr(int16_t pos, int16_t ptr);
     inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);

@@ -8,7 +8,7 @@
 using namespace std;
 
 #define BFOS_INT64MAP 1
-#define BFOS_UNIT_SZ_3 1
+#define BFOS_UNIT_SZ_3 0
 #define BFOS_9_BIT_PTR 0
 
 #define BFOS_NODE_SIZE 512
@@ -71,6 +71,7 @@ private:
     static const byte xFF = 0xFF;
     inline void insAt(byte *ptr, byte b);
     inline byte insAt(byte *ptr, byte b1, byte b2);
+    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4);
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4, byte b5);
     inline void setAt(byte pos, byte b);
     inline void append(byte b);
