@@ -383,7 +383,7 @@ void bfos_node_handler::setFilledSize(int16_t filledSize) { // ok
 bool bfos_node_handler::isFull(int16_t kv_len) { // ok
     if ((getKVLastPos() - kv_len - 2) < (BFOS_HDR_SIZE + TRIE_LEN + need_count))
         return true;
-    if (TRIE_LEN > 240)
+    if (TRIE_LEN > 230)
         return true;
     return false;
 }
@@ -417,11 +417,8 @@ byte *bfos_node_handler::getData(int16_t ptr, int16_t *plen) { // ok
 }
 
 void bfos_node_handler::updatePtrs(byte *upto, int diff) {
-    byte *t = trie;
+    byte *t = trie + 1;
     while (t <= upto) {
-        t++;
-        if (t > upto)
-            break;
         int count = GenTree::bit_count[*t++];
         byte leaves = *t++;
         while (count--) {
@@ -430,6 +427,7 @@ void bfos_node_handler::updatePtrs(byte *upto, int diff) {
             t++;
         }
         t += (GenTree::bit_count[leaves] << 1);
+        t++;
     }
 }
 
@@ -607,12 +605,12 @@ int16_t bfos_node_handler::locate(int16_t level) {
         byte trie_char, r_leaves, r_children;
         origPos = t;
         trie_char = *t++;
-        r_children = *t++;
-        r_leaves = *t++;
         switch ((key_char ^ trie_char) > x07 ?
                 (key_char > trie_char ? 0 : 2) : 1) {
         case 0:
             last_child_pos = 0;
+            r_children = *t++;
+            r_leaves = *t++;
             t += GenTree::bit_count[r_children];
             t += (GenTree::bit_count[r_leaves] << 1);
             if (trie_char & x04) {
@@ -627,10 +625,12 @@ int16_t bfos_node_handler::locate(int16_t level) {
         case 1:
             byte r_mask;
             last_child_pos = 0;
+            r_children = *t++;
+            r_leaves = *t++;
             key_char &= x07;
             r_mask = x80 >> key_char;
             switch (r_leaves & r_mask ?
-                    (r_children & r_mask ? (keyPos == key_len ? 3 : 4) : 2) :
+                    (r_children & r_mask ? (keyPos == key_len ? 3 : 1) : 2) :
                     (r_children & r_mask ? (keyPos == key_len ? 0 : 1) : 0)) {
             case 0:
                 if (isPut) {
@@ -656,9 +656,6 @@ int16_t bfos_node_handler::locate(int16_t level) {
                 if (cmp == 0)
                     return ptr;
                 if (isPut) {
-                    triePos = t
-                            + GenTree::bit_count[r_children
-                                    & left_mask[key_char]];
                     insertState = INSERT_THREAD;
                     if (cmp < 0)
                         cmp = -cmp;
@@ -669,8 +666,6 @@ int16_t bfos_node_handler::locate(int16_t level) {
                 t += GenTree::bit_count[r_children];
                 t += (GenTree::bit_count[r_leaves & left_mask[key_char]] << 1);
                 return util::getInt(t);
-            case 4:
-                break;
             }
             t += GenTree::bit_count[r_children & left_mask[key_char]];
             last_child_pos = t - trie;
@@ -693,57 +688,6 @@ byte *bfos_node_handler::getFirstPtr() {
     return nextPtr(s);
 }
 
-//int16_t bfos_node_handler::findLastPtr(byte *triePos, byte *trie_thread[],
-//        byte *prev_sibling[], int16_t key_pos) {
-//    byte *t = triePos;
-//    while ((*t & x04) == 0) {
-//        prev_sibling[key_pos] = t++;
-//        byte children = *t++;
-//        t += (GenTree::bit_count[*t++] << 1);
-//        t += GenTree::bit_count[children];
-//    }
-//    trie_thread[key_pos] = t;
-//    return prevPtr(t, trie_thread, prev_sibling, 8, key_pos, false);
-//}
-//
-//int16_t bfos_node_handler::prevPtr(byte *triePos, byte *trie_thread[],
-//        byte *prev_sibling[], byte offset, int key_pos, bool is_prev_lvl) {
-//    if (triePos) {
-//        triePos++;
-//        byte orig_children;
-//        byte children = orig_children = *triePos++;
-//        byte leaves = *triePos++;
-//        children &= left_mask[offset];
-//        leaves &= (is_prev_lvl ? left_incl_mask[offset] : left_mask[offset]);
-//        switch (children && leaves ?
-//                ((GenTree::last_bit_offset[leaves]
-//                        > GenTree::last_bit_offset[children]) ? 0 : 1) :
-//                (children ? 1 : (leaves ? 0 : 2))) {
-//        case 0:
-//            return util::getInt(
-//                    triePos + GenTree::bit_count[orig_children]
-//                            + ((GenTree::bit_count[leaves] - 1) << 1));
-//        case 1:
-//            triePos += GenTree::bit_count[children] - 1;
-//            triePos += *triePos;
-//            return findLastPtr(triePos, trie_thread, prev_sibling, key_pos + 1);
-//        }
-//    }
-//    if (prev_sibling[key_pos]) {
-//        triePos = prev_sibling[key_pos];
-//        prev_sibling[key_pos] = 0;
-//        return prevPtr(triePos, trie_thread, prev_sibling, 8, key_pos, false);
-//    }
-//    key_pos--;
-//    if (key_pos > 0) {
-//        int16_t ret = prevPtr(trie_thread[key_pos], trie_thread, prev_sibling,
-//                key[key_pos - 1] & x07, key_pos, true);
-//        if (ret)
-//            return ret;
-//    }
-//    return util::getInt(getFirstPtr());
-//}
-
 int16_t bfos_node_handler::getLastPtrOfChild(byte *triePos) {
     while ((*triePos++ & x04) == 0) {
         byte children = *triePos++;
@@ -752,9 +696,8 @@ int16_t bfos_node_handler::getLastPtrOfChild(byte *triePos) {
     }
     byte children = *triePos++;
     byte leaves = *triePos++;
-    byte last_off = GenTree::last_bit_offset[children | leaves];
     triePos += GenTree::bit_count[children];
-    if (children & (x80 >> last_off)) {
+    if (children & GenTree::last_bit_mask[children | leaves]) {
         triePos--;
         return getLastPtrOfChild(triePos + *triePos);
     }
@@ -767,21 +710,19 @@ int16_t bfos_node_handler::locateForNode(int16_t level) {
     byte key_char = *key;
     byte *t = trie;
     byte *last_t = t;
-    byte last_child = 0;
-    byte last_leaf = 0;
+    byte last_child, last_leaf;
+    last_child = last_leaf = 0;
     do {
         byte trie_char, r_leaves, r_children;
         origPos = t;
         trie_char = *t++;
-        r_children = *t++;
-        r_leaves = *t++;
         switch ((key_char ^ trie_char) > x07 ?
                 (key_char > trie_char ? 0 : 2) : 1) {
         case 0:
             last_child_pos = 0;
+            r_children = last_child = *t++;
+            r_leaves = last_leaf = *t++;
             last_t = t;
-            last_child = r_children;
-            last_leaf = r_leaves;
             t += GenTree::bit_count[r_children];
             t += (GenTree::bit_count[r_leaves] << 1);
             if (trie_char & x04) {
@@ -791,7 +732,7 @@ int16_t bfos_node_handler::locateForNode(int16_t level) {
                     need_count = 5;
                 }
                 if (last_child
-                        & (x80 >> GenTree::last_bit_offset[last_child | last_leaf])) {
+                        & GenTree::last_bit_mask[last_child | last_leaf]) {
                     last_t += GenTree::bit_count[last_child];
                     last_t--;
                     return ~getLastPtrOfChild(last_t + *last_t);
@@ -802,28 +743,29 @@ int16_t bfos_node_handler::locateForNode(int16_t level) {
         case 1:
             byte r_mask;
             last_child_pos = 0;
+            r_children = *t++;
+            r_leaves = *t++;
             key_char &= x07;
-            r_mask = left_mask[key_char];
-            if ((r_children | r_leaves) & r_mask) {
-                last_t = t;
-                last_child = r_children & r_mask;
-                last_leaf = r_leaves & r_mask;
-            }
             r_mask = x80 >> key_char;
             switch (r_leaves & r_mask ?
-                    (r_children & r_mask ? (keyPos == key_len ? 3 : 4) : 2) :
+                    (r_children & r_mask ? (keyPos == key_len ? 3 : 1) : 2) :
                     (r_children & r_mask ? (keyPos == key_len ? 0 : 1) : 0)) {
             case 0:
+                r_mask = left_mask[key_char];
+                if ((r_children | r_leaves) & r_mask) {
+                    last_t = t;
+                    last_child = r_children & r_mask;
+                    last_leaf = r_leaves & r_mask;
+                }
                 if (isPut) {
                     t += GenTree::bit_count[r_children];
-                    t += (GenTree::bit_count[r_leaves & left_mask[key_char]]
-                            << 1);
+                    t += (GenTree::bit_count[r_leaves & r_mask] << 1);
                     triePos = t;
                     insertState = INSERT_LEAF;
                     need_count = 2;
                 }
                 if (last_child
-                        & (x80 >> GenTree::last_bit_offset[last_child | last_leaf])) {
+                        & GenTree::last_bit_mask[last_child | last_leaf]) {
                     last_t += GenTree::bit_count[last_child];
                     last_t--;
                     return ~getLastPtrOfChild(last_t + *last_t);
@@ -835,8 +777,9 @@ int16_t bfos_node_handler::locateForNode(int16_t level) {
                 break;
             case 2:
                 int16_t cmp;
+                r_mask = left_mask[key_char];
                 t += GenTree::bit_count[r_children];
-                t += (GenTree::bit_count[r_leaves & left_mask[key_char]] << 1);
+                t += (GenTree::bit_count[r_leaves & r_mask] << 1);
                 int16_t ptr;
                 ptr = util::getInt(t);
                 key_at = (char *) getKey(ptr, &key_at_len);
@@ -844,10 +787,13 @@ int16_t bfos_node_handler::locateForNode(int16_t level) {
                         key_at_len);
                 if (cmp == 0)
                     return ptr;
-                triePos = t
-                        + GenTree::bit_count[r_children & left_mask[key_char]];
                 if (cmp < 0) {
                     ptr = 0;
+                    if ((r_children | r_leaves) & r_mask) {
+                        last_t = origPos + 3;
+                        last_child = r_children & r_mask;
+                        last_leaf = r_leaves & r_mask;
+                    }
                 }
                 if (isPut) {
                     insertState = INSERT_THREAD;
@@ -858,7 +804,7 @@ int16_t bfos_node_handler::locateForNode(int16_t level) {
                 if (ptr)
                     return ptr;
                 if (last_child
-                        & (x80 >> GenTree::last_bit_offset[last_child | last_leaf])) {
+                        & GenTree::last_bit_mask[last_child | last_leaf]) {
                     last_t += GenTree::bit_count[last_child];
                     last_t--;
                     return ~getLastPtrOfChild(last_t + *last_t);
@@ -870,12 +816,9 @@ int16_t bfos_node_handler::locateForNode(int16_t level) {
                 t += GenTree::bit_count[r_children];
                 t += (GenTree::bit_count[r_leaves & left_mask[key_char]] << 1);
                 return util::getInt(t);
-            case 4:
-                break;
             }
             r_children &= left_mask[key_char];
             if ((r_children | r_leaves) & left_incl_mask[key_char]) {
-                r_leaves &= left_incl_mask[key_char];
                 last_t = t;
                 last_child = r_children;
                 last_leaf = r_leaves & left_incl_mask[key_char];
@@ -890,8 +833,7 @@ int16_t bfos_node_handler::locateForNode(int16_t level) {
                 insertState = INSERT_BEFORE;
                 need_count = 5;
             }
-            if (last_child
-                    & (x80 >> GenTree::last_bit_offset[last_child | last_leaf])) {
+            if (last_child & GenTree::last_bit_mask[last_child | last_leaf]) {
                 last_t += GenTree::bit_count[last_child];
                 last_t--;
                 return ~getLastPtrOfChild(last_t + *last_t);
