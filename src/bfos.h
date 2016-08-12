@@ -8,7 +8,7 @@
 using namespace std;
 
 #define BFOS_INT64MAP 1
-#define BFOS_UNIT_SZ_3 0
+#define BFOS_UNIT_SZ_3 1
 #define BFOS_9_BIT_PTR 0
 
 #define BFOS_NODE_SIZE 512
@@ -82,6 +82,8 @@ private:
     inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     byte *nextPtr(bfos_iterator_status& s);
+    //byte *nextPtr(bfos_iterator_status& s,
+    //        bfos_node_handler *other_trie, bfos_iterator_status *s_last);
     int16_t getLastPtrOfChild(byte *triePos);
     void deleteMarked();
     void deleteTrieLastHalf(bfos_iterator_status& s, int key_pos);
@@ -141,7 +143,7 @@ private:
 public:
     byte *root_data;
     int maxThread;
-    static int count;
+    static int count1, count2;
     static byte split_buf[BFOS_NODE_SIZE];
     bfos();
     ~bfos();
@@ -157,7 +159,8 @@ public:
     }
     void printNumLevels() {
         std::cout << "Level Count:" << numLevels << std::endl;
-        std::cout << "Count:" << count << std::endl;
+        std::cout << "Count1:" << count1 << std::endl;
+        std::cout << "Count2:" << count2 << std::endl;
     }
     long size() {
         return total_size;
