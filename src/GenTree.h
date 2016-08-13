@@ -7,6 +7,7 @@
 class GenTree {
 public:
     static byte bit_count[256];
+    static byte bit_count2x[256];
     static byte last_bit_mask[256];
     static byte first_bit_offset[256];
     static byte last_bit_offset[256];
@@ -98,6 +99,7 @@ public:
     static void generateBitCounts() {
         for (int16_t i = 0; i < 256; i++) {
             bit_count[i] = countSetBits(i);
+            bit_count2x[i] = bit_count[i] << 1;
             last_bit_mask[i] = lastBitMask(i);
             first_bit_offset[i] = firstBitOffset(i);
             last_bit_offset[i] = lastBitOffset(i);
