@@ -8,7 +8,7 @@
 using namespace std;
 
 #define BFOS_INT64MAP 1
-#define BFOS_UNIT_SZ_3 0
+#define BFOS_UNIT_SZ_3 1
 #define BFOS_9_BIT_PTR 0
 
 #define BFOS_NODE_SIZE 768
@@ -20,11 +20,12 @@ using namespace std;
 #define MAX_PTR_BITMAP_BYTES 0
 #define MAX_PTRS 240
 #endif
-#define BFOS_HDR_SIZE (MAX_PTR_BITMAP_BYTES+6)
+#define BFOS_HDR_SIZE (MAX_PTR_BITMAP_BYTES+7)
 #define IS_LEAF_BYTE buf[MAX_PTR_BITMAP_BYTES]
 #define FILLED_SIZE buf + MAX_PTR_BITMAP_BYTES + 1
 #define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 3
 #define TRIE_LEN buf[MAX_PTR_BITMAP_BYTES+5]
+#define PREFIX_LEN buf[MAX_PTR_BITMAP_BYTES+6]
 
 #define INSERT_AFTER 1
 #define INSERT_BEFORE 2
@@ -41,9 +42,9 @@ public:
     byte tc, children, leaves, orig_leaves, orig_children;
     byte tp[MAX_KEY_PREFIX_LEN];
     byte offset_a[MAX_KEY_PREFIX_LEN];
-    bfos_iterator_status(byte *trie) {
+    bfos_iterator_status(byte *trie, byte prefix_len) {
         t = trie;
-        keyPos = 0;
+        keyPos = prefix_len;
         offset_a[keyPos] = 0x08;
         tc = children = leaves = orig_leaves = orig_children = 0;
     }
@@ -85,13 +86,13 @@ private:
     //byte *nextPtr(bfos_iterator_status& s,
     //        bfos_node_handler *other_trie, bfos_iterator_status *s_last);
     int16_t getLastPtrOfChild(byte *triePos);
+    int16_t deletePrefix(int16_t prefix_len);
     void deleteMarked();
     void deleteTrieLastHalf(bfos_iterator_status& s, int key_pos);
     void deleteTrieFirstHalf(bfos_iterator_status& s, int key_pos);
     static byte *alignedAlloc();
 public:
     byte *buf;
-    byte buf1[512];
     byte *trie;
     byte *triePos;
     byte *origPos;
@@ -99,13 +100,14 @@ public:
     byte insertState;
     byte isPut;
     int keyPos;
-    const char *key;
+    const byte *key;
     int key_len;
-    const char *key_at;
+    const byte *key_at;
     int16_t key_at_len;
     int16_t last_child_pos;
     const char *value;
     int16_t value_len;
+    const byte *keyFoundAt;
     bfos_node_handler(byte *m);
     void initBuf();
     inline void initVars();
@@ -122,8 +124,8 @@ public:
     inline byte *getKey(int16_t ptr, int16_t *plen);
     byte *getData(int16_t ptr, int16_t *plen);
     byte *split(int16_t *pbrk_idx, byte *first_key, int16_t *first_len_ptr);
-    int16_t locate(int16_t level);
-    int16_t locateForNode(int16_t level);
+    int16_t locateKeyInLeaf();
+    void traverseToLeaf(byte *node_paths[]);
     byte *getFirstPtr();
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);
@@ -135,11 +137,8 @@ private:
     int numLevels;
     int maxKeyCount;
     int blockCount;
-    void recursiveSearch(bfos_node_handler *node, int16_t lastSearchPos[],
-            byte *node_paths[], int16_t *pIdx);
-    void recursiveSearchForGet(bfos_node_handler *node, int16_t *pIdx);
     void recursiveUpdate(bfos_node_handler *node, int16_t pos,
-            int16_t lastSearchPos[], byte *node_paths[], int16_t level);
+            byte *node_paths[], int16_t level);
 public:
     byte *root_data;
     int maxThread;

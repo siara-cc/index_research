@@ -2,6 +2,7 @@
 
 byte GenTree::bit_count[256];
 byte GenTree::bit_count2x[256];
+byte GenTree::first_bit_mask[256];
 byte GenTree::last_bit_mask[256];
 byte GenTree::first_bit_offset[256];
 byte GenTree::last_bit_offset[256];

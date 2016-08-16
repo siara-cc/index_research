@@ -48,7 +48,7 @@ public:
         addr[4] = 0;
     }
 
-    static unsigned long fourBytesToPtr(byte *addr) {
+    static unsigned long fourBytesToPtr(const byte *addr) {
         unsigned long ret = 0;
         ret = addr[0];
         ret <<= 8;
@@ -61,6 +61,24 @@ public:
     }
 
     static int16_t compare(const char *v1, int16_t len1, const char *v2,
+            int16_t len2, int k = 0) {
+        //register int k = 0;
+        register int lim = len1;
+        if (len2 < len1)
+            lim = len2;
+        while (k < lim) {
+            byte c1 = v1[k];
+            byte c2 = v2[k];
+            k++;
+            if (c1 < c2)
+                return -k;
+            else if (c1 > c2)
+                return k;
+        }
+        return len1 - len2;
+    }
+
+    static int16_t compare(const byte *v1, int16_t len1, const byte *v2,
             int16_t len2, int k = 0) {
         //register int k = 0;
         register int lim = len1;
