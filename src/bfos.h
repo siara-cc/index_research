@@ -20,12 +20,11 @@ using namespace std;
 #define MAX_PTR_BITMAP_BYTES 0
 #define MAX_PTRS 240
 #endif
-#define BFOS_HDR_SIZE (MAX_PTR_BITMAP_BYTES+7)
+#define BFOS_HDR_SIZE (MAX_PTR_BITMAP_BYTES+6)
 #define IS_LEAF_BYTE buf[MAX_PTR_BITMAP_BYTES]
 #define FILLED_SIZE buf + MAX_PTR_BITMAP_BYTES + 1
 #define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 3
 #define TRIE_LEN buf[MAX_PTR_BITMAP_BYTES+5]
-#define PREFIX_LEN buf[MAX_PTR_BITMAP_BYTES+6]
 
 #define INSERT_AFTER 1
 #define INSERT_BEFORE 2
@@ -42,9 +41,9 @@ public:
     byte tc, children, leaves, orig_leaves, orig_children;
     byte tp[MAX_KEY_PREFIX_LEN];
     byte offset_a[MAX_KEY_PREFIX_LEN];
-    bfos_iterator_status(byte *trie, byte prefix_len) {
+    bfos_iterator_status(byte *trie) {
         t = trie;
-        keyPos = prefix_len;
+        keyPos = 0;
         offset_a[keyPos] = 0x08;
         tc = children = leaves = orig_leaves = orig_children = 0;
     }
@@ -54,7 +53,8 @@ class bfos_node_handler {
 private:
     static byte left_mask[9];
     static byte left_incl_mask[8];
-    static byte ryte_mask[9];
+    static byte ryte_mask[18];
+    static byte ryte_leaf_mask[18];
     static byte ryte_incl_mask[8];
     static const byte x00 = 0;
     static const byte x01 = 1;
@@ -86,6 +86,7 @@ private:
     //byte *nextPtr(bfos_iterator_status& s,
     //        bfos_node_handler *other_trie, bfos_iterator_status *s_last);
     int16_t getLastPtrOfChild(byte *triePos);
+    inline byte *getLastPtr(byte *last_t, byte last_off);
     int16_t deletePrefix(int16_t prefix_len);
     void deleteMarked();
     void deleteTrieLastHalf(bfos_iterator_status& s, int key_pos);
