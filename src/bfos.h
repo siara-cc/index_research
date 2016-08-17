@@ -74,6 +74,8 @@ private:
     inline byte insAt(byte *ptr, byte b1, byte b2);
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4);
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4, byte b5);
+    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4, byte b5,
+            byte b6);
     inline void setAt(byte pos, byte b);
     inline void append(byte b);
     inline void appendPtr(int16_t p);
@@ -106,6 +108,7 @@ public:
     const byte *key_at;
     int16_t key_at_len;
     int16_t last_child_pos;
+    int16_t last_leaf_pos;
     const char *value;
     int16_t value_len;
     const byte *keyFoundAt;
