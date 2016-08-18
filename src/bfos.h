@@ -74,8 +74,6 @@ private:
     inline byte insAt(byte *ptr, byte b1, byte b2);
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4);
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4, byte b5);
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4, byte b5,
-            byte b6);
     inline void setAt(byte pos, byte b);
     inline void append(byte b);
     inline void appendPtr(int16_t p);
@@ -88,7 +86,7 @@ private:
     //byte *nextPtr(bfos_iterator_status& s,
     //        bfos_node_handler *other_trie, bfos_iterator_status *s_last);
     int16_t getLastPtrOfChild(byte *triePos);
-    inline byte *getLastPtr(byte *last_t, byte last_off);
+    inline int16_t getLastPtr(byte *last_t, byte last_off);
     int16_t deletePrefix(int16_t prefix_len);
     void deleteMarked();
     void deleteTrieLastHalf(bfos_iterator_status& s, int key_pos);
@@ -103,15 +101,13 @@ public:
     byte insertState;
     byte isPut;
     int keyPos;
-    const byte *key;
+    const char *key;
     int key_len;
-    const byte *key_at;
+    const char *key_at;
     int16_t key_at_len;
     int16_t last_child_pos;
-    int16_t last_leaf_pos;
     const char *value;
     int16_t value_len;
-    const byte *keyFoundAt;
     bfos_node_handler(byte *m);
     void initBuf();
     inline void initVars();
@@ -127,8 +123,8 @@ public:
     byte *getChild(int16_t pos);
     inline byte *getKey(int16_t ptr, int16_t *plen);
     byte *getData(int16_t ptr, int16_t *plen);
-    byte *split(int16_t *pbrk_idx, byte *first_key, int16_t *first_len_ptr);
-    int16_t locateKeyInLeaf();
+    byte *split(int16_t *pbrk_idx, char *first_key, int16_t *first_len_ptr);
+    int16_t locate();
     void traverseToLeaf(byte *node_paths[]);
     byte *getFirstPtr();
     int16_t insertCurrent();
