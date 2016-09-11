@@ -12,7 +12,7 @@ using namespace std;
 
 #define BFT_NODE_SIZE 512
 
-#if bft_9_BIT_PTR == 1
+#if BFT_9_BIT_PTR == 1
 #define MAX_PTR_BITMAP_BYTES 8
 #define MAX_PTRS 63
 #else
