@@ -78,24 +78,6 @@ public:
         return len1 - len2;
     }
 
-    static int16_t compare(const byte *v1, int16_t len1, const byte *v2,
-            int16_t len2, int k = 0) {
-        //register int k = 0;
-        register int lim = len1;
-        if (len2 < len1)
-            lim = len2;
-        while (k < lim) {
-            byte c1 = v1[k];
-            byte c2 = v2[k];
-            k++;
-            if (c1 < c2)
-                return -k;
-            else if (c1 > c2)
-                return k;
-        }
-        return len1 - len2;
-    }
-
     static inline int16_t min(int16_t x, int16_t y) {
         if (x > y)
             return y;

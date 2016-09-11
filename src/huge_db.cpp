@@ -11,6 +11,7 @@
 #include "linex.h"
 //#include "dfos.h"
 #include "dfox.h"
+#include "bft.h"
 #include "bfos.h"
 #include "rb_tree.h"
 #ifdef _MSC_VER
@@ -32,7 +33,7 @@ using namespace std;
 #define CS_255_RANDOM 5
 #define CS_255_DENSE 6
 
-long NUM_ENTRIES = 40;
+long NUM_ENTRIES = 2000000;
 int CHAR_SET = 2;
 int KEY_LEN = 8;
 int VALUE_LEN = 4;
@@ -139,6 +140,19 @@ void print(rb_tree *dx, const char *key, int16_t key_len) {
 //    std::cout << "Key: " << key << ", Value:" << s << endl;
 //}
 
+void print(bft *bx, const char *key, int16_t key_len) {
+    int16_t len;
+    char *value = bx->get(key, key_len, &len);
+    if (value == null || len == 0) {
+        std::cout << "Value for " << key << " is null" << endl;
+        return;
+    }
+    char s[100];
+    strncpy(s, value, len);
+    s[len] = 0;
+    std::cout << "Key: " << key << ", Value:" << s << endl;
+}
+
 void print(bfos *bx, const char *key, int16_t key_len) {
     int16_t len;
     char *value = bx->get(key, key_len, &len);
@@ -183,7 +197,8 @@ int main() {
     //rb_tree *dx = new rb_tree();
     //dfos *dx = new dfos();
     //dfox *dx = new dfox();
-    bfos *dx = new bfos();
+    //bfos *dx = new bfos();
+    bft *dx = new bft();
     //linex *dx = new linex();
 
     dx->put("Hello", 5, "World", 5);
@@ -233,87 +248,87 @@ int main() {
     dx->put("young", 5, "19", 2);
     dx->put("youth", 5, "20", 2);
     dx->put("yousuf", 6, "21", 2);
-//
-//    print(dx, "Hello", 5);
-//    print(dx, "Nice", 4);
-//    print(dx, "Arun", 4);
-//    print(dx, "arun", 4);
-//    print(dx, "resin", 5);
-//    print(dx, "rinse", 5);
-//    print(dx, "rickshaw", 8);
-//    print(dx, "ride", 4);
-//    print(dx, "rider", 5);
-//    print(dx, "rid", 3);
-//    print(dx, "rice", 4);
-//    print(dx, "rick", 4);
-//    print(dx, "aruna", 5);
-//    print(dx, "hello", 5);
-//    print(dx, "world", 5);
-//    print(dx, "how", 3);
-//    print(dx, "are", 3);
-//    print(dx, "you", 3);
-//    print(dx, "hundred", 7);
-//    print(dx, "boy", 3);
-//    print(dx, "boat", 4);
-//    print(dx, "thousand", 8);
-//    print(dx, "buoy", 4);
-//    print(dx, "boast", 5);
-//    print(dx, "January", 7);
-//    print(dx, "February", 8);
-//    print(dx, "March", 5);
-//    print(dx, "April", 5);
-//    print(dx, "May", 3);
-//    print(dx, "June", 4);
-//    print(dx, "July", 4);
-//    print(dx, "August", 6);
-//    print(dx, "September", 9);
-//    print(dx, "October", 7);
-//    print(dx, "November", 8);
-//    print(dx, "December", 8);
-//    print(dx, "Sunday", 6);
-//    print(dx, "Monday", 6);
-//    print(dx, "Tuesday", 7);
-//    print(dx, "Wednesday", 9);
-//    print(dx, "Thursday", 8);
-//    print(dx, "Friday", 6);
-//    print(dx, "Saturday", 8);
-//    print(dx, "casa", 4);
-//    print(dx, "young", 5);
-//    print(dx, "youth", 5);
-//    print(dx, "yousuf", 6);
-//
-//    dx->put("additional", 10, "check", 5);
-//    dx->put("absorb", 6, "carelessly", 10);
-//    dx->put("add", 3, "chairman", 8);
-//    dx->put("accuse", 6, "cat", 3);
-//    dx->put("act", 3, "easy", 4);
-//    dx->put("adopt", 5, "charity", 7);
-//    dx->put("agreement", 9, "camping", 7);
-//    dx->put("actively", 8, "called", 6);
-//    dx->put("aircraft", 8, "car", 3);
-//    dx->put("agree", 5, "calmly", 6);
-//    dx->put("adequate", 8, "else", 4);
-//    dx->put("afraid", 6, "easily", 6);
-//    dx->put("accident", 8, "cheaply", 7);
-//    dx->put("activity", 8, "card", 4);
-//    dx->put("abroad", 6, "element", 7);
-//    dx->put("acquire", 7, "calm", 4);
-//    dx->put("aim", 3, "chair", 5);
-//    dx->put("absence", 7, "centre", 6);
-//    dx->put("afterwards", 10, "careful", 7);
-//    dx->put("advice", 6, "cap", 3);
-//    dx->put("advertise", 9, "captain", 7);
-//    dx->put("absolute", 8, "calculation", 11);
-//    dx->put("acid", 4, "century", 7);
-//    dx->put("address", 7, "chance", 6);
-//    dx->put("advertisement", 13, "chamber", 7);
-//    dx->put("advanced", 8, "carrot", 6);
-//    dx->put("absolutely", 10, "capital", 7);
-//    dx->put("admire", 6, "careless", 8);
-//    dx->put("agency", 6, "certificate", 11);
-//    dx->put("aggressive", 10, "elevator", 8);
-//    dx->put("affair", 6, "eastern", 7);
-//
+
+    print(dx, "Hello", 5);
+    print(dx, "Nice", 4);
+    print(dx, "Arun", 4);
+    print(dx, "arun", 4);
+    print(dx, "resin", 5);
+    print(dx, "rinse", 5);
+    print(dx, "rickshaw", 8);
+    print(dx, "ride", 4);
+    print(dx, "rider", 5);
+    print(dx, "rid", 3);
+    print(dx, "rice", 4);
+    print(dx, "rick", 4);
+    print(dx, "aruna", 5);
+    print(dx, "hello", 5);
+    print(dx, "world", 5);
+    print(dx, "how", 3);
+    print(dx, "are", 3);
+    print(dx, "you", 3);
+    print(dx, "hundred", 7);
+    print(dx, "boy", 3);
+    print(dx, "boat", 4);
+    print(dx, "thousand", 8);
+    print(dx, "buoy", 4);
+    print(dx, "boast", 5);
+    print(dx, "January", 7);
+    print(dx, "February", 8);
+    print(dx, "March", 5);
+    print(dx, "April", 5);
+    print(dx, "May", 3);
+    print(dx, "June", 4);
+    print(dx, "July", 4);
+    print(dx, "August", 6);
+    print(dx, "September", 9);
+    print(dx, "October", 7);
+    print(dx, "November", 8);
+    print(dx, "December", 8);
+    print(dx, "Sunday", 6);
+    print(dx, "Monday", 6);
+    print(dx, "Tuesday", 7);
+    print(dx, "Wednesday", 9);
+    print(dx, "Thursday", 8);
+    print(dx, "Friday", 6);
+    print(dx, "Saturday", 8);
+    print(dx, "casa", 4);
+    print(dx, "young", 5);
+    print(dx, "youth", 5);
+    print(dx, "yousuf", 6);
+
+    dx->put("additional", 10, "check", 5);
+    dx->put("absorb", 6, "carelessly", 10);
+    dx->put("add", 3, "chairman", 8);
+    dx->put("accuse", 6, "cat", 3);
+    dx->put("act", 3, "easy", 4);
+    dx->put("adopt", 5, "charity", 7);
+    dx->put("agreement", 9, "camping", 7);
+    dx->put("actively", 8, "called", 6);
+    dx->put("aircraft", 8, "car", 3);
+    dx->put("agree", 5, "calmly", 6);
+    dx->put("adequate", 8, "else", 4);
+    dx->put("afraid", 6, "easily", 6);
+    dx->put("accident", 8, "cheaply", 7);
+    dx->put("activity", 8, "card", 4);
+    dx->put("abroad", 6, "element", 7);
+    dx->put("acquire", 7, "calm", 4);
+    dx->put("aim", 3, "chair", 5);
+    dx->put("absence", 7, "centre", 6);
+    dx->put("afterwards", 10, "careful", 7);
+    dx->put("advice", 6, "cap", 3);
+    dx->put("advertise", 9, "captain", 7);
+    dx->put("absolute", 8, "calculation", 11);
+    dx->put("acid", 4, "century", 7);
+    dx->put("address", 7, "chance", 6);
+    dx->put("advertisement", 13, "chamber", 7);
+    dx->put("advanced", 8, "carrot", 6);
+    dx->put("absolutely", 10, "capital", 7);
+    dx->put("admire", 6, "careless", 8);
+    dx->put("agency", 6, "certificate", 11);
+    dx->put("aggressive", 10, "elevator", 8);
+    dx->put("affair", 6, "eastern", 7);
+
 //    dx->put("access", 6, "cease", 5);
 //    dx->put("afternoon", 9, "east", 4);
 //    dx->put("afford", 6, "cannot", 6);
@@ -377,39 +392,39 @@ int main() {
 //    dx->put("advise", 6, "challenge", 9);
 //    dx->put("age", 3, "call", 4);
 //    dx->put("achievement", 11, "chat", 4);
-//
-//    print(dx, "additional", 10);
-//    print(dx, "absorb", 6);
-//    print(dx, "add", 3);
-//    print(dx, "accuse", 6);
-//    print(dx, "act", 3);
-//    print(dx, "adopt", 5);
-//    print(dx, "agreement", 9);
-//    print(dx, "actively", 8);
-//    print(dx, "aircraft", 8);
-//    print(dx, "agree", 5);
-//    print(dx, "adequate", 8);
-//    print(dx, "afraid", 6);
-//    print(dx, "accident", 8);
-//    print(dx, "activity", 8);
-//    print(dx, "abroad", 6);
-//    print(dx, "acquire", 7);
-//    print(dx, "aim", 3);
-//    print(dx, "absence", 7);
-//    print(dx, "afterwards", 10);
-//    print(dx, "advice", 6);
-//    print(dx, "advertise", 9);
-//    print(dx, "absolute", 8);
-//    print(dx, "acid", 4);
-//    print(dx, "address", 7);
-//    print(dx, "advertisement", 13);
-//    print(dx, "advanced", 8);
-//    print(dx, "absolutely", 10);
-//    print(dx, "admire", 6);
-//    print(dx, "agency", 6);
-//    print(dx, "aggressive", 10);
-//    print(dx, "affair", 6);
-//
+
+    print(dx, "additional", 10);
+    print(dx, "absorb", 6);
+    print(dx, "add", 3);
+    print(dx, "accuse", 6);
+    print(dx, "act", 3);
+    print(dx, "adopt", 5);
+    print(dx, "agreement", 9);
+    print(dx, "actively", 8);
+    print(dx, "aircraft", 8);
+    print(dx, "agree", 5);
+    print(dx, "adequate", 8);
+    print(dx, "afraid", 6);
+    print(dx, "accident", 8);
+    print(dx, "activity", 8);
+    print(dx, "abroad", 6);
+    print(dx, "acquire", 7);
+    print(dx, "aim", 3);
+    print(dx, "absence", 7);
+    print(dx, "afterwards", 10);
+    print(dx, "advice", 6);
+    print(dx, "advertise", 9);
+    print(dx, "absolute", 8);
+    print(dx, "acid", 4);
+    print(dx, "address", 7);
+    print(dx, "advertisement", 13);
+    print(dx, "advanced", 8);
+    print(dx, "absolutely", 10);
+    print(dx, "admire", 6);
+    print(dx, "agency", 6);
+    print(dx, "aggressive", 10);
+    print(dx, "affair", 6);
+
 //    print(dx, "access", 6);
 //    print(dx, "afternoon", 9);
 //    print(dx, "afford", 6);
@@ -504,21 +519,55 @@ int main3() {
     return 0;
 }
 
-int main1() {
+int main4() {
     GenTree::generateBitCounts();
     //linex *dx = new linex();
-    bfos *dx = new bfos();
-    //dfox *dx = new dfox();
+    //bfos *dx = new bfos();
+    dfox *dx = new dfox();
     //rb_tree *dx = new rb_tree();
     //dfos *dx = new dfos();
 
-    dx->put("rzlpoars", 8,  "plzr", 4);
-    dx->put("rigijljw", 8,  "igir", 4);
-    dx->put("rufmarfb", 8,  "mfur", 4);
+    dx->put("zwveymtg", 8, "evwz", 4);
+    dx->put("wbmjlgpp", 8, "jmbw", 4);
+    dx->put("rpbwvvuq", 8, "wbpr", 4);
+    dx->put("mwvhpnuc", 8, "hvwm", 4);
+    dx->put("jfgudfpu", 8, "ugfj", 4);
+    dx->put("txknvqmr", 8, "nkxt", 4);
+    dx->put("jqoqnxzm", 8, "qoqj", 4);
+    dx->put("tkznftxs", 8, "nzkt", 4);
+    dx->put("wrsnmhgl", 8, "nsrw", 4);
+    dx->put("qllkmucd", 8, "kllq", 4);
+    dx->put("eslxkili", 8, "xlse", 4);
+    dx->put("ncibbrwi", 8, "bicn", 4);
+    dx->put("dchdpilt", 8, "dhcd", 4);
+    dx->put("ppiqmase", 8, "qipp", 4);
+    dx->put("vldfciby", 8, "fdlv", 4);
+    dx->put("fhtdcven", 8, "dthf", 4);
+    dx->put("rwmxlbhs", 8, "xmwr", 4);
+    dx->put("irxsnnpe", 8, "sxri", 4);
+    dx->put("qgkjuaiz", 8, "jkgq", 4);
+    dx->put("lbzwnvhs", 8, "wzbl", 4);
 
-    print(dx, "rzlpoars", 8);
-    print(dx, "rigijljw", 8);
-    print(dx, "rufmarfb", 8);
+    print(dx, "zwveymtg", 8);
+    print(dx, "wbmjlgpp", 8);
+    print(dx, "rpbwvvuq", 8);
+    print(dx, "mwvhpnuc", 8);
+    print(dx, "jfgudfpu", 8);
+    print(dx, "txknvqmr", 8);
+    print(dx, "jqoqnxzm", 8);
+    print(dx, "tkznftxs", 8);
+    print(dx, "wrsnmhgl", 8);
+    print(dx, "qllkmucd", 8);
+    print(dx, "eslxkili", 8);
+    print(dx, "ncibbrwi", 8);
+    print(dx, "dchdpilt", 8);
+    print(dx, "ppiqmase", 8);
+    print(dx, "vldfciby", 8);
+    print(dx, "fhtdcven", 8);
+    print(dx, "rwmxlbhs", 8);
+    print(dx, "irxsnnpe", 8);
+    print(dx, "qgkjuaiz", 8);
+    print(dx, "lbzwnvhs", 8);
 
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
@@ -527,10 +576,23 @@ int main1() {
     return 0;
 }
 
-int main4() {
+int main5() {
     stx::btree_map<string, string> bm;
     bm.insert(pair<string, string>("hello", "world"));
     cout << bm["hello"] << endl;
+    return 1;
+}
+
+int main6() {
+    art_tree at;
+    art_tree_init(&at);
+    art_insert(&at, (const byte *) "abc", 3, (void *) "Hello", 5);
+    art_insert(&at, (const byte *) "arun", 4, (void *) "World", 5);
+    art_insert(&at, (const byte *) "absorb", 6, (void *) "ART", 5);
+    int len;
+    art_search(&at, (byte *) "abc", 3, &len);
+    art_search(&at, (byte *) "arun", 4, &len);
+    art_search(&at, (byte *) "absorb", 6, &len);
     return 1;
 }
 
@@ -621,7 +683,7 @@ int main2(int argc, char *argv[]) {
 //    for (; it != m.end(); ++it) {
 //        cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
 //                << "\"," << endl;
-//        if (ctr++ > 200)
+//        if (ctr++ > 300)
 //            break;
 //    }
 
@@ -655,8 +717,8 @@ int main2(int argc, char *argv[]) {
     //getchar();
 
     ctr = 0;
-    //dfox *dx = new dfox();
-    bfos *dx = new bfos();
+    dfox *dx = new dfox();
+    //bfos *dx = new bfos();
     //dfos *dx = new dfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();
@@ -669,14 +731,6 @@ int main2(int argc, char *argv[]) {
     stop = getTimeVal();
     cout << "DFox+Tree insert time:" << timedifference(start, stop) << endl;
     //getchar();
-
-    if (null_ctr > 0 || cmp > 0) {
-        it = m.begin();
-        for (; it != m.end(); ++it) {
-            cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
-                    << "\"," << endl;
-        }
-    }
 
     null_ctr = 0;
     cmp = 0;
@@ -745,6 +799,7 @@ int main2(int argc, char *argv[]) {
     null_ctr = 0;
     cmp = 0;
     ctr = 0;
+    //bfos::count = 0;
     it1 = m.begin();
     start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
@@ -771,11 +826,20 @@ int main2(int argc, char *argv[]) {
     cout << "Cmp:" << cmp << endl;
     cout << "DFox+Tree get time:" << timedifference(start, stop) << endl;
     std::cout << "Trie Size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES+5] << endl;
+    std::cout << "Root filled size:" << (int) util::getInt(dx->root_data + MAX_PTR_BITMAP_BYTES + 1) << endl;
     std::cout << "Data Pos:" << (int) util::getInt(dx->root_data + MAX_PTR_BITMAP_BYTES + 3) << endl;
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
     //cout << "Root filled size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES+2] << endl;
     //getchar();
+
+    if (NUM_ENTRIES <= 1000 && (null_ctr > 0 || cmp > 0)) {
+        it = m.begin();
+        for (; it != m.end(); ++it) {
+            cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
+                    << "\"," << endl;
+        }
+    }
 
     return 0;
 
