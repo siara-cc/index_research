@@ -129,17 +129,17 @@ byte *bft_node_handler::nextPtr(bft_iterator_status& s) {
         s.keyPos++;
         s.t += s.is_child_pending;
     } else if (s.is_next) {
-        while (*s.t & x80) {
+        while (*s.t & x01) {
             s.keyPos--;
             s.t = trie + s.tp[s.keyPos];
         }
-        s.t += (*s.t & x01 ? 4 : 2);
+        s.t += (*s.t & x80 ? 4 : 2);
     } else
         s.is_next = 1;
     do {
         s.tp[s.keyPos] = s.t - trie;
         s.is_child_pending = *s.t & 0x7E;
-        if (*s.t & x01)
+        if (*s.t & x80)
             return s.t + 1;
         else {
             s.keyPos++;
@@ -336,7 +336,7 @@ void bft_node_handler::updatePtrs(byte *upto, int diff) {
         byte child = (*t & 0x7E);
         if (child && (t + child) >= upto)
             *t = (*t & 0x81) | (child + diff);
-        if (*t & x01)
+        if (*t & x80)
             t += 2;
         t += 2;
     }
@@ -352,7 +352,7 @@ int16_t bft_node_handler::insertCurrent() {
     case INSERT_AFTER:
         key_char = key[keyPos - 1];
         origPos++;
-        *origPos &= 0x7F;
+        *origPos &= 0xFE;
         updatePtrs(triePos, 4);
         insAt(triePos, key_char, 0x81, 0, 0);
         ret = triePos - trie + 2;
@@ -362,13 +362,13 @@ int16_t bft_node_handler::insertCurrent() {
         updatePtrs(origPos, 4);
         if (keyPos > 1 && last_child_pos)
             trie[last_child_pos] -= 4;
-        insAt(origPos, key_char, x01, 0, 0);
+        insAt(origPos, key_char, x80, 0, 0);
         ret = origPos - trie + 2;
         break;
     case INSERT_LEAF:
         key_char = key[keyPos - 1];
         childPos = origPos + 1;
-        *childPos |= x01;
+        *childPos |= x80;
         childPos++;
         updatePtrs(childPos, 2);
         insAt(childPos, 0, 0);
@@ -386,7 +386,7 @@ int16_t bft_node_handler::insertCurrent() {
         min = util::min(key_len, keyPos + key_at_len);
         ptr = util::getInt(triePos);
         if (p < min) {
-            (*childPos) &= 0xFE;
+            (*childPos) &= 0x7F;
             delAt(triePos, 2);
             updatePtrs(triePos, -2);
         } else {
@@ -406,7 +406,7 @@ int16_t bft_node_handler::insertCurrent() {
             switch (c1 == c2 ? (p + 1 == min ? 2 : 1) : 0) {
             case 0:
                 append(c1);
-                append(x01);
+                append(x80);
                 ret = isSwapped ? ret : TRIE_LEN;
                 pos = isSwapped ? TRIE_LEN : pos;
                 appendPtr(isSwapped ? ptr : 0);
@@ -418,7 +418,7 @@ int16_t bft_node_handler::insertCurrent() {
                 break;
             case 1:
                 append(c1);
-                append(0x82);
+                append(0x03);
                 break;
             case 2:
                 append(c1);
@@ -478,13 +478,13 @@ byte *bft_node_handler::getFirstPtr() {
 int16_t bft_node_handler::getLastPtrOfChild(byte *triePos) {
     do {
         byte children = (0x7E & *triePos);
-        if (*triePos & x80) {
+        if (*triePos & x01) {
             if (children)
                 triePos += children;
             else
                 return util::getInt(triePos + 1);
         } else {
-            if (*triePos & x01)
+            if (*triePos & x80)
                 triePos += 4;
             else
                 triePos += 2;
@@ -518,7 +518,7 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
         if (key_char > trie_char) {
             last_t = origPos;
             last_child_pos = 0;
-            if (*t & 0x80) {
+            if (*t & 0x01) {
                 byte r_children = (*t & 0x7E);
                 if (r_children)
                     keyFoundAt = buf + getLastPtrOfChild(t + r_children);
@@ -533,12 +533,12 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
                 key_char = *key;
                 t = trie;
             } else {
-                if (*t++ & x01)
+                if (*t++ & x80)
                     t += 2;
             }
         } else if (key_char == trie_char) {
             byte r_children = *t++;
-            switch (r_children & x01 ?
+            switch (r_children & x80 ?
                     (r_children & 0x7E ? (keyPos == key_len ? 3 : 1) : 2) :
                     (r_children & 0x7E ? (keyPos == key_len ? 0 : 4) : 0)) {
             case 2:
@@ -581,8 +581,7 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
                 keyFoundAt = getLastPtr(last_t);
                 keyFoundAt += (*keyFoundAt + 2);
                 setBuf((byte *) util::fourBytesToPtr(keyFoundAt));
-                if (node_paths)
-                    node_paths[level++] = buf;
+                node_paths[level++] = buf;
                 if (isLeaf())
                     return;
                 keyPos = 1;
@@ -631,9 +630,9 @@ int16_t bft_node_handler::locateKeyInLeaf() {
         if (key_char > trie_char) {
             last_child_pos = 0;
             r_children = *t++;
-            if (r_children & x01)
+            if (r_children & x80)
                 t += 2;
-            if (r_children & 0x80) {
+            if (r_children & x01) {
                 if (isPut) {
                     triePos = t;
                     insertState = INSERT_AFTER;
@@ -644,7 +643,7 @@ int16_t bft_node_handler::locateKeyInLeaf() {
         } else if (key_char == trie_char) {
             last_child_pos = 0;
             r_children = *t++;
-            switch (r_children & x01 ?
+            switch (r_children & x80 ?
                     (r_children & 0x7E ? (keyPos == key_len ? 3 : 1) : 2) :
                     (r_children & 0x7E ? (keyPos == key_len ? 0 : 1) : 0)) {
             case 2:
