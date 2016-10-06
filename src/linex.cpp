@@ -104,10 +104,10 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
             //if (maxKeyCount < block->filledSize())
             //    maxKeyCount = block->filledSize();
             //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
-            if (!node->isLeaf())
+            if (node->isLeaf())
                 maxKeyCount += node->filledUpto();
             int16_t brk_idx;
-            byte new_block_first_key[40];
+            byte new_block_first_key[100];
             int16_t first_key_len;
             byte *b = node->split(&brk_idx, new_block_first_key,
                     &first_key_len);
@@ -126,10 +126,10 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
                 idx = ~node->locate(level);
                 node->addData(idx);
             }
-            if (!node->isLeaf())
+            if (node->isLeaf())
                 blockCount++;
             if (root_data == node->buf) {
-                blockCount++;
+                //blockCount++;
                 root_data = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
                 linex_node_handler root(root_data);
                 root.initBuf();
@@ -279,17 +279,11 @@ byte *linex_node_handler::split(int16_t *pbrk_idx, byte *first_key,
                 brk_kv_pos = kv_last_pos;
                 int16_t first_idx = getPtr(new_idx + 1);
                 if (isLeaf()) {
-                    if (buf[first_idx + 1] != buf[src_idx + 1]) {
-                        *first_len_ptr = 1;
-                        first_key[0] = buf[first_idx + 1];
-                    } else {
-                        int16_t len = util::compare(
-                                (const char *) buf + first_idx + 1,
-                                buf[first_idx],
-                                (const char *) buf + src_idx + 1, buf[src_idx]);
-                        *first_len_ptr = len;
-                        memcpy(first_key, buf + first_idx + 1, *first_len_ptr);
-                    }
+                    int len = 0;
+                    while (buf[first_idx + len + 1] == buf[src_idx + len + 1])
+                        len++;
+                    *first_len_ptr = len + 1;
+                    memcpy(first_key, buf + first_idx + 1, *first_len_ptr);
                 } else {
                     *first_len_ptr = buf[first_idx];
                     memcpy(first_key, buf + first_idx + 1, *first_len_ptr);
@@ -482,7 +476,7 @@ bool linex_node_handler::isFull(int16_t kv_len) {
     kv_len += 2;
     spaceLeft -= (filledUpto() * 2);
 #endif
-    spaceLeft -= 4;
+    spaceLeft -= 2;
     spaceLeft -= BLK_HDR_SIZE;
     if (spaceLeft < kv_len)
         return true;
