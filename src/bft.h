@@ -8,6 +8,7 @@
 using namespace std;
 
 #define BFT_INT64MAP 1
+#define BFT_UNIT_SZ_4 1
 #define BFT_9_BIT_PTR 0
 
 #define BFT_NODE_SIZE 512
@@ -114,7 +115,7 @@ public:
     inline byte *getKey(int16_t ptr, int16_t *plen);
     byte *getData(int16_t ptr, int16_t *plen);
     byte *split(int16_t *pbrk_idx, char *first_key, int16_t *first_len_ptr);
-    int16_t locateKeyInLeaf();
+    int16_t locate();
     void traverseToLeaf(byte *node_paths[]);
     byte *getFirstPtr();
     int16_t insertCurrent();
