@@ -7,8 +7,6 @@
 
 using namespace std;
 
-#define BFT_INT64MAP 1
-#define BFT_UNIT_SZ_4 1
 #define BFT_9_BIT_PTR 0
 
 #define BFT_NODE_SIZE 512
