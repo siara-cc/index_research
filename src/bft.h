@@ -64,21 +64,26 @@ private:
     static const byte xFF = 0xFF;
     inline void insAt(byte *ptr, byte b);
     inline byte insAt(byte *ptr, byte b1, byte b2);
+    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3);
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4);
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4, byte b5);
     inline void setAt(byte pos, byte b);
     inline void append(byte b);
+    inline void append(byte b1, byte b2);
+    inline void append(byte b1, byte b2, byte b3);
     inline void appendPtr(int16_t p);
     inline byte getAt(byte pos);
     inline void delAt(byte *ptr);
     inline void delAt(byte *ptr, int16_t count);
     inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
-    byte *nextPtr(bft_iterator_status& s);
+    int16_t nextPtr(bft_iterator_status& s);
     //byte *nextPtr(bft_iterator_status& s,
     //        bft_node_handler *other_trie, bft_iterator_status *s_last);
     int16_t getLastPtrOfChild(byte *triePos);
     inline byte *getLastPtr(byte *last_t);
+    inline int16_t get9bitPtr(byte *t);
+    void set9bitPtr(byte *t, int16_t p);
     static byte *alignedAlloc();
 public:
     byte *buf;
@@ -115,7 +120,7 @@ public:
     byte *split(int16_t *pbrk_idx, char *first_key, int16_t *first_len_ptr);
     int16_t locate();
     void traverseToLeaf(byte *node_paths[]);
-    byte *getFirstPtr();
+    int16_t getFirstPtr();
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);
 };
