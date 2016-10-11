@@ -506,8 +506,8 @@ int16_t bft_node_handler::getFirstPtr() {
 
 int16_t bft_node_handler::getLastPtrOfChild(byte *triePos) {
     do {
-        byte children = (0x3F & *triePos);
         if (*triePos & 0x40) {
+            byte children = (0x3F & *triePos);
             if (children)
                 triePos += (children * 3);
             else
@@ -520,7 +520,6 @@ int16_t bft_node_handler::getLastPtrOfChild(byte *triePos) {
 
 byte *bft_node_handler::getLastPtr(byte *last_t) {
     byte last_child;
-    last_t++;
     last_child = (0x3F & *last_t);
     if (!last_child || last_child_pos)
         return buf + get9bitPtr(last_t);
@@ -528,7 +527,6 @@ byte *bft_node_handler::getLastPtr(byte *last_t) {
 }
 
 void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
-    keyPos = 1;
     byte level;
     byte key_char = *key;
     byte *t = trie;
@@ -539,13 +537,11 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
     last_child_pos = 0;
     do {
         byte trie_char;
-        origPos = t;
         trie_char = *t;
         if (key_char > trie_char) {
             //switch (key_char > trie_char ? 0 : (key_char == trie_char ? 1 : 2)) {
             //case 0:
-            t++;
-            last_t = origPos;
+            last_t = ++t;
             last_child_pos = 0;
             if (*t & 0x40) {
                 byte r_children = *t & 0x3F;
@@ -569,24 +565,19 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
                     (r_children ? (keyPos == key_len ? 0 : 4) : 0)) {
             case 2:
                 int16_t cmp;
-                key_at = (char *) buf + ptr;
+                keyFoundAt = buf + ptr;
+                key_at = (char *) keyFoundAt;
                 key_at_len = *key_at;
-                keyFoundAt = (const byte *) key_at;
                 key_at++;
                 cmp = util::compare(key + keyPos, key_len - keyPos, key_at,
                         key_at_len);
-                if (cmp == 0) {
-                    NEXT_LEVEL();
-                    continue;
-                }
                 if (cmp < 0)
-                    ptr = 0;
-                keyFoundAt = ptr ? buf + ptr : getLastPtr(last_t);
+                    keyFoundAt = getLastPtr(last_t);
                 NEXT_LEVEL()
                 ;
                 continue;
             case 1:
-                last_t = origPos;
+                last_t = t;
                 last_child_pos = 1;
                 break;
             case 0:
@@ -595,7 +586,7 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
                 ;
                 continue;
             case 3:
-                keyFoundAt = buf + get9bitPtr(t);
+                keyFoundAt = buf + ptr;
                 NEXT_LEVEL()
                 ;
                 continue;
@@ -614,9 +605,9 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
 }
 
 int16_t bft_node_handler::locate() {
-    keyPos = 1;
     byte key_char = *key;
     byte *t = trie;
+    keyPos = 1;
     do {
         byte trie_char, r_children;
         origPos = t;
@@ -649,15 +640,14 @@ int16_t bft_node_handler::locate() {
                     (r_children ? (keyPos == key_len ? 0 : 1) : 0)) {
             case 2:
                 int16_t cmp;
-                key_at = (char *) buf + ptr;
+                keyFoundAt = buf + ptr;
+                key_at = (char *) keyFoundAt;
                 key_at_len = *key_at;
                 key_at++;
                 cmp = util::compare(key + keyPos, key_len - keyPos, key_at,
                         key_at_len);
-                if (cmp == 0) {
-                    keyFoundAt = buf + ptr;
+                if (cmp == 0)
                     return ptr;
-                }
                 if (isPut) {
                     insertState = INSERT_THREAD;
                     if (cmp < 0)
@@ -674,7 +664,7 @@ int16_t bft_node_handler::locate() {
                 }
                 return -1;
             case 3:
-                keyFoundAt = buf + get9bitPtr(t);
+                keyFoundAt = buf + ptr;
                 return 1;
             }
             last_child_pos = t - trie;
