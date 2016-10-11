@@ -119,7 +119,7 @@ public:
     byte *getData(int16_t ptr, int16_t *plen);
     byte *split(int16_t *pbrk_idx, char *first_key, int16_t *first_len_ptr);
     int16_t locate();
-    void traverseToLeaf(byte *node_paths[]);
+    void traverseToLeaf(byte *node_paths[] = null);
     int16_t getFirstPtr();
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);
