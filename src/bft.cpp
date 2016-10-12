@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "bft.h"
 
-#define NEXT_LEVEL() keyFoundAt += (*keyFoundAt + 1); \
+#define NEXT_LEVEL() keyFoundAt += (*keyFoundAt + 2); \
                 setBuf((byte *) util::fourBytesToPtr(keyFoundAt)); \
                 if (isPut) node_paths[level++] = buf; \
                 if (isLeaf()) \
@@ -58,9 +58,9 @@ void bft::recursiveUpdate(bft_node_handler *node, int16_t pos,
             //    maxKeyCount = block->filledSize();
             //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
             //cout << (int) node->TRIE_LEN << endl;
-            if (node->isLeaf())
-                maxKeyCount += node->filledSize();
-            //    maxKeyCount += node->TRIE_LEN;
+            if (!node->isLeaf())
+                //maxKeyCount += node->filledSize();
+                maxKeyCount += node->TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
             int16_t brk_idx;
             char first_key[64];
@@ -83,10 +83,10 @@ void bft::recursiveUpdate(bft_node_handler *node, int16_t pos,
                 idx = ~node->locate();
                 node->addData(idx);
             }
-            if (node->isLeaf())
+            if (!node->isLeaf())
                 blockCount++;
             if (root_data == node->buf) {
-                //blockCount++;
+                blockCount++;
                 root_data = (byte *) util::alignedAlloc(BFT_NODE_SIZE);
                 bft_node_handler root(root_data);
                 root.initBuf();
@@ -193,11 +193,11 @@ byte *bft_node_handler::split(int16_t *pbrk_idx, char *first_key,
         ins_key_len = kv_len;
         kv_len++;
         memcpy(ins_key + s.keyPos, buf + src_idx, kv_len);
-        if (isLeaf()) {
+        //if (isLeaf()) {
             ins_block->value_len = buf[src_idx + kv_len];
             kv_len++;
-        } else
-            ins_block->value_len = 4;
+        //} else
+        //    ins_block->value_len = 4;
         ins_block->value = (const char *) buf + src_idx + kv_len;
         kv_len += ins_block->value_len;
         tot_len += kv_len;
@@ -294,11 +294,11 @@ void bft_node_handler::addData(int16_t pos) {
     buf[kv_last_pos] = key_left;
     if (key_left)
         memcpy(buf + kv_last_pos + 1, key + keyPos, key_left);
-    if (isLeaf()) {
+    //if (isLeaf()) {
         buf[kv_last_pos + key_left + 1] = value_len;
         memcpy(buf + kv_last_pos + key_left + 2, value, value_len);
-    } else
-        memcpy(buf + kv_last_pos + key_left + 1, value, value_len);
+    //} else
+    //    memcpy(buf + kv_last_pos + key_left + 1, value, value_len);
     setFilledSize(filledSize() + 1);
 
 }
@@ -316,9 +316,15 @@ void bft_node_handler::setFilledSize(int16_t filledSize) {
 }
 
 bool bft_node_handler::isFull(int16_t kv_len) {
-    if ((getKVLastPos() - kv_len - 2) < (BFT_HDR_SIZE + TRIE_LEN + need_count))
+    if (TRIE_LEN + need_count > 189) {
+        if (origPos - trie < 64) {
+           return true;
+        }
+    }
+    if ((getKVLastPos() - kv_len - 2) < (BFT_HDR_SIZE + TRIE_LEN + need_count)) {
         return true;
-    if (TRIE_LEN + need_count > 189)
+    }
+    if (TRIE_LEN + need_count > 240)
         return true;
     return false;
 }
@@ -536,11 +542,8 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
         *node_paths = buf;
     last_child_pos = 0;
     do {
-        byte trie_char;
-        trie_char = *t;
+        byte trie_char = *t;
         if (key_char > trie_char) {
-            //switch (key_char > trie_char ? 0 : (key_char == trie_char ? 1 : 2)) {
-            //case 0:
             last_t = ++t;
             last_child_pos = 0;
             if (*t & 0x40) {
@@ -553,7 +556,6 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
             } else
                 t += 2;
             continue;
-            //case 1:
         } else if (key_char == trie_char) {
             byte r_children;
             int16_t ptr;
@@ -576,15 +578,15 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
                 NEXT_LEVEL()
                 ;
                 continue;
-            case 1:
-                last_t = t;
-                last_child_pos = 1;
-                break;
             case 0:
                 keyFoundAt = getLastPtr(last_t);
                 NEXT_LEVEL()
                 ;
                 continue;
+            case 1:
+                last_t = t;
+                last_child_pos = 1;
+                break;
             case 3:
                 keyFoundAt = buf + ptr;
                 NEXT_LEVEL()
@@ -596,7 +598,6 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
             key_char = key[keyPos++];
             continue;
         } else {
-            //case 2:
             keyFoundAt = getLastPtr(last_t);
             NEXT_LEVEL();
             continue;
@@ -613,8 +614,6 @@ int16_t bft_node_handler::locate() {
         origPos = t;
         trie_char = *t;
         if (key_char > trie_char) {
-            //switch (key_char > trie_char ? 0 : (key_char == trie_char ? 1 : 2)) {
-            //case 0:
             last_child_pos = 0;
             t++;
             r_children = *t++;
@@ -629,7 +628,6 @@ int16_t bft_node_handler::locate() {
             }
             continue;
         } else if (key_char == trie_char) {
-            //case 1:
             int16_t ptr;
             last_child_pos = 0;
             t++;
@@ -655,14 +653,14 @@ int16_t bft_node_handler::locate() {
                     need_count = (cmp * 3) + 6;
                 }
                 return -1;
-            case 1:
-                break;
             case 0:
                 if (isPut) {
                     triePos = t;
                     insertState = INSERT_LEAF;
                 }
                 return -1;
+            case 1:
+                break;
             case 3:
                 keyFoundAt = buf + ptr;
                 return 1;
@@ -673,7 +671,6 @@ int16_t bft_node_handler::locate() {
             key_char = key[keyPos++];
             continue;
         } else {
-            //case 2:
             if (isPut) {
                 insertState = INSERT_BEFORE;
                 need_count = 3;
