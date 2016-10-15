@@ -11,18 +11,15 @@ using namespace std;
 
 #define BFT_NODE_SIZE 512
 
-#if BFT_9_BIT_PTR == 1
-#define MAX_PTR_BITMAP_BYTES 8
-#define MAX_PTRS 63
-#else
 #define MAX_PTR_BITMAP_BYTES 0
 #define MAX_PTRS 240
-#endif
+
 #define BFT_HDR_SIZE (MAX_PTR_BITMAP_BYTES+6)
 #define IS_LEAF_BYTE buf[MAX_PTR_BITMAP_BYTES]
 #define FILLED_SIZE buf + MAX_PTR_BITMAP_BYTES + 1
 #define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 3
 #define TRIE_LEN buf[MAX_PTR_BITMAP_BYTES+5]
+//#define PREFIX_LEN buf[MAX_PTR_BITMAP_BYTES+6]
 
 #define INSERT_AFTER 1
 #define INSERT_BEFORE 2
@@ -57,11 +54,17 @@ private:
     static const byte x06 = 6;
     static const byte x07 = 7;
     static const byte x08 = 8;
+    static const byte x3F = 0x3F;
+    static const byte x40 = 0x40;
+    static const byte x41 = 0x41;
+    static const byte x7F = 0x7F;
     static const byte x80 = 0x80;
+    static const byte xBF = 0xBF;
     static const byte xF8 = 0xF8;
     static const byte xFB = 0xFB;
     static const byte xFE = 0xFE;
     static const byte xFF = 0xFF;
+    static const int16_t x100 = 0x100;
     inline void insAt(byte *ptr, byte b);
     inline byte insAt(byte *ptr, byte b1, byte b2);
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3);
@@ -96,12 +99,11 @@ public:
     int keyPos;
     const char *key;
     int key_len;
-    const char *key_at;
+    byte *key_at;
     int16_t key_at_len;
     int16_t last_child_pos;
     const char *value;
     int16_t value_len;
-    const byte *keyFoundAt;
     bft_node_handler(byte *m);
     void initBuf();
     inline void initVars();
