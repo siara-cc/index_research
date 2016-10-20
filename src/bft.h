@@ -14,18 +14,19 @@ using namespace std;
 #define MAX_PTR_BITMAP_BYTES 0
 #define MAX_PTRS 240
 
-#define BFT_HDR_SIZE (MAX_PTR_BITMAP_BYTES+6)
+#define BFT_HDR_SIZE (MAX_PTR_BITMAP_BYTES+7)
 #define IS_LEAF_BYTE buf[MAX_PTR_BITMAP_BYTES]
 #define FILLED_SIZE buf + MAX_PTR_BITMAP_BYTES + 1
 #define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 3
 #define TRIE_LEN buf[MAX_PTR_BITMAP_BYTES+5]
-//#define PREFIX_LEN buf[MAX_PTR_BITMAP_BYTES+6]
+#define PREFIX_LEN buf[MAX_PTR_BITMAP_BYTES+6]
 
 #define INSERT_AFTER 1
 #define INSERT_BEFORE 2
 #define INSERT_LEAF 3
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5
+#define INSERT_SPLIT 6
 
 #define MAX_KEY_PREFIX_LEN 20
 
@@ -36,9 +37,9 @@ public:
     byte is_next;
     byte is_child_pending;
     byte tp[MAX_KEY_PREFIX_LEN];
-    bft_iterator_status(byte *trie) {
+    bft_iterator_status(byte *trie, byte prefix_len) {
         t = trie + 1;
-        keyPos = 0;
+        keyPos = prefix_len;
         is_child_pending = is_next = 0;
     }
 };
@@ -87,6 +88,7 @@ private:
     inline byte *getLastPtr(byte *last_t);
     inline int16_t get9bitPtr(byte *t);
     void set9bitPtr(byte *t, int16_t p);
+    int16_t deletePrefix(int16_t prefix_len);
     static byte *alignedAlloc();
 public:
     byte *buf;
@@ -117,13 +119,14 @@ public:
     inline void setKVLastPos(int16_t val);
     void addData(int16_t pos);
     byte *getChild(int16_t pos);
+    byte *getChildPtr(byte *ptr);
     inline byte *getKey(int16_t ptr, int16_t *plen);
     byte *getData(int16_t ptr, int16_t *plen);
-    byte *split(int16_t *pbrk_idx, char *first_key, int16_t *first_len_ptr);
+    byte *split(int16_t *pbrk_idx, byte *first_key, int16_t *first_len_ptr);
     int16_t locate();
     void traverseToLeaf(byte *node_paths[] = null);
     int16_t getFirstPtr();
-    int16_t insertCurrent();
+    int16_t insertCurrent(int is_main);
     void updatePtrs(byte *upto, int diff);
 };
 

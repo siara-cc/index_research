@@ -4,14 +4,13 @@
 #include <stdint.h>
 #include "bft.h"
 
-#define NEXT_LEVEL() key_at += (*key_at + 2); \
-                setBuf((byte *) util::fourBytesToPtr(key_at)); \
-                if (isPut) node_paths[level++] = buf; \
-                if (isLeaf()) \
-                    return; \
-                keyPos = 1; \
-                key_char = *key; \
-                t = trie;
+#define NEXT_LEVEL setBuf(getChildPtr(key_at)); \
+    if (isPut) node_paths[level++] = buf; \
+    if (isLeaf()) \
+        return; \
+    keyPos = PREFIX_LEN; \
+    key_char = key[keyPos++]; \
+    t = trie;
 
 char *bft::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     bft_node_handler node(root_data);
@@ -37,7 +36,7 @@ void bft::put(const char *key, int16_t key_len, const char *value,
     node.value_len = value_len;
     node.isPut = true;
     if (node.filledSize() == 0) {
-        node.addData(0);
+        node.addData(1);
         total_size++;
     } else {
         if (!node.isLeaf())
@@ -63,13 +62,13 @@ void bft::recursiveUpdate(bft_node_handler *node, int16_t pos,
             //    maxKeyCount += node->TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
             int16_t brk_idx;
-            char first_key[64];
+            byte first_key[64];
             int16_t first_len;
             byte *b = node->split(&brk_idx, first_key, &first_len);
             bft_node_handler new_block(b);
             new_block.isPut = true;
-            int16_t cmp = util::compare(first_key, first_len, node->key,
-                    node->key_len);
+            int16_t cmp = util::compare((char *) first_key, first_len,
+                    node->key, node->key_len);
             if (cmp <= 0) {
                 new_block.initVars();
                 new_block.key = node->key;
@@ -77,11 +76,11 @@ void bft::recursiveUpdate(bft_node_handler *node, int16_t pos,
                 new_block.value = node->value;
                 new_block.value_len = node->value_len;
                 idx = ~new_block.locate();
-                new_block.addData(idx);
+                new_block.addData(1);
             } else {
                 node->initVars();
                 idx = ~node->locate();
-                node->addData(idx);
+                node->addData(1);
             }
             if (!node->isLeaf())
                 blockCount++;
@@ -92,40 +91,40 @@ void bft::recursiveUpdate(bft_node_handler *node, int16_t pos,
                 root.initBuf();
                 root.isPut = true;
                 root.setLeaf(0);
-                char addr[5];
+                byte addr[9];
                 util::ptrToFourBytes((unsigned long) node->buf, addr);
                 root.initVars();
                 root.key = "";
                 root.key_len = 1;
-                root.value = addr;
+                root.value = (char *) addr;
                 root.value_len = sizeof(char *);
                 root.addData(0);
                 util::ptrToFourBytes((unsigned long) new_block.buf, addr);
                 root.initVars();
-                root.key = first_key;
+                root.key = (char *) first_key;
                 root.key_len = first_len;
-                root.value = addr;
-                //root.value_len = sizeof(char *);
+                root.value = (char *) addr;
+                root.value_len = sizeof(char *);
                 root.locate();
-                root.addData(1);
+                root.addData(0);
                 numLevels++;
             } else {
                 int16_t prev_level = level - 1;
                 byte *parent_data = node_paths[prev_level];
                 bft_node_handler parent(parent_data);
-                char addr[5];
+                byte addr[9];
                 util::ptrToFourBytes((unsigned long) new_block.buf, addr);
                 parent.initVars();
                 parent.isPut = true;
-                parent.key = first_key;
+                parent.key = (char *) first_key;
                 parent.key_len = first_len;
-                parent.value = addr;
+                parent.value = (char *) addr;
                 parent.value_len = sizeof(char *);
                 parent.locate();
                 recursiveUpdate(&parent, -1, node_paths, prev_level);
             }
         } else
-            node->addData(idx);
+            node->addData(1);
     } else {
         //if (node->isLeaf) {
         //    int16_t vIdx = idx + mSizeBy2;
@@ -161,7 +160,7 @@ int16_t bft_node_handler::nextPtr(bft_iterator_status& s) {
     return 0;
 }
 
-byte *bft_node_handler::split(int16_t *pbrk_idx, char *first_key,
+byte *bft_node_handler::split(int16_t *pbrk_idx, byte *first_key,
         int16_t *first_len_ptr) {
     int16_t orig_filled_size = filledSize();
     byte *b = (byte *) util::alignedAlloc(BFT_NODE_SIZE);
@@ -184,31 +183,38 @@ byte *bft_node_handler::split(int16_t *pbrk_idx, char *first_key,
     int16_t tot_len = 0;
     // (1) move all data to new_block in order
     int16_t idx;
-    byte ins_key[64];
-    int16_t ins_key_len;
-    bft_iterator_status s(trie);
+    byte ins_key[64], old_first_key[64];
+    int16_t ins_key_len, old_first_len;
+    bft_iterator_status s(trie, PREFIX_LEN);
     for (idx = 0; idx < orig_filled_size; idx++) {
         int16_t src_idx = nextPtr(s);
         int16_t kv_len = buf[src_idx];
         ins_key_len = kv_len;
         kv_len++;
         memcpy(ins_key + s.keyPos, buf + src_idx, kv_len);
-        //if (isLeaf()) {
-        ins_block->value_len = buf[src_idx + kv_len];
-        kv_len++;
-        //} else
-        //    ins_block->value_len = 4;
+        if (isLeaf()) {
+            ins_block->value_len = buf[src_idx + kv_len];
+            kv_len++;
+        } else
+            ins_block->value_len = sizeof(char *);
         ins_block->value = (const char *) buf + src_idx + kv_len;
         kv_len += ins_block->value_len;
         tot_len += kv_len;
-        ins_key_len += s.keyPos + 1;
-        for (int i = 0; i <= s.keyPos; i++)
+        for (int i = PREFIX_LEN; i <= s.keyPos; i++)
             ins_key[i] = trie[s.tp[i] - 1];
+        for (int i = 0; i < PREFIX_LEN; i++)
+            ins_key[i] = key[i];
+        ins_key_len += s.keyPos;
+        ins_key_len++;
+        if (idx == 0) {
+            memcpy(old_first_key, ins_key, ins_key_len);
+            old_first_len = ins_key_len;
+        }
         ins_block->key = (char *) ins_key;
         ins_block->key_len = ins_key_len;
         if (idx && brk_idx >= 0)
             ins_block->locate();
-        ins_block->addData(kv_last_pos);
+        ins_block->addData(0);
         if (brk_idx < 0) {
             brk_idx = -brk_idx;
             s.keyPos++;
@@ -231,9 +237,43 @@ byte *bft_node_handler::split(int16_t *pbrk_idx, char *first_key,
         }
     }
     memcpy(buf, old_block.buf, BFT_NODE_SIZE);
+    if (first_key[0] - old_first_key[0] < 2) {
+        int16_t len_to_chk = util::min(old_first_len, *first_len_ptr);
+        int16_t prefix = 0;
+        while (prefix < len_to_chk) {
+            if (old_first_key[prefix] != first_key[prefix]) {
+                if (first_key[prefix] - old_first_key[prefix] > 1)
+                    prefix--;
+                break;
+            }
+            prefix++;
+        }
+        if (PREFIX_LEN) {
+            new_block.deletePrefix(PREFIX_LEN);
+            new_block.PREFIX_LEN = PREFIX_LEN;
+        }
+        prefix -= deletePrefix(prefix);
+        PREFIX_LEN = prefix;
+    }
 
     *pbrk_idx = brk_idx;
     return new_block.buf;
+}
+
+int16_t bft_node_handler::deletePrefix(int16_t prefix_len) {
+    byte *t = trie;
+    while (prefix_len--) {
+        byte *delete_start = t++;
+        if (get9bitPtr(t)) {
+            prefix_len++;
+            return prefix_len;
+        }
+        t += (*t & x3F);
+        TRIE_LEN -= 3;
+        memmove(delete_start, delete_start + 3, TRIE_LEN);
+        t -= 3;
+    }
+    return prefix_len + 1;
 }
 
 bft::bft() {
@@ -260,6 +300,7 @@ void bft_node_handler::initBuf() {
     setLeaf(1);
     setFilledSize(0);
     TRIE_LEN = 0;
+    PREFIX_LEN = 0;
     keyPos = 1;
     insertState = INSERT_EMPTY;
     setKVLastPos(BFT_NODE_SIZE);
@@ -281,12 +322,12 @@ int16_t bft_node_handler::getKVLastPos() {
 
 void bft_node_handler::addData(int16_t pos) {
 
-    int16_t ptr = insertCurrent();
+    int16_t ptr = insertCurrent(pos);
 
     int16_t key_left = key_len - keyPos;
-    int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
-    //if (isLeaf())
-    //    kv_last_pos--;
+    int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 1);
+    if (isLeaf())
+        kv_last_pos--;
     setKVLastPos(kv_last_pos);
     trie[ptr] = kv_last_pos;
     if (kv_last_pos & x100)
@@ -296,11 +337,12 @@ void bft_node_handler::addData(int16_t pos) {
     buf[kv_last_pos] = key_left;
     if (key_left)
         memcpy(buf + kv_last_pos + 1, key + keyPos, key_left);
-    //if (isLeaf()) {
-    buf[kv_last_pos + key_left + 1] = value_len;
-    memcpy(buf + kv_last_pos + key_left + 2, value, value_len);
-    //} else
-    //    memcpy(buf + kv_last_pos + key_left + 1, value, value_len);
+    if (isLeaf()) {
+        buf[kv_last_pos + key_left + 1] = value_len;
+        memcpy(buf + kv_last_pos + key_left + 2, value, value_len);
+    } else {
+        memcpy(buf + kv_last_pos + key_left + 1, value, value_len);
+    }
     setFilledSize(filledSize() + 1);
 
 }
@@ -318,10 +360,10 @@ void bft_node_handler::setFilledSize(int16_t filledSize) {
 }
 
 bool bft_node_handler::isFull(int16_t kv_len) {
-    if (TRIE_LEN + need_count > 189) {
-        if (origPos - trie < 64) {
-            return true;
-        }
+    if ((TRIE_LEN + need_count) > 189) {
+        //if ((origPos - trie) < (63 + need_count)) {
+        return true;
+        //}
     }
     if ((getKVLastPos() - kv_len - 2)
             < (BFT_HDR_SIZE + TRIE_LEN + need_count)) {
@@ -341,6 +383,34 @@ byte *bft_node_handler::getChild(int16_t pos) {
     unsigned long addr_num = util::fourBytesToPtr(idx);
     byte *ret = (byte *) addr_num;
     return ret;
+}
+
+byte *bft_node_handler::getChildPtr(byte *ptr) {
+    ptr += (*ptr + 1);
+    return (byte *) util::fourBytesToPtr(ptr);
+/*    unsigned long ret;
+    byte flags_n_len = *key_at;
+    key_at += ((flags_n_len * 0x1F) + 1);
+#if defined(ENV64BIT)
+    byte left = 7;
+#else
+    byte left = 3;
+#endif
+    ret = (flags_n_len & 0x20 ? buf[BFT_NODE_SIZE - 1 - left] : *key_at++);
+    flags_n_len >>= 6;
+    int i = 1;
+    while (i <= flags_n_len) {
+        ret |= (*key_at++ << i * 8);
+        left--;
+        i++;
+    }
+    key_at = buf[BFT_NODE_SIZE - left];
+    while (i <= left) {
+        ret |= *key_at++ << i * 8;
+        i++;
+    }
+    return (byte *) ret;
+    */
 }
 
 byte *bft_node_handler::getKey(int16_t ptr, int16_t *plen) {
@@ -370,7 +440,7 @@ void bft_node_handler::updatePtrs(byte *upto, int diff) {
     }
 }
 
-int16_t bft_node_handler::insertCurrent() {
+int16_t bft_node_handler::insertCurrent(int is_main) {
     byte key_char;
     int16_t ret, ptr, pos;
     ret = pos = 0;
@@ -510,7 +580,7 @@ int16_t bft_node_handler::insertCurrent() {
 }
 
 int16_t bft_node_handler::getFirstPtr() {
-    bft_iterator_status s(trie);
+    bft_iterator_status s(trie, PREFIX_LEN);
     return nextPtr(s);
 }
 
@@ -544,7 +614,6 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
     level = keyPos = 1;
     if (isPut)
         *node_paths = buf;
-    last_child_pos = 0;
     do {
         byte trie_char = *t;
         if (key_char > trie_char) {
@@ -555,7 +624,7 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
                     key_at = buf + getLastPtrOfChild(t + r_children * 3);
                 else
                     key_at = buf + get9bitPtr(t);
-                NEXT_LEVEL();
+                NEXT_LEVEL
             } else
                 t += 2;
             last_child_pos = 0;
@@ -566,6 +635,9 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
             t++;
             r_children = *t & x3F;
             ptr = get9bitPtr(t);
+            //if (ptr && ptr < trie - buf) {
+            //    cout << "Hello" << endl;
+            //}
             switch (ptr ?
                     (r_children ? (keyPos == key_len ? 3 : 1) : 2) :
                     (r_children ? (keyPos == key_len ? 0 : 4) : 0)) {
@@ -576,13 +648,11 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
                         key_at + 1, key_at_len) < 0) {
                     key_at = getLastPtr(last_t);
                 }
-                NEXT_LEVEL()
-                ;
+                NEXT_LEVEL
                 continue;
             case 0:
                 key_at = getLastPtr(last_t);
-                NEXT_LEVEL()
-                ;
+                NEXT_LEVEL
                 continue;
             case 1:
                 last_t = t;
@@ -590,8 +660,7 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
                 break;
             case 3:
                 key_at = buf + ptr;
-                NEXT_LEVEL()
-                ;
+                NEXT_LEVEL
                 continue;
             }
             t += (r_children * 3);
@@ -600,16 +669,16 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
             continue;
         } else {
             key_at = getLastPtr(last_t);
-            NEXT_LEVEL();
+            NEXT_LEVEL
             continue;
         }
     } while (1);
 }
 
 int16_t bft_node_handler::locate() {
-    byte key_char = *key;
     byte *t = trie;
-    keyPos = 1;
+    keyPos = PREFIX_LEN;
+    byte key_char = key[keyPos++];
     do {
         byte trie_char, r_children;
         origPos = t;
@@ -634,6 +703,19 @@ int16_t bft_node_handler::locate() {
             t++;
             r_children = *t & x3F;
             ptr = get9bitPtr(t);
+            //if (ptr && ptr < trie - buf) {
+            //    t = buf + ptr;
+            //    byte len = *t++;
+            //    while (len--) {
+            //        key_char = key[keyPos++];
+            //        if (key_char != *t || keyPos == key_len) {
+            //            triePos = t;
+            //            insertState = INSERT_SPLIT;
+            //            need_count = 12;
+            //        }
+            //        t++;
+            //    }
+            //}
             switch (ptr ?
                     (r_children ? (keyPos == key_len ? 3 : 1) : 2) :
                     (r_children ? (keyPos == key_len ? 0 : 1) : 0)) {
@@ -649,14 +731,12 @@ int16_t bft_node_handler::locate() {
                     insertState = INSERT_THREAD;
                     if (cmp < 0)
                         cmp = -cmp;
-                    need_count = (cmp * 3) + 6;
+                    need_count = (cmp * 3) + 9;
                 }
                 return -1;
             case 0:
-                if (isPut) {
-                    triePos = t;
+                if (isPut)
                     insertState = INSERT_LEAF;
-                }
                 return -1;
             case 1:
                 break;
