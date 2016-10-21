@@ -388,29 +388,6 @@ byte *bft_node_handler::getChild(int16_t pos) {
 byte *bft_node_handler::getChildPtr(byte *ptr) {
     ptr += (*ptr + 1);
     return (byte *) util::fourBytesToPtr(ptr);
-/*    unsigned long ret;
-    byte flags_n_len = *key_at;
-    key_at += ((flags_n_len * 0x1F) + 1);
-#if defined(ENV64BIT)
-    byte left = 7;
-#else
-    byte left = 3;
-#endif
-    ret = (flags_n_len & 0x20 ? buf[BFT_NODE_SIZE - 1 - left] : *key_at++);
-    flags_n_len >>= 6;
-    int i = 1;
-    while (i <= flags_n_len) {
-        ret |= (*key_at++ << i * 8);
-        left--;
-        i++;
-    }
-    key_at = buf[BFT_NODE_SIZE - left];
-    while (i <= left) {
-        ret |= *key_at++ << i * 8;
-        i++;
-    }
-    return (byte *) ret;
-    */
 }
 
 byte *bft_node_handler::getKey(int16_t ptr, int16_t *plen) {
@@ -615,8 +592,7 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
     if (isPut)
         *node_paths = buf;
     do {
-        byte trie_char = *t;
-        if (key_char > trie_char) {
+        while (key_char > *t) {
             last_t = ++t;
             if (*t & x40) {
                 byte r_children = *t & x3F;
@@ -628,8 +604,8 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
             } else
                 t += 2;
             last_child_pos = 0;
-            continue;
-        } else if (key_char == trie_char) {
+        }
+        if (key_char == *t) {
             byte r_children;
             int16_t ptr;
             t++;
@@ -644,8 +620,8 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
             case 2:
                 key_at = buf + ptr;
                 key_at_len = *key_at;
-                if (util::compare((byte *) key + keyPos, key_len - keyPos,
-                        key_at + 1, key_at_len) < 0) {
+                if (util::compare(key + keyPos, key_len - keyPos,
+                        (char *) key_at + 1, key_at_len) < 0) {
                     key_at = getLastPtr(last_t);
                 }
                 NEXT_LEVEL
@@ -680,15 +656,11 @@ int16_t bft_node_handler::locate() {
     keyPos = PREFIX_LEN;
     byte key_char = key[keyPos++];
     do {
-        byte trie_char, r_children;
         origPos = t;
-        trie_char = *t;
-        if (key_char > trie_char) {
-            last_child_pos = 0;
+        while (key_char > *t) {
             t++;
-            r_children = *t++;
-            t++;
-            if (r_children & x40) {
+            if (*t & x40) {
+                t += 2;
                 if (isPut) {
                     triePos = t;
                     insertState = INSERT_AFTER;
@@ -696,11 +668,14 @@ int16_t bft_node_handler::locate() {
                 }
                 return -1;
             }
-            continue;
-        } else if (key_char == trie_char) {
+            t += 2;
+            last_child_pos = 0;
+            origPos = t;
+        }
+        if (key_char == *t++) {
+            byte r_children;
             int16_t ptr;
             last_child_pos = 0;
-            t++;
             r_children = *t & x3F;
             ptr = get9bitPtr(t);
             //if (ptr && ptr < trie - buf) {
@@ -723,15 +698,15 @@ int16_t bft_node_handler::locate() {
                 int16_t cmp;
                 key_at = buf + ptr;
                 key_at_len = *key_at;
-                cmp = util::compare((byte *) key + keyPos, key_len - keyPos,
-                        key_at + 1, key_at_len);
+                cmp = util::compare(key + keyPos, key_len - keyPos,
+                        (char *) key_at + 1, key_at_len);
                 if (cmp == 0)
                     return ptr;
                 if (isPut) {
                     insertState = INSERT_THREAD;
                     if (cmp < 0)
                         cmp = -cmp;
-                    need_count = (cmp * 3) + 9;
+                    need_count = (cmp * 3) + 3;
                 }
                 return -1;
             case 0:
@@ -848,7 +823,7 @@ byte bft_node_handler::getAt(byte pos) {
 }
 
 int16_t bft_node_handler::get9bitPtr(byte *t) {
-    int16_t ptr = (*t++ & x80) << 1;
+    int16_t ptr = (*t++ & x80 ? 256 : 0);
     ptr |= *t;
     return ptr;
 }

@@ -119,7 +119,7 @@ public:
     inline void setKVLastPos(int16_t val);
     void addData(int16_t pos);
     byte *getChild(int16_t pos);
-    byte *getChildPtr(byte *ptr);
+    inline byte *getChildPtr(byte *ptr);
     inline byte *getKey(int16_t ptr, int16_t *plen);
     byte *getData(int16_t ptr, int16_t *plen);
     byte *split(int16_t *pbrk_idx, byte *first_key, int16_t *first_len_ptr);

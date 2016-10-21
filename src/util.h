@@ -37,35 +37,32 @@ public:
         *pos = val % 256;
     }
 
-    static void ptrToFourBytes(unsigned long addr_num, char *addr) {
-        addr[3] = (addr_num & 0xFF);
-        addr_num >>= 8;
-        addr[2] = (addr_num & 0xFF);
+    static void ptrToFourBytes(unsigned long addr_num, byte *addr) {
+        addr[0] = (addr_num & 0xFF);
         addr_num >>= 8;
         addr[1] = (addr_num & 0xFF);
         addr_num >>= 8;
-        addr[0] = addr_num;
-        addr[4] = 0;
+        addr[2] = (addr_num & 0xFF);
+        addr_num >>= 8;
+        addr[3] = addr_num;
+        //addr[4] = 0;
     }
 
     static unsigned long fourBytesToPtr(const byte *addr) {
         unsigned long ret = 0;
-        ret = addr[0];
-        ret <<= 8;
-        ret |= addr[1];
+        ret = addr[3];
         ret <<= 8;
         ret |= addr[2];
         ret <<= 8;
-        ret |= addr[3];
+        ret |= addr[1];
+        ret <<= 8;
+        ret |= addr[0];
         return ret;
     }
 
     static int16_t compare(const char *v1, int16_t len1, const char *v2,
             int16_t len2, int k = 0) {
-        //register int k = 0;
-        register int lim = len1;
-        if (len2 < len1)
-            lim = len2;
+        int lim = (len2 < len1 ? len2 : len1);
         while (k < lim) {
             byte c1 = v1[k];
             byte c2 = v2[k];
@@ -75,7 +72,10 @@ public:
             else if (c1 > c2)
                 return k;
         }
-        return len1 - len2;
+        if (len1 == len2)
+            return 0;
+        k++;
+        return (len1 < len2 ? -k : k);
     }
 
     static inline int16_t min(int16_t x, int16_t y) {

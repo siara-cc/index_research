@@ -529,13 +529,71 @@ int main4() {
     //rb_tree *dx = new rb_tree();
     //dfos *dx = new dfos();
 
-    dx->put("abqvujtf", 8, "vqba", 4);
-    dx->put("gqncjgvs", 8, "cnqg", 4);
-    dx->put("izawtdcz", 8, "wazi", 4);
+    dx->put("fdlyprqr", 8, "yldf", 4);
+    dx->put("olhjnmwg", 8, "jhlo", 4);
+    dx->put("jthfgvwp", 8, "fhtj", 4);
+    dx->put("topcbzqm", 8, "cpot", 4);
+    dx->put("dlyoxafc", 8, "oyld", 4);
+    dx->put("guhpjsbk", 8, "phug", 4);
+    dx->put("zpocvwrk", 8, "copz", 4);
+    dx->put("gcwrhwub", 8, "rwcg", 4);
+    dx->put("wvfjwlry", 8, "jfvw", 4);
+    dx->put("ilyhtnec", 8, "hyli", 4);
+    dx->put("goyplbgm", 8, "pyog", 4);
+    dx->put("pmdynjlm", 8, "ydmp", 4);
+    dx->put("msydpeyw", 8, "dysm", 4);
+    dx->put("kfqivwag", 8, "iqfk", 4);
+    dx->put("tlaiztsk", 8, "ialt", 4);
+    dx->put("lpszcipz", 8, "zspl", 4);
+    dx->put("uydirdug", 8, "idyu", 4);
+    dx->put("evccsxrf", 8, "ccve", 4);
+    dx->put("uobuzaih", 8, "ubou", 4);
+    dx->put("cemvocun", 8, "vmec", 4);
+    dx->put("ugukgsga", 8, "kugu", 4);
+    dx->put("knaigsbe", 8, "iank", 4);
+    dx->put("owudsdkw", 8, "duwo", 4);
+    dx->put("sqobiytd", 8, "boqs", 4);
+    dx->put("yiaexdwi", 8, "eaiy", 4);
+    dx->put("qevozwyi", 8, "oveq", 4);
+    dx->put("lixyahyf", 8, "yxil", 4);
+    dx->put("netclubb", 8, "cten", 4);
+    dx->put("kzinkecq", 8, "nizk", 4);
+    dx->put("uzdtinlb", 8, "tdzu", 4);
+    dx->put("hsqiyqpd", 8, "iqsh", 4);
+    dx->put("fprdjipx", 8, "drpf", 4);
 
-    print(dx, "abqvujtf", 8);
-    print(dx, "gqncjgvs", 8);
-    print(dx, "izawtdcz", 8);
+    print(dx, "fdlyprqr", 8);
+    print(dx, "olhjnmwg", 8);
+    print(dx, "jthfgvwp", 8);
+    print(dx, "topcbzqm", 8);
+    print(dx, "dlyoxafc", 8);
+    print(dx, "guhpjsbk", 8);
+    print(dx, "zpocvwrk", 8);
+    print(dx, "gcwrhwub", 8);
+    print(dx, "wvfjwlry", 8);
+    print(dx, "ilyhtnec", 8);
+    print(dx, "goyplbgm", 8);
+    print(dx, "pmdynjlm", 8);
+    print(dx, "msydpeyw", 8);
+    print(dx, "kfqivwag", 8);
+    print(dx, "tlaiztsk", 8);
+    print(dx, "lpszcipz", 8);
+    print(dx, "uydirdug", 8);
+    print(dx, "evccsxrf", 8);
+    print(dx, "uobuzaih", 8);
+    print(dx, "cemvocun", 8);
+    print(dx, "ugukgsga", 8);
+    print(dx, "knaigsbe", 8);
+    print(dx, "owudsdkw", 8);
+    print(dx, "sqobiytd", 8);
+    print(dx, "yiaexdwi", 8);
+    print(dx, "qevozwyi", 8);
+    print(dx, "lixyahyf", 8);
+    print(dx, "netclubb", 8);
+    print(dx, "kzinkecq", 8);
+    print(dx, "uzdtinlb", 8);
+    print(dx, "hsqiyqpd", 8);
+    print(dx, "fprdjipx", 8);
 
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
@@ -625,13 +683,16 @@ int main(int argc, char *argv[]) {
             } else if (c == '\n') {
                 buf[ctr] = 0;
                 ctr = 0;
-                if (strlen(key) < KEY_LEN) {
-                    if (buf == value)
-                        m.insert(pair<string, string>(key, value));
-                    else
-                        m.insert(pair<string, string>(key, ""));
+                int len = strlen(key);
+                if (len > 0 && len < KEY_LEN) {
+                    if (m[key].length() == 0) {
+                        if (buf == value)
+                            m.insert(pair<string, string>(key, value));
+                        else
+                            m.insert(pair<string, string>(key, ""));
+                        //cout << "Key:'" << key << "'" << "\t" << "Value:'" << value << "'" << endl;
+                    }
                 }
-                //cout << key << "\t" << value << endl;
                 key[0] = 0;
                 value[0] = 0;
                 buf = key;
@@ -825,6 +886,7 @@ int main(int argc, char *argv[]) {
         char *value = dx->get(it1->first.c_str(), it1->first.length(), &len);
         char v[100];
         if (value == null) {
+            cout << "Null:" << it1->first.c_str() << endl;
             null_ctr++;
         } else {
             int16_t d = util::compare(it1->second.c_str(), it1->second.length(),
@@ -856,7 +918,6 @@ int main(int argc, char *argv[]) {
     //cout << "Root filled size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES+2] << endl;
     //getchar();
 
-    /*
      if (NUM_ENTRIES <= 1000 && (null_ctr > 0 || cmp > 0)) {
      it = m.begin();
      for (; it != m.end(); ++it) {
@@ -864,7 +925,6 @@ int main(int argc, char *argv[]) {
      << "\"," << endl;
      }
      }
-     */
 
     return 0;
 
