@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define RB_TREE_NODE_SIZE 1024
+#define RB_TREE_NODE_SIZE 512
 
 #if RB_TREE_NODE_SIZE == 512
 #define RB_TREE_HDR_SIZE 6

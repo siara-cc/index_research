@@ -8,23 +8,24 @@
 using namespace std;
 
 #define DX_INT64MAP 1
-#define DX_UNIT_SZ_3 0
-#define DX_9_BIT_PTR 1
+#define DX_UNIT_SZ_3 1
+#define DX_9_BIT_PTR 0
 
 #define DFOX_NODE_SIZE 512
 
 #if DX_9_BIT_PTR == 1
-#define MAX_PTR_BITMAP_BYTES 8
-#define MAX_PTRS 63
+#define DX_MAX_PTR_BITMAP_BYTES 8
+#define DX_MAX_PTRS 63
 #else
-#define MAX_PTR_BITMAP_BYTES 0
-#define MAX_PTRS 240
+#define DX_MAX_PTR_BITMAP_BYTES 0
+#define DX_MAX_PTRS 240
 #endif
-#define DFOX_HDR_SIZE (MAX_PTR_BITMAP_BYTES+6)
-#define IS_LEAF_BYTE buf[MAX_PTR_BITMAP_BYTES]
-#define FILLED_SIZE buf + MAX_PTR_BITMAP_BYTES + 1
-#define LAST_DATA_PTR buf + MAX_PTR_BITMAP_BYTES + 3
-#define TRIE_LEN buf[MAX_PTR_BITMAP_BYTES+5]
+#define DFOX_HDR_SIZE (DX_MAX_PTR_BITMAP_BYTES+7)
+#define DX_IS_LEAF_BYTE buf[DX_MAX_PTR_BITMAP_BYTES]
+#define DX_FILLED_SIZE buf + DX_MAX_PTR_BITMAP_BYTES + 1
+#define DX_LAST_DATA_PTR buf + DX_MAX_PTR_BITMAP_BYTES + 3
+#define DX_TRIE_LEN buf[DX_MAX_PTR_BITMAP_BYTES+5]
+#define MID_KEY_LEN buf[DX_MAX_PTR_BITMAP_BYTES+6]
 
 #define INSERT_MIDDLE1 1
 #define INSERT_MIDDLE2 2
@@ -32,16 +33,16 @@ using namespace std;
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5
 
-#define MAX_KEY_PREFIX_LEN 20
+#define DFOX_MAX_KEY_PREFIX_LEN 60
 
 class dfox_iterator_status {
 public:
     byte *t;
-    byte tp[MAX_KEY_PREFIX_LEN];
-    byte tc_a[MAX_KEY_PREFIX_LEN];
-    byte child_a[MAX_KEY_PREFIX_LEN];
-    byte leaf_a[MAX_KEY_PREFIX_LEN];
-    byte offset_a[MAX_KEY_PREFIX_LEN];
+    byte tp[DFOX_MAX_KEY_PREFIX_LEN];
+    byte tc_a[DFOX_MAX_KEY_PREFIX_LEN];
+    byte child_a[DFOX_MAX_KEY_PREFIX_LEN];
+    byte leaf_a[DFOX_MAX_KEY_PREFIX_LEN];
+    byte offset_a[DFOX_MAX_KEY_PREFIX_LEN];
 };
 
 class dfox_node_handler {

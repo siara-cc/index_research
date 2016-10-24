@@ -104,7 +104,7 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
             //if (maxKeyCount < block->filledSize())
             //    maxKeyCount = block->filledSize();
             //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
-            if (node->isLeaf())
+            if (!node->isLeaf())
                 maxKeyCount += node->filledUpto();
             int16_t brk_idx;
             byte new_block_first_key[100];
@@ -126,24 +126,24 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
                 idx = ~node->locate(level);
                 node->addData(idx);
             }
-            if (node->isLeaf())
+            if (!node->isLeaf())
                 blockCount++;
             if (root_data == node->buf) {
-                //blockCount++;
+                blockCount++;
                 root_data = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
                 linex_node_handler root(root_data);
                 root.initBuf();
-                char addr[5];
+                byte addr[5];
                 util::ptrToFourBytes((unsigned long) node->buf, addr);
                 root.key = "";
                 root.key_len = 1;
-                root.value = addr;
+                root.value = (char *) addr;
                 root.value_len = sizeof(char *);
                 root.addData(0);
                 util::ptrToFourBytes((unsigned long) new_block.buf, addr);
                 root.key = (const char *) new_block_first_key;
                 root.key_len = first_key_len;
-                root.value = addr;
+                root.value = (char *) addr;
                 root.value_len = sizeof(char *);
                 root.addData(1);
                 root.setLeaf(false);
@@ -152,11 +152,11 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
                 int16_t prev_level = level - 1;
                 byte *parent = node_paths[prev_level];
                 linex_node_handler parent_node(parent);
-                char addr[5];
+                byte addr[5];
                 util::ptrToFourBytes((unsigned long) new_block.buf, addr);
                 parent_node.key = (const char *) new_block_first_key;
                 parent_node.key_len = first_key_len;
-                parent_node.value = addr;
+                parent_node.value = (char *) addr;
                 parent_node.value_len = sizeof(char *);
                 lastSearchPos[prev_level] = parent_node.locate(prev_level);
                 recursiveUpdate(&parent_node, lastSearchPos[prev_level],

@@ -11,7 +11,7 @@ using namespace std;
 #define BFOS_UNIT_SZ_3 1
 #define BFOS_9_BIT_PTR 0
 
-#define BFOS_NODE_SIZE 768
+#define BFOS_NODE_SIZE 512
 
 #if BFOS_9_BIT_PTR == 1
 #define MAX_PTR_BITMAP_BYTES 8
@@ -32,15 +32,15 @@ using namespace std;
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5
 
-#define MAX_KEY_PREFIX_LEN 20
+#define BFOS_MAX_KEY_PREFIX_LEN 60
 
 class bfos_iterator_status {
 public:
     byte *t;
     int keyPos;
     byte tc, children, leaves, orig_leaves, orig_children;
-    byte tp[MAX_KEY_PREFIX_LEN];
-    byte offset_a[MAX_KEY_PREFIX_LEN];
+    byte tp[BFOS_MAX_KEY_PREFIX_LEN];
+    byte offset_a[BFOS_MAX_KEY_PREFIX_LEN];
     bfos_iterator_status(byte *trie) {
         t = trie;
         keyPos = 0;
@@ -86,11 +86,7 @@ private:
     //byte *nextPtr(bfos_iterator_status& s,
     //        bfos_node_handler *other_trie, bfos_iterator_status *s_last);
     int16_t getLastPtrOfChild(byte *triePos);
-    inline int16_t getLastPtr(byte *last_t, byte last_off);
-    int16_t deletePrefix(int16_t prefix_len);
-    void deleteMarked();
-    void deleteTrieLastHalf(bfos_iterator_status& s, int key_pos);
-    void deleteTrieFirstHalf(bfos_iterator_status& s, int key_pos);
+    inline byte *getLastPtr(byte *last_t, byte last_off);
     static byte *alignedAlloc();
 public:
     byte *buf;
@@ -108,6 +104,7 @@ public:
     int16_t last_child_pos;
     const char *value;
     int16_t value_len;
+    const byte *keyFoundAt;
     bfos_node_handler(byte *m);
     void initBuf();
     inline void initVars();

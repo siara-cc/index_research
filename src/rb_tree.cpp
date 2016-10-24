@@ -96,7 +96,7 @@ void rb_tree::put(const char *key, int16_t key_len, const char *value,
     node.value = value;
     node.value_len = value_len;
     node.isPut = true;
-    if (node.filledUpto() == -1) {
+    if (node.filledUpto() == (RB_TREE_NODE_SIZE == 512 ? 255 : -1)) {
         node.addData(-1);
         total_size++;
     } else {
@@ -141,17 +141,17 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
                 root_data = (byte *) util::alignedAlloc(RB_TREE_NODE_SIZE);
                 rb_tree_node_handler root(root_data);
                 root.initBuf();
-                char addr[5];
+                byte addr[5];
                 util::ptrToFourBytes((unsigned long) old_buf, addr);
                 root.key = "";
                 root.key_len = 1;
-                root.value = addr;
+                root.value = (char *) addr;
                 root.value_len = sizeof(char *);
                 root.addData(-1);
                 util::ptrToFourBytes((unsigned long) new_block.buf, addr);
                 root.key = new_block_first_key;
                 root.key_len = first_key_len;
-                root.value = addr;
+                root.value = (char *) addr;
                 root.value_len = sizeof(char *);
                 root.addData(-1);
                 root.setLeaf(false);
@@ -160,11 +160,11 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
                 int16_t prev_level = level - 1;
                 byte *parent = node_paths[prev_level];
                 rb_tree_node_handler parent_node(parent);
-                char addr[5];
+                byte addr[5];
                 util::ptrToFourBytes((unsigned long) new_block.buf, addr);
                 parent_node.key = new_block_first_key;
                 parent_node.key_len = first_key_len;
-                parent_node.value = addr;
+                parent_node.value = (char *) addr;
                 parent_node.value_len = sizeof(char *);
                 recursiveUpdate(&parent_node, -1, // ~lastSearchPos[prev_level],
                         lastSearchPos, lastSearchDir, node_paths, prev_level);
@@ -387,6 +387,7 @@ void rb_tree_node_handler::initBuf() {
     //memset(buf, '\0', RB_TREE_NODE_SIZE);
     setLeaf(1);
     setFilledUpto(-1);
+    setRoot(0);
     setDataEndPos(RB_TREE_HDR_SIZE);
 }
 
