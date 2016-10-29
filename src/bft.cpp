@@ -1,7 +1,5 @@
 #include <iostream>
 #include <math.h>
-#include <malloc.h>
-#include <stdint.h>
 #include "bft.h"
 
 #define NEXT_LEVEL setBuf(getChildPtr(key_at)); \
@@ -18,10 +16,9 @@ char *bft::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     node.key_len = key_len;
     if (!node.isLeaf())
         node.traverseToLeaf();
-    if (node.locate() == -1)
+    if (node.locate() < 0)
         return null;
-    char *ret = node.getValueAt(pValueLen);
-    return ret;
+    return node.getValueAt(pValueLen);
 }
 
 void bft::put(const char *key, int16_t key_len, const char *value,
@@ -525,8 +522,7 @@ int16_t bft_node_handler::getLastPtrOfChild(byte *triePos) {
 }
 
 byte *bft_node_handler::getLastPtr(byte *last_t) {
-    byte last_child;
-    last_child = (*last_t & x3F);
+    byte last_child = (*last_t & x3F);
     if (!last_child || last_child_pos)
         return buf + get9bitPtr(last_t);
     return buf + getLastPtrOfChild(last_t + (last_child * 3));
@@ -686,78 +682,11 @@ int16_t bft_node_handler::locate() {
     return -1;
 }
 
-void bft_node_handler::delAt(byte *ptr) {
-    BFT_TRIE_LEN--;
-    memmove(ptr, ptr + 1, trie + BFT_TRIE_LEN - ptr);
-}
-
-void bft_node_handler::delAt(byte *ptr, int16_t count) {
-    BFT_TRIE_LEN -= count;
-    memmove(ptr, ptr + count, trie + BFT_TRIE_LEN - ptr);
-}
-
-void bft_node_handler::insAt(byte *ptr, byte b) {
-    memmove(ptr + 1, ptr, trie + BFT_TRIE_LEN - ptr);
-    *ptr = b;
-    BFT_TRIE_LEN++;
-}
-
-byte bft_node_handler::insAt(byte *ptr, byte b1, byte b2) {
-    memmove(ptr + 2, ptr, trie + BFT_TRIE_LEN - ptr);
-    *ptr++ = b1;
-    *ptr = b2;
-    BFT_TRIE_LEN += 2;
-    return 2;
-}
-
-byte bft_node_handler::insAt(byte *ptr, byte b1, byte b2, byte b3) {
-    memmove(ptr + 3, ptr, trie + BFT_TRIE_LEN - ptr);
-    *ptr++ = b1;
-    *ptr++ = b2;
-    *ptr = b3;
-    BFT_TRIE_LEN += 3;
-    return 3;
-}
-
-byte bft_node_handler::insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
-    memmove(ptr + 4, ptr, trie + BFT_TRIE_LEN - ptr);
-    *ptr++ = b1;
-    *ptr++ = b2;
-    *ptr++ = b3;
-    *ptr = b4;
-    BFT_TRIE_LEN += 4;
-    return 4;
-}
-
-byte bft_node_handler::insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4,
-        byte b5) {
-    memmove(ptr + 5, ptr, trie + BFT_TRIE_LEN - ptr);
-    *ptr++ = b1;
-    *ptr++ = b2;
-    *ptr++ = b3;
-    *ptr++ = b4;
-    *ptr = b5;
-    BFT_TRIE_LEN += 5;
-    return 5;
-}
-
-void bft_node_handler::setAt(byte pos, byte b) {
-    trie[pos] = b;
-}
-
-void bft_node_handler::append(byte b) {
-    trie[BFT_TRIE_LEN++] = b;
-}
-
-void bft_node_handler::append(byte b1, byte b2) {
-    trie[BFT_TRIE_LEN++] = b1;
-    trie[BFT_TRIE_LEN++] = b2;
-}
-
-void bft_node_handler::append(byte b1, byte b2, byte b3) {
-    trie[BFT_TRIE_LEN++] = b1;
-    trie[BFT_TRIE_LEN++] = b2;
-    trie[BFT_TRIE_LEN++] = b3;
+char *bft_node_handler::getValueAt(int16_t *vlen) {
+    key_at += *key_at;
+    key_at++;
+    *vlen = (int16_t) *key_at++;
+    return (char *) key_at;
 }
 
 void bft_node_handler::appendPtr(int16_t p) {
@@ -767,17 +696,6 @@ void bft_node_handler::appendPtr(int16_t p) {
     else
         trie[BFT_TRIE_LEN - 1] &= x7F;
     BFT_TRIE_LEN++;
-}
-
-byte bft_node_handler::getAt(byte pos) {
-    return trie[pos];
-}
-
-char *bft_node_handler::getValueAt(int16_t *vlen) {
-    key_at += *key_at;
-    key_at++;
-    *vlen = (int16_t) *key_at++;
-    return (char *) key_at;
 }
 
 int16_t bft_node_handler::get9bitPtr(byte *t) {

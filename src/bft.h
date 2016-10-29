@@ -38,54 +38,16 @@ public:
     }
 };
 
-class bft_node_handler : public bplus_tree_node_handler {
+class bft_node_handler : public trie_node_handler {
 private:
-    static const byte x00 = 0;
-    static const byte x01 = 1;
-    static const byte x02 = 2;
-    static const byte x03 = 3;
-    static const byte x04 = 4;
-    static const byte x05 = 5;
-    static const byte x06 = 6;
-    static const byte x07 = 7;
-    static const byte x08 = 8;
-    static const byte x3F = 0x3F;
-    static const byte x40 = 0x40;
-    static const byte x41 = 0x41;
-    static const byte x7F = 0x7F;
-    static const byte x80 = 0x80;
-    static const byte xBF = 0xBF;
-    static const byte xF8 = 0xF8;
-    static const byte xFB = 0xFB;
-    static const byte xFE = 0xFE;
-    static const byte xFF = 0xFF;
-    static const int16_t x100 = 0x100;
-    inline void insAt(byte *ptr, byte b);
-    inline byte insAt(byte *ptr, byte b1, byte b2);
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3);
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4);
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4, byte b5);
-    inline void setAt(byte pos, byte b);
-    inline void append(byte b);
-    inline void append(byte b1, byte b2);
-    inline void append(byte b1, byte b2, byte b3);
-    inline void appendPtr(int16_t p);
-    inline byte getAt(byte pos);
-    inline void delAt(byte *ptr);
-    inline void delAt(byte *ptr, int16_t count);
     int16_t nextPtr(bft_iterator_status& s);
     int16_t getLastPtrOfChild(byte *triePos);
     inline byte *getLastPtr(byte *last_t);
     inline int16_t get9bitPtr(byte *t);
     void set9bitPtr(byte *t, int16_t p);
     int16_t deletePrefix(int16_t prefix_len);
+    void appendPtr(int16_t p);
 public:
-    byte *trie;
-    byte *triePos;
-    byte *origPos;
-    int16_t need_count;
-    byte insertState;
-    int keyPos;
     int16_t last_child_pos;
     bft_node_handler(byte *m);
     void initBuf();
