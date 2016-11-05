@@ -1,102 +1,60 @@
-#include "linex.h"
+#include "basix.h"
 
-char *linex::get(const char *key, int16_t key_len, int16_t *pValueLen) {
-    int16_t pos = -1;
-    linex_node_handler node(root_data);
+char *basix::get(const char *key, int16_t key_len, int16_t *pValueLen) {
+    basix_node_handler node(root_data);
     node.key = key;
     node.key_len = key_len;
-    recursiveSearchForGet(&node, &pos);
-    if (pos < 0)
+    if (!node.isLeaf())
+        node.traverseToLeaf();
+    if (node.locate() < 0)
         return null;
-    return (char *) node.getData(pos, pValueLen);
+    char * ret = node.getValueAt(pValueLen);
+    return ret;
 }
 
-void linex::recursiveSearchForGet(linex_node_handler *node, int16_t *pIdx) {
-    int16_t level = 0;
-    int16_t pos = -1;
-    byte *node_data = node->buf;
-    while (!node->isLeaf()) {
-        pos = node->locate(level);
-        if (pos < 0) {
-            pos = ~pos;
-            if (pos)
-                pos--;
-        } else {
-//            do {
-//                node_data = node->getChild(pos);
-//                node->setBuf(node_data);
-//                level++;
-//                pos = 0;
-//            } while (!node->isLeaf());
-//            *pIdx = pos;
-//            return;
+void basix_node_handler::traverseToLeaf(byte *node_paths[]) {
+    byte level;
+    level = 1;
+    if (isPut)
+        *node_paths = buf;
+    while (!isLeaf()) {
+        int16_t idx = locate();
+        if (idx < 0) {
+            idx = ~idx;
+            if (idx)
+                idx--;
         }
-        node_data = node->getChild(pos);
-        node->setBuf(node_data);
-        level++;
+        key_at = buf + getPtr(idx);
+        setBuf(getChildPtr(key_at));
+        if (isPut)
+            node_paths[level++] = buf;
     }
-    pos = node->locate(level);
-    *pIdx = pos;
-    return;
 }
 
-void linex::recursiveSearch(linex_node_handler *node, int16_t lastSearchPos[],
-        byte *node_paths[], int16_t *pIdx) {
-    int16_t level = 0;
-    byte *node_data = node->buf;
-    //node->initVars();
-    while (!node->isLeaf()) {
-        lastSearchPos[level] = node->locate(level);
-        node_paths[level] = node->buf;
-        if (lastSearchPos[level] < 0) {
-            lastSearchPos[level] = ~lastSearchPos[level];
-            if (lastSearchPos[level])
-                lastSearchPos[level]--;
-        } else {
-//            do {
-//                node_data = node->getChild(lastSearchPos[level]);
-//                node->setBuf(node_data);
-//                level++;
-//                node_paths[level] = node->buf;
-//                lastSearchPos[level] = 0;
-//            } while (!node->isLeaf());
-//            *pIdx = lastSearchPos[level];
-//            return;
-        }
-        node_data = node->getChild(lastSearchPos[level]);
-        node->setBuf(node_data);
-        //node->initVars();
-        level++;
-    }
-    node_paths[level] = node_data;
-    lastSearchPos[level] = node->locate(level);
-    *pIdx = lastSearchPos[level];
-    return;
-}
-
-void linex::put(const char *key, int16_t key_len, const char *value,
+void basix::put(const char *key, int16_t key_len, const char *value,
         int16_t value_len) {
-    int16_t lastSearchPos[10];
-    byte *block_paths[10];
-    linex_node_handler node(root_data);
+    byte *node_paths[7];
+    basix_node_handler node(root_data);
     node.key = key;
     node.key_len = key_len;
     node.value = value;
     node.value_len = value_len;
     node.isPut = true;
     if (node.filledUpto() == -1) {
-        node.addData(0);
+        node.pos = 0;
+        node.addData();
         total_size++;
     } else {
-        int16_t pos = -1;
-        recursiveSearch(&node, lastSearchPos, block_paths, &pos);
-        recursiveUpdate(&node, pos, lastSearchPos, block_paths, numLevels - 1);
+        if (!node.isLeaf())
+            node.traverseToLeaf(node_paths);
+        node.locate();
+        recursiveUpdate(&node, node.pos, node_paths, numLevels - 1);
     }
 }
 
-void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
-        int16_t lastSearchPos[], byte *node_paths[], int16_t level) {
-    int16_t idx = pos; // lastSearchPos[level];
+void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
+        byte *node_paths[], int16_t level) {
+    int16_t idx = pos;
     if (idx < 0) {
         idx = ~idx;
         if (node->isFull(node->key_len + node->value_len)) {
@@ -104,66 +62,77 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
             //if (maxKeyCount < block->filledSize())
             //    maxKeyCount = block->filledSize();
             //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
-            if (!node->isLeaf())
+            //cout << (int) node->TRIE_LEN << endl;
+            if (node->isLeaf())
                 maxKeyCount += node->filledUpto();
-            int16_t brk_idx;
-            byte new_block_first_key[100];
-            int16_t first_key_len;
-            byte *b = node->split(&brk_idx, new_block_first_key,
-                    &first_key_len);
-            linex_node_handler new_block(b);
+            //    maxKeyCount += node->TRIE_LEN;
+            //maxKeyCount += node->PREFIX_LEN;
+            byte first_key[64];
+            int16_t first_len;
+            byte *b = node->split(first_key, &first_len);
+            basix_node_handler new_block(b);
             new_block.isPut = true;
-            int16_t cmp = util::compare((char *) new_block_first_key,
-                    first_key_len, node->key, node->key_len);
+            int16_t cmp = util::compare((char *) first_key, first_len,
+                    node->key, node->key_len);
             if (cmp <= 0) {
+                new_block.initVars();
                 new_block.key = node->key;
                 new_block.key_len = node->key_len;
                 new_block.value = node->value;
                 new_block.value_len = node->value_len;
-                idx = ~new_block.locate(level);
-                new_block.addData(idx);
+                new_block.pos = ~new_block.locate();
+                new_block.addData();
             } else {
-                idx = ~node->locate(level);
-                node->addData(idx);
+                node->initVars();
+                node->pos = ~node->locate();
+                node->addData();
             }
-            if (!node->isLeaf())
+            if (node->isLeaf())
                 blockCount++;
             if (root_data == node->buf) {
-                blockCount++;
-                root_data = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
-                linex_node_handler root(root_data);
+                //blockCount++;
+                root_data = (byte *) util::alignedAlloc(node_size);
+                basix_node_handler root(root_data);
                 root.initBuf();
-                byte addr[5];
+                root.isPut = true;
+                root.setLeaf(0);
+                byte addr[9];
                 util::ptrToFourBytes((unsigned long) node->buf, addr);
+                root.initVars();
                 root.key = "";
                 root.key_len = 1;
                 root.value = (char *) addr;
                 root.value_len = sizeof(char *);
-                root.addData(0);
+                root.pos = 0;
+                root.addData();
                 util::ptrToFourBytes((unsigned long) new_block.buf, addr);
-                root.key = (const char *) new_block_first_key;
-                root.key_len = first_key_len;
+                root.initVars();
+                root.key = (char *) first_key;
+                root.key_len = first_len;
                 root.value = (char *) addr;
                 root.value_len = sizeof(char *);
-                root.addData(1);
-                root.setLeaf(false);
+                root.pos = ~root.locate();
+                root.addData();
                 numLevels++;
             } else {
                 int16_t prev_level = level - 1;
-                byte *parent = node_paths[prev_level];
-                linex_node_handler parent_node(parent);
-                byte addr[5];
+                byte *parent_data = node_paths[prev_level];
+                basix_node_handler parent(parent_data);
+                byte addr[9];
                 util::ptrToFourBytes((unsigned long) new_block.buf, addr);
-                parent_node.key = (const char *) new_block_first_key;
-                parent_node.key_len = first_key_len;
-                parent_node.value = (char *) addr;
-                parent_node.value_len = sizeof(char *);
-                lastSearchPos[prev_level] = parent_node.locate(prev_level);
-                recursiveUpdate(&parent_node, lastSearchPos[prev_level],
-                        lastSearchPos, node_paths, prev_level);
+                parent.initVars();
+                parent.isPut = true;
+                parent.key = (char *) first_key;
+                parent.key_len = first_len;
+                parent.value = (char *) addr;
+                parent.value_len = sizeof(char *);
+                parent.locate();
+                recursiveUpdate(&parent, parent.pos, node_paths, prev_level);
             }
-        } else
-            node->addData(idx);
+        } else {
+            node->pos = idx;
+            node->addData();
+        }
     } else {
         //if (node->isLeaf) {
         //    int16_t vIdx = idx + mSizeBy2;
@@ -173,15 +142,7 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
     }
 }
 
-void linex_node_handler::setKVLastPos(int16_t val) {
-    util::setInt(&buf[3], val);
-}
-
-int16_t linex_node_handler::getKVLastPos() {
-    return util::getInt(buf + 3);
-}
-
-void linex_node_handler::insBit(uint32_t *ui32, int pos, int16_t kv_pos) {
+void basix_node_handler::insBit(uint32_t *ui32, int pos, int16_t kv_pos) {
     uint32_t ryte_part = (*ui32) & GenTree::ryte_mask32[pos];
     ryte_part >>= 1;
     if (kv_pos >= 256)
@@ -190,7 +151,7 @@ void linex_node_handler::insBit(uint32_t *ui32, int pos, int16_t kv_pos) {
 
 }
 
-void linex_node_handler::insBit(uint64_t *ui64, int pos, int16_t kv_pos) {
+void basix_node_handler::insBit(uint64_t *ui64, int pos, int16_t kv_pos) {
     uint64_t ryte_part = (*ui64) & GenTree::ryte_mask64[pos];
     ryte_part >>= 1;
     if (kv_pos >= 256)
@@ -199,8 +160,8 @@ void linex_node_handler::insBit(uint64_t *ui64, int pos, int16_t kv_pos) {
 
 }
 
-void linex_node_handler::insPtr(int16_t pos, int16_t kv_last_pos) {
-#if LX_9_BIT_PTR == 1
+void basix_node_handler::insPtr(int16_t pos, int16_t kv_last_pos) {
+#if BX_9_BIT_PTR == 1
     byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
     int16_t filled_upto = filledUpto();
@@ -208,7 +169,7 @@ void linex_node_handler::insPtr(int16_t pos, int16_t kv_last_pos) {
     if (pos < filled_upto)
     memmove(kvIdx + 1, kvIdx, filled_upto - pos);
     kvIdx[0] = kv_last_pos;
-#if LX_INT64MAP == 1
+#if BX_INT64MAP == 1
     insBit(bitmap, pos, kv_last_pos);
 #else
     if (pos & 0xFFE0) {
@@ -234,38 +195,39 @@ void linex_node_handler::insPtr(int16_t pos, int16_t kv_last_pos) {
     util::setInt(buf + 1, filled_upto);
 
 }
-void linex_node_handler::addData(int16_t pos) {
+void basix_node_handler::addData() {
 
     int16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
     setKVLastPos(kv_last_pos);
-    buf[kv_last_pos] = key_len;
+    buf[kv_last_pos] = key_len & 0xFF;
     memcpy(buf + kv_last_pos + 1, key, key_len);
-    buf[kv_last_pos + key_len + 1] = value_len;
+    buf[kv_last_pos + key_len + 1] = value_len & 0xFF;
     memcpy(buf + kv_last_pos + key_len + 2, value, value_len);
     insPtr(pos, kv_last_pos);
 }
 
-byte *linex_node_handler::split(int16_t *pbrk_idx, byte *first_key,
+byte *basix_node_handler::split(byte *first_key,
         int16_t *first_len_ptr) {
     int16_t filled_upto = filledUpto();
-    byte *b = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
-    linex_node_handler new_block(b);
+    byte *b = (byte *) util::alignedAlloc(BASIX_NODE_SIZE);
+    basix_node_handler new_block(b);
     new_block.initBuf();
+    new_block.isPut = true;
     if (!isLeaf())
         new_block.setLeaf(false);
-    register int16_t kv_last_pos = getKVLastPos();
-    int16_t halfKVLen = LINEX_NODE_SIZE - kv_last_pos + 1;
+    int16_t kv_last_pos = getKVLastPos();
+    int16_t halfKVLen = BASIX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
 
-    register int16_t brk_idx = -1;
+    int16_t brk_idx = -1;
     int16_t brk_kv_pos;
-    register int16_t tot_len;
+    int16_t tot_len;
     brk_kv_pos = tot_len = 0;
     // Copy all data to new block in ascending order
-    register int16_t new_idx;
+    int16_t new_idx;
     for (new_idx = 0; new_idx <= filled_upto; new_idx++) {
-        register int16_t src_idx = getPtr(new_idx);
-        register int16_t kv_len = buf[src_idx];
+        int16_t src_idx = getPtr(new_idx);
+        int16_t kv_len = buf[src_idx];
         kv_len++;
         kv_len += buf[src_idx + kv_len];
         kv_len++;
@@ -274,7 +236,7 @@ byte *linex_node_handler::split(int16_t *pbrk_idx, byte *first_key,
         new_block.insPtr(new_idx, kv_last_pos);
         kv_last_pos += kv_len;
         if (brk_idx == -1) {
-            if (tot_len > halfKVLen) {
+            if (tot_len > halfKVLen || new_idx == (filled_upto / 2)) {
                 brk_idx = new_idx;
                 brk_kv_pos = kv_last_pos;
                 int16_t first_idx = getPtr(new_idx + 1);
@@ -291,13 +253,13 @@ byte *linex_node_handler::split(int16_t *pbrk_idx, byte *first_key,
             }
         }
     }
-    //memset(buf + BLK_HDR_SIZE, '\0', LINEX_NODE_SIZE - BLK_HDR_SIZE);
+    //memset(buf + BLK_HDR_SIZE, '\0', BASIX_NODE_SIZE - BLK_HDR_SIZE);
     kv_last_pos = getKVLastPos();
     int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
-    memcpy(buf + LINEX_NODE_SIZE - old_blk_new_len, new_block.buf + kv_last_pos,
+    memcpy(buf + BASIX_NODE_SIZE - old_blk_new_len, new_block.buf + kv_last_pos,
             old_blk_new_len); // Copy back first half to old block
     //memset(new_block.buf + kv_last_pos, '\0', old_blk_new_len);
-    int diff = (LINEX_NODE_SIZE - brk_kv_pos);
+    int diff = (BASIX_NODE_SIZE - brk_kv_pos);
     for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
         setPtr(new_idx, new_block.getPtr(new_idx) + diff);
     } // Set index of copied first half in old block
@@ -305,9 +267,9 @@ byte *linex_node_handler::split(int16_t *pbrk_idx, byte *first_key,
     int16_t new_size = filled_upto - brk_idx;
     // Move index of second half to first half in new block
     byte *new_kv_idx = new_block.buf + BLK_HDR_SIZE;
-#if LX_9_BIT_PTR == 1
+#if BX_9_BIT_PTR == 1
     memcpy(new_kv_idx, new_kv_idx + new_idx, new_size);
-#if LX_INT64MAP == 1
+#if BX_INT64MAP == 1
     (*new_block.bitmap) <<= brk_idx;
 #else
     if (brk_idx & 0xFFE0)
@@ -326,18 +288,17 @@ byte *linex_node_handler::split(int16_t *pbrk_idx, byte *first_key,
     filled_upto = brk_idx;
     setFilledUpto(filled_upto); // Set filled upto for old block
     new_block.setFilledUpto(new_size - 1); // Set filled upto for new block
-    *pbrk_idx = brk_idx;
     return b;
 }
 
-//int16_t linex_node_handler::binarySearch(const char *key, int16_t key_len) {
-//    register int middle, filled_upto;
+//int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
+//    int middle, filled_upto;
 //    filled_upto = filledUpto();
 //    middle = GenTree::roots[filled_upto];
 //    do {
-//        register int16_t middle_key_len;
-//        register char *middle_key = (char *) getKey(middle, &middle_key_len);
-//        register int16_t cmp = util::compare(middle_key, middle_key_len, key, key_len);
+//        int16_t middle_key_len;
+//        char *middle_key = (char *) getKey(middle, &middle_key_len);
+//        int16_t cmp = util::compare(middle_key, middle_key_len, key, key_len);
 //        if (cmp < 0) {
 //            middle = GenTree::ryte[middle];
 //            while (middle > filled_upto)
@@ -350,15 +311,15 @@ byte *linex_node_handler::split(int16_t *pbrk_idx, byte *first_key,
 //    return middle;
 //}
 
-int16_t linex_node_handler::binarySearch(const char *key, int16_t key_len) {
-    register int middle, first, filled_upto;
-    register int16_t cmp;
+int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
+    int middle, first, filled_upto;
+    int16_t cmp;
     first = 0;
     filled_upto = filledUpto() + 1;
     while (first < filled_upto) {
         middle = (first + filled_upto) >> 1;
-        register int16_t middle_key_len;
-        register char *middle_key = (char *) getKey(middle, &middle_key_len);
+        int16_t middle_key_len;
+        char *middle_key = (char *) getKey(middle, &middle_key_len);
         cmp = util::compare(middle_key, middle_key_len, key, key_len);
         if (cmp < 0)
             first = middle + 1;
@@ -371,22 +332,22 @@ int16_t linex_node_handler::binarySearch(const char *key, int16_t key_len) {
 }
 
 // branch ffree
-//int16_t linex_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {
-//    register int middle, first, filled_upto;
-//    register int16_t cmp = 1;
+//int16_t basix_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {
+//    int middle, first, filled_upto;
+//    int16_t cmp = 1;
 //    first = 0;
 //    filled_upto = filledUpto() + 1;
 //    while (cmp && first < filled_upto) {
 //        middle = (first + filled_upto) / 2;
-//        register int16_t middle_key_len;
-//        register char *middle_key = (char *) getKey(middle, &middle_key_len);
+//        int16_t middle_key_len;
+//        char *middle_key = (char *) getKey(middle, &middle_key_len);
 //        cmp = util::compare(middle_key, middle_key_len, key, key_len);
 //        first = ((cmp < 0) ? middle + 1 : first);
 //        filled_upto = ((cmp > 0) ? middle : filled_upto);
 //    }
 //    return (first < filled_upto) ? middle : ~filled_upto;
 //}
-//int16_t linex_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {
+//int16_t basix_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {
 //    int16_t n;
 //    char cmp;
 //    int16_t *base = (int16_t *) (buf + BLK_HDR_SIZE);
@@ -395,8 +356,8 @@ int16_t linex_node_handler::binarySearch(const char *key, int16_t key_len) {
 //    int16_t half;
 //    while (n > 1) {
 //        half = n / 2;
-//        register char *middle_key = (char *) (buf + new_base[half]);
-//        register int16_t middle_key_len = *middle_key;
+//        char *middle_key = (char *) (buf + new_base[half]);
+//        int16_t middle_key_len = *middle_key;
 //        middle_key++;
 //        cmp = util::compare(middle_key, middle_key_len, key, key_len);
 //        new_base = ((cmp <= 0) ? &new_base[half] : new_base);
@@ -406,31 +367,33 @@ int16_t linex_node_handler::binarySearch(const char *key, int16_t key_len) {
 //    return (cmp == 0) ? n : ~(n+1);
 //}
 
-int16_t linex_node_handler::locate(int16_t level) {
-    return binarySearch(key, key_len);
+int16_t basix_node_handler::locate() {
+    pos = binarySearch(key, key_len);
+    return pos;
 }
 
-linex::~linex() {
+basix::~basix() {
     delete root_data;
 }
 
-linex::linex() {
+basix::basix() {
     GenTree::generateLists();
-    root_data = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
-    linex_node_handler root(root_data);
+    root_data = (byte *) util::alignedAlloc(BASIX_NODE_SIZE);
+    basix_node_handler root(root_data);
     root.initBuf();
     total_size = maxKeyCount = 0;
     numLevels = blockCount = 1;
 }
 
-linex_node_handler::linex_node_handler(byte *b) {
+basix_node_handler::basix_node_handler(byte *b) {
     setBuf(b);
+    isPut = false;
 }
 
-void linex_node_handler::setBuf(byte *b) {
+void basix_node_handler::setBuf(byte *b) {
     buf = b;
-#if LX_9_BIT_PTR == 1
-#if LX_INT64MAP == 1
+#if BX_9_BIT_PTR == 1
+#if BX_INT64MAP == 1
     bitmap = (uint64_t *) (buf + BITMAP_POS);
 #else
     bitmap1 = (uint32_t *) (buf + BITMAP_POS);
@@ -439,13 +402,13 @@ void linex_node_handler::setBuf(byte *b) {
 #endif
 }
 
-void linex_node_handler::initBuf() {
-    //memset(buf, '\0', LINEX_NODE_SIZE);
+void basix_node_handler::initBuf() {
+    //memset(buf, '\0', BASIX_NODE_SIZE);
     setLeaf(1);
     setFilledUpto(-1);
-    setKVLastPos(LINEX_NODE_SIZE);
-#if LX_9_BIT_PTR == 1
-#if LX_INT64MAP == 1
+    setKVLastPos(BASIX_NODE_SIZE);
+#if BX_9_BIT_PTR == 1
+#if BX_INT64MAP == 1
     bitmap = (uint64_t *) (buf + BITMAP_POS);
 #else
     bitmap1 = (uint32_t *) (buf + BITMAP_POS);
@@ -454,43 +417,33 @@ void linex_node_handler::initBuf() {
 #endif
 }
 
-bool linex_node_handler::isLeaf() {
-    return (buf[0] == 1);
-}
-
-void linex_node_handler::setLeaf(char isLeaf) {
-    buf[0] = isLeaf;
-}
-
-void linex_node_handler::setFilledUpto(int16_t filledUpto) {
+void basix_node_handler::setFilledUpto(int16_t filledUpto) {
     util::setInt(buf + 1, filledUpto);
 }
 
-bool linex_node_handler::isFull(int16_t kv_len) {
-    kv_len += 2; // 1 byte key len, 1 byte value len
-    int16_t spaceLeft = getKVLastPos();
-#if LX_9_BIT_PTR == 1
-    kv_len++;
-    spaceLeft -= filledUpto();
-#else
-    kv_len += 2;
-    spaceLeft -= (filledUpto() * 2);
+bool basix_node_handler::isFull(int16_t kv_len) {
+    int16_t ptr_size = filledUpto() + 2;
+#if BX_9_BIT_PTR == 0
+    ptr_size <<= 1;
 #endif
-    spaceLeft -= 2;
-    spaceLeft -= BLK_HDR_SIZE;
-    if (spaceLeft < kv_len)
+    if ((getKVLastPos() - kv_len - 2)
+            <= (BLK_HDR_SIZE + ptr_size))
         return true;
+#if BX_9_BIT_PTR == 1
+    if (filledUpto() > 62)
+        return true;
+#endif
     return false;
 }
 
-int16_t linex_node_handler::filledUpto() {
+int16_t basix_node_handler::filledUpto() {
     return util::getInt(buf + 1);
 }
 
-int16_t linex_node_handler::getPtr(int16_t pos) {
-#if LX_9_BIT_PTR == 1
+int16_t basix_node_handler::getPtr(int16_t pos) {
+#if BX_9_BIT_PTR == 1
     int16_t ptr = buf[BLK_HDR_SIZE + pos];
-#if LX_INT64MAP == 1
+#if BX_INT64MAP == 1
     if (*bitmap & GenTree::mask64[pos])
     ptr |= 256;
 #else
@@ -509,10 +462,10 @@ int16_t linex_node_handler::getPtr(int16_t pos) {
 #endif
 }
 
-void linex_node_handler::setPtr(int16_t pos, int16_t ptr) {
-#if LX_9_BIT_PTR == 1
+void basix_node_handler::setPtr(int16_t pos, int16_t ptr) {
+#if BX_9_BIT_PTR == 1
     buf[BLK_HDR_SIZE + pos] = ptr;
-#if LX_INT64MAP == 1
+#if BX_INT64MAP == 1
     if (ptr >= 256)
     *bitmap |= GenTree::mask64[pos];
     else
@@ -537,27 +490,26 @@ void linex_node_handler::setPtr(int16_t pos, int16_t ptr) {
 #endif
 }
 
-byte *linex_node_handler::getChild(int16_t pos) {
-    byte *idx = buf + getPtr(pos);
-    idx += idx[0];
-    idx += 2;
-    unsigned long addr_num = util::fourBytesToPtr(idx);
-    byte *ret = (byte *) addr_num;
-    return ret;
-}
-
-byte *linex_node_handler::getKey(int16_t pos, int16_t *plen) {
+byte *basix_node_handler::getKey(int16_t pos, int16_t *plen) {
     byte *kvIdx = buf + getPtr(pos);
     *plen = kvIdx[0];
     kvIdx++;
     return kvIdx;
 }
 
-byte *linex_node_handler::getData(int16_t pos, int16_t *plen) {
-    byte *ret = buf + getPtr(pos);
-    ret += ret[0];
-    ret++;
-    *plen = ret[0];
-    ret++;
-    return ret;
+byte *basix_node_handler::getChildPtr(byte *ptr) {
+    ptr += (*ptr + 2);
+    return (byte *) util::fourBytesToPtr(ptr);
+}
+
+char *basix_node_handler::getValueAt(int16_t *vlen) {
+    key_at = buf + getPtr(pos);
+    key_at += *key_at;
+    key_at++;
+    *vlen = *key_at;
+    key_at++;
+    return (char *) key_at;
+}
+
+void basix_node_handler::initVars() {
 }
