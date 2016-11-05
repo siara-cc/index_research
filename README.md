@@ -1,2 +1,2 @@
-# huge_db
-An open, enterprise class, portable database
+# index_research
+Research on the classic B+Tree index against recent external memory indices
