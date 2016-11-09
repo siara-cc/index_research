@@ -1,4 +1,3 @@
-#include <iostream>
 #include <math.h>
 #include "bft.h"
 
@@ -52,9 +51,9 @@ void bft::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             //    maxKeyCount = block->filledSize();
             //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
             //cout << (int) node->TRIE_LEN << endl;
-            if (node->isLeaf())
+            if (!node->isLeaf())
                 maxKeyCount += node->filledSize();
-            //    maxKeyCount += node->TRIE_LEN;
+                //maxKeyCount += node->BPT_TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
             byte first_key[64];
             int16_t first_len;
@@ -76,10 +75,10 @@ void bft::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 idx = ~node->locate();
                 node->addData();
             }
-            if (node->isLeaf())
+            if (!node->isLeaf())
                 blockCount++;
             if (root_data == node->buf) {
-                //blockCount++;
+                blockCount++;
                 root_data = (byte *) util::alignedAlloc(node_size);
                 bft_node_handler root(root_data);
                 root.initBuf();
@@ -231,6 +230,7 @@ byte *bft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         }
     }
     memcpy(buf, old_block.buf, BFT_NODE_SIZE);
+
     /*
     if (first_key[0] - old_first_key[0] < 2) {
         int16_t len_to_chk = util::min(old_first_len, *first_len_ptr);
@@ -335,8 +335,8 @@ void bft_node_handler::addData() {
 
 bool bft_node_handler::isFull(int16_t kv_len) {
     if ((BFT_TRIE_LEN + need_count) > 189) {
-        //if ((origPos - trie) < (63 + need_count)) {
-        return true;
+        //if ((origPos - trie) <= (72 + need_count)) {
+            return true;
         //}
     }
     if ((getKVLastPos() - kv_len - 2)
@@ -398,7 +398,7 @@ int16_t bft_node_handler::insertCurrent() {
         *origPos |= ((BFT_TRIE_LEN - (origPos - trie - 1)) / 3);
         p = keyPos;
         key_at++;
-        min = util::min(key_len, keyPos + key_at_len);
+        min = util::min16(key_len, keyPos + key_at_len);
         ptr = *(origPos + 1);
         if (*origPos & x80)
             ptr |= x100;

@@ -1,8 +1,10 @@
 #ifndef bft_H
 #define bft_H
+#ifndef ARDUINO
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#endif
 #include "util.h"
 #include "bplus_tree.h"
 

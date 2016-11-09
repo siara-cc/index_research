@@ -1,6 +1,7 @@
-#include <iostream>
 #include <math.h>
+#ifndef ARDUINO
 #include <malloc.h>
+#endif
 #include <stdint.h>
 #include "bfos.h"
 #include "GenTree.h"
@@ -145,7 +146,7 @@ int16_t bfos_node_handler::nextPtr(bfos_iterator_status& s) {
             s.orig_leaves = s.leaves = (s.tc & x01 ? *s.t++ : 0);
 #endif
             s.t += GenTree::bit_count[s.children];
-            s.offset_a[s.keyPos] = GenTree::last_bit_offset[s.children
+            s.offset_a[s.keyPos] = GenTree::first_bit_offset[s.children
                     | s.leaves];
         }
         byte mask = x01 << s.offset_a[s.keyPos];
@@ -453,7 +454,7 @@ int16_t bfos_node_handler::insertCurrent() {
         }
 #endif
         p = keyPos;
-        min = util::min(key_len, keyPos + key_at_len);
+        min = util::min16(key_len, keyPos + key_at_len);
 #if BFOS_UNIT_SZ_3 == 1
         leafPos = origPos + 2;
 #else

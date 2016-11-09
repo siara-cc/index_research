@@ -1,7 +1,16 @@
 #ifndef UTIL_H
 #define UTIL_H
 #include <stdint.h>
+#ifdef ARDUINO
+#include <stdlib.h>
+#include <HardwareSerial.h>
+#else
+#include <cstdio>
+#include <iostream>
 #include <malloc.h>
+#endif
+
+using namespace std;
 
 typedef unsigned char byte;
 #define null 0
@@ -78,7 +87,7 @@ public:
         return (len1 < len2 ? -k : k);
     }
 
-    static inline int16_t min(int16_t x, int16_t y) {
+    static inline int16_t min16(int16_t x, int16_t y) {
         return (x > y ? y : x);
         //if (x > y)
         //    return y;
@@ -88,12 +97,47 @@ public:
     static void *alignedAlloc(int16_t blockSize) {
 #ifdef _MSC_VER
         return malloc(blockSize);
+#elif defined(ARDUINO)
+        return malloc(blockSize);
 #elif defined(__MINGW32_VERSION)
         return __mingw_aligned_malloc(blockSize, 64);
 #else
         return memalign(64, blockSize);
 #endif
     }
+
+    static void print(const char s[]) {
+#if defined(ARDUINO)
+        Serial.print(s);
+#else
+        cout << s;
+#endif
+    }
+
+    static void print(long l) {
+#if defined(ARDUINO)
+        Serial.print(l);
+#else
+        cout << l;
+#endif
+    }
+
+    static void print(int16_t i16) {
+#if defined(ARDUINO)
+        Serial.print(i16);
+#else
+        cout << i16;
+#endif
+    }
+
+    static void endl() {
+#if defined(ARDUINO)
+        Serial.print("\n");
+#else
+        cout << std::endl;
+#endif
+    }
+
 };
 
 #endif

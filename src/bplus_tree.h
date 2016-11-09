@@ -1,9 +1,14 @@
 #ifndef BP_TREE_H
 #define BP_TREE_H
+#ifdef ARDUINO
+#include <HardwareSerial.h>
+#include <string.h>
+#else
 #include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <malloc.h>
+#endif
 #include <stdint.h>
 #include "util.h"
 #include "GenTree.h"
@@ -213,14 +218,20 @@ public:
             int16_t value_len) = 0;
     virtual char *get(const char *key, int16_t key_len, int16_t *pValueLen) = 0;
     void printMaxKeyCount(long num_entries) {
-        std::cout << "Block Count:" << blockCount << std::endl;
-        std::cout << "Avg Block Count:" << (num_entries / blockCount)
-                << std::endl;
-        std::cout << "Avg Max Count:" << (maxKeyCount / blockCount)
-                << std::endl;
+        util::print("Block Count:");
+        util::print((long)blockCount);
+        util::endl();
+        util::print("Avg Block Count:");
+        util::print((long)(num_entries / blockCount));
+        util::endl();
+        util::print("Avg Max Count:");
+        util::print((long)(maxKeyCount / blockCount));
+        util::endl();
     }
     void printNumLevels() {
-        std::cout << "Level Count:" << numLevels << std::endl;
+        util::print("Level Count:");
+        util::print((long)numLevels);
+        util::endl();
     }
     long size() {
         return total_size;
