@@ -9,9 +9,7 @@ public:
     static byte bit_count[256];
     static byte bit_count2x[256];
     static byte first_bit_mask[256];
-    static byte last_bit_mask[256];
     static byte first_bit_offset[256];
-    static byte last_bit_offset[256];
     static int16_t *roots;
     static int16_t *left;
     static int16_t *ryte;
@@ -102,9 +100,7 @@ public:
             bit_count[i] = countSetBits(i);
             bit_count2x[i] = bit_count[i] << 1;
             first_bit_mask[i] = firstBitMask(i);
-            last_bit_mask[i] = lastBitMask(i);
             first_bit_offset[i] = firstBitOffset(i);
-            last_bit_offset[i] = lastBitOffset(i);
         }
         uint32_t ui32 = 1;
         for (int i = 0; i < 32; i++) {
@@ -160,17 +156,6 @@ public:
     }
 
     inline static byte firstBitOffset(int16_t n) {
-        byte offset = 0;
-        do {
-            byte mask = 0x80 >> offset;
-            if (n & mask)
-                return offset;
-            offset++;
-        } while (offset);
-        return 0x08;
-    }
-
-    inline static byte lastBitOffset(int16_t n) {
         int offset = 0;
         do {
             byte mask = 0x01 << offset;
