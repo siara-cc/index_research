@@ -1,8 +1,10 @@
 #ifndef dfox_H
 #define dfox_H
+#ifndef ARDUINO
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#endif
 #include "util.h"
 #include "bplus_tree.h"
 
@@ -87,7 +89,6 @@ private:
     void recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             byte *node_paths[], int16_t level);
 public:
-    static byte split_buf[DFOX_NODE_SIZE];
     static int count1, count2;
     dfox();
     ~dfox();
