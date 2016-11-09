@@ -8,7 +8,7 @@
 #include <map>
 #include "util.h"
 #include "art.h"
-#include "linex.h"
+#include "basix.h"
 #include "dfox.h"
 #include "bft.h"
 #include "bfos.h"
@@ -33,16 +33,17 @@ using namespace std;
 #define CS_255_DENSE 6
 
 char *IMPORT_FILE = NULL;
-long NUM_ENTRIES = 1000;
+unsigned long NUM_ENTRIES = 1000;
 int CHAR_SET = 2;
 int KEY_LEN = 8;
 int VALUE_LEN = 4;
+int ctr = 0;
 
 void insert(unordered_map<string, string>& m) {
     char k[100];
     char v[100];
     srand(time(NULL));
-    for (long l = 0; l < NUM_ENTRIES; l++) {
+    for (unsigned long l = 0; l < NUM_ENTRIES; l++) {
 
         if (CHAR_SET == CS_PRINTABLE) {
             for (int i = 0; i < KEY_LEN; i++)
@@ -99,7 +100,7 @@ void insert(unordered_map<string, string>& m) {
 
 void loadFile(unordered_map<string, string>& m) {
     FILE *fp;
-    char key[200];
+    char key[2000];
     char value[200];
     char *buf;
     int ctr = 0;
@@ -117,17 +118,20 @@ void loadFile(unordered_map<string, string>& m) {
             ctr = 0;
             int len = strlen(key);
             if (len > 0 && len <= KEY_LEN) {
-                if (m[key].length() == 0) {
-                    if (buf == value)
-                        m.insert(pair<string, string>(key, value));
-                    else {
-                        sprintf(value, "%ld", NUM_ENTRIES);
-                        m.insert(pair<string, string>(key, value));
-                    }
-                    NUM_ENTRIES++;
-                    if (NUM_ENTRIES % 100000 == 0)
-                        cout << "Key:'" << key << "'" << "\t" << "Value:'" << value << "'" << endl;
+                //if (m[key].length() > 0)
+                //    cout << key << ":" << value << endl;
+                if (buf == value)
+                    m.insert(pair<string, string>(key, value));
+                else {
+                    //sprintf(value, "%ld", NUM_ENTRIES);
+                    util::ptrToFourBytes(NUM_ENTRIES, (byte *) value);
+                    value[4] = 0;
+                    m.insert(pair<string, string>(key, value));
                 }
+                if (NUM_ENTRIES % 100000 == 0)
+                    cout << "Key:'" << key << "'" << "\t" << "Value:'" << value
+                            << "'" << endl;
+                NUM_ENTRIES++;
             }
             key[0] = 0;
             value[0] = 0;
@@ -173,7 +177,7 @@ void print(rb_tree *dx, const char *key, int16_t key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
-//void print(dfos *dx, const char *key, int16_t key_len) {
+//void print(dfox *dx, const char *key, int16_t key_len) {
 //    int16_t len;
 //    char *value = dx->get(key, key_len, &len);
 //    if (value == null || len == 0) {
@@ -225,7 +229,7 @@ void print(dfox *dx, const char *key, int16_t key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
-void print(linex *dx, const char *key, int16_t key_len) {
+void print(basix *dx, const char *key, int16_t key_len) {
     int16_t len;
     char *value = dx->get(key, key_len, &len);
     if (value == null || len == 0) {
@@ -241,14 +245,14 @@ void print(linex *dx, const char *key, int16_t key_len) {
 int main2() {
     GenTree::generateBitCounts();
     //rb_tree *dx = new rb_tree();
-    //dfos *dx = new dfos();
+    //dfox *dx = new dfox();
     //dfox *dx = new dfox();
     //bfos *dx = new bfos();
     bft *dx = new bft();
-    //linex *dx = new linex();
+    //basix *dx = new basix();
 
-//    dx->put("Hello", 5, "World", 5);
-//    dx->put("Nice", 4, "Place", 5);
+    dx->put("Hello", 5, "World", 5);
+    dx->put("Nice", 4, "Place", 5);
 //    dx->put("Arun", 4, "Hello", 5);
 //    dx->put("arun", 4, "dale", 4);
 //    dx->put("resin", 5, "34623", 5);
@@ -294,9 +298,9 @@ int main2() {
 //    dx->put("young", 5, "19", 2);
 //    dx->put("youth", 5, "20", 2);
 //    dx->put("yousuf", 6, "21", 2);
-//
-//    print(dx, "Hello", 5);
-//    print(dx, "Nice", 4);
+
+    print(dx, "Hello", 5);
+    print(dx, "Nice", 4);
 //    print(dx, "Arun", 4);
 //    print(dx, "arun", 4);
 //    print(dx, "resin", 5);
@@ -535,325 +539,325 @@ int main2() {
 //    print(dx, "age", 3);
 //    print(dx, "achievement", 11);
 
-    dx->put("lastminutecarinsurancedeals.com", 31, "5668", 4);
-    dx->put("youforgottorenewyourhosting.com", 31, "7680", 4);
-    dx->put("xn--fiq53l90e917afrv.xn--fiqs8s", 31, "9561", 4);
-    dx->put("genericsildenafilcitrateusa.com", 31, "12533", 5);
-    dx->put("sildenafilonlinepharmacyusa.com", 31, "12608", 5);
-    dx->put("christianlouboutinoutlet.com.co", 31, "13117", 5);
-    dx->put("christianlouboutinoutlet.net.co", 31, "14732", 5);
-    dx->put("meltzeraccountingtaxservice.com", 31, "15785", 5);
-    dx->put("palestinesolidaritycampaign.com", 31, "15814", 5);
-    dx->put("serviciointegraldeproyectos.com", 31, "17248", 5);
-    dx->put("xn--rhq57s5w8ak9pmvf.xn--fiqs8s", 31, "17617", 5);
-    dx->put("xn--wlqw1swrj75p8i1b.xn--fiqs8s", 31, "17637", 5);
-    dx->put("xn--w9qq0rwzdb98dqqb.xn--fiqs8s", 31, "17724", 5);
-    dx->put("xn--4gq4c290dklat89r.xn--fiqs8s", 31, "17761", 5);
-    dx->put("xn--fiq73fnvbuz3e5ml.xn--fiqs8s", 31, "17770", 5);
-    dx->put("xn--pss89jtpoqv9ac2d.xn--fiqs8s", 31, "17784", 5);
-    dx->put("xn--w2xsoi54a3zbz85a.xn--fiqs8s", 31, "17810", 5);
-    dx->put("xn--jvrw50bmntulxqua.xn--fiqs8s", 31, "17844", 5);
-    dx->put("xn--vhqr0kjvfmp0cnce.xn--fiqs8s", 31, "17850", 5);
-    dx->put("xn--pzsz6axqj76i11za.xn--fiqs8s", 31, "17864", 5);
-    dx->put("xn--vsq68jfp8byfvt0a.xn--fiqs8s", 31, "17874", 5);
-    dx->put("xn--viq48k2xcftdms1j.xn--fiqs8s", 31, "17923", 5);
-    dx->put("xn--nfv35ar44brnrmgf.xn--fiqs8s", 31, "17954", 5);
-    dx->put("xn--gmqr9jnzfr46aesx.xn--fiqs8s", 31, "17969", 5);
-    dx->put("xn--wlq644avriuwq9ww.xn--fiqs8s", 31, "17977", 5);
-    dx->put("xn--rhqu0vt3az3dd35c.xn--fiqs8s", 31, "17979", 5);
-    dx->put("xn--tbt34wol4a8sdcxl.xn--fiqs8s", 31, "18000", 5);
-    dx->put("xn--49s41u3xvlibw66c.xn--fiqs8s", 31, "18013", 5);
-    dx->put("xn--kprp99c1wfz8vngo.xn--fiqs8s", 31, "18026", 5);
-    dx->put("xn--z-6k4bn77a89ss9i.xn--fiqs8s", 31, "18033", 5);
-    dx->put("xn--vhqd20yzukf0cwzb.xn--fiqs8s", 31, "18065", 5);
-    dx->put("xn--v6qr1dq5gzrcw46f.xn--fiqs8s", 31, "18086", 5);
-    dx->put("xn--ekr7b865arptsy0c.xn--fiqs8s", 31, "18101", 5);
-    dx->put("xn--48sx1dw7wunan48n.xn--fiqs8s", 31, "18111", 5);
-    dx->put("somethingsweetcandywrappers.com", 31, "20941", 5);
-    dx->put("viagra6withoutprescription6.top", 31, "21002", 5);
-    dx->put("gabrielandodonovansfunerals.com", 31, "21167", 5);
-    dx->put("genericsildenafilviagrameds.com", 31, "21539", 5);
-    dx->put("christian-louboutinshoes.com.co", 31, "21733", 5);
-    dx->put("portcullispropertylawyers.co.uk", 31, "22083", 5);
-    dx->put("datenschutzbeauftragter-info.de", 31, "24316", 5);
-    dx->put("sildenafilcitrateviagrameds.com", 31, "24636", 5);
-    dx->put("sustainablecitiescollective.com", 31, "25770", 5);
-    dx->put("coachfactoryoutletonline.com.co", 31, "29395", 5);
-    dx->put("xn--ooru3l66bewopi7d.xn--fiqs8s", 31, "29632", 5);
-    dx->put("xn--fcs1bv97dkiam47a.xn--fiqs8s", 31, "29803", 5);
-    dx->put("coachfactoryonlineoutlet.com.co", 31, "30185", 5);
-    dx->put("cialistadalafillowest-price.com", 31, "30250", 5);
-    dx->put("cialis-tadalafillowestprice.com", 31, "30515", 5);
-    dx->put("digital-photography-school.com", 30, "4815", 4);
-    dx->put("xn----8sbwgbwgd2ahr6g.xn--p1ai", 30, "8099", 4);
-    dx->put("xn--09st2hjis03i62p.xn--fiqs8s", 30, "9613", 4);
-    dx->put("insuranceofmiddletennessee.com", 30, "12106", 5);
-    dx->put("igniteideasandinspirations.com", 30, "12588", 5);
-    dx->put("sildenafilonlinepharmacyus.com", 30, "12887", 5);
-    dx->put("genericsildenafilonlinewww.com", 30, "13430", 5);
-    dx->put("wwwgenericsildenafilonline.com", 30, "13569", 5);
-    dx->put("coachoutletstore-online.com.co", 30, "14492", 5);
-    dx->put("wwwviagraonlinepharmacyusa.com", 30, "15784", 5);
-    dx->put("louisvuitton-outlet-online.org", 30, "17241", 5);
-    dx->put("xn--rhqy5t94sljpn2v.xn--fiqs8s", 30, "17608", 5);
-    dx->put("xn--9kqp7incw25ov8m.xn--fiqs8s", 30, "17685", 5);
-    dx->put("xn--zfvq32ahhv8ptzv.xn--fiqs8s", 30, "17747", 5);
-    dx->put("xn--fct52f10hm3r1mw.xn--fiqs8s", 30, "17753", 5);
-    dx->put("xn--fct52f30hhwj28i.xn--fiqs8s", 30, "17754", 5);
-    dx->put("xn--8mry53h3a90gq8g.xn--fiqs8s", 30, "17819", 5);
-    dx->put("xn--z4qs0xvstokk3gq.xn--fiqs8s", 30, "17949", 5);
-    dx->put("xn--zcr16c427ca484z.xn--fiqs8s", 30, "17964", 5);
-    dx->put("xn--tkv464fnb89xcxl.xn--fiqs8s", 30, "18002", 5);
-    dx->put("xn--1lt2t40q3v2a3xx.xn--fiqs8s", 30, "18036", 5);
-    dx->put("xn--m7r38vf9dp1ww9h.xn--fiqs8s", 30, "18060", 5);
-    dx->put("xn--oms0s37c7xuo35c.xn--fiqs8s", 30, "18102", 5);
-    dx->put("canadianonlinepharmacymeds.com", 30, "18799", 5);
-    dx->put("sildenafilcitrateviagrawww.com", 30, "19735", 5);
-    dx->put("michaelkors-outletonline.co.uk", 30, "20371", 5);
-    dx->put("mulberry-handbagsoutlet.org.uk", 30, "21701", 5);
-    dx->put("abercrombie-fitch-hollister.fr", 30, "21711", 5);
-    dx->put("canadianonlinepharmacyhome.com", 30, "21794", 5);
-    dx->put("footballcentralreflections.com", 30, "22580", 5);
-    dx->put("www.turystyka.wrotapodlasia.pl", 30, "23247", 5);
-    dx->put("canadianonlinepharmacysafe.com", 30, "23591", 5);
-    dx->put("burberry-handbagsoutlet.com.co", 30, "23686", 5);
-    dx->put("centralfloridaweddinggroup.com", 30, "23988", 5);
-    dx->put("automotivedigitalmarketing.com", 30, "24306", 5);
-    dx->put("coach-factoryyoutletonline.net", 30, "24469", 5);
-    dx->put("paradiseboatrentalskeywest.com", 30, "24730", 5);
-    dx->put("canadianonlinedrugstorewww.com", 30, "24822", 5);
-    dx->put("yorkshirecottageservices.co.uk", 30, "25173", 5);
-    dx->put("cheapnfljerseysonlinestore.com", 30, "27197", 5);
-    dx->put("primemovergovernorservices.com", 30, "27386", 5);
-    dx->put("michaelkorsoutletonline.com.co", 30, "27619", 5);
-    dx->put("canadianonlinepharmacycare.com", 30, "28543", 5);
-    dx->put("bestlowestpriceviagra100mg.com", 30, "28738", 5);
-    dx->put("ristorantelafontevillapiana.it", 30, "29213", 5);
-    dx->put("xn--wlqwmw8rs0lrs4c.xn--fiqs8s", 30, "29760", 5);
-    dx->put("xn--fiqs8ssrh2zv92m.xn--fiqs8s", 30, "29832", 5);
-    dx->put("canadianonlinepharmacyhere.com", 30, "29904", 5);
-    dx->put("phoenixfeatherscalligraphy.com", 30, "29908", 5);
-    dx->put("contentmarketinginstitute.com", 29, "4934", 4);
-    dx->put("detail.chiebukuro.yahoo.co.jp", 29, "5627", 4);
-    dx->put("informationclearinghouse.info", 29, "6743", 4);
-    dx->put("suicidepreventionlifeline.org", 29, "7134", 4);
-    dx->put("michaelkorshandbags-uk.org.uk", 29, "9042", 4);
-    dx->put("hollister-abercrombiefitch.fr", 29, "9146", 4);
-    dx->put("xn--czrx92avj3aruk.xn--fiqs8s", 29, "9556", 4);
-    dx->put("xn--9krt00a31ab15f.xn--fiqs8s", 29, "9635", 4);
-    dx->put("xn--chq51t4m0ajf2a.xn--fiqs8s", 29, "9693", 4);
-    dx->put("cheapsildenafilcitrateusa.com", 29, "13037", 5);
-    dx->put("genericonlineviagracanada.com", 29, "13730", 5);
-    dx->put("louisvuitton-outlet-store.com", 29, "14187", 5);
-    dx->put("canadianonlinepharmacywww.com", 29, "14246", 5);
-    dx->put("genericviagraonlinecanada.net", 29, "14327", 5);
-    dx->put("louis-vuitton-handbags.org.uk", 29, "15441", 5);
-    dx->put("wwwgenericviagraonlineusa.com", 29, "15866", 5);
-    dx->put("chaussurelouboutin-pascher.fr", 29, "16042", 5);
-    dx->put("michael-kors-australia.com.au", 29, "16350", 5);
-    dx->put("tommy-hilfiger-online-shop.de", 29, "16475", 5);
-    dx->put("intranetcompass-mexico.com.mx", 29, "16708", 5);
-    dx->put("mulberryhandbags-outlet.co.uk", 29, "17112", 5);
-    dx->put("cheapnfljerseysstorechina.com", 29, "17441", 5);
-    dx->put("xn--1lq90iiu2azf1b.xn--fiqs8s", 29, "17648", 5);
-    dx->put("xn--b0tz14bjlf070a.xn--fiqs8s", 29, "17649", 5);
-    dx->put("xn--7orv88cw7a551i.xn--fiqs8s", 29, "17750", 5);
-    dx->put("xn--jvr951bd2h5i2a.xn--fiqs8s", 29, "17764", 5);
-    dx->put("xn--jvrr31fczfyl1a.xn--fiqs8s", 29, "17871", 5);
-    dx->put("xn--djro74bl9hqu6a.xn--fiqs8s", 29, "17884", 5);
-    dx->put("xn--cpq868aqt8b3df.xn--fiqs8s", 29, "17891", 5);
-    dx->put("xn--w9qt40a1nak39j.xn--fiqs8s", 29, "17896", 5);
-    dx->put("xn--vuq96as62aph5d.xn--fiqs8s", 29, "17929", 5);
-    dx->put("xn--fiqp93a8zsrr1a.xn--fiqs8s", 29, "17972", 5);
-    dx->put("xn--tqqy82al5c2z8b.xn--fiqs8s", 29, "17975", 5);
-    dx->put("xn--pad-ub9dn4u9uu.xn--fiqs8s", 29, "18034", 5);
-    dx->put("xn--wlr572ag4a1z5e.xn--fiqs8s", 29, "18035", 5);
-    dx->put("xglartesaniasecuatorianas.com", 29, "18559", 5);
-    dx->put("ghd-hair-straighteners.org.uk", 29, "19470", 5);
-    dx->put("chaussureslouboutin-soldes.fr", 29, "19939", 5);
-    dx->put("universalstudioshollywood.com", 29, "20599", 5);
-    dx->put("zitzlofftrainingresources.com", 29, "21098", 5);
-    dx->put("www.rolexwatchesoutlet.us.com", 29, "21246", 5);
-    dx->put("nike-mercurial-superfly.co.uk", 29, "21264", 5);
-    dx->put("wwwcanadianonlinepharmacy.com", 29, "21499", 5);
-    dx->put("michaelkors-outlet-online.net", 29, "21566", 5);
-    dx->put("jornalfolhacondominios.com.br", 29, "21818", 5);
-    dx->put("truereligionjeansoutlet.co.uk", 29, "22163", 5);
-    dx->put("expressonlinepharmacymeds.com", 29, "22169", 5);
-    dx->put("canadianpharmacyonlinewww.com", 29, "22730", 5);
-    dx->put("getcarinsuranceratesonline.pw", 29, "23122", 5);
-    dx->put("tiffanyjewellery-outlet.co.uk", 29, "23431", 5);
-    dx->put("programmers.stackexchange.com", 29, "24017", 5);
-    dx->put("topcanadianpharmacyonline.com", 29, "24237", 5);
-    dx->put("homelandinsuranceservices.com", 29, "25388", 5);
-    dx->put("designerhandbagsoutlet.net.co", 29, "25467", 5);
-    dx->put("thenewcivilrightsmovement.com", 29, "25744", 5);
-    dx->put("churchtelemessagingsystem.com", 29, "25894", 5);
-    dx->put("alquilerdemontacargas7x24.com", 29, "26416", 5);
-    dx->put("xn--80aaggsdegjfnhhi.xn--p1ai", 29, "26529", 5);
-    dx->put("canadianwwwonlinepharmacy.com", 29, "27217", 5);
-    dx->put("coachoutletstoreonline.com.co", 29, "27236", 5);
-    dx->put("pittsburghsteelersjerseys.com", 29, "28319", 5);
-
-    print(dx, "lastminutecarinsurancedeals.com", 31);
-    print(dx, "youforgottorenewyourhosting.com", 31);
-    print(dx, "xn--fiq53l90e917afrv.xn--fiqs8s", 31);
-    print(dx, "genericsildenafilcitrateusa.com", 31);
-    print(dx, "sildenafilonlinepharmacyusa.com", 31);
-    print(dx, "christianlouboutinoutlet.com.co", 31);
-    print(dx, "christianlouboutinoutlet.net.co", 31);
-    print(dx, "meltzeraccountingtaxservice.com", 31);
-    print(dx, "palestinesolidaritycampaign.com", 31);
-    print(dx, "serviciointegraldeproyectos.com", 31);
-    print(dx, "xn--rhq57s5w8ak9pmvf.xn--fiqs8s", 31);
-    print(dx, "xn--wlqw1swrj75p8i1b.xn--fiqs8s", 31);
-    print(dx, "xn--w9qq0rwzdb98dqqb.xn--fiqs8s", 31);
-    print(dx, "xn--4gq4c290dklat89r.xn--fiqs8s", 31);
-    print(dx, "xn--fiq73fnvbuz3e5ml.xn--fiqs8s", 31);
-    print(dx, "xn--pss89jtpoqv9ac2d.xn--fiqs8s", 31);
-    print(dx, "xn--w2xsoi54a3zbz85a.xn--fiqs8s", 31);
-    print(dx, "xn--jvrw50bmntulxqua.xn--fiqs8s", 31);
-    print(dx, "xn--vhqr0kjvfmp0cnce.xn--fiqs8s", 31);
-    print(dx, "xn--pzsz6axqj76i11za.xn--fiqs8s", 31);
-    print(dx, "xn--vsq68jfp8byfvt0a.xn--fiqs8s", 31);
-    print(dx, "xn--viq48k2xcftdms1j.xn--fiqs8s", 31);
-    print(dx, "xn--nfv35ar44brnrmgf.xn--fiqs8s", 31);
-    print(dx, "xn--gmqr9jnzfr46aesx.xn--fiqs8s", 31);
-    print(dx, "xn--wlq644avriuwq9ww.xn--fiqs8s", 31);
-    print(dx, "xn--rhqu0vt3az3dd35c.xn--fiqs8s", 31);
-    print(dx, "xn--tbt34wol4a8sdcxl.xn--fiqs8s", 31);
-    print(dx, "xn--49s41u3xvlibw66c.xn--fiqs8s", 31);
-    print(dx, "xn--kprp99c1wfz8vngo.xn--fiqs8s", 31);
-    print(dx, "xn--z-6k4bn77a89ss9i.xn--fiqs8s", 31);
-    print(dx, "xn--vhqd20yzukf0cwzb.xn--fiqs8s", 31);
-    print(dx, "xn--v6qr1dq5gzrcw46f.xn--fiqs8s", 31);
-    print(dx, "xn--ekr7b865arptsy0c.xn--fiqs8s", 31);
-    print(dx, "xn--48sx1dw7wunan48n.xn--fiqs8s", 31);
-    print(dx, "somethingsweetcandywrappers.com", 31);
-    print(dx, "viagra6withoutprescription6.top", 31);
-    print(dx, "gabrielandodonovansfunerals.com", 31);
-    print(dx, "genericsildenafilviagrameds.com", 31);
-    print(dx, "christian-louboutinshoes.com.co", 31);
-    print(dx, "portcullispropertylawyers.co.uk", 31);
-    print(dx, "datenschutzbeauftragter-info.de", 31);
-    print(dx, "sildenafilcitrateviagrameds.com", 31);
-    print(dx, "sustainablecitiescollective.com", 31);
-    print(dx, "coachfactoryoutletonline.com.co", 31);
-    print(dx, "xn--ooru3l66bewopi7d.xn--fiqs8s", 31);
-    print(dx, "xn--fcs1bv97dkiam47a.xn--fiqs8s", 31);
-    print(dx, "coachfactoryonlineoutlet.com.co", 31);
-    print(dx, "cialistadalafillowest-price.com", 31);
-    print(dx, "cialis-tadalafillowestprice.com", 31);
-    print(dx, "digital-photography-school.com", 30);
-    print(dx, "xn----8sbwgbwgd2ahr6g.xn--p1ai", 30);
-    print(dx, "xn--09st2hjis03i62p.xn--fiqs8s", 30);
-    print(dx, "insuranceofmiddletennessee.com", 30);
-    print(dx, "igniteideasandinspirations.com", 30);
-    print(dx, "sildenafilonlinepharmacyus.com", 30);
-    print(dx, "genericsildenafilonlinewww.com", 30);
-    print(dx, "wwwgenericsildenafilonline.com", 30);
-    print(dx, "coachoutletstore-online.com.co", 30);
-    print(dx, "wwwviagraonlinepharmacyusa.com", 30);
-    print(dx, "louisvuitton-outlet-online.org", 30);
-    print(dx, "xn--rhqy5t94sljpn2v.xn--fiqs8s", 30);
-    print(dx, "xn--9kqp7incw25ov8m.xn--fiqs8s", 30);
-    print(dx, "xn--zfvq32ahhv8ptzv.xn--fiqs8s", 30);
-    print(dx, "xn--fct52f10hm3r1mw.xn--fiqs8s", 30);
-    print(dx, "xn--fct52f30hhwj28i.xn--fiqs8s", 30);
-    print(dx, "xn--8mry53h3a90gq8g.xn--fiqs8s", 30);
-    print(dx, "xn--z4qs0xvstokk3gq.xn--fiqs8s", 30);
-    print(dx, "xn--zcr16c427ca484z.xn--fiqs8s", 30);
-    print(dx, "xn--tkv464fnb89xcxl.xn--fiqs8s", 30);
-    print(dx, "xn--1lt2t40q3v2a3xx.xn--fiqs8s", 30);
-    print(dx, "xn--m7r38vf9dp1ww9h.xn--fiqs8s", 30);
-    print(dx, "xn--oms0s37c7xuo35c.xn--fiqs8s", 30);
-    print(dx, "canadianonlinepharmacymeds.com", 30);
-    print(dx, "sildenafilcitrateviagrawww.com", 30);
-    print(dx, "michaelkors-outletonline.co.uk", 30);
-    print(dx, "mulberry-handbagsoutlet.org.uk", 30);
-    print(dx, "abercrombie-fitch-hollister.fr", 30);
-    print(dx, "canadianonlinepharmacyhome.com", 30);
-    print(dx, "footballcentralreflections.com", 30);
-    print(dx, "www.turystyka.wrotapodlasia.pl", 30);
-    print(dx, "canadianonlinepharmacysafe.com", 30);
-    print(dx, "burberry-handbagsoutlet.com.co", 30);
-    print(dx, "centralfloridaweddinggroup.com", 30);
-    print(dx, "automotivedigitalmarketing.com", 30);
-    print(dx, "coach-factoryyoutletonline.net", 30);
-    print(dx, "paradiseboatrentalskeywest.com", 30);
-    print(dx, "canadianonlinedrugstorewww.com", 30);
-    print(dx, "yorkshirecottageservices.co.uk", 30);
-    print(dx, "cheapnfljerseysonlinestore.com", 30);
-    print(dx, "primemovergovernorservices.com", 30);
-    print(dx, "michaelkorsoutletonline.com.co", 30);
-    print(dx, "canadianonlinepharmacycare.com", 30);
-    print(dx, "bestlowestpriceviagra100mg.com", 30);
-    print(dx, "ristorantelafontevillapiana.it", 30);
-    print(dx, "xn--wlqwmw8rs0lrs4c.xn--fiqs8s", 30);
-    print(dx, "xn--fiqs8ssrh2zv92m.xn--fiqs8s", 30);
-    print(dx, "canadianonlinepharmacyhere.com", 30);
-    print(dx, "phoenixfeatherscalligraphy.com", 30);
-    print(dx, "contentmarketinginstitute.com", 29);
-    print(dx, "detail.chiebukuro.yahoo.co.jp", 29);
-    print(dx, "informationclearinghouse.info", 29);
-    print(dx, "suicidepreventionlifeline.org", 29);
-    print(dx, "michaelkorshandbags-uk.org.uk", 29);
-    print(dx, "hollister-abercrombiefitch.fr", 29);
-    print(dx, "xn--czrx92avj3aruk.xn--fiqs8s", 29);
-    print(dx, "xn--9krt00a31ab15f.xn--fiqs8s", 29);
-    print(dx, "xn--chq51t4m0ajf2a.xn--fiqs8s", 29);
-    print(dx, "cheapsildenafilcitrateusa.com", 29);
-    print(dx, "genericonlineviagracanada.com", 29);
-    print(dx, "louisvuitton-outlet-store.com", 29);
-    print(dx, "canadianonlinepharmacywww.com", 29);
-    print(dx, "genericviagraonlinecanada.net", 29);
-    print(dx, "louis-vuitton-handbags.org.uk", 29);
-    print(dx, "wwwgenericviagraonlineusa.com", 29);
-    print(dx, "chaussurelouboutin-pascher.fr", 29);
-    print(dx, "michael-kors-australia.com.au", 29);
-    print(dx, "tommy-hilfiger-online-shop.de", 29);
-    print(dx, "intranetcompass-mexico.com.mx", 29);
-    print(dx, "mulberryhandbags-outlet.co.uk", 29);
-    print(dx, "cheapnfljerseysstorechina.com", 29);
-    print(dx, "xn--1lq90iiu2azf1b.xn--fiqs8s", 29);
-    print(dx, "xn--b0tz14bjlf070a.xn--fiqs8s", 29);
-    print(dx, "xn--7orv88cw7a551i.xn--fiqs8s", 29);
-    print(dx, "xn--jvr951bd2h5i2a.xn--fiqs8s", 29);
-    print(dx, "xn--jvrr31fczfyl1a.xn--fiqs8s", 29);
-    print(dx, "xn--djro74bl9hqu6a.xn--fiqs8s", 29);
-    print(dx, "xn--cpq868aqt8b3df.xn--fiqs8s", 29);
-    print(dx, "xn--w9qt40a1nak39j.xn--fiqs8s", 29);
-    print(dx, "xn--vuq96as62aph5d.xn--fiqs8s", 29);
-    print(dx, "xn--fiqp93a8zsrr1a.xn--fiqs8s", 29);
-    print(dx, "xn--tqqy82al5c2z8b.xn--fiqs8s", 29);
-    print(dx, "xn--pad-ub9dn4u9uu.xn--fiqs8s", 29);
-    print(dx, "xn--wlr572ag4a1z5e.xn--fiqs8s", 29);
-    print(dx, "xglartesaniasecuatorianas.com", 29);
-    print(dx, "ghd-hair-straighteners.org.uk", 29);
-    print(dx, "chaussureslouboutin-soldes.fr", 29);
-    print(dx, "universalstudioshollywood.com", 29);
-    print(dx, "zitzlofftrainingresources.com", 29);
-    print(dx, "www.rolexwatchesoutlet.us.com", 29);
-    print(dx, "nike-mercurial-superfly.co.uk", 29);
-    print(dx, "wwwcanadianonlinepharmacy.com", 29);
-    print(dx, "michaelkors-outlet-online.net", 29);
-    print(dx, "jornalfolhacondominios.com.br", 29);
-    print(dx, "truereligionjeansoutlet.co.uk", 29);
-    print(dx, "expressonlinepharmacymeds.com", 29);
-    print(dx, "canadianpharmacyonlinewww.com", 29);
-    print(dx, "getcarinsuranceratesonline.pw", 29);
-    print(dx, "tiffanyjewellery-outlet.co.uk", 29);
-    print(dx, "programmers.stackexchange.com", 29);
-    print(dx, "topcanadianpharmacyonline.com", 29);
-    print(dx, "homelandinsuranceservices.com", 29);
-    print(dx, "designerhandbagsoutlet.net.co", 29);
-    print(dx, "thenewcivilrightsmovement.com", 29);
-    print(dx, "churchtelemessagingsystem.com", 29);
-    print(dx, "alquilerdemontacargas7x24.com", 29);
-    print(dx, "xn--80aaggsdegjfnhhi.xn--p1ai", 29);
-    print(dx, "canadianwwwonlinepharmacy.com", 29);
-    print(dx, "coachoutletstoreonline.com.co", 29);
-    print(dx, "pittsburghsteelersjerseys.com", 29);
+//    dx->put("lastminutecarinsurancedeals.com", 31, "5668", 4);
+//    dx->put("youforgottorenewyourhosting.com", 31, "7680", 4);
+//    dx->put("xn--fiq53l90e917afrv.xn--fiqs8s", 31, "9561", 4);
+//    dx->put("genericsildenafilcitrateusa.com", 31, "12533", 5);
+//    dx->put("sildenafilonlinepharmacyusa.com", 31, "12608", 5);
+//    dx->put("christianlouboutinoutlet.com.co", 31, "13117", 5);
+//    dx->put("christianlouboutinoutlet.net.co", 31, "14732", 5);
+//    dx->put("meltzeraccountingtaxservice.com", 31, "15785", 5);
+//    dx->put("palestinesolidaritycampaign.com", 31, "15814", 5);
+//    dx->put("serviciointegraldeproyectos.com", 31, "17248", 5);
+//    dx->put("xn--rhq57s5w8ak9pmvf.xn--fiqs8s", 31, "17617", 5);
+//    dx->put("xn--wlqw1swrj75p8i1b.xn--fiqs8s", 31, "17637", 5);
+//    dx->put("xn--w9qq0rwzdb98dqqb.xn--fiqs8s", 31, "17724", 5);
+//    dx->put("xn--4gq4c290dklat89r.xn--fiqs8s", 31, "17761", 5);
+//    dx->put("xn--fiq73fnvbuz3e5ml.xn--fiqs8s", 31, "17770", 5);
+//    dx->put("xn--pss89jtpoqv9ac2d.xn--fiqs8s", 31, "17784", 5);
+//    dx->put("xn--w2xsoi54a3zbz85a.xn--fiqs8s", 31, "17810", 5);
+//    dx->put("xn--jvrw50bmntulxqua.xn--fiqs8s", 31, "17844", 5);
+//    dx->put("xn--vhqr0kjvfmp0cnce.xn--fiqs8s", 31, "17850", 5);
+//    dx->put("xn--pzsz6axqj76i11za.xn--fiqs8s", 31, "17864", 5);
+//    dx->put("xn--vsq68jfp8byfvt0a.xn--fiqs8s", 31, "17874", 5);
+//    dx->put("xn--viq48k2xcftdms1j.xn--fiqs8s", 31, "17923", 5);
+//    dx->put("xn--nfv35ar44brnrmgf.xn--fiqs8s", 31, "17954", 5);
+//    dx->put("xn--gmqr9jnzfr46aesx.xn--fiqs8s", 31, "17969", 5);
+//    dx->put("xn--wlq644avriuwq9ww.xn--fiqs8s", 31, "17977", 5);
+//    dx->put("xn--rhqu0vt3az3dd35c.xn--fiqs8s", 31, "17979", 5);
+//    dx->put("xn--tbt34wol4a8sdcxl.xn--fiqs8s", 31, "18000", 5);
+//    dx->put("xn--49s41u3xvlibw66c.xn--fiqs8s", 31, "18013", 5);
+//    dx->put("xn--kprp99c1wfz8vngo.xn--fiqs8s", 31, "18026", 5);
+//    dx->put("xn--z-6k4bn77a89ss9i.xn--fiqs8s", 31, "18033", 5);
+//    dx->put("xn--vhqd20yzukf0cwzb.xn--fiqs8s", 31, "18065", 5);
+//    dx->put("xn--v6qr1dq5gzrcw46f.xn--fiqs8s", 31, "18086", 5);
+//    dx->put("xn--ekr7b865arptsy0c.xn--fiqs8s", 31, "18101", 5);
+//    dx->put("xn--48sx1dw7wunan48n.xn--fiqs8s", 31, "18111", 5);
+//    dx->put("somethingsweetcandywrappers.com", 31, "20941", 5);
+//    dx->put("viagra6withoutprescription6.top", 31, "21002", 5);
+//    dx->put("gabrielandodonovansfunerals.com", 31, "21167", 5);
+//    dx->put("genericsildenafilviagrameds.com", 31, "21539", 5);
+//    dx->put("christian-louboutinshoes.com.co", 31, "21733", 5);
+//    dx->put("portcullispropertylawyers.co.uk", 31, "22083", 5);
+//    dx->put("datenschutzbeauftragter-info.de", 31, "24316", 5);
+//    dx->put("sildenafilcitrateviagrameds.com", 31, "24636", 5);
+//    dx->put("sustainablecitiescollective.com", 31, "25770", 5);
+//    dx->put("coachfactoryoutletonline.com.co", 31, "29395", 5);
+//    dx->put("xn--ooru3l66bewopi7d.xn--fiqs8s", 31, "29632", 5);
+//    dx->put("xn--fcs1bv97dkiam47a.xn--fiqs8s", 31, "29803", 5);
+//    dx->put("coachfactoryonlineoutlet.com.co", 31, "30185", 5);
+//    dx->put("cialistadalafillowest-price.com", 31, "30250", 5);
+//    dx->put("cialis-tadalafillowestprice.com", 31, "30515", 5);
+//    dx->put("digital-photography-school.com", 30, "4815", 4);
+//    dx->put("xn----8sbwgbwgd2ahr6g.xn--p1ai", 30, "8099", 4);
+//    dx->put("xn--09st2hjis03i62p.xn--fiqs8s", 30, "9613", 4);
+//    dx->put("insuranceofmiddletennessee.com", 30, "12106", 5);
+//    dx->put("igniteideasandinspirations.com", 30, "12588", 5);
+//    dx->put("sildenafilonlinepharmacyus.com", 30, "12887", 5);
+//    dx->put("genericsildenafilonlinewww.com", 30, "13430", 5);
+//    dx->put("wwwgenericsildenafilonline.com", 30, "13569", 5);
+//    dx->put("coachoutletstore-online.com.co", 30, "14492", 5);
+//    dx->put("wwwviagraonlinepharmacyusa.com", 30, "15784", 5);
+//    dx->put("louisvuitton-outlet-online.org", 30, "17241", 5);
+//    dx->put("xn--rhqy5t94sljpn2v.xn--fiqs8s", 30, "17608", 5);
+//    dx->put("xn--9kqp7incw25ov8m.xn--fiqs8s", 30, "17685", 5);
+//    dx->put("xn--zfvq32ahhv8ptzv.xn--fiqs8s", 30, "17747", 5);
+//    dx->put("xn--fct52f10hm3r1mw.xn--fiqs8s", 30, "17753", 5);
+//    dx->put("xn--fct52f30hhwj28i.xn--fiqs8s", 30, "17754", 5);
+//    dx->put("xn--8mry53h3a90gq8g.xn--fiqs8s", 30, "17819", 5);
+//    dx->put("xn--z4qs0xvstokk3gq.xn--fiqs8s", 30, "17949", 5);
+//    dx->put("xn--zcr16c427ca484z.xn--fiqs8s", 30, "17964", 5);
+//    dx->put("xn--tkv464fnb89xcxl.xn--fiqs8s", 30, "18002", 5);
+//    dx->put("xn--1lt2t40q3v2a3xx.xn--fiqs8s", 30, "18036", 5);
+//    dx->put("xn--m7r38vf9dp1ww9h.xn--fiqs8s", 30, "18060", 5);
+//    dx->put("xn--oms0s37c7xuo35c.xn--fiqs8s", 30, "18102", 5);
+//    dx->put("canadianonlinepharmacymeds.com", 30, "18799", 5);
+//    dx->put("sildenafilcitrateviagrawww.com", 30, "19735", 5);
+//    dx->put("michaelkors-outletonline.co.uk", 30, "20371", 5);
+//    dx->put("mulberry-handbagsoutlet.org.uk", 30, "21701", 5);
+//    dx->put("abercrombie-fitch-hollister.fr", 30, "21711", 5);
+//    dx->put("canadianonlinepharmacyhome.com", 30, "21794", 5);
+//    dx->put("footballcentralreflections.com", 30, "22580", 5);
+//    dx->put("www.turystyka.wrotapodlasia.pl", 30, "23247", 5);
+//    dx->put("canadianonlinepharmacysafe.com", 30, "23591", 5);
+//    dx->put("burberry-handbagsoutlet.com.co", 30, "23686", 5);
+//    dx->put("centralfloridaweddinggroup.com", 30, "23988", 5);
+//    dx->put("automotivedigitalmarketing.com", 30, "24306", 5);
+//    dx->put("coach-factoryyoutletonline.net", 30, "24469", 5);
+//    dx->put("paradiseboatrentalskeywest.com", 30, "24730", 5);
+//    dx->put("canadianonlinedrugstorewww.com", 30, "24822", 5);
+//    dx->put("yorkshirecottageservices.co.uk", 30, "25173", 5);
+//    dx->put("cheapnfljerseysonlinestore.com", 30, "27197", 5);
+//    dx->put("primemovergovernorservices.com", 30, "27386", 5);
+//    dx->put("michaelkorsoutletonline.com.co", 30, "27619", 5);
+//    dx->put("canadianonlinepharmacycare.com", 30, "28543", 5);
+//    dx->put("bestlowestpriceviagra100mg.com", 30, "28738", 5);
+//    dx->put("ristorantelafontevillapiana.it", 30, "29213", 5);
+//    dx->put("xn--wlqwmw8rs0lrs4c.xn--fiqs8s", 30, "29760", 5);
+//    dx->put("xn--fiqs8ssrh2zv92m.xn--fiqs8s", 30, "29832", 5);
+//    dx->put("canadianonlinepharmacyhere.com", 30, "29904", 5);
+//    dx->put("phoenixfeatherscalligraphy.com", 30, "29908", 5);
+//    dx->put("contentmarketinginstitute.com", 29, "4934", 4);
+//    dx->put("detail.chiebukuro.yahoo.co.jp", 29, "5627", 4);
+//    dx->put("informationclearinghouse.info", 29, "6743", 4);
+//    dx->put("suicidepreventionlifeline.org", 29, "7134", 4);
+//    dx->put("michaelkorshandbags-uk.org.uk", 29, "9042", 4);
+//    dx->put("hollister-abercrombiefitch.fr", 29, "9146", 4);
+//    dx->put("xn--czrx92avj3aruk.xn--fiqs8s", 29, "9556", 4);
+//    dx->put("xn--9krt00a31ab15f.xn--fiqs8s", 29, "9635", 4);
+//    dx->put("xn--chq51t4m0ajf2a.xn--fiqs8s", 29, "9693", 4);
+//    dx->put("cheapsildenafilcitrateusa.com", 29, "13037", 5);
+//    dx->put("genericonlineviagracanada.com", 29, "13730", 5);
+//    dx->put("louisvuitton-outlet-store.com", 29, "14187", 5);
+//    dx->put("canadianonlinepharmacywww.com", 29, "14246", 5);
+//    dx->put("genericviagraonlinecanada.net", 29, "14327", 5);
+//    dx->put("louis-vuitton-handbags.org.uk", 29, "15441", 5);
+//    dx->put("wwwgenericviagraonlineusa.com", 29, "15866", 5);
+//    dx->put("chaussurelouboutin-pascher.fr", 29, "16042", 5);
+//    dx->put("michael-kors-australia.com.au", 29, "16350", 5);
+//    dx->put("tommy-hilfiger-online-shop.de", 29, "16475", 5);
+//    dx->put("intranetcompass-mexico.com.mx", 29, "16708", 5);
+//    dx->put("mulberryhandbags-outlet.co.uk", 29, "17112", 5);
+//    dx->put("cheapnfljerseysstorechina.com", 29, "17441", 5);
+//    dx->put("xn--1lq90iiu2azf1b.xn--fiqs8s", 29, "17648", 5);
+//    dx->put("xn--b0tz14bjlf070a.xn--fiqs8s", 29, "17649", 5);
+//    dx->put("xn--7orv88cw7a551i.xn--fiqs8s", 29, "17750", 5);
+//    dx->put("xn--jvr951bd2h5i2a.xn--fiqs8s", 29, "17764", 5);
+//    dx->put("xn--jvrr31fczfyl1a.xn--fiqs8s", 29, "17871", 5);
+//    dx->put("xn--djro74bl9hqu6a.xn--fiqs8s", 29, "17884", 5);
+//    dx->put("xn--cpq868aqt8b3df.xn--fiqs8s", 29, "17891", 5);
+//    dx->put("xn--w9qt40a1nak39j.xn--fiqs8s", 29, "17896", 5);
+//    dx->put("xn--vuq96as62aph5d.xn--fiqs8s", 29, "17929", 5);
+//    dx->put("xn--fiqp93a8zsrr1a.xn--fiqs8s", 29, "17972", 5);
+//    dx->put("xn--tqqy82al5c2z8b.xn--fiqs8s", 29, "17975", 5);
+//    dx->put("xn--pad-ub9dn4u9uu.xn--fiqs8s", 29, "18034", 5);
+//    dx->put("xn--wlr572ag4a1z5e.xn--fiqs8s", 29, "18035", 5);
+//    dx->put("xglartesaniasecuatorianas.com", 29, "18559", 5);
+//    dx->put("ghd-hair-straighteners.org.uk", 29, "19470", 5);
+//    dx->put("chaussureslouboutin-soldes.fr", 29, "19939", 5);
+//    dx->put("universalstudioshollywood.com", 29, "20599", 5);
+//    dx->put("zitzlofftrainingresources.com", 29, "21098", 5);
+//    dx->put("www.rolexwatchesoutlet.us.com", 29, "21246", 5);
+//    dx->put("nike-mercurial-superfly.co.uk", 29, "21264", 5);
+//    dx->put("wwwcanadianonlinepharmacy.com", 29, "21499", 5);
+//    dx->put("michaelkors-outlet-online.net", 29, "21566", 5);
+//    dx->put("jornalfolhacondominios.com.br", 29, "21818", 5);
+//    dx->put("truereligionjeansoutlet.co.uk", 29, "22163", 5);
+//    dx->put("expressonlinepharmacymeds.com", 29, "22169", 5);
+//    dx->put("canadianpharmacyonlinewww.com", 29, "22730", 5);
+//    dx->put("getcarinsuranceratesonline.pw", 29, "23122", 5);
+//    dx->put("tiffanyjewellery-outlet.co.uk", 29, "23431", 5);
+//    dx->put("programmers.stackexchange.com", 29, "24017", 5);
+//    dx->put("topcanadianpharmacyonline.com", 29, "24237", 5);
+//    dx->put("homelandinsuranceservices.com", 29, "25388", 5);
+//    dx->put("designerhandbagsoutlet.net.co", 29, "25467", 5);
+//    dx->put("thenewcivilrightsmovement.com", 29, "25744", 5);
+//    dx->put("churchtelemessagingsystem.com", 29, "25894", 5);
+//    dx->put("alquilerdemontacargas7x24.com", 29, "26416", 5);
+//    dx->put("xn--80aaggsdegjfnhhi.xn--p1ai", 29, "26529", 5);
+//    dx->put("canadianwwwonlinepharmacy.com", 29, "27217", 5);
+//    dx->put("coachoutletstoreonline.com.co", 29, "27236", 5);
+//    dx->put("pittsburghsteelersjerseys.com", 29, "28319", 5);
+//
+//    print(dx, "lastminutecarinsurancedeals.com", 31);
+//    print(dx, "youforgottorenewyourhosting.com", 31);
+//    print(dx, "xn--fiq53l90e917afrv.xn--fiqs8s", 31);
+//    print(dx, "genericsildenafilcitrateusa.com", 31);
+//    print(dx, "sildenafilonlinepharmacyusa.com", 31);
+//    print(dx, "christianlouboutinoutlet.com.co", 31);
+//    print(dx, "christianlouboutinoutlet.net.co", 31);
+//    print(dx, "meltzeraccountingtaxservice.com", 31);
+//    print(dx, "palestinesolidaritycampaign.com", 31);
+//    print(dx, "serviciointegraldeproyectos.com", 31);
+//    print(dx, "xn--rhq57s5w8ak9pmvf.xn--fiqs8s", 31);
+//    print(dx, "xn--wlqw1swrj75p8i1b.xn--fiqs8s", 31);
+//    print(dx, "xn--w9qq0rwzdb98dqqb.xn--fiqs8s", 31);
+//    print(dx, "xn--4gq4c290dklat89r.xn--fiqs8s", 31);
+//    print(dx, "xn--fiq73fnvbuz3e5ml.xn--fiqs8s", 31);
+//    print(dx, "xn--pss89jtpoqv9ac2d.xn--fiqs8s", 31);
+//    print(dx, "xn--w2xsoi54a3zbz85a.xn--fiqs8s", 31);
+//    print(dx, "xn--jvrw50bmntulxqua.xn--fiqs8s", 31);
+//    print(dx, "xn--vhqr0kjvfmp0cnce.xn--fiqs8s", 31);
+//    print(dx, "xn--pzsz6axqj76i11za.xn--fiqs8s", 31);
+//    print(dx, "xn--vsq68jfp8byfvt0a.xn--fiqs8s", 31);
+//    print(dx, "xn--viq48k2xcftdms1j.xn--fiqs8s", 31);
+//    print(dx, "xn--nfv35ar44brnrmgf.xn--fiqs8s", 31);
+//    print(dx, "xn--gmqr9jnzfr46aesx.xn--fiqs8s", 31);
+//    print(dx, "xn--wlq644avriuwq9ww.xn--fiqs8s", 31);
+//    print(dx, "xn--rhqu0vt3az3dd35c.xn--fiqs8s", 31);
+//    print(dx, "xn--tbt34wol4a8sdcxl.xn--fiqs8s", 31);
+//    print(dx, "xn--49s41u3xvlibw66c.xn--fiqs8s", 31);
+//    print(dx, "xn--kprp99c1wfz8vngo.xn--fiqs8s", 31);
+//    print(dx, "xn--z-6k4bn77a89ss9i.xn--fiqs8s", 31);
+//    print(dx, "xn--vhqd20yzukf0cwzb.xn--fiqs8s", 31);
+//    print(dx, "xn--v6qr1dq5gzrcw46f.xn--fiqs8s", 31);
+//    print(dx, "xn--ekr7b865arptsy0c.xn--fiqs8s", 31);
+//    print(dx, "xn--48sx1dw7wunan48n.xn--fiqs8s", 31);
+//    print(dx, "somethingsweetcandywrappers.com", 31);
+//    print(dx, "viagra6withoutprescription6.top", 31);
+//    print(dx, "gabrielandodonovansfunerals.com", 31);
+//    print(dx, "genericsildenafilviagrameds.com", 31);
+//    print(dx, "christian-louboutinshoes.com.co", 31);
+//    print(dx, "portcullispropertylawyers.co.uk", 31);
+//    print(dx, "datenschutzbeauftragter-info.de", 31);
+//    print(dx, "sildenafilcitrateviagrameds.com", 31);
+//    print(dx, "sustainablecitiescollective.com", 31);
+//    print(dx, "coachfactoryoutletonline.com.co", 31);
+//    print(dx, "xn--ooru3l66bewopi7d.xn--fiqs8s", 31);
+//    print(dx, "xn--fcs1bv97dkiam47a.xn--fiqs8s", 31);
+//    print(dx, "coachfactoryonlineoutlet.com.co", 31);
+//    print(dx, "cialistadalafillowest-price.com", 31);
+//    print(dx, "cialis-tadalafillowestprice.com", 31);
+//    print(dx, "digital-photography-school.com", 30);
+//    print(dx, "xn----8sbwgbwgd2ahr6g.xn--p1ai", 30);
+//    print(dx, "xn--09st2hjis03i62p.xn--fiqs8s", 30);
+//    print(dx, "insuranceofmiddletennessee.com", 30);
+//    print(dx, "igniteideasandinspirations.com", 30);
+//    print(dx, "sildenafilonlinepharmacyus.com", 30);
+//    print(dx, "genericsildenafilonlinewww.com", 30);
+//    print(dx, "wwwgenericsildenafilonline.com", 30);
+//    print(dx, "coachoutletstore-online.com.co", 30);
+//    print(dx, "wwwviagraonlinepharmacyusa.com", 30);
+//    print(dx, "louisvuitton-outlet-online.org", 30);
+//    print(dx, "xn--rhqy5t94sljpn2v.xn--fiqs8s", 30);
+//    print(dx, "xn--9kqp7incw25ov8m.xn--fiqs8s", 30);
+//    print(dx, "xn--zfvq32ahhv8ptzv.xn--fiqs8s", 30);
+//    print(dx, "xn--fct52f10hm3r1mw.xn--fiqs8s", 30);
+//    print(dx, "xn--fct52f30hhwj28i.xn--fiqs8s", 30);
+//    print(dx, "xn--8mry53h3a90gq8g.xn--fiqs8s", 30);
+//    print(dx, "xn--z4qs0xvstokk3gq.xn--fiqs8s", 30);
+//    print(dx, "xn--zcr16c427ca484z.xn--fiqs8s", 30);
+//    print(dx, "xn--tkv464fnb89xcxl.xn--fiqs8s", 30);
+//    print(dx, "xn--1lt2t40q3v2a3xx.xn--fiqs8s", 30);
+//    print(dx, "xn--m7r38vf9dp1ww9h.xn--fiqs8s", 30);
+//    print(dx, "xn--oms0s37c7xuo35c.xn--fiqs8s", 30);
+//    print(dx, "canadianonlinepharmacymeds.com", 30);
+//    print(dx, "sildenafilcitrateviagrawww.com", 30);
+//    print(dx, "michaelkors-outletonline.co.uk", 30);
+//    print(dx, "mulberry-handbagsoutlet.org.uk", 30);
+//    print(dx, "abercrombie-fitch-hollister.fr", 30);
+//    print(dx, "canadianonlinepharmacyhome.com", 30);
+//    print(dx, "footballcentralreflections.com", 30);
+//    print(dx, "www.turystyka.wrotapodlasia.pl", 30);
+//    print(dx, "canadianonlinepharmacysafe.com", 30);
+//    print(dx, "burberry-handbagsoutlet.com.co", 30);
+//    print(dx, "centralfloridaweddinggroup.com", 30);
+//    print(dx, "automotivedigitalmarketing.com", 30);
+//    print(dx, "coach-factoryyoutletonline.net", 30);
+//    print(dx, "paradiseboatrentalskeywest.com", 30);
+//    print(dx, "canadianonlinedrugstorewww.com", 30);
+//    print(dx, "yorkshirecottageservices.co.uk", 30);
+//    print(dx, "cheapnfljerseysonlinestore.com", 30);
+//    print(dx, "primemovergovernorservices.com", 30);
+//    print(dx, "michaelkorsoutletonline.com.co", 30);
+//    print(dx, "canadianonlinepharmacycare.com", 30);
+//    print(dx, "bestlowestpriceviagra100mg.com", 30);
+//    print(dx, "ristorantelafontevillapiana.it", 30);
+//    print(dx, "xn--wlqwmw8rs0lrs4c.xn--fiqs8s", 30);
+//    print(dx, "xn--fiqs8ssrh2zv92m.xn--fiqs8s", 30);
+//    print(dx, "canadianonlinepharmacyhere.com", 30);
+//    print(dx, "phoenixfeatherscalligraphy.com", 30);
+//    print(dx, "contentmarketinginstitute.com", 29);
+//    print(dx, "detail.chiebukuro.yahoo.co.jp", 29);
+//    print(dx, "informationclearinghouse.info", 29);
+//    print(dx, "suicidepreventionlifeline.org", 29);
+//    print(dx, "michaelkorshandbags-uk.org.uk", 29);
+//    print(dx, "hollister-abercrombiefitch.fr", 29);
+//    print(dx, "xn--czrx92avj3aruk.xn--fiqs8s", 29);
+//    print(dx, "xn--9krt00a31ab15f.xn--fiqs8s", 29);
+//    print(dx, "xn--chq51t4m0ajf2a.xn--fiqs8s", 29);
+//    print(dx, "cheapsildenafilcitrateusa.com", 29);
+//    print(dx, "genericonlineviagracanada.com", 29);
+//    print(dx, "louisvuitton-outlet-store.com", 29);
+//    print(dx, "canadianonlinepharmacywww.com", 29);
+//    print(dx, "genericviagraonlinecanada.net", 29);
+//    print(dx, "louis-vuitton-handbags.org.uk", 29);
+//    print(dx, "wwwgenericviagraonlineusa.com", 29);
+//    print(dx, "chaussurelouboutin-pascher.fr", 29);
+//    print(dx, "michael-kors-australia.com.au", 29);
+//    print(dx, "tommy-hilfiger-online-shop.de", 29);
+//    print(dx, "intranetcompass-mexico.com.mx", 29);
+//    print(dx, "mulberryhandbags-outlet.co.uk", 29);
+//    print(dx, "cheapnfljerseysstorechina.com", 29);
+//    print(dx, "xn--1lq90iiu2azf1b.xn--fiqs8s", 29);
+//    print(dx, "xn--b0tz14bjlf070a.xn--fiqs8s", 29);
+//    print(dx, "xn--7orv88cw7a551i.xn--fiqs8s", 29);
+//    print(dx, "xn--jvr951bd2h5i2a.xn--fiqs8s", 29);
+//    print(dx, "xn--jvrr31fczfyl1a.xn--fiqs8s", 29);
+//    print(dx, "xn--djro74bl9hqu6a.xn--fiqs8s", 29);
+//    print(dx, "xn--cpq868aqt8b3df.xn--fiqs8s", 29);
+//    print(dx, "xn--w9qt40a1nak39j.xn--fiqs8s", 29);
+//    print(dx, "xn--vuq96as62aph5d.xn--fiqs8s", 29);
+//    print(dx, "xn--fiqp93a8zsrr1a.xn--fiqs8s", 29);
+//    print(dx, "xn--tqqy82al5c2z8b.xn--fiqs8s", 29);
+//    print(dx, "xn--pad-ub9dn4u9uu.xn--fiqs8s", 29);
+//    print(dx, "xn--wlr572ag4a1z5e.xn--fiqs8s", 29);
+//    print(dx, "xglartesaniasecuatorianas.com", 29);
+//    print(dx, "ghd-hair-straighteners.org.uk", 29);
+//    print(dx, "chaussureslouboutin-soldes.fr", 29);
+//    print(dx, "universalstudioshollywood.com", 29);
+//    print(dx, "zitzlofftrainingresources.com", 29);
+//    print(dx, "www.rolexwatchesoutlet.us.com", 29);
+//    print(dx, "nike-mercurial-superfly.co.uk", 29);
+//    print(dx, "wwwcanadianonlinepharmacy.com", 29);
+//    print(dx, "michaelkors-outlet-online.net", 29);
+//    print(dx, "jornalfolhacondominios.com.br", 29);
+//    print(dx, "truereligionjeansoutlet.co.uk", 29);
+//    print(dx, "expressonlinepharmacymeds.com", 29);
+//    print(dx, "canadianpharmacyonlinewww.com", 29);
+//    print(dx, "getcarinsuranceratesonline.pw", 29);
+//    print(dx, "tiffanyjewellery-outlet.co.uk", 29);
+//    print(dx, "programmers.stackexchange.com", 29);
+//    print(dx, "topcanadianpharmacyonline.com", 29);
+//    print(dx, "homelandinsuranceservices.com", 29);
+//    print(dx, "designerhandbagsoutlet.net.co", 29);
+//    print(dx, "thenewcivilrightsmovement.com", 29);
+//    print(dx, "churchtelemessagingsystem.com", 29);
+//    print(dx, "alquilerdemontacargas7x24.com", 29);
+//    print(dx, "xn--80aaggsdegjfnhhi.xn--p1ai", 29);
+//    print(dx, "canadianwwwonlinepharmacy.com", 29);
+//    print(dx, "coachoutletstoreonline.com.co", 29);
+//    print(dx, "pittsburghsteelersjerseys.com", 29);
 
     dx->printMaxKeyCount(24);
     dx->printNumLevels();
@@ -865,8 +869,8 @@ int main2() {
 int main3() {
     int numKeys = 10;
     GenTree::generateBitCounts();
-    //linex *dx = new linex();
-    //dfos *dx = new dfos();
+    //basix *dx = new basix();
+    //dfox *dx = new dfox();
     //dfox *dx = new dfox();
     bfos *dx = new bfos();
     char k[5] = "\001\001\001\000";
@@ -887,78 +891,76 @@ int main3() {
 
 int main4() {
     GenTree::generateBitCounts();
-    //linex *dx = new linex();
+    //basix *dx = new basix();
     //bfos *dx = new bfos();
-    //dfox *dx = new dfox();
-    bft *dx = new bft();
+    dfox *dx = new dfox();
+    //bft *dx = new bft();
     //rb_tree *dx = new rb_tree();
-    //dfos *dx = new dfos();
+    //dfox *dx = new dfox();
 
-    dx->put("fdlyprqr", 8, "yldf", 4);
-    dx->put("olhjnmwg", 8, "jhlo", 4);
-    dx->put("jthfgvwp", 8, "fhtj", 4);
-    dx->put("topcbzqm", 8, "cpot", 4);
-    dx->put("dlyoxafc", 8, "oyld", 4);
-    dx->put("guhpjsbk", 8, "phug", 4);
-    dx->put("zpocvwrk", 8, "copz", 4);
-    dx->put("gcwrhwub", 8, "rwcg", 4);
-    dx->put("wvfjwlry", 8, "jfvw", 4);
-    dx->put("ilyhtnec", 8, "hyli", 4);
-    dx->put("goyplbgm", 8, "pyog", 4);
-    dx->put("pmdynjlm", 8, "ydmp", 4);
-    dx->put("msydpeyw", 8, "dysm", 4);
-    dx->put("kfqivwag", 8, "iqfk", 4);
-    dx->put("tlaiztsk", 8, "ialt", 4);
-    dx->put("lpszcipz", 8, "zspl", 4);
-    dx->put("uydirdug", 8, "idyu", 4);
-    dx->put("evccsxrf", 8, "ccve", 4);
-    dx->put("uobuzaih", 8, "ubou", 4);
-    dx->put("cemvocun", 8, "vmec", 4);
-    dx->put("ugukgsga", 8, "kugu", 4);
-    dx->put("knaigsbe", 8, "iank", 4);
-    dx->put("owudsdkw", 8, "duwo", 4);
-    dx->put("sqobiytd", 8, "boqs", 4);
-    dx->put("yiaexdwi", 8, "eaiy", 4);
-    dx->put("qevozwyi", 8, "oveq", 4);
-    dx->put("lixyahyf", 8, "yxil", 4);
-    dx->put("netclubb", 8, "cten", 4);
-    dx->put("kzinkecq", 8, "nizk", 4);
-    dx->put("uzdtinlb", 8, "tdzu", 4);
-    dx->put("hsqiyqpd", 8, "iqsh", 4);
-    dx->put("fprdjipx", 8, "drpf", 4);
+    dx->put("gqptrmmc", 8, "tpqg", 4);
+    dx->put("egtuvtvp", 8, "utge", 4);
+    dx->put("rqqcnboz", 8, "cqqr", 4);
+    dx->put("etqlaoze", 8, "lqte", 4);
+    dx->put("mzuyrtue", 8, "yuzm", 4);
+    dx->put("uonlyklp", 8, "lnou", 4);
+    dx->put("sptjrisz", 8, "jtps", 4);
+    dx->put("ckpslhvs", 8, "spkc", 4);
+    dx->put("kmxdzggn", 8, "dxmk", 4);
+    dx->put("fzunhbyb", 8, "nuzf", 4);
+    dx->put("jipwkijn", 8, "wpij", 4);
+    dx->put("gqffnpnq", 8, "ffqg", 4);
+    dx->put("amgghcga", 8, "ggma", 4);
+    dx->put("wdhrlsqb", 8, "rhdw", 4);
+    dx->put("wiochlih", 8, "coiw", 4);
+    dx->put("egxyrxdi", 8, "yxge", 4);
+    dx->put("lcpksrwh", 8, "kpcl", 4);
+    dx->put("twkwrjcf", 8, "wkwt", 4);
+    dx->put("srpcvuxr", 8, "cprs", 4);
+    dx->put("rubbdtpc", 8, "bbur", 4);
+    dx->put("eslxigub", 8, "xlse", 4);
+    dx->put("jiptjnni", 8, "tpij", 4);
+    dx->put("ggohgrnn", 8, "hogg", 4);
+    dx->put("sxdzhxvw", 8, "zdxs", 4);
+    dx->put("abexdiyk", 8, "xeba", 4);
+    dx->put("esvrnusp", 8, "rvse", 4);
+    dx->put("tmxhbdnd", 8, "hxmt", 4);
+    dx->put("fmarffes", 8, "ramf", 4);
+    dx->put("duvfyhxy", 8, "fvud", 4);
+    dx->put("nvobqfds", 8, "bovn", 4);
+    dx->put("eepdeugf", 8, "dpee", 4);
 
-    print(dx, "fdlyprqr", 8);
-    print(dx, "olhjnmwg", 8);
-    print(dx, "jthfgvwp", 8);
-    print(dx, "topcbzqm", 8);
-    print(dx, "dlyoxafc", 8);
-    print(dx, "guhpjsbk", 8);
-    print(dx, "zpocvwrk", 8);
-    print(dx, "gcwrhwub", 8);
-    print(dx, "wvfjwlry", 8);
-    print(dx, "ilyhtnec", 8);
-    print(dx, "goyplbgm", 8);
-    print(dx, "pmdynjlm", 8);
-    print(dx, "msydpeyw", 8);
-    print(dx, "kfqivwag", 8);
-    print(dx, "tlaiztsk", 8);
-    print(dx, "lpszcipz", 8);
-    print(dx, "uydirdug", 8);
-    print(dx, "evccsxrf", 8);
-    print(dx, "uobuzaih", 8);
-    print(dx, "cemvocun", 8);
-    print(dx, "ugukgsga", 8);
-    print(dx, "knaigsbe", 8);
-    print(dx, "owudsdkw", 8);
-    print(dx, "sqobiytd", 8);
-    print(dx, "yiaexdwi", 8);
-    print(dx, "qevozwyi", 8);
-    print(dx, "lixyahyf", 8);
-    print(dx, "netclubb", 8);
-    print(dx, "kzinkecq", 8);
-    print(dx, "uzdtinlb", 8);
-    print(dx, "hsqiyqpd", 8);
-    print(dx, "fprdjipx", 8);
+    print(dx, "gqptrmmc", 8);
+    print(dx, "egtuvtvp", 8);
+    print(dx, "rqqcnboz", 8);
+    print(dx, "etqlaoze", 8);
+    print(dx, "mzuyrtue", 8);
+    print(dx, "uonlyklp", 8);
+    print(dx, "sptjrisz", 8);
+    print(dx, "ckpslhvs", 8);
+    print(dx, "kmxdzggn", 8);
+    print(dx, "fzunhbyb", 8);
+    print(dx, "jipwkijn", 8);
+    print(dx, "gqffnpnq", 8);
+    print(dx, "amgghcga", 8);
+    print(dx, "wdhrlsqb", 8);
+    print(dx, "wiochlih", 8);
+    print(dx, "egxyrxdi", 8);
+    print(dx, "lcpksrwh", 8);
+    print(dx, "twkwrjcf", 8);
+    print(dx, "srpcvuxr", 8);
+    print(dx, "rubbdtpc", 8);
+    print(dx, "eslxigub", 8);
+    print(dx, "jiptjnni", 8);
+    print(dx, "ggohgrnn", 8);
+    print(dx, "sxdzhxvw", 8);
+    print(dx, "abexdiyk", 8);
+    print(dx, "esvrnusp", 8);
+    print(dx, "tmxhbdnd", 8);
+    print(dx, "fmarffes", 8);
+    print(dx, "duvfyhxy", 8);
+    print(dx, "nvobqfds", 8);
+    print(dx, "eepdeugf", 8);
 
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
@@ -1046,45 +1048,44 @@ int main(int argc, char *argv[]) {
     //getchar();
 
     unordered_map<string, string>::iterator it;
-    int ctr = 0;
     int null_ctr = 0;
     int cmp = 0;
 
     /*
-    //stx::btree_map<string, string> m1;
-    map<string, string> m1;
-    start = getTimeVal();
-    it = m.begin();
-    for (; it != m.end(); ++it)
-        m1.insert(pair<string, string>(it->first, it->second));
-    stop = getTimeVal();
-    cout << "RB Tree insert time:" << timedifference(start, stop) << endl;
-    it = m.begin();
-    start = getTimeVal();
-    for (; it != m.end(); ++it) {
-        string value = m1[it->first.c_str()];
-        char v[100];
-        if (value.length() == 0) {
-            null_ctr++;
-        } else {
-            int16_t d = util::compare(it->second.c_str(), it->second.length(),
-                    value.c_str(), value.length());
-            if (d != 0) {
-                cmp++;
-                strncpy(v, value.c_str(), value.length());
-                v[it->first.length()] = 0;
-                cout << cmp << ":" << it->first.c_str() << "=========="
-                        << it->second.c_str() << "----------->" << v << endl;
-            }
-        }
-        ctr++;
-    }
-    stop = getTimeVal();
-    cout << "RB Tree get time:" << timedifference(start, stop) << endl;
-    cout << "Null:" << null_ctr << endl;
-    cout << "Cmp:" << cmp << endl;
-    cout << "RB Tree size:" << m1.size() << endl;
-    */
+     //stx::btree_map<string, string> m1;
+     map<string, string> m1;
+     start = getTimeVal();
+     it = m.begin();
+     for (; it != m.end(); ++it)
+     m1.insert(pair<string, string>(it->first, it->second));
+     stop = getTimeVal();
+     cout << "RB Tree insert time:" << timedifference(start, stop) << endl;
+     it = m.begin();
+     start = getTimeVal();
+     for (; it != m.end(); ++it) {
+     string value = m1[it->first.c_str()];
+     char v[100];
+     if (value.length() == 0) {
+     null_ctr++;
+     } else {
+     int16_t d = util::compare(it->second.c_str(), it->second.length(),
+     value.c_str(), value.length());
+     if (d != 0) {
+     cmp++;
+     strncpy(v, value.c_str(), value.length());
+     v[it->first.length()] = 0;
+     cout << cmp << ":" << it->first.c_str() << "=========="
+     << it->second.c_str() << "----------->" << v << endl;
+     }
+     }
+     ctr++;
+     }
+     stop = getTimeVal();
+     cout << "RB Tree get time:" << timedifference(start, stop) << endl;
+     cout << "Null:" << null_ctr << endl;
+     cout << "Cmp:" << cmp << endl;
+     cout << "RB Tree size:" << m1.size() << endl;
+     */
 
     unordered_map<string, string>::iterator it1;
 
@@ -1103,6 +1104,7 @@ int main(int argc, char *argv[]) {
     start = getTimeVal();
     it1 = m.begin();
     for (; it1 != m.end(); ++it1) {
+        //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
         art_insert(&at, (unsigned char*) it1->first.c_str(),
                 it1->first.length() + 1, (void *) it1->second.c_str(),
                 it1->second.length());
@@ -1113,12 +1115,13 @@ int main(int argc, char *argv[]) {
     //getchar();
 
     ctr = 0;
-    bft *lx = new bft();
-    //linex *lx = new linex();
+    //basix *lx = new basix();
     //rb_tree *lx = new rb_tree();
+    bft *lx = new bft();
     it1 = m.begin();
     start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
+        //cout << it1->first.c_str() << ":" << it1->second.c_str() << endl;
         lx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
                 it1->second.length());
         ctr++;
@@ -1129,8 +1132,8 @@ int main(int argc, char *argv[]) {
 
     ctr = 0;
     //bft *dx = new bft();
-    //dfox *dx = new dfox();
-    bfos *dx = new bfos();
+    dfox *dx = new dfox();
+    //bfos *dx = new bfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();
     start = getTimeVal();
@@ -1193,10 +1196,14 @@ int main(int argc, char *argv[]) {
             if (d != 0) {
                 cmp++;
                 strncpy(v, value, len);
-                v[it1->first.length()] = 0;
+                v[len] = 0;
                 cout << cmp << ":" << it1->first.c_str() << "=========="
                         << it1->second.c_str() << "----------->" << v << endl;
-            }
+            }// else {
+            //    strncpy(v, value, len);
+            //    v[len] = 0;
+            //    cout << v << endl;
+            //}
         }
         ctr++;
     }
