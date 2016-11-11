@@ -175,6 +175,9 @@ public:
     static const byte x06 = 6;
     static const byte x07 = 7;
     static const byte x08 = 8;
+    static const byte x0F = 0x0F;
+    static const byte x10 = 0x10;
+    static const byte x11 = 0x11;
     static const byte x3F = 0x3F;
     static const byte x40 = 0x40;
     static const byte x41 = 0x41;
@@ -183,6 +186,8 @@ public:
     static const byte xBF = 0xBF;
     static const byte xF8 = 0xF8;
     static const byte xFB = 0xFB;
+    static const byte xFC = 0xFC;
+    static const byte xFD = 0xFD;
     static const byte xFE = 0xFE;
     static const byte xFF = 0xFF;
     static const int16_t x100 = 0x100;
