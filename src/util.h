@@ -46,7 +46,7 @@ public:
         *pos = val % 256;
     }
 
-    static void ptrToFourBytes(unsigned long addr_num, byte *addr) {
+    static void ptrToBytes(unsigned long addr_num, byte *addr) {
         addr[0] = (addr_num & 0xFF);
         addr_num >>= 8;
         addr[1] = (addr_num & 0xFF);
@@ -54,11 +54,19 @@ public:
         addr[2] = (addr_num & 0xFF);
         addr_num >>= 8;
         addr[3] = addr_num;
+#if defined(ENV64BIT)
+        addr_num >>= 8;
+        addr[3] = addr_num;
+#endif
         //addr[4] = 0;
     }
 
-    static unsigned long fourBytesToPtr(const byte *addr) {
+    static unsigned long bytesToPtr(const byte *addr) {
         unsigned long ret = 0;
+#if defined(ENV64BIT)
+        ret = addr[4];
+        ret <<= 8;
+#endif
         ret = addr[3];
         ret <<= 8;
         ret |= addr[2];

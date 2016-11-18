@@ -5,6 +5,7 @@
 #include <iostream>
 #include "util.h"
 #include "GenTree.h"
+#include "bplus_tree.h"
 
 using namespace std;
 
@@ -19,8 +20,6 @@ using namespace std;
 #define DATA_END_POS 3
 #define ROOT_NODE_POS 5
 #endif
-#define IS_LEAF_POS 0
-#define FILLED_UPTO_POS 1
 
 #define RB_RED 0
 #define RB_BLACK 1
@@ -39,7 +38,7 @@ using namespace std;
 #define KEY_LEN_POS 7
 #endif
 
-class rb_tree_node_handler {
+class rb_tree_node_handler : public bplus_tree_node_handler {
 private:
     int16_t binarySearch(const char *key, int16_t key_len);
     inline int16_t getLeft(int16_t n);
@@ -64,71 +63,45 @@ private:
     void insertCase4(int16_t n);
     void insertCase5(int16_t n);
 public:
-    byte *buf;
-    byte isPut;
-    const char *key;
-    int16_t key_len;
-    const char *key_at;
-    int16_t key_at_len;
-    const char *value;
-    int16_t value_len;
+    int16_t pos;
     byte last_direction;
-    int16_t depth;
     rb_tree_node_handler(byte *m);
     inline void setBuf(byte *m);
     inline void initBuf();
-    inline bool isLeaf();
-    inline void setLeaf(char isLeaf);
-    inline void setFilledUpto(int16_t filledUpto);
     inline int16_t getDataEndPos();
     inline void setDataEndPos(int16_t pos);
     int16_t filledUpto();
+    void setFilledUpto(int16_t filledUpto);
+    inline int16_t getPtr(int16_t pos);
+    inline void setPtr(int16_t pos, int16_t ptr);
     bool isFull(int16_t kv_len);
-    int16_t locate(int16_t level);
-    void addData(int16_t idx);
-    byte *getChild(int16_t pos);
+    void traverseToLeaf(byte *node_paths[] = null);
+    int16_t locate();
+    void addData();
     byte *getKey(int16_t pos, int16_t *plen);
     byte *getFirstKey(int16_t *plen);
     int16_t getFirst();
     int16_t getNext(int16_t n);
     int16_t getPrevious(int16_t n);
-    byte *getData(int16_t pos, int16_t *plen);
-    byte *split(int16_t *pbrk_idx);
+    byte *split(byte *first_key, int16_t *first_len_ptr);
+    void initVars();
+    inline char *getValueAt(int16_t *vlen);
+    inline byte *getChildPtr(int16_t pos);
 };
 
-class rb_tree {
+class rb_tree : public bplus_tree {
 private:
-    long total_size;
-    int numLevels;
-    int maxKeyCount;
-    int blockCount;
-    int maxDepth;
-    void recursiveSearch(rb_tree_node_handler *node, int16_t lastSearchPos[],
-            byte lastSearchDir[], byte *node_paths[], int16_t *pIdx);
-    void recursiveSearchForGet(rb_tree_node_handler *node, int16_t *pIdx);
-    void recursiveUpdate(rb_tree_node_handler *node, int16_t pos, int16_t lastSearchPos[],
-            byte lastSearchDir[], byte *node_paths[], int16_t level);
+    void recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
+            byte *node_paths[], int16_t level);
 public:
-    byte *root_data;
+    rb_tree_node_handler *root;
+    static int count1, count2;
     rb_tree();
     ~rb_tree();
-    rb_tree_node_handler *root;
-    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
     void put(const char *key, int16_t key_len, const char *value,
             int16_t value_len);
-    void printMaxKeyCount(long num_entries) {
-        std::cout << "Block Count:" << blockCount << std::endl;
-        std::cout << "Avg Block Count:" << (num_entries / blockCount)
-                << std::endl;
-        std::cout << "Avg Max Count:" << (maxKeyCount / blockCount)
-                << std::endl;
-    }
-    void printNumLevels() {
-        std::cout << "Level Count:" << numLevels << std::endl;
-    }
-    long size() {
-        return total_size;
-    }
+    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
 };
+
 
 #endif

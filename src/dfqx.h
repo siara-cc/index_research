@@ -11,7 +11,6 @@
 using namespace std;
 
 #define DQ_INT64MAP 1
-#define DQ_UNIT_SZ_3 0
 #define DQ_9_BIT_PTR 1
 
 #define DFQX_NODE_SIZE 512
@@ -44,15 +43,16 @@ public:
     byte offset_a[DFQX_MAX_KEY_PREFIX_LEN];
 };
 
-class dfqx_node_handler : public trie_node_handler {
+class dfqx_node_handler: public trie_node_handler {
 private:
-    static byte left_mask[8];
-    static byte left_incl_mask[8];
-    static byte ryte_mask[8];
-    static byte ryte_incl_mask[8];
+    static byte left_mask[4];
+    static byte left_incl_mask[4];
+    static byte ryte_mask[4];
+    static byte ryte_incl_mask[4];
+    static byte first_bit_offset[16];
+    static byte bit_count[16];
     //static byte first_bit_offset4[16];
     //static byte bit_count_16[16];
-    inline byte insChildAndLeafAt(byte *ptr, byte b1, byte b2);
     inline void append(byte b);
     int16_t findPos(dfqx_iterator_status& s, int brk_idx);
     int16_t nextKey(dfqx_iterator_status& s);
@@ -86,7 +86,7 @@ public:
     inline byte *getChildPtr(byte *ptr);
 };
 
-class dfqx : public bplus_tree {
+class dfqx: public bplus_tree {
 private:
     void recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             byte *node_paths[], int16_t level);

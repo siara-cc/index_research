@@ -207,8 +207,10 @@ private:
 protected:
     long total_size;
     int numLevels;
-    int maxKeyCount;
-    int blockCount;
+    int maxKeyCountNode;
+    int maxKeyCountLeaf;
+    int blockCountNode;
+    int blockCountLeaf;
     int node_size;
 
 public:
@@ -224,13 +226,17 @@ public:
     virtual char *get(const char *key, int16_t key_len, int16_t *pValueLen) = 0;
     void printMaxKeyCount(long num_entries) {
         util::print("Block Count:");
-        util::print((long)blockCount);
+        util::print((long)blockCountNode);
+        util::print(", ");
+        util::print((long)blockCountLeaf);
         util::endl();
         util::print("Avg Block Count:");
-        util::print((long)(num_entries / blockCount));
+        util::print((long)(num_entries / blockCountLeaf));
         util::endl();
         util::print("Avg Max Count:");
-        util::print((long)(maxKeyCount / blockCount));
+        util::print((long)(maxKeyCountNode / blockCountNode));
+        util::print(", ");
+        util::print((long)(maxKeyCountLeaf / blockCountLeaf));
         util::endl();
     }
     void printNumLevels() {

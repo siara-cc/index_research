@@ -63,8 +63,13 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
             //    maxKeyCount = block->filledSize();
             //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
             //cout << (int) node->TRIE_LEN << endl;
-            if (node->isLeaf())
-                maxKeyCount += node->filledUpto();
+            if (node->isLeaf()) {
+                maxKeyCountLeaf += node->filledSize();
+                blockCountLeaf++;
+            } else {
+                maxKeyCountNode += node->filledSize();
+                blockCountNode++;
+            }
             //    maxKeyCount += node->TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
             byte first_key[64];
@@ -87,30 +92,32 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
                 node->pos = ~node->locate();
                 node->addData();
             }
-            if (node->isLeaf())
-                blockCount++;
             if (root_data == node->buf) {
-                //blockCount++;
+                blockCountNode++;
                 root_data = (byte *) util::alignedAlloc(node_size);
                 basix_node_handler root(root_data);
                 root.initBuf();
                 root.isPut = true;
                 root.setLeaf(0);
                 byte addr[9];
-                util::ptrToFourBytes((unsigned long) node->buf, addr);
+                util::ptrToBytes((unsigned long) node->buf, addr);
                 root.initVars();
                 root.key = "";
                 root.key_len = 1;
                 root.value = (char *) addr;
-                root.value_len = sizeof(char *);
+#if defined(ENV64BIT)
+                root.value_len = 5;
+#else
+                root.value_len = 4;
+#endif
                 root.pos = 0;
                 root.addData();
-                util::ptrToFourBytes((unsigned long) new_block.buf, addr);
+                util::ptrToBytes((unsigned long) new_block.buf, addr);
                 root.initVars();
                 root.key = (char *) first_key;
                 root.key_len = first_len;
                 root.value = (char *) addr;
-                root.value_len = sizeof(char *);
+                //root.value_len = sizeof(char *);
                 root.pos = ~root.locate();
                 root.addData();
                 numLevels++;
@@ -119,13 +126,17 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
                 byte *parent_data = node_paths[prev_level];
                 basix_node_handler parent(parent_data);
                 byte addr[9];
-                util::ptrToFourBytes((unsigned long) new_block.buf, addr);
+                util::ptrToBytes((unsigned long) new_block.buf, addr);
                 parent.initVars();
                 parent.isPut = true;
                 parent.key = (char *) first_key;
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
-                parent.value_len = sizeof(char *);
+#if defined(ENV64BIT)
+                parent.value_len = 5;
+#else
+                parent.value_len = 4;
+#endif
                 parent.locate();
                 recursiveUpdate(&parent, parent.pos, node_paths, prev_level);
             }
@@ -206,8 +217,7 @@ void basix_node_handler::addData() {
     insPtr(pos, kv_last_pos);
 }
 
-byte *basix_node_handler::split(byte *first_key,
-        int16_t *first_len_ptr) {
+byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t filled_upto = filledUpto();
     byte *b = (byte *) util::alignedAlloc(BASIX_NODE_SIZE);
     basix_node_handler new_block(b);
@@ -381,8 +391,8 @@ basix::basix() {
     root_data = (byte *) util::alignedAlloc(BASIX_NODE_SIZE);
     basix_node_handler root(root_data);
     root.initBuf();
-    total_size = maxKeyCount = 0;
-    numLevels = blockCount = 1;
+    total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
+    numLevels = blockCountLeaf = 1;
 }
 
 basix_node_handler::basix_node_handler(byte *b) {
@@ -426,12 +436,11 @@ bool basix_node_handler::isFull(int16_t kv_len) {
 #if BX_9_BIT_PTR == 0
     ptr_size <<= 1;
 #endif
-    if ((getKVLastPos() - kv_len - 2)
-            <= (BLK_HDR_SIZE + ptr_size))
+    if ((getKVLastPos() - kv_len - 2) <= (BLK_HDR_SIZE + ptr_size))
         return true;
 #if BX_9_BIT_PTR == 1
     if (filledUpto() > 62)
-        return true;
+    return true;
 #endif
     return false;
 }
@@ -499,7 +508,7 @@ byte *basix_node_handler::getKey(int16_t pos, int16_t *plen) {
 
 byte *basix_node_handler::getChildPtr(byte *ptr) {
     ptr += (*ptr + 2);
-    return (byte *) util::fourBytesToPtr(ptr);
+    return (byte *) util::bytesToPtr(ptr);
 }
 
 char *basix_node_handler::getValueAt(int16_t *vlen) {

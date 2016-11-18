@@ -70,8 +70,13 @@ void dfox::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             //    maxKeyCount = block->filledSize();
             //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
             //cout << (int) node->TRIE_LEN << endl;
-            if (!node->isLeaf())
-                maxKeyCount += node->filledSize();
+            if (node->isLeaf()) {
+                maxKeyCountLeaf += node->filledSize();
+                blockCountLeaf++;
+            } else {
+                maxKeyCountNode += node->filledSize();
+                blockCountNode++;
+            }
                 //maxKeyCount += node->BPT_TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
             byte first_key[64];
@@ -94,31 +99,33 @@ void dfox::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 idx = ~node->locate();
                 node->addData();
             }
-            if (!node->isLeaf())
-                blockCount++;
             if (root_data == node->buf) {
-                blockCount++;
+                blockCountNode++;
                 root_data = (byte *) util::alignedAlloc(node_size);
                 dfox_node_handler root(root_data);
                 root.initBuf();
                 root.isPut = true;
                 root.setLeaf(0);
                 byte addr[9];
-                util::ptrToFourBytes((unsigned long) node->buf, addr);
+                util::ptrToBytes((unsigned long) node->buf, addr);
                 root.initVars();
                 root.key = "";
                 root.key_len = 1;
                 root.value = (char *) addr;
-                root.value_len = sizeof(char *);
+#if defined(ENV64BIT)
+                root.value_len = 5;
+#else
+                root.value_len = 4;
+#endif
                 root.pos = 0;
                 root.insertState = INSERT_EMPTY;
                 root.addData();
-                util::ptrToFourBytes((unsigned long) new_block.buf, addr);
+                util::ptrToBytes((unsigned long) new_block.buf, addr);
                 root.initVars();
                 root.key = (char *) first_key;
                 root.key_len = first_len;
                 root.value = (char *) addr;
-                root.value_len = sizeof(char *);
+                //root.value_len = sizeof(char *);
                 root.locate();
                 root.addData();
                 numLevels++;
@@ -127,13 +134,17 @@ void dfox::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 byte *parent_data = node_paths[prev_level];
                 dfox_node_handler parent(parent_data);
                 byte addr[9];
-                util::ptrToFourBytes((unsigned long) new_block.buf, addr);
+                util::ptrToBytes((unsigned long) new_block.buf, addr);
                 parent.initVars();
                 parent.isPut = true;
                 parent.key = (char *) first_key;
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
-                parent.value_len = sizeof(char *);
+#if defined(ENV64BIT)
+                parent.value_len = 5;
+#else
+                parent.value_len = 4;
+#endif
                 parent.locate();
                 recursiveUpdate(&parent, -1, node_paths, prev_level);
             }
@@ -305,7 +316,11 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             kv_len += buf[src_idx + kv_len];
             kv_len++;
         } else
-            kv_len += sizeof(char *);
+#if defined(ENV64BIT)
+            kv_len += 5;
+#else
+            kv_len += 4;
+#endif
         tot_len += kv_len;
         memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
         new_block.insPtr(idx, kv_last_pos);
@@ -508,8 +523,8 @@ dfox::dfox() {
     root_data = (byte *) util::alignedAlloc(DFOX_NODE_SIZE);
     dfox_node_handler root(root_data);
     root.initBuf();
-    total_size = maxKeyCount = 0;
-    numLevels = blockCount = 1;
+    total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
+    numLevels = blockCountLeaf = 1;
     maxThread = 9999;
 }
 
@@ -1010,7 +1025,7 @@ byte *dfox_node_handler::getKey(int16_t pos, int16_t *plen) {
 
 byte *dfox_node_handler::getChildPtr(byte *ptr) {
     ptr += (*ptr + 1);
-    return (byte *) util::fourBytesToPtr(ptr);
+    return (byte *) util::bytesToPtr(ptr);
 }
 
 char *dfox_node_handler::getValueAt(int16_t *vlen) {
