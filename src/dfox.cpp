@@ -523,8 +523,8 @@ dfox::dfox() {
     root_data = (byte *) util::alignedAlloc(DFOX_NODE_SIZE);
     dfox_node_handler root(root_data);
     root.initBuf();
-    total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
-    numLevels = blockCountLeaf = 1;
+    total_size = maxKeyCountLeaf = maxKeyCountNode = 0;
+    numLevels = blockCountLeaf = blockCountNode = 1;
     maxThread = 9999;
 }
 

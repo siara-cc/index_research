@@ -183,6 +183,7 @@ public:
     static const byte x41 = 0x41;
     static const byte x7F = 0x7F;
     static const byte x80 = 0x80;
+    static const byte x81 = 0x81;
     static const byte xBF = 0xBF;
     static const byte xF8 = 0xF8;
     static const byte xFB = 0xFB;

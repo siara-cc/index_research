@@ -356,8 +356,8 @@ rb_tree::rb_tree() {
     root_data = (byte *) util::alignedAlloc(RB_TREE_NODE_SIZE);
     root = new rb_tree_node_handler(root_data);
     root->initBuf();
-    total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
-    numLevels = blockCountLeaf = 1;
+    total_size = maxKeyCountLeaf = maxKeyCountNode = 0;
+    numLevels = blockCountLeaf = blockCountNode = 1;
 }
 
 rb_tree_node_handler::rb_tree_node_handler(byte *b) {

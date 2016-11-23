@@ -93,7 +93,7 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
             }
             if (root_data == node->buf) {
                 blockCountNode++;
-                root_data = (byte *) util::alignedAlloc(node_size);
+                root_data = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
                 linex_node_handler root(root_data);
                 root.initBuf();
                 root.isPut = true;
@@ -152,18 +152,57 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
 }
 
 void linex_node_handler::addData() {
+    int16_t prev_plen = 0;
+    int16_t filled_size = filledSize();
+    setFilledSize(filled_size + 1);
+#if LX_PREFIX_CODING == 1
+    if (filled_size && key_at != prev_key_at) {
+        while (prev_plen < key_len) {
+            if (prev_plen < prev_prefix_len) {
+                if (prefix[prev_plen] != key[prev_plen])
+                    break;
+            } else {
+                if (prev_key_at[prev_plen - prev_prefix_len + 2]
+                        != key[prev_plen])
+                    break;
+            }
+            prev_plen++;
+        }
+    }
+#endif
     int16_t kv_last_pos = getKVLastPos();
-    int16_t key_left = key_len - prefix_len;
-    int16_t tot_len = key_left + value_len + 2;
-    memmove(key_at + tot_len, key_at, kv_last_pos - (key_at - buf));
+    int16_t key_left = key_len - prev_plen;
+    int16_t tot_len = key_left + value_len + 3;
+    int16_t len_to_move = kv_last_pos - (key_at - buf);
+    if (len_to_move) {
+#if LX_PREFIX_CODING == 1
+        int16_t next_plen = prefix_len;
+        while (key_at[next_plen - prefix_len + 2] == key[next_plen]
+                && next_plen < key_len)
+            next_plen++;
+        int16_t diff = next_plen - prefix_len;
+        if (diff) {
+            int16_t next_key_len = key_at[1];
+            int16_t next_value_len = key_at[next_key_len + 2];
+            *key_at = next_plen;
+            key_at[1] -= diff;
+            memmove(key_at + 2, key_at + diff + 2,
+                    next_key_len + next_value_len + 1 - diff);
+            memmove(key_at + diff, key_at,
+                    next_key_len + next_value_len + 3 - diff);
+            tot_len -= diff;
+        }
+#endif
+        memmove(key_at + tot_len, key_at, len_to_move);
+    }
+    *key_at++ = prev_plen;
     *key_at++ = key_left;
-    memcpy(key_at, key + prefix_len, key_left);
+    memcpy(key_at, key + prev_plen, key_left);
     key_at += key_left;
     *key_at++ = value_len;
     memcpy(key_at, value, value_len);
     kv_last_pos += tot_len;
     setKVLastPos(kv_last_pos);
-    setFilledSize(filledSize() + 1);
 }
 
 byte *linex_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
@@ -184,32 +223,66 @@ byte *linex_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     // Copy all data to new block in ascending order
     int16_t new_idx;
     int16_t src_idx = LX_BLK_HDR_SIZE;
+    int16_t dst_idx = src_idx;
+    prefix_len = 0;
+    prev_key_at = buf + src_idx;
     for (new_idx = 0; new_idx < filled_size; new_idx++) {
-        //int16_t pfix_len = buf[src_idx];
+        for (int16_t pctr = 0; prefix_len < buf[src_idx]; pctr++)
+            prefix[prefix_len++] = prev_key_at[pctr + 2];
+        if (prefix_len > buf[src_idx])
+            prefix_len = buf[src_idx];
+        src_idx++;
         int16_t kv_len = buf[src_idx];
         kv_len++;
         kv_len += buf[src_idx + kv_len];
         kv_len++;
         tot_len += kv_len;
-        memcpy(new_block.buf + src_idx, buf + src_idx, kv_len);
+        if (brk_idx == new_idx) {
+            new_block.buf[dst_idx++] = 0;
+            new_block.buf[dst_idx++] = buf[src_idx] + prefix_len;
+            memcpy(new_block.buf + dst_idx, prefix, prefix_len);
+            dst_idx += prefix_len;
+            memcpy(new_block.buf + dst_idx, buf + src_idx + 1, kv_len - 1);
+            dst_idx += kv_len;
+            dst_idx--;
+#if LX_PREFIX_CODING == 0
+            if (isLeaf()) {
+                prefix_len = 0;
+                for (int i = 0; buf[src_idx + i + 1] == prev_key_at[i + 2]; i++) {
+                    prefix[i] = prev_key_at[i + 2];
+                    prefix_len++;
+                }
+            }
+#endif
+            memcpy(first_key, prefix, prefix_len);
+            if (isLeaf()) {
+#if LX_PREFIX_CODING == 0
+                first_key[prefix_len] = buf[src_idx + prefix_len + 1];
+#else
+                first_key[prefix_len] = buf[src_idx + 1];
+#endif
+                *first_len_ptr = prefix_len + 1;
+            } else {
+                *first_len_ptr = buf[src_idx];
+                memcpy(first_key + prefix_len, buf + src_idx + 1,
+                        *first_len_ptr);
+                *first_len_ptr += prefix_len;
+            }
+            prefix_len = 0;
+        } else {
+            new_block.buf[dst_idx++] = prefix_len;
+            memcpy(new_block.buf + dst_idx, buf + src_idx, kv_len);
+            dst_idx += kv_len;
+        }
         if (brk_idx == -1) {
             if (tot_len > halfKVLen || new_idx == (filled_size / 2)) {
                 brk_idx = new_idx + 1;
-                int16_t first_idx = src_idx + kv_len;
-                brk_kv_pos = first_idx;
-                if (isLeaf()) {
-                    int len = 0;
-                    while (buf[first_idx + len + 1] == buf[src_idx + len + 1])
-                        len++;
-                    *first_len_ptr = len + 1;
-                    memcpy(first_key, buf + first_idx + 1, *first_len_ptr);
-                } else {
-                    *first_len_ptr = buf[first_idx];
-                    memcpy(first_key, buf + first_idx + 1, *first_len_ptr);
-                }
+                brk_kv_pos = dst_idx;
             }
         }
+        prev_key_at = buf + src_idx - 1;
         src_idx += kv_len;
+        kv_last_pos = dst_idx;
     }
 
     int16_t old_blk_new_len = brk_kv_pos - LX_BLK_HDR_SIZE;
@@ -236,31 +309,31 @@ int16_t linex_node_handler::linearSearch() {
     int16_t filled_size = filledSize();
     key_at = buf + LX_BLK_HDR_SIZE;
     prev_key_at = key_at;
-    prefix_len = 0;
+    prefix_len = prev_prefix_len = 0;
     while (idx < filled_size) {
-//        int16_t cmp = 0;
-//        for (int16_t pctr = 0; prefix_len < *key_at; pctr++)
-//            prefix[prefix_len++] = prev_key_at[pctr];
-//        if (prefix_len > *key_at)
-//            prefix_len = *key_at;
-//        cmp = memcmp(prefix, key, prefix_len);
-//        key_at++;
-//        key_at_len = *key_at;
-//        if (cmp == 0) {
-//            cmp = util::compare((char *) key_at + 2, key_at_len,
-//                key + prefix_len, key_len);
-//        }
-        key_at_len = *key_at;
-        int16_t cmp = util::compare((char *) key_at + 1, key_at_len,
-            key + prefix_len, key_len);
+        int16_t cmp;
+        key_at_len = *(key_at + 1);
+#if LX_PREFIX_CODING == 1
+        for (int16_t pctr = 0; prefix_len < *key_at; pctr++)
+            prefix[prefix_len++] = prev_key_at[pctr + 2];
+        if (prefix_len > *key_at)
+            prefix_len = *key_at;
+        cmp = memcmp(prefix, key, prefix_len);
+        if (cmp == 0) {
+            cmp = util::compare((char *) key_at + 2, key_at_len,
+                    key + prefix_len, key_len - prefix_len);
+        }
+#else
+        cmp = util::compare((char *) key_at + 2, key_at_len, key, key_len);
+#endif
         if (cmp > 0)
             return ~idx;
         else if (cmp == 0)
             return idx;
         prev_key_at = key_at;
+        prev_prefix_len = prefix_len;
         key_at += key_at_len;
-//        key_at += 2;
-        key_at++;
+        key_at += 2;
         key_at += *key_at;
         key_at++;
         idx++;
@@ -282,8 +355,8 @@ linex::linex() {
     root_data = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
     linex_node_handler root(root_data);
     root.initBuf();
-    total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
-    numLevels = blockCountLeaf = 1;
+    total_size = maxKeyCountLeaf = maxKeyCountNode = 0;
+    numLevels = blockCountLeaf = blockCountNode = 1;
 }
 
 linex_node_handler::linex_node_handler(byte *b) {
@@ -312,11 +385,13 @@ bool linex_node_handler::isFull(int16_t kv_len) {
 }
 
 byte *linex_node_handler::getChildPtr(byte *ptr) {
+    ptr++;
     ptr += (*ptr + 2);
     return (byte *) util::bytesToPtr(ptr);
 }
 
 char *linex_node_handler::getValueAt(int16_t *vlen) {
+    key_at++;
     key_at += *key_at;
     key_at++;
     *vlen = *key_at;

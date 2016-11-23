@@ -285,8 +285,8 @@ bfos::bfos() {
     root_data = (byte *) util::alignedAlloc(BFOS_NODE_SIZE);
     bfos_node_handler root(root_data);
     root.initBuf();
-    total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
-    numLevels = blockCountLeaf = 1;
+    total_size = maxKeyCountLeaf = maxKeyCountNode = 0;
+    numLevels = blockCountLeaf = blockCountNode = 1;
     maxThread = 9999;
 }
 

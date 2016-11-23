@@ -14,6 +14,7 @@ using namespace std;
 #define LINEX_NODE_SIZE 512
 
 #define LX_BLK_HDR_SIZE 5
+#define LX_PREFIX_CODING 1
 
 class linex_node_handler : public bplus_tree_node_handler {
 private:
@@ -23,6 +24,7 @@ public:
     byte *prev_key_at;
     byte prefix[60];
     int16_t prefix_len;
+    int16_t prev_prefix_len;
     linex_node_handler(byte *m);
     void initBuf();
     void initVars();

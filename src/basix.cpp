@@ -391,8 +391,8 @@ basix::basix() {
     root_data = (byte *) util::alignedAlloc(BASIX_NODE_SIZE);
     basix_node_handler root(root_data);
     root.initBuf();
-    total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
-    numLevels = blockCountLeaf = 1;
+    total_size = maxKeyCountLeaf = maxKeyCountNode = 0;
+    numLevels = blockCountLeaf = blockCountNode = 1;
 }
 
 basix_node_handler::basix_node_handler(byte *b) {
