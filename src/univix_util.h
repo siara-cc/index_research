@@ -35,6 +35,17 @@ typedef unsigned char byte;
 
 class util {
 public:
+    static byte bit_count[256];
+    static byte bit_count2x[256];
+    static byte first_bit_mask[256];
+    static byte first_bit_offset[256];
+
+    static uint32_t left_mask32[32];
+    static uint32_t ryte_mask32[32];
+    static uint32_t mask32[32];
+    static uint64_t left_mask64[64];
+    static uint64_t ryte_mask64[64];
+    static uint64_t mask64[64];
     static inline int16_t getInt(byte *pos) {
 //        return (int16_t *) pos; // fast endian-dependent
         return ((*pos << 8) | *(pos + 1)); // slow endian independent
@@ -144,6 +155,77 @@ public:
 #else
         cout << std::endl;
 #endif
+    }
+
+    static void generateBitCounts() {
+        for (int16_t i = 0; i < 256; i++) {
+            bit_count[i] = countSetBits(i);
+            bit_count2x[i] = bit_count[i] << 1;
+            first_bit_mask[i] = firstBitMask(i);
+            first_bit_offset[i] = firstBitOffset(i);
+        }
+        uint32_t ui32 = 1;
+        for (int i = 0; i < 32; i++) {
+            mask32[i] = (0x80000000 >> i);
+            if (i == 0) {
+                ryte_mask32[i] = 0xFFFFFFFF;
+                left_mask32[i] = 0;
+            } else {
+                ryte_mask32[i] = (ui32 << (32 - i));
+                ryte_mask32[i]--;
+                left_mask32[i] = ~(ryte_mask32[i]);
+            }
+        }
+        uint64_t ui64 = 1;
+        for (int i = 0; i < 64; i++) {
+            mask64[i] = (0x8000000000000000 >> i);
+            if (i == 0) {
+                ryte_mask64[i] = 0xFFFFFFFFFFFFFFFF;
+                left_mask64[i] = 0;
+            } else {
+                ryte_mask64[i] = (ui64 << (64 - i));
+                ryte_mask64[i]--;
+                left_mask64[i] = ~(ryte_mask64[i]);
+            }
+        }
+    }
+
+    // Function to get no of set bits in binary
+    // representation of passed binary no.
+    inline static byte countSetBits(int16_t n) {
+        byte count = 0;
+        while (n > 0) {
+            n &= (n - 1);
+            count++;
+        }
+        return (byte) count;
+    }
+
+    inline static byte firstBitMask(int16_t n) {
+        byte mask = 0x80;
+        while (0 == (n & mask) && mask) {
+            mask >>= 1;
+        }
+        return mask;
+    }
+
+    inline static byte lastBitMask(int16_t n) {
+        byte mask = 0x01;
+        while (0 == (n & mask) && mask) {
+            mask <<= 1;
+        }
+        return mask;
+    }
+
+    inline static byte firstBitOffset(int16_t n) {
+        int offset = 0;
+        do {
+            byte mask = 0x01 << offset;
+            if (n & mask)
+                return offset;
+            offset++;
+        } while (offset <= 7);
+        return 0x08;
     }
 
 };

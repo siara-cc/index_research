@@ -5,7 +5,6 @@
 #include <cstring>
 #include <iostream>
 #endif
-#include "util.h"
 #include "bplus_tree.h"
 
 using namespace std;

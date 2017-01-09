@@ -10,8 +10,7 @@
 #include <malloc.h>
 #endif
 #include <stdint.h>
-#include "util.h"
-#include "GenTree.h"
+#include "univix_util.h"
 
 using namespace std;
 

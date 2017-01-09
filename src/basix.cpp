@@ -154,20 +154,20 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
 }
 
 void basix_node_handler::insBit(uint32_t *ui32, int pos, int16_t kv_pos) {
-    uint32_t ryte_part = (*ui32) & GenTree::ryte_mask32[pos];
+    uint32_t ryte_part = (*ui32) & util::ryte_mask32[pos];
     ryte_part >>= 1;
     if (kv_pos >= 256)
-        ryte_part |= GenTree::mask32[pos];
-    (*ui32) = (ryte_part | ((*ui32) & GenTree::left_mask32[pos]));
+        ryte_part |= util::mask32[pos];
+    (*ui32) = (ryte_part | ((*ui32) & util::left_mask32[pos]));
 
 }
 
 void basix_node_handler::insBit(uint64_t *ui64, int pos, int16_t kv_pos) {
-    uint64_t ryte_part = (*ui64) & GenTree::ryte_mask64[pos];
+    uint64_t ryte_part = (*ui64) & util::ryte_mask64[pos];
     ryte_part >>= 1;
     if (kv_pos >= 256)
-        ryte_part |= GenTree::mask64[pos];
-    (*ui64) = (ryte_part | ((*ui64) & GenTree::left_mask64[pos]));
+        ryte_part |= util::mask64[pos];
+    (*ui64) = (ryte_part | ((*ui64) & util::left_mask64[pos]));
 
 }
 
@@ -190,7 +190,7 @@ void basix_node_handler::insPtr(int16_t pos, int16_t kv_last_pos) {
         insBit(bitmap1, pos, kv_last_pos);
         *bitmap2 >>= 1;
         if (last_bit)
-        *bitmap2 |= *GenTree::mask32;
+        *bitmap2 |= *util::mask32;
     }
 #endif
 #else
@@ -304,17 +304,17 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 //int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
 //    int middle, filled_upto;
 //    filled_upto = filledUpto();
-//    middle = GenTree::roots[filled_upto];
+//    middle = util::roots[filled_upto];
 //    do {
 //        int16_t middle_key_len;
 //        char *middle_key = (char *) getKey(middle, &middle_key_len);
 //        int16_t cmp = util::compare(middle_key, middle_key_len, key, key_len);
 //        if (cmp < 0) {
-//            middle = GenTree::ryte[middle];
+//            middle = util::ryte[middle];
 //            while (middle > filled_upto)
-//                middle = GenTree::left[middle];
+//                middle = util::left[middle];
 //        } else if (cmp > 0)
-//            middle = GenTree::left[middle];
+//            middle = util::left[middle];
 //        else
 //            return middle;
 //    } while (middle >= 0);
@@ -387,7 +387,7 @@ basix::~basix() {
 }
 
 basix::basix() {
-    GenTree::generateLists();
+    util::generateBitCounts();
     root_data = (byte *) util::alignedAlloc(BASIX_NODE_SIZE);
     basix_node_handler root(root_data);
     root.initBuf();
@@ -453,14 +453,14 @@ int16_t basix_node_handler::getPtr(int16_t pos) {
 #if BX_9_BIT_PTR == 1
     int16_t ptr = buf[BLK_HDR_SIZE + pos];
 #if BX_INT64MAP == 1
-    if (*bitmap & GenTree::mask64[pos])
+    if (*bitmap & util::mask64[pos])
     ptr |= 256;
 #else
     if (pos & 0xFFE0) {
-        if (*bitmap2 & GenTree::mask32[pos - 32])
+        if (*bitmap2 & util::mask32[pos - 32])
         ptr |= 256;
     } else {
-        if (*bitmap1 & GenTree::mask32[pos])
+        if (*bitmap1 & util::mask32[pos])
         ptr |= 256;
     }
 #endif
@@ -476,21 +476,21 @@ void basix_node_handler::setPtr(int16_t pos, int16_t ptr) {
     buf[BLK_HDR_SIZE + pos] = ptr;
 #if BX_INT64MAP == 1
     if (ptr >= 256)
-    *bitmap |= GenTree::mask64[pos];
+    *bitmap |= util::mask64[pos];
     else
-    *bitmap &= ~GenTree::mask64[pos];
+    *bitmap &= ~util::mask64[pos];
 #else
     if (pos & 0xFFE0) {
         pos -= 32;
         if (ptr >= 256)
-        *bitmap2 |= GenTree::mask32[pos];
+        *bitmap2 |= util::mask32[pos];
         else
-        *bitmap2 &= ~GenTree::mask32[pos];
+        *bitmap2 &= ~util::mask32[pos];
     } else {
         if (ptr >= 256)
-        *bitmap1 |= GenTree::mask32[pos];
+        *bitmap1 |= util::mask32[pos];
         else
-        *bitmap1 &= ~GenTree::mask32[pos];
+        *bitmap1 &= ~util::mask32[pos];
     }
 #endif
 #else

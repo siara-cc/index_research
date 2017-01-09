@@ -3,7 +3,6 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream>
-#include "util.h"
 #include "GenTree.h"
 #include "bplus_tree.h"
 

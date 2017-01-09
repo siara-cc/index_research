@@ -5,7 +5,6 @@
 #include <cstring>
 #include <iostream>
 #endif
-#include "util.h"
 #include "bplus_tree.h"
 
 using namespace std;
@@ -80,6 +79,7 @@ public:
     void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     void traverseToLeaf(byte *node_paths[] = null);
     int16_t locate();
+    void updatePtrs(byte *upto, int diff);
     void insertCurrent();
     byte *getKey(int16_t pos, int16_t *plen);
     inline char *getValueAt(int16_t *vlen);
