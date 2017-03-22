@@ -484,14 +484,14 @@ void dfox_node_handler::deleteTrieFirstHalf(int16_t brk_key_len,
             count = util::bit_count[children & ryte_mask[offset]];
             children &= left_incl_mask[offset];
             *t++ = children;
-#if DQ_UNIT_SZ_3 == 0
+#if DX_UNIT_SZ_3 == 0
         }
         if (tc & x01) {
 #endif
             *t++ &= (
                     (idx == brk_key_len) ?
                             left_incl_mask[offset] : left_mask[offset]);
-#if DQ_UNIT_SZ_3 == 0
+#if DX_UNIT_SZ_3 == 0
         }
 #endif
         delete_start = t;
@@ -720,7 +720,7 @@ void dfox_node_handler::insertCurrent() {
     case INSERT_MIDDLE2:
         key_char = key[keyPos - 1];
         mask = x01 << (key_char & x07);
-#if DQ_UNIT_SZ_3 == 1
+#if DX_UNIT_SZ_3 == 1
         insAt(triePos, ((key_char & xF8) | x01), 0, mask);
 #else
         insAt(triePos, ((key_char & xF8) | x01), mask);
