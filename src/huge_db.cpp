@@ -1209,9 +1209,9 @@ int main(int argc, char *argv[]) {
     //linex *lx = new linex();
     //basix *lx = new basix();
     //rb_tree *lx = new rb_tree();
-    //bft *lx = new bft();
+    bft *lx = new bft();
     //dft *lx = new dft();
-    dfox *lx = new dfox();
+    //dfox *lx = new dfox();
     //dfqx *lx = new dfqx();
     it1 = m.begin();
     start = getTimeVal();
@@ -1228,9 +1228,9 @@ int main(int argc, char *argv[]) {
     ctr = 0;
     //linex *dx = new linex();
     //bft *dx = new bft();
-    //dft *dx = new dft();
+    dft *dx = new dft();
     //dfox *dx = new dfox();
-    dfqx *dx = new dfqx();
+    //dfqx *dx = new dfqx();
     //bfos *dx = new bfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();
