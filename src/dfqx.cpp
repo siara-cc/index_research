@@ -6,23 +6,6 @@
 #include "dfqx.h"
 #include "GenTree.h"
 
-#define SKIP_CHILDREN while (to_skip) { \
-                byte child_tc = *t; \
-                if (child_tc & x01) { \
-                    sib_size = *t++ & x01; \
-                    pos += *t; \
-                    t += sib_size; \
-                    to_skip--; \
-                    continue; \
-                } \
-                t++; \
-                to_skip += bit_count[*t >> 4]; \
-                pos += bit_count[*t & x0F]; \
-                t++; \
-                if (child_tc & x02) \
-                    to_skip--; \
-            }
-
 char *dfqx::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     dfqx_node_handler node(root_data);
     node.key = key;
@@ -681,20 +664,6 @@ int16_t dfqx_node_handler::getPtr(int16_t pos) {
 #endif
 }
 
-void dfqx_node_handler::updatePtrs(byte *upto, int diff) {
-    byte *t = trie + 1;
-    while (t <= upto) {
-        if (*t & x01) {
-            byte child = (*t & xFE);
-            if (child && (t + child) >= upto) {
-                *t += diff;
-                (*(t+1))++;
-            }
-        }
-        t += 2;
-    }
-}
-
 void dfqx_node_handler::insertCurrent() {
     byte key_char;
     byte mask;
@@ -705,27 +674,11 @@ void dfqx_node_handler::insertCurrent() {
         key_char = key[keyPos - 1];
         mask = x01 << (key_char & x03);
         *origPos &= xFD;
-        // insert subtree size
-        if (triePos - origPos > 2) {
-            updatePtrs(origPos, 4);
-            pos = 0;
-            for (byte *t = origPos; t < triePos; t++) {
-                if (*t & x01) {
-                    t += 2;
-                    continue;
-                }
-                t++;
-                pos += bit_count[*t++ & x0F];
-            }
-            insAt(triePos, triePos - origPos, pos);
-        } else
-            updatePtrs(triePos, 2);
-        triePos += insAt(triePos, ((key_char & xFC) | x02), mask);
+        insAt(triePos, ((key_char & xFC) | x02), mask);
         break;
     case INSERT_MIDDLE2:
         key_char = key[keyPos - 1];
         mask = x01 << (key_char & x03);
-        updatePtrs(triePos, 2);
         insAt(triePos, (key_char & xFC), mask);
         break;
     case INSERT_LEAF:
@@ -733,7 +686,6 @@ void dfqx_node_handler::insertCurrent() {
         mask = x01 << (key_char & x03);
         leafPos = origPos + 1;
         *leafPos |= mask;
-        updatePtrs(origPos, 0);
         break;
     case INSERT_THREAD:
         int16_t p, min;
@@ -800,12 +752,6 @@ void dfqx_node_handler::insertCurrent() {
                 setPtr(key_at_pos, p);
             }
         }
-        // insert subtree size
-        if ((*origPos & x02) == 0) {
-            diff = triePos - childPos;
-            updatePtrs(childPos - 1, diff);
-            insAt(childPos + 1, diff + 1, 1);
-        }
         break;
     case INSERT_EMPTY:
         key_char = *key;
@@ -826,27 +772,22 @@ int16_t dfqx_node_handler::locate() {
     key_char = *key;
     do {
         byte trie_char = *t;
-        byte sib_size;
-        byte sib_count;
         int to_skip;
-        switch ((trie_char & x01) ? 0 : ((key_char ^ trie_char) > x03 ?
-                (key_char > trie_char ? 1 : 3) : 2)) {
+        switch ((key_char ^ trie_char) > x03 ?
+                (key_char > trie_char ? 0 : 2) : 1) {
         case 0:
-            sib_size = trie_char & xFE;
-            t++;
-            sib_count = *t++;
-            continue;
-        case 1:
-            origPos = t;
-            if (sib_size) {
-                t += sib_size;
-                pos += sib_count;
-                sib_size = sib_count = 0;
-                continue;
-            }
+            origPos = t++;
             to_skip = bit_count[*t >> 4];
             pos += bit_count[*t & x0F];
-            SKIP_CHILDREN
+            t++;
+            while (to_skip) {
+                byte child_tc = *t++;
+                to_skip += bit_count[*t >> 4];
+                pos += bit_count[*t & x0F];
+                t++;
+                if (child_tc & x02)
+                    to_skip--;
+            }
             if (trie_char & x02) {
                 if (isPut) {
                     triePos = t;
@@ -856,7 +797,7 @@ int16_t dfqx_node_handler::locate() {
                 return ~pos;
             }
             break;
-        case 2:
+        case 1:
             byte r_leaves, r_children, r_mask;
             origPos = t++;
             r_children = *t >> 4;
@@ -866,7 +807,14 @@ int16_t dfqx_node_handler::locate() {
             r_mask = ryte_mask[key_char];
             pos += bit_count[r_leaves & r_mask];
             to_skip = bit_count[r_children & r_mask];
-            SKIP_CHILDREN
+            while (to_skip) {
+                trie_char = *t++;
+                to_skip += bit_count[*t >> 4];
+                pos += bit_count[*t & x0F];
+                t++;
+                if (trie_char & x02)
+                    to_skip--;
+            }
             r_mask = (x01 << key_char);
             switch (r_leaves & r_mask ?
                     (r_children & r_mask ? (keyPos == key_len ? 3 : 4) : 2) :
@@ -910,9 +858,8 @@ int16_t dfqx_node_handler::locate() {
                 break;
             }
             key_char = key[keyPos++];
-            sib_size = sib_count = 0;
             break;
-        case 3:
+        case 2:
             if (isPut) {
                 triePos = t;
                 insertState = INSERT_MIDDLE2;

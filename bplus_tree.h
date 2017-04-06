@@ -10,7 +10,8 @@
 #include <malloc.h>
 #endif
 #include <stdint.h>
-#include "univix_util.h"
+#include "util.h"
+#include "GenTree.h"
 
 using namespace std;
 
@@ -174,21 +175,14 @@ public:
     static const byte x06 = 6;
     static const byte x07 = 7;
     static const byte x08 = 8;
-    static const byte x0F = 0x0F;
-    static const byte x10 = 0x10;
-    static const byte x11 = 0x11;
     static const byte x3F = 0x3F;
     static const byte x40 = 0x40;
     static const byte x41 = 0x41;
     static const byte x7F = 0x7F;
     static const byte x80 = 0x80;
-    static const byte x81 = 0x81;
     static const byte xBF = 0xBF;
-    static const byte xC0 = 0xC0;
     static const byte xF8 = 0xF8;
     static const byte xFB = 0xFB;
-    static const byte xFC = 0xFC;
-    static const byte xFD = 0xFD;
     static const byte xFE = 0xFE;
     static const byte xFF = 0xFF;
     static const int16_t x100 = 0x100;
@@ -208,10 +202,8 @@ private:
 protected:
     long total_size;
     int numLevels;
-    int maxKeyCountNode;
-    int maxKeyCountLeaf;
-    int blockCountNode;
-    int blockCountLeaf;
+    int maxKeyCount;
+    int blockCount;
     int node_size;
 
 public:
@@ -227,22 +219,18 @@ public:
     virtual char *get(const char *key, int16_t key_len, int16_t *pValueLen) = 0;
     void printMaxKeyCount(long num_entries) {
         util::print("Block Count:");
-        util::print((long)blockCountNode);
-        util::print(", ");
-        util::print((long)blockCountLeaf);
+        util::print(blockCount);
         util::endl();
         util::print("Avg Block Count:");
-        util::print((long)(num_entries / blockCountLeaf));
+        util::print(num_entries / blockCount);
         util::endl();
         util::print("Avg Max Count:");
-        util::print((long)(maxKeyCountNode / blockCountNode));
-        util::print(", ");
-        util::print((long)(maxKeyCountLeaf / blockCountLeaf));
+        util::print(maxKeyCount / blockCount);
         util::endl();
     }
     void printNumLevels() {
         util::print("Level Count:");
-        util::print((long)numLevels);
+        util::print(numLevels);
         util::endl();
     }
     long size() {
