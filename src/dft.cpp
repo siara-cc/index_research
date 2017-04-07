@@ -57,7 +57,7 @@ void dft::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             }
             //maxKeyCount += node->BPT_TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[64];
+            byte first_key[DFT_MAX_KEY_PREFIX_LEN * 2];
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             dft_node_handler new_block(b);
@@ -150,6 +150,7 @@ byte *dft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t brk_idx = 0;
     int16_t brk_kv_pos;
     int16_t brk_trie_pos;
+    int16_t brk_old_trie_pos;
     int16_t brk_tp_old_pos;
     int16_t tot_len;
     brk_kv_pos = tot_len = 0;
@@ -195,18 +196,21 @@ byte *dft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             kv_last_pos += kv_len;
             if (brk_idx == 0) {
                 //if (tot_len > halfKVLen) {
-                if (tot_len > halfKVLen || idx == (orig_filled_size / 2)) {
-                    brk_idx = -1;
-                    brk_kv_pos = kv_last_pos;
-                    brk_tp_old_pos = (child ? keyPos : keyPos + 1);
-                    memcpy(brk_tp_old, tp, brk_tp_old_pos);
-                }
-            } else if (brk_idx == -1) {
-                brk_idx = idx;
-                brk_trie_pos = t - trie - 1;
-                *first_len_ptr = (child ? keyPos : keyPos + 1);
-                memcpy(brk_tp_new, tp, *first_len_ptr);
-            }
+                //if (tot_len > halfKVLen || ((t-trie) > (DFT_TRIE_LEN * 2 / 3)) ) {
+                if (tot_len > halfKVLen || idx == (orig_filled_size / 2)
+                        || ((t - trie) > (DFT_TRIE_LEN* 2 / 3)) ) {
+                            brk_idx = -1;
+                            brk_kv_pos = kv_last_pos;
+                            brk_tp_old_pos = (child ? keyPos : keyPos + 1);
+                            brk_old_trie_pos = t - trie + DFT_UNIT_SIZE - 1;
+                            memcpy(brk_tp_old, tp, brk_tp_old_pos);
+                        }
+                    } else if (brk_idx == -1) {
+                        brk_idx = idx;
+                        brk_trie_pos = t - trie - 1;
+                        *first_len_ptr = (child ? keyPos : keyPos + 1);
+                        memcpy(brk_tp_new, tp, *first_len_ptr);
+                    }
             idx++;
         }
         if (!child) {
@@ -252,7 +256,7 @@ byte *dft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     }
     new_block.BPT_TRIE_LEN-= k;
     memmove(new_block.trie, new_block.trie + k, new_block.BPT_TRIE_LEN);
-    BPT_TRIE_LEN= brk_trie_pos;
+    BPT_TRIE_LEN= brk_old_trie_pos;
     idx = brk_tp_old_pos;
     while (idx--) {
 #if DFT_UNIT_SIZE == 3
@@ -262,11 +266,10 @@ byte *dft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 #endif
     }
 #if DFT_UNIT_SIZE == 3
-    trie[brk_trie_pos - DFT_UNIT_SIZE + 1] &= x80;
+    trie[brk_old_trie_pos - DFT_UNIT_SIZE + 1] &= x80;
 #else
-    trie[brk_trie_pos - DFT_UNIT_SIZE + 1] = 0;
+    trie[brk_old_trie_pos - DFT_UNIT_SIZE + 1] = 0;
 #endif
-    kv_last_pos = getKVLastPos();
     if (!isLeaf()) {
         if (new_block.buf[brk_kv_pos]) {
             memcpy(first_key + *first_len_ptr, new_block.buf + brk_kv_pos + 1,
@@ -276,6 +279,7 @@ byte *dft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     }
 
     {
+        kv_last_pos = getKVLastPos();
         int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
         memcpy(buf + DFT_NODE_SIZE - old_blk_new_len,
                 new_block.buf + kv_last_pos, old_blk_new_len); // Copy back first half to old block
@@ -283,7 +287,7 @@ byte *dft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         setFilledSize(brk_idx);
         int16_t diff = DFT_NODE_SIZE - brk_kv_pos;
         t_end = trie + BPT_TRIE_LEN;
-        for (byte *t = trie + 1; t <= t_end; t += DFT_UNIT_SIZE) {
+        for (byte *t = trie + 1; t < t_end; t += DFT_UNIT_SIZE) {
 #if DFT_UNIT_SIZE == 3
             int16_t ptr = get9bitPtr(t);
 #else
@@ -353,11 +357,11 @@ void dft_node_handler::addData() {
         kv_last_pos--;
     setKVLastPos(kv_last_pos);
 #if DFT_UNIT_SIZE == 3
-    trie[ptr] = kv_last_pos;
+    trie[ptr--] = kv_last_pos;
     if (kv_last_pos & x100)
-        trie[ptr - 1] |= x80;
+        trie[ptr] |= x80;
     else
-        trie[ptr - 1] &= x7F;
+        trie[ptr] &= x7F;
 #else
     util::setInt(trie + ptr, kv_last_pos);
 #endif
@@ -464,13 +468,17 @@ int16_t dft_node_handler::insertCurrent() {
             origPos++;
             *origPos = 0;
 #else
-            util::setInt(origPos + 1, 0);
+            origPos++;
+            util::setInt(origPos, 0);
             origPos++;
 #endif
         } else {
             origPos++;
             pos = origPos - trie;
             ret = pos;
+#if DFT_UNIT_SIZE == 4
+            origPos++;
+#endif
         }
         origPos++;
         triePos = origPos;
@@ -505,11 +513,10 @@ int16_t dft_node_handler::insertCurrent() {
                 unit_ctr++;
                 break;
             case 2:
-                if (p + 1 == key_len) {
+                if (p + 1 == key_len)
                     ret = triePos - trie + 2;
-                } else {
+                else
                     pos = triePos - trie + 2;
-                }
                 triePos += insertUnit(triePos, c1, x40, 0);
                 unit_ctr++;
                 break;
@@ -526,9 +533,8 @@ int16_t dft_node_handler::insertCurrent() {
             if (p == key_len) {
                 pos = triePos - trie + 2;
                 keyPos--;
-            } else {
+            } else
                 ret = triePos - trie + 2;
-            }
             triePos += insertUnit(triePos, c2, x00, 0);
             unit_ctr++;
         }
@@ -566,7 +572,7 @@ void dft_node_handler::traverseToLeaf(byte *node_paths[]) {
     level = 1;
     if (isPut)
         *node_paths = buf;
-    while (!isLeaf()) {
+    do {
         int16_t idx = locate();
         if (idx < 0) {
             idx = -idx;
@@ -588,7 +594,7 @@ void dft_node_handler::traverseToLeaf(byte *node_paths[]) {
         setBuf(getChildPtr(key_at));
         if (isPut)
             node_paths[level++] = buf;
-    }
+    } while (!isLeaf());
 }
 
 int16_t dft_node_handler::locate() {
@@ -651,6 +657,8 @@ int16_t dft_node_handler::locate() {
             switch (ptr ?
                     (r_children ? (keyPos == key_len ? 3 : 1) : 2) :
                     (r_children ? (keyPos == key_len ? 0 : 1) : 0)) {
+            case 1:
+                break;
             case 2:
                 int16_t cmp;
                 key_at = buf + ptr;
@@ -669,17 +677,15 @@ int16_t dft_node_handler::locate() {
                     need_count = (cmp * DFT_UNIT_SIZE) + DFT_UNIT_SIZE * 2;
                 }
                 return trie - t;
+            case 3:
+                key_at = buf + ptr;
+                return ptr;
             case 0:
                 if (isPut) {
                     insertState = INSERT_LEAF;
                     need_count = 0;
                 }
                 return trie - t;
-            case 1:
-                break;
-            case 3:
-                key_at = buf + ptr;
-                return ptr;
             }
             t += DFT_UNIT_SIZE;
             t--;
@@ -730,8 +736,8 @@ byte dft_node_handler::insert2Units(byte *t, byte c1, byte s1, int16_t ptr1,
     t[5] = ptr2;
 #else
     util::setInt(t + 2, ptr1);
-    t[3] = c2;
-    t[4] = s2;
+    t[4] = c2;
+    t[5] = s2;
     util::setInt(t + 6, ptr2);
 #endif
     BPT_TRIE_LEN+= size;
