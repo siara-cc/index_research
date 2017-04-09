@@ -10,7 +10,6 @@
 using namespace std;
 
 #define DX_INT64MAP 1
-#define DX_UNIT_SZ_3 0
 #define DX_9_BIT_PTR 1
 
 #define DFOX_NODE_SIZE 512
