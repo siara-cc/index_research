@@ -9,7 +9,7 @@
 
 using namespace std;
 
-#define BFT_UNIT_SIZE 4
+#define BFT_UNIT_SIZE 3
 
 #define BFT_NODE_SIZE 512
 

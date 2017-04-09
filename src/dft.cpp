@@ -198,19 +198,19 @@ byte *dft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                 //if (tot_len > halfKVLen) {
                 //if (tot_len > halfKVLen || ((t-trie) > (DFT_TRIE_LEN * 2 / 3)) ) {
                 if (tot_len > halfKVLen || idx == (orig_filled_size / 2)
-                        || ((t - trie) > (DFT_TRIE_LEN* 2 / 3)) ) {
-                            brk_idx = -1;
-                            brk_kv_pos = kv_last_pos;
-                            brk_tp_old_pos = (child ? keyPos : keyPos + 1);
-                            brk_old_trie_pos = t - trie + DFT_UNIT_SIZE - 1;
-                            memcpy(brk_tp_old, tp, brk_tp_old_pos);
-                        }
-                    } else if (brk_idx == -1) {
-                        brk_idx = idx;
-                        brk_trie_pos = t - trie - 1;
-                        *first_len_ptr = (child ? keyPos : keyPos + 1);
-                        memcpy(brk_tp_new, tp, *first_len_ptr);
-                    }
+                            || ((t - trie) > (DFT_TRIE_LEN* 2 / 3)) ) {
+                    brk_idx = -1;
+                    brk_kv_pos = kv_last_pos;
+                    brk_tp_old_pos = (child ? keyPos : keyPos + 1);
+                    brk_old_trie_pos = t - trie + DFT_UNIT_SIZE - 1;
+                    memcpy(brk_tp_old, tp, brk_tp_old_pos);
+                }
+            } else if (brk_idx == -1) {
+                brk_idx = idx;
+                brk_trie_pos = t - trie - 1;
+                *first_len_ptr = (child ? keyPos : keyPos + 1);
+                memcpy(brk_tp_new, tp, *first_len_ptr);
+            }
             idx++;
         }
         if (!child) {
@@ -517,7 +517,11 @@ int16_t dft_node_handler::insertCurrent() {
                     ret = triePos - trie + 2;
                 else
                     pos = triePos - trie + 2;
+#if DFT_UNIT_SIZE == 3
                 triePos += insertUnit(triePos, c1, x40, 0);
+#else
+                triePos += insertUnit(triePos, c1, x80, 0);
+#endif
                 unit_ctr++;
                 break;
             }
@@ -567,61 +571,49 @@ int16_t dft_node_handler::insertCurrent() {
     return ret;
 }
 
+#define PREVIOUS_LEAF do { \
+   int16_t p = (DFT_UNIT_SIZE == 3 ? get9bitPtr(t) : util::getInt(t + 1)); \
+   if (p) { \
+       key_at = buf + p; \
+       break; \
+   } \
+   if (t - trie == 1) \
+       break; \
+   t -= DFT_UNIT_SIZE; \
+} while (1);
+
+#define NEXT_LEVEL setBuf(getChildPtr(key_at)); \
+    if (isPut) node_paths[level++] = buf; \
+    if (isLeaf()) \
+        return; \
+    keyPos = DFT_PREFIX_LEN; \
+    key_char = key[keyPos++]; \
+    t = trie;
+
 void dft_node_handler::traverseToLeaf(byte *node_paths[]) {
-    byte level;
-    level = 1;
+    byte level = 1;
+    byte *t = trie;
     if (isPut)
         *node_paths = buf;
-    do {
-        int16_t idx = locate();
-        if (idx < 0) {
-            idx = -idx;
-            do {
-#if DFT_UNIT_SIZE == 3
-                int16_t ptr = get9bitPtr(trie + idx);
-#else
-                int16_t ptr = util::getInt(trie + idx + 1);
-#endif
-                if (ptr) {
-                    key_at = buf + ptr;
-                    break;
-                }
-                if (idx == 1)
-                    break;
-                idx -= DFT_UNIT_SIZE;
-            } while (1);
-        }
-        setBuf(getChildPtr(key_at));
-        if (isPut)
-            node_paths[level++] = buf;
-    } while (!isLeaf());
-}
-
-int16_t dft_node_handler::locate() {
-    byte *t = trie;
     keyPos = DFT_PREFIX_LEN;
     byte key_char = key[keyPos++];
     do {
-        origPos = t;
-        last_sibling_pos = 0;
         while (key_char > *t) {
             t++;
-            last_sibling_pos = t - trie;
 #if DFT_UNIT_SIZE == 3
-            byte s = *t & x3F;
+            int s = *t & x3F;
 #else
-            byte s = *t & x7F;
+            int s = *t & x7F;
 #endif
             if (s) {
                 t += (s * DFT_UNIT_SIZE);
                 t--;
-                origPos = t;
                 continue;
             } else {
 #if DFT_UNIT_SIZE == 3
-                byte child = *t & x40;
+                int child = *t & x40;
 #else
-                byte child = *t & x80;
+                int child = *t & x80;
 #endif
                 t += DFT_UNIT_SIZE;
                 while (child) {
@@ -638,20 +630,117 @@ int16_t dft_node_handler::locate() {
                     } else
                         t += DFT_UNIT_SIZE;
                 }
-                if (isPut) {
-                    insertState = INSERT_AFTER;
-                    need_count = DFT_UNIT_SIZE;
-                    triePos = t - 1;
-                }
-                return trie - t + DFT_UNIT_SIZE;
+                t -= DFT_UNIT_SIZE;
+                PREVIOUS_LEAF
+                NEXT_LEVEL
+                continue;
             }
         }
         if (key_char == *t++) {
 #if DFT_UNIT_SIZE == 3
-            byte r_children = *t & x40;
+            int r_children = *t & x40;
             int16_t ptr = get9bitPtr(t);
 #else
-            byte r_children = *t & x80;
+            int r_children = *t & x80;
+            int16_t ptr = util::getInt(t + 1);
+#endif
+            switch (ptr ?
+                    (r_children ? (keyPos == key_len ? 3 : 1) : 2) :
+                    (r_children ? (keyPos == key_len ? 0 : 1) : 0)) {
+            case 1:
+                t += DFT_UNIT_SIZE;
+                t--;
+                key_char = key[keyPos++];
+                break;
+            case 2:
+                int16_t cmp;
+                key_at = buf + ptr;
+                key_at_len = *key_at;
+                cmp = util::compare(key + keyPos, key_len - keyPos,
+                        (char *) key_at + 1, key_at_len);
+                if (cmp < 0) {
+                    cmp = -cmp;
+                    if (t - trie - 1)
+                        t -= DFT_UNIT_SIZE;
+                    PREVIOUS_LEAF
+                }
+                NEXT_LEVEL
+                break;
+            case 0:
+                if (t - trie - 1)
+                    t -= DFT_UNIT_SIZE;
+                PREVIOUS_LEAF
+                NEXT_LEVEL
+                break;
+            case 3:
+                key_at = buf + ptr;
+                NEXT_LEVEL
+                break;
+            }
+        } else {
+            if (t - trie - 1)
+                t -= DFT_UNIT_SIZE;
+            PREVIOUS_LEAF
+            NEXT_LEVEL
+        }
+    } while (1);
+}
+
+int16_t dft_node_handler::locate() {
+    byte *t = trie;
+    keyPos = DFT_PREFIX_LEN;
+    byte key_char = key[keyPos++];
+    do {
+        origPos = t;
+        last_sibling_pos = 0;
+        while (key_char > *t) {
+            t++;
+            last_sibling_pos = t - trie;
+#if DFT_UNIT_SIZE == 3
+            int s = *t & x3F;
+#else
+            int s = *t & x7F;
+#endif
+            if (s) {
+                t += (s * DFT_UNIT_SIZE);
+                t--;
+                origPos = t;
+                continue;
+            } else {
+                if (isPut) {
+#if DFT_UNIT_SIZE == 3
+                    int child = *t & x40;
+#else
+                    int child = *t & x80;
+#endif
+                    t += DFT_UNIT_SIZE;
+                    while (child) {
+#if DFT_UNIT_SIZE == 3
+                        s = *t & x3F;
+                        child = *t & x40;
+#else
+                        s = *t & x7F;
+                        child = *t & x80;
+#endif
+                        if (s) {
+                            t += s * DFT_UNIT_SIZE;
+                            child = 1;
+                        } else
+                            t += DFT_UNIT_SIZE;
+                    }
+                    insertState = INSERT_AFTER;
+                    need_count = DFT_UNIT_SIZE;
+                    triePos = t - 1;
+                }
+                return -1;
+            }
+        }
+        if (key_char == *t++) {
+#if DFT_UNIT_SIZE == 3
+            int r_children = *t & x40;
+            int16_t ptr = get9bitPtr(t);
+#else
+            int r_children = *t & x80;
             int16_t ptr = util::getInt(t + 1);
 #endif
             switch (ptr ?
@@ -667,25 +756,22 @@ int16_t dft_node_handler::locate() {
                         (char *) key_at + 1, key_at_len);
                 if (cmp == 0)
                     return ptr;
-                if (cmp < 0) {
+                if (cmp < 0)
                     cmp = -cmp;
-                    if (t - trie - 1)
-                        t -= DFT_UNIT_SIZE;
-                }
                 if (isPut) {
                     insertState = INSERT_THREAD;
                     need_count = (cmp * DFT_UNIT_SIZE) + DFT_UNIT_SIZE * 2;
                 }
-                return trie - t;
-            case 3:
-                key_at = buf + ptr;
-                return ptr;
+                return -1;
             case 0:
                 if (isPut) {
                     insertState = INSERT_LEAF;
                     need_count = 0;
                 }
-                return trie - t;
+                return -1;
+            case 3:
+                key_at = buf + ptr;
+                return ptr;
             }
             t += DFT_UNIT_SIZE;
             t--;
@@ -696,9 +782,7 @@ int16_t dft_node_handler::locate() {
                 insertState = INSERT_BEFORE;
                 need_count = DFT_UNIT_SIZE;
             }
-            if (t - trie - 1)
-                t -= DFT_UNIT_SIZE;
-            return trie - t;
+            return -1;
         }
     } while (1);
     return -1;

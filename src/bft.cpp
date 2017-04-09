@@ -347,11 +347,11 @@ void bft_node_handler::addData() {
         kv_last_pos--;
     setKVLastPos(kv_last_pos);
 #if BFT_UNIT_SIZE == 3
-    trie[ptr] = kv_last_pos;
+    trie[ptr--] = kv_last_pos;
     if (kv_last_pos & x100)
-        trie[ptr - 1] |= x80;
+        trie[ptr] |= x80;
     else
-        trie[ptr - 1] &= x7F;
+        trie[ptr] &= x7F;
 #else
     util::setInt(trie + ptr, kv_last_pos);
 #endif
@@ -630,6 +630,7 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
                 else
                     key_at = buf + get9bitPtr(t);
                 NEXT_LEVEL
+                continue;
             } else
                 t += 2;
 #else
@@ -656,9 +657,6 @@ void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
             r_children = *t & x7F;
             ptr = util::getInt(t + 1);
 #endif
-            //if (ptr && ptr < trie - buf) {
-            //    cout << "Hello" << endl;
-            //}
             switch (ptr ?
                     (r_children ? (keyPos == key_len ? 3 : 1) : 2) :
                     (r_children ? (keyPos == key_len ? 0 : 4) : 0)) {
@@ -741,19 +739,6 @@ int16_t bft_node_handler::locate() {
             r_children = *t & x7F;
             ptr = util::getInt(t + 1);
 #endif
-            //if (ptr && ptr < trie - buf) {
-            //    t = buf + ptr;
-            //    byte len = *t++;
-            //    while (len--) {
-            //        key_char = key[keyPos++];
-            //        if (key_char != *t || keyPos == key_len) {
-            //            triePos = t;
-            //            insertState = INSERT_SPLIT;
-            //            need_count = 12;
-            //        }
-            //        t++;
-            //    }
-            //}
             switch (ptr ?
                     (r_children ? (keyPos == key_len ? 3 : 1) : 2) :
                     (r_children ? (keyPos == key_len ? 0 : 1) : 0)) {
