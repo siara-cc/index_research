@@ -91,12 +91,15 @@ private:
     void recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             byte *node_paths[], int16_t level);
 public:
-    static int count1, count2;
+    static long count1, count2;
     dfqx();
     ~dfqx();
     void put(const char *key, int16_t key_len, const char *value,
             int16_t value_len);
     char *get(const char *key, int16_t key_len, int16_t *pValueLen);
+    static void printCounts() {
+        cout << "Count1:" << count1 << ", Count2:" << count2 << endl;
+    }
 };
 
 #endif

@@ -490,6 +490,7 @@ dfqx::dfqx() {
     total_size = maxKeyCountLeaf = maxKeyCountNode = 0;
     numLevels = blockCountLeaf = blockCountNode = 1;
     maxThread = 9999;
+    count1 = 0;
 }
 
 dfqx::~dfqx() {
@@ -721,6 +722,7 @@ void dfqx_node_handler::insertCurrent() {
                         (x01 << (c1 & x03)) | (x01 << (c2 & x03)));
                 break;
             case 2:
+                dfqx::count1++;
                 triePos += insAt(triePos, (c1 & xFC) | x02, x10 << (c1 & x03));
                 break;
             case 3:
@@ -908,3 +910,4 @@ byte dfqx_node_handler::first_bit_offset[16] = { 0x04, 0x00, 0x01, 0x00, 0x02,
         0x00, 0x01, 0x00, 0x03, 0x00, 0x01, 0x00, 0x02, 0x00, 0x01, 0x00 };
 byte dfqx_node_handler::bit_count[16] = { 0x00, 0x01, 0x01, 0x02, 0x01,
         0x02, 0x02, 0x03, 0x01, 0x02, 0x02, 0x03, 0x02, 0x03, 0x03, 0x04 };
+long dfqx::count1, dfqx::count2;

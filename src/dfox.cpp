@@ -493,6 +493,7 @@ dfox::dfox() {
     total_size = maxKeyCountLeaf = maxKeyCountNode = 0;
     numLevels = blockCountLeaf = blockCountNode = 1;
     maxThread = 9999;
+    count1 = 0;
 }
 
 dfox::~dfox() {
@@ -734,6 +735,7 @@ void dfox_node_handler::insertCurrent() {
                         (x01 << (c1 & x07)) | (x01 << (c2 & x07)));
                 break;
             case 2:
+                dfox::count1++;
                 triePos += insAt(triePos, (c1 & xF8) | x06, x01 << (c1 & x07),
                         0);
                 break;
@@ -924,3 +926,4 @@ byte dfox_node_handler::ryte_mask[8] = { 0x00, 0x01, 0x03, 0x07, 0x0F, 0x1F,
         0x3F, 0x7F };
 byte dfox_node_handler::ryte_incl_mask[8] = { 0x01, 0x03, 0x07, 0x0F, 0x1F,
         0x3F, 0x7F, 0xFF };
+long dfox::count1, dfox::count2;
