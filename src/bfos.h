@@ -10,7 +10,6 @@
 using namespace std;
 
 #define BFOS_INT64MAP 1
-#define BFOS_UNIT_SZ_3 1
 #define BFOS_9_BIT_PTR 0
 
 #define BFOS_NODE_SIZE 512
