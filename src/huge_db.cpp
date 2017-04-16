@@ -126,9 +126,9 @@ void loadFile(unordered_map<string, string>& m) {
                 if (buf == value)
                     m.insert(pair<string, string>(key, value));
                 else {
-                    //sprintf(value, "%ld", NUM_ENTRIES);
-                    util::ptrToBytes(NUM_ENTRIES, (byte *) value);
-                    value[4] = 0;
+                    sprintf(value, "%ld", NUM_ENTRIES);
+                    //util::ptrToBytes(NUM_ENTRIES, (byte *) value);
+                    //value[4] = 0;
                     m.insert(pair<string, string>(key, value));
                 }
                 if (NUM_ENTRIES % 100000 == 0)
@@ -923,135 +923,35 @@ int main3() {
 int main4() {
     util::generateBitCounts();
     //basix *dx = new basix();
-    //bfos *dx = new bfos();
+    bfos *dx = new bfos();
     //dfqx *dx = new dfqx();
     //bft *dx = new bft();
-    dft *dx = new dft();
+    //dft *dx = new dft();
     //rb_tree *dx = new rb_tree();
     //dfqx *dx = new dfqx();
     //linex *dx = new linex();
 
-    dx->put("arauxbpb", 8, "uara", 4);
-    dx->put("wvwsztzp", 8, "swvw", 4);
-    dx->put("untzcpqv", 8, "ztnu", 4);
-    dx->put("gvnowurf", 8, "onvg", 4);
-    dx->put("vrvyobpj", 8, "yvrv", 4);
-    dx->put("bmkqiieu", 8, "qkmb", 4);
-    dx->put("omuftzpw", 8, "fumo", 4);
-    dx->put("jnonrpxh", 8, "nonj", 4);
-    dx->put("oftmriuv", 8, "mtfo", 4);
-    dx->put("ldlxzwoz", 8, "xldl", 4);
-    dx->put("bsnollen", 8, "onsb", 4);
-    dx->put("qcrzejgb", 8, "zrcq", 4);
-    dx->put("jjteccad", 8, "etjj", 4);
-    dx->put("thbpbave", 8, "pbht", 4);
-    dx->put("dbogasvj", 8, "gobd", 4);
-    dx->put("fwmxrmox", 8, "xmwf", 4);
-    dx->put("lbpgmxyz", 8, "gpbl", 4);
-    dx->put("oljkmwdu", 8, "kjlo", 4);
-    dx->put("nykvayii", 8, "vkyn", 4);
-    dx->put("atcstnqq", 8, "scta", 4);
-    dx->put("euhngabb", 8, "nhue", 4);
-    dx->put("qfzftlda", 8, "fzfq", 4);
-    dx->put("rjsixaib", 8, "isjr", 4);
-    dx->put("liayxtra", 8, "yail", 4);
-    dx->put("ywhzbrul", 8, "zhwy", 4);
-    dx->put("oxmpqwrc", 8, "pmxo", 4);
-    dx->put("uqsoukfv", 8, "osqu", 4);
-    dx->put("zhjbnbqv", 8, "bjhz", 4);
-    dx->put("xgitmesc", 8, "tigx", 4);
-    dx->put("odrvrpge", 8, "vrdo", 4);
-    dx->put("grdksvdn", 8, "kdrg", 4);
-    dx->put("vcbiygnm", 8, "ibcv", 4);
-    dx->put("uzkigbsx", 8, "ikzu", 4);
-    dx->put("bmnwqmry", 8, "wnmb", 4);
-    dx->put("kbmyjziv", 8, "ymbk", 4);
-    dx->put("mdudatib", 8, "dudm", 4);
-    dx->put("nvvjxdmd", 8, "jvvn", 4);
-    dx->put("dtpuekgk", 8, "uptd", 4);
-    dx->put("hfxqtujn", 8, "qxfh", 4);
-    dx->put("ozfqgfvl", 8, "qfzo", 4);
-    dx->put("fvssfotl", 8, "ssvf", 4);
-    dx->put("egoehtuq", 8, "eoge", 4);
-    dx->put("gipanodk", 8, "apig", 4);
-    dx->put("oqlpmwcz", 8, "plqo", 4);
-    dx->put("bjlijits", 8, "iljb", 4);
-    dx->put("qbdmemtm", 8, "mdbq", 4);
-    dx->put("vcnrxcse", 8, "rncv", 4);
-    dx->put("egcrgvvk", 8, "rcge", 4);
-    dx->put("ehdlyxin", 8, "ldhe", 4);
-    dx->put("nabtdpot", 8, "tban", 4);
-    dx->put("jhmerrrs", 8, "emhj", 4);
-    dx->put("elkmrpzh", 8, "mkle", 4);
-    dx->put("cojsvokb", 8, "sjoc", 4);
-    dx->put("qwcluchd", 8, "lcwq", 4);
-    dx->put("skekomry", 8, "keks", 4);
-    dx->put("hxhtwdpm", 8, "thxh", 4);
-    dx->put("knzmdiem", 8, "mznk", 4);
-    dx->put("gbcpbdhq", 8, "pcbg", 4);
-    dx->put("mdzcagxd", 8, "czdm", 4);
-    dx->put("hofpoinn", 8, "pfoh", 4);
+    dx->put("bdzdqqao", 8, "dzdb", 4);
+    dx->put("allftwdl", 8, "flla", 4);
+    dx->put("aaagswaf", 8, "gaaa", 4);
+    dx->put("elmtncss", 8, "tmle", 4);
+    dx->put("yjrktcpd", 8, "krjy", 4);
+    dx->put("lzfbzsey", 8, "bfzl", 4);
+    dx->put("ryjkqbmd", 8, "kjyr", 4);
+    dx->put("epsuiwpd", 8, "uspe", 4);
+    dx->put("kdcvvodz", 8, "vcdk", 4);
+    dx->put("yhrmqsjb", 8, "mrhy", 4);
 
-    print(dx, "arauxbpb", 8);
-    print(dx, "wvwsztzp", 8);
-    print(dx, "untzcpqv", 8);
-    print(dx, "gvnowurf", 8);
-    print(dx, "vrvyobpj", 8);
-    print(dx, "bmkqiieu", 8);
-    print(dx, "omuftzpw", 8);
-    print(dx, "jnonrpxh", 8);
-    print(dx, "oftmriuv", 8);
-    print(dx, "ldlxzwoz", 8);
-    print(dx, "bsnollen", 8);
-    print(dx, "qcrzejgb", 8);
-    print(dx, "jjteccad", 8);
-    print(dx, "thbpbave", 8);
-    print(dx, "dbogasvj", 8);
-    print(dx, "fwmxrmox", 8);
-    print(dx, "lbpgmxyz", 8);
-    print(dx, "oljkmwdu", 8);
-    print(dx, "nykvayii", 8);
-    print(dx, "atcstnqq", 8);
-    print(dx, "euhngabb", 8);
-    print(dx, "qfzftlda", 8);
-    print(dx, "rjsixaib", 8);
-    print(dx, "liayxtra", 8);
-    print(dx, "ywhzbrul", 8);
-    print(dx, "oxmpqwrc", 8);
-    print(dx, "uqsoukfv", 8);
-    print(dx, "zhjbnbqv", 8);
-    print(dx, "xgitmesc", 8);
-    print(dx, "odrvrpge", 8);
-    print(dx, "grdksvdn", 8);
-    print(dx, "vcbiygnm", 8);
-    print(dx, "uzkigbsx", 8);
-    print(dx, "bmnwqmry", 8);
-    print(dx, "kbmyjziv", 8);
-    print(dx, "mdudatib", 8);
-    print(dx, "nvvjxdmd", 8);
-    print(dx, "dtpuekgk", 8);
-    print(dx, "hfxqtujn", 8);
-    print(dx, "ozfqgfvl", 8);
-    print(dx, "fvssfotl", 8);
-    print(dx, "egoehtuq", 8);
-    print(dx, "gipanodk", 8);
-    print(dx, "oqlpmwcz", 8);
-    print(dx, "bjlijits", 8);
-    print(dx, "qbdmemtm", 8);
-    print(dx, "vcnrxcse", 8);
-    print(dx, "egcrgvvk", 8);
-    print(dx, "ehdlyxin", 8);
-    print(dx, "nabtdpot", 8);
-    print(dx, "jhmerrrs", 8);
-    print(dx, "elkmrpzh", 8);
-    print(dx, "cojsvokb", 8);
-    print(dx, "qwcluchd", 8);
-    print(dx, "skekomry", 8);
-    print(dx, "hxhtwdpm", 8);
-    print(dx, "knzmdiem", 8);
-    print(dx, "gbcpbdhq", 8);
-    print(dx, "mdzcagxd", 8);
-    print(dx, "hofpoinn", 8);
+    print(dx, "bdzdqqao", 8);
+    print(dx, "allftwdl", 8);
+    print(dx, "aaagswaf", 8);
+    print(dx, "elmtncss", 8);
+    print(dx, "yjrktcpd", 8);
+    print(dx, "lzfbzsey", 8);
+    print(dx, "ryjkqbmd", 8);
+    print(dx, "epsuiwpd", 8);
+    print(dx, "kdcvvodz", 8);
+    print(dx, "yhrmqsjb", 8);
 
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
@@ -1207,7 +1107,7 @@ int main(int argc, char *argv[]) {
 
     ctr = 0;
     //linex *lx = new linex();
-    //basix *lx = new basix();
+    ///basix *lx = new basix();
     //rb_tree *lx = new rb_tree();
     bft *lx = new bft();
     //dft *lx = new dft();
@@ -1228,8 +1128,8 @@ int main(int argc, char *argv[]) {
     ctr = 0;
     //linex *dx = new linex();
     //bft *dx = new bft();
-    dft *dx = new dft();
-    //dfox *dx = new dfox();
+    //dft *dx = new dft();
+    dfox *dx = new dfox();
     //dfqx *dx = new dfqx();
     //bfos *dx = new bfos();
     //rb_tree *dx = new rb_tree();
@@ -1244,9 +1144,9 @@ int main(int argc, char *argv[]) {
     cout << "DFox+Tree insert time:" << timedifference(start, stop) << endl;
     //getchar();
 
-    null_ctr = 0;
     cmp = 0;
     ctr = 0;
+    null_ctr = 0;
     it1 = m.begin();
     start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
@@ -1277,9 +1177,9 @@ int main(int argc, char *argv[]) {
     cout << "ART Size:" << art_size(&at) << endl;
     //getchar();
 
-    null_ctr = 0;
     cmp = 0;
     ctr = 0;
+    null_ctr = 0;
     it1 = m.begin();
     start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
@@ -1297,11 +1197,11 @@ int main(int argc, char *argv[]) {
                 v[len] = 0;
                 cout << cmp << ":" << it1->first.c_str() << "=========="
                         << it1->second.c_str() << "----------->" << v << endl;
-            }// else {
-            //    strncpy(v, value, len);
-            //    v[len] = 0;
-            //    cout << v << endl;
-            //}
+            } // else {
+              //    strncpy(v, value, len);
+              //    v[len] = 0;
+              //    cout << v << endl;
+              //}
         }
         ctr++;
     }
@@ -1311,15 +1211,8 @@ int main(int argc, char *argv[]) {
     cout << "Cmp:" << cmp << endl;
     lx->printMaxKeyCount(NUM_ENTRIES);
     lx->printNumLevels();
+    //lx->printCounts();
     cout << "Root filled size:" << util::getInt(lx->root_data + 1) << endl;
-
-    if (NUM_ENTRIES <= 1000 && (null_ctr > 0 || cmp > 0)) {
-        it = m.begin();
-        for (; it != m.end(); ++it) {
-            cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
-                    << "\"," << endl;
-        }
-    }
 
     null_ctr = 0;
     cmp = 0;
@@ -1361,9 +1254,19 @@ int main(int argc, char *argv[]) {
             << endl;
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
+    //dx->printCounts();
     //cout << "Root filled size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES+2] << endl;
     //getchar();
+
+    if (NUM_ENTRIES <= 1000 && (null_ctr > 0 || cmp > 0)) {
+        it = m.begin();
+        for (; it != m.end(); ++it) {
+            cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
+                    << "\"," << endl;
+        }
+    }
 
     return 0;
 
 }
+
