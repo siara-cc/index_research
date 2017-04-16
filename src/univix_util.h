@@ -58,16 +58,16 @@ public:
     }
 
     static void ptrToBytes(unsigned long addr_num, byte *addr) {
-        addr[0] = (addr_num & 0xFF);
+        addr[0] = addr_num;
         addr_num >>= 8;
-        addr[1] = (addr_num & 0xFF);
+        addr[1] = addr_num;
         addr_num >>= 8;
-        addr[2] = (addr_num & 0xFF);
+        addr[2] = addr_num;
         addr_num >>= 8;
         addr[3] = addr_num;
 #if defined(ENV64BIT)
         addr_num >>= 8;
-        addr[3] = addr_num;
+        addr[4] = addr_num;
 #endif
         //addr[4] = 0;
     }
