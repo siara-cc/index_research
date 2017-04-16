@@ -66,7 +66,7 @@ public:
     virtual byte *split(byte *first_key, int16_t *first_len_ptr) = 0;
 };
 
-class trie_node_handler : public bplus_tree_node_handler {
+class trie_node_handler: public bplus_tree_node_handler {
 protected:
     inline void delAt(byte *ptr) {
         BPT_TRIE_LEN--;
@@ -218,6 +218,9 @@ public:
     byte *root_data;
     int maxThread;
     bplus_tree() {
+        numLevels = blockCountNode = blockCountLeaf = maxKeyCountNode =
+                maxKeyCountLeaf = total_size = maxThread = 0;
+        root_data = NULL;
         node_size = 512;
     }
     virtual ~bplus_tree() {
@@ -227,23 +230,22 @@ public:
     virtual char *get(const char *key, int16_t key_len, int16_t *pValueLen) = 0;
     void printMaxKeyCount(long num_entries) {
         util::print("Block Count:");
-        util::print((long)blockCountNode);
+        util::print((long) blockCountNode);
         util::print(", ");
-        util::print((long)blockCountLeaf);
+        util::print((long) blockCountLeaf);
         util::endl();
         util::print("Avg Block Count:");
-        util::print((long)(num_entries / blockCountLeaf));
+        util::print((long) (num_entries / blockCountLeaf));
         util::endl();
         util::print("Avg Max Count:");
-        util::print((long)(maxKeyCountNode / blockCountNode));
+        util::print((long) (maxKeyCountNode / blockCountNode));
         util::print(", ");
-        util::print((long)(maxKeyCountLeaf / blockCountLeaf));
+        util::print((long) (maxKeyCountLeaf / blockCountLeaf));
         util::endl();
     }
     void printNumLevels() {
         util::print("Level Count:");
-        util::print((long)numLevels);
-        util::endl();
+        util::print((long) numLevels);
     }
     long size() {
         return total_size;
