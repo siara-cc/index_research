@@ -275,6 +275,8 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     } // Set index of copied first half in old block
     setKVLastPos(getPtr(0));
     int16_t new_size = filled_upto - brk_idx;
+    filled_upto = brk_idx;
+    brk_idx++;
     // Move index of second half to first half in new block
     byte *new_kv_idx = new_block.buf + BLK_HDR_SIZE;
 #if BX_9_BIT_PTR == 1
@@ -295,7 +297,6 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     //memset(new_kv_idx + new_size * 2, '\0', new_pos);
     // Set KV Last pos for new block
     new_block.setKVLastPos(new_block.getPtr(0));
-    filled_upto = brk_idx;
     setFilledUpto(filled_upto); // Set filled upto for old block
     new_block.setFilledUpto(new_size - 1); // Set filled upto for new block
     return b;
