@@ -99,23 +99,17 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
                 root.isPut = true;
                 root.setLeaf(0);
                 byte addr[9];
-                util::ptrToBytes((unsigned long) node->buf, addr);
                 root.initVars();
                 root.key = "";
                 root.key_len = 1;
                 root.value = (char *) addr;
-#if defined(ENV64BIT)
-                root.value_len = 5;
-#else
-                root.value_len = 4;
-#endif
+                root.value_len = util::ptrToBytes((unsigned long) node->buf, addr);
                 root.addData();
-                util::ptrToBytes((unsigned long) new_block.buf, addr);
                 root.initVars();
                 root.key = (char *) first_key;
                 root.key_len = first_len;
                 root.value = (char *) addr;
-                //root.value_len = sizeof(char *);
+                root.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
                 root.pos = ~root.locate();
                 root.addData();
                 numLevels++;
@@ -124,17 +118,12 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
                 byte *parent_data = node_paths[prev_level];
                 linex_node_handler parent(parent_data);
                 byte addr[9];
-                util::ptrToBytes((unsigned long) new_block.buf, addr);
                 parent.initVars();
                 parent.isPut = true;
                 parent.key = (char *) first_key;
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
-#if defined(ENV64BIT)
-                parent.value_len = 5;
-#else
-                parent.value_len = 4;
-#endif
+                parent.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
                 parent.locate();
                 recursiveUpdate(&parent, parent.pos, node_paths, prev_level);
             }
@@ -314,7 +303,8 @@ int16_t linex_node_handler::linearSearch() {
         int16_t cmp;
         key_at_len = *(key_at + 1);
 #if LX_PREFIX_CODING == 1
-        for (int16_t pctr = 0; prefix_len < *key_at; pctr++)
+        byte *p_cur_prefix_len = key_at;
+        for (int16_t pctr = 0; prefix_len < (*p_cur_prefix_len & 0x7F); pctr++)
             prefix[prefix_len++] = prev_key_at[pctr + 2];
         if (prefix_len > *key_at)
             prefix_len = *key_at;
@@ -323,6 +313,16 @@ int16_t linex_node_handler::linearSearch() {
             cmp = util::compare((char *) key_at + 2, key_at_len,
                     key + prefix_len, key_len - prefix_len);
         }
+#if LX_DATA_AREA == 1
+        if (cmp == 0) {
+            int16_t partial_key_len = prefix_len + key_at_len;
+            byte *data_key_at = buf + key_at_len + *key_at + 1;
+            if (*p_cur_prefix_len & 0x80)
+                data_key_at += 256;
+            cmp = util::compare((char *) data_key_at + 1, *data_key_at,
+                    key + partial_key_len, key_len - partial_key_len);
+        }
+#endif
 #else
         cmp = util::compare((char *) key_at + 2, key_at_len, key, key_len);
 #endif
@@ -336,6 +336,9 @@ int16_t linex_node_handler::linearSearch() {
         key_at += 2;
         key_at += *key_at;
         key_at++;
+#if LX_DATA_AREA == 1
+        key_at++;
+#endif
         idx++;
     }
     return ~idx;
@@ -386,7 +389,7 @@ bool linex_node_handler::isFull(int16_t kv_len) {
 
 byte *linex_node_handler::getChildPtr(byte *ptr) {
     ptr++;
-    ptr += (*ptr + 2);
+    ptr += (*ptr + 1);
     return (byte *) util::bytesToPtr(ptr);
 }
 

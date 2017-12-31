@@ -9,8 +9,8 @@
 
 using namespace std;
 
-#define DX_INT64MAP 0
-#define DX_9_BIT_PTR 0
+#define DX_INT64MAP 1
+#define DX_9_BIT_PTR 1
 
 #define DFOX_NODE_SIZE 512
 

@@ -7,7 +7,6 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream>
-#include <malloc.h>
 #endif
 #include <stdint.h>
 #include "univix_util.h"

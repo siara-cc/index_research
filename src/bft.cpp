@@ -88,23 +88,17 @@ void bft::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 root.isPut = true;
                 root.setLeaf(0);
                 byte addr[9];
-                util::ptrToBytes((unsigned long) node->buf, addr);
                 root.initVars();
                 root.key = "";
                 root.key_len = 1;
                 root.value = (char *) addr;
-#if defined(ENV64BIT)
-                root.value_len = 5;
-#else
-                root.value_len = 4;
-#endif
+                root.value_len = util::ptrToBytes((unsigned long) node->buf, addr);
                 root.addData();
-                util::ptrToBytes((unsigned long) new_block.buf, addr);
                 root.initVars();
                 root.key = (char *) first_key;
                 root.key_len = first_len;
                 root.value = (char *) addr;
-                //root.value_len = sizeof(char *);
+                root.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
                 root.locate();
                 root.addData();
                 numLevels++;
@@ -113,17 +107,12 @@ void bft::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 byte *parent_data = node_paths[prev_level];
                 bft_node_handler parent(parent_data);
                 byte addr[9];
-                util::ptrToBytes((unsigned long) new_block.buf, addr);
                 parent.initVars();
                 parent.isPut = true;
                 parent.key = (char *) first_key;
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
-#if defined(ENV64BIT)
-                parent.value_len = 5;
-#else
-                parent.value_len = 4;
-#endif
+                parent.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
                 parent.locate();
                 recursiveUpdate(&parent, -1, node_paths, prev_level);
             }
@@ -200,15 +189,8 @@ byte *bft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         ins_key_len = kv_len;
         kv_len++;
         memcpy(ins_key + s.keyPos, buf + src_idx, kv_len);
-        if (isLeaf()) {
-            ins_block->value_len = buf[src_idx + kv_len];
-            kv_len++;
-        } else
-#if defined(ENV64BIT)
-            ins_block->value_len = 5;
-#else
-            ins_block->value_len = 4;
-#endif
+        ins_block->value_len = buf[src_idx + kv_len];
+        kv_len++;
         ins_block->value = (const char *) buf + src_idx + kv_len;
         kv_len += ins_block->value_len;
         tot_len += kv_len;
@@ -342,9 +324,7 @@ void bft_node_handler::addData() {
     int16_t ptr = insertCurrent();
 
     int16_t key_left = key_len - keyPos;
-    int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 1);
-    if (isLeaf())
-        kv_last_pos--;
+    int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
     setKVLastPos(kv_last_pos);
 #if BFT_UNIT_SIZE == 3
     trie[ptr--] = kv_last_pos;
@@ -358,12 +338,8 @@ void bft_node_handler::addData() {
     buf[kv_last_pos] = key_left;
     if (key_left)
         memcpy(buf + kv_last_pos + 1, key + keyPos, key_left);
-    if (isLeaf()) {
-        buf[kv_last_pos + key_left + 1] = value_len;
-        memcpy(buf + kv_last_pos + key_left + 2, value, value_len);
-    } else {
-        memcpy(buf + kv_last_pos + key_left + 1, value, value_len);
-    }
+    buf[kv_last_pos + key_left + 1] = value_len;
+    memcpy(buf + kv_last_pos + key_left + 2, value, value_len);
     setFilledSize(filledSize() + 1);
 
 }

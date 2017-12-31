@@ -1,7 +1,4 @@
 #include <math.h>
-#ifndef ARDUINO
-#include <malloc.h>
-#endif
 #include <stdint.h>
 #include "dfox.h"
 #include "GenTree.h"
@@ -107,25 +104,19 @@ void dfox::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 root.isPut = true;
                 root.setLeaf(0);
                 byte addr[9];
-                util::ptrToBytes((unsigned long) node->buf, addr);
                 root.initVars();
                 root.key = "";
                 root.key_len = 1;
                 root.value = (char *) addr;
-#if defined(ENV64BIT)
-                root.value_len = 5;
-#else
-                root.value_len = 4;
-#endif
+                root.value_len = util::ptrToBytes((unsigned long) node->buf, addr);
                 root.pos = 0;
                 root.insertState = INSERT_EMPTY;
                 root.addData();
-                util::ptrToBytes((unsigned long) new_block.buf, addr);
                 root.initVars();
                 root.key = (char *) first_key;
                 root.key_len = first_len;
                 root.value = (char *) addr;
-                //root.value_len = sizeof(char *);
+                root.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
                 root.locate();
                 root.addData();
                 numLevels++;
@@ -134,17 +125,12 @@ void dfox::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 byte *parent_data = node_paths[prev_level];
                 dfox_node_handler parent(parent_data);
                 byte addr[9];
-                util::ptrToBytes((unsigned long) new_block.buf, addr);
                 parent.initVars();
                 parent.isPut = true;
                 parent.key = (char *) first_key;
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
-#if defined(ENV64BIT)
-                parent.value_len = 5;
-#else
-                parent.value_len = 4;
-#endif
+                parent.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
                 parent.locate();
                 recursiveUpdate(&parent, -1, node_paths, prev_level);
             }
@@ -302,15 +288,8 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         int16_t src_idx = getPtr(idx);
         int16_t kv_len = buf[src_idx];
         kv_len++;
-        if (isLeaf()) {
-            kv_len += buf[src_idx + kv_len];
-            kv_len++;
-        } else
-#if defined(ENV64BIT)
-            kv_len += 5;
-#else
-            kv_len += 4;
-#endif
+        kv_len += buf[src_idx + kv_len];
+        kv_len++;
         tot_len += kv_len;
         memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
         new_block.insPtr(idx, kv_last_pos);
@@ -538,19 +517,13 @@ void dfox_node_handler::addData() {
     insertCurrent();
 
     int16_t key_left = key_len - keyPos;
-    int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 1);
-    if (isLeaf())
-        kv_last_pos--;
+    int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
     setKVLastPos(kv_last_pos);
     buf[kv_last_pos] = key_left;
     if (key_left)
         memcpy(buf + kv_last_pos + 1, key + keyPos, key_left);
-    if (isLeaf()) {
-        buf[kv_last_pos + key_left + 1] = value_len;
-        memcpy(buf + kv_last_pos + key_left + 2, value, value_len);
-    } else {
-        memcpy(buf + kv_last_pos + key_left + 1, value, value_len);
-    }
+    buf[kv_last_pos + key_left + 1] = value_len;
+    memcpy(buf + kv_last_pos + key_left + 2, value, value_len);
 
     insPtr(pos, kv_last_pos);
 

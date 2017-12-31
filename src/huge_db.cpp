@@ -11,6 +11,7 @@
 #include "linex.h"
 #include "basix.h"
 #include "dfox.h"
+#include "dfos.h"
 #include "dfqx.h"
 #include "bft.h"
 #include "dft.h"
@@ -20,12 +21,18 @@
 #include <windows.h>
 #include <unordered_map>
 #else
+#ifdef __APPLE__
+#include <unordered_map>
+#else
 #include <tr1/unordered_map>
+#endif
 #include <sys/time.h>
 #include <stx/btree_map.h>
 #endif
 
+#ifndef __APPLE__
 using namespace std::tr1;
+#endif
 using namespace std;
 
 #define CS_PRINTABLE 1
@@ -1107,10 +1114,11 @@ int main(int argc, char *argv[]) {
 
     ctr = 0;
     //linex *lx = new linex();
-    ///basix *lx = new basix();
+    //basix *lx = new basix();
     //rb_tree *lx = new rb_tree();
-    bft *lx = new bft();
-    //dft *lx = new dft();
+    //bft *lx = new bft();
+    dft *lx = new dft();
+    //bfos *lx = new bfos();
     //dfox *lx = new dfox();
     //dfqx *lx = new dfqx();
     it1 = m.begin();
@@ -1129,9 +1137,9 @@ int main(int argc, char *argv[]) {
     //linex *dx = new linex();
     //bft *dx = new bft();
     //dft *dx = new dft();
-    dfox *dx = new dfox();
+    //dfox *dx = new dfox();
     //dfqx *dx = new dfqx();
-    //bfos *dx = new bfos();
+    dfos *dx = new dfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();
     start = getTimeVal();
@@ -1214,9 +1222,9 @@ int main(int argc, char *argv[]) {
     //lx->printCounts();
     cout << "Root filled size:" << util::getInt(lx->root_data + 1) << endl;
 
-    null_ctr = 0;
     cmp = 0;
     ctr = 0;
+    null_ctr = 0;
     //bfos::count = 0;
     it1 = m.begin();
     start = getTimeVal();
@@ -1269,4 +1277,3 @@ int main(int argc, char *argv[]) {
     return 0;
 
 }
-

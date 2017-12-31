@@ -2,13 +2,12 @@
 #define UTIL_H
 #include <stdint.h>
 #ifdef ARDUINO
-#include <stdlib.h>
 #include <HardwareSerial.h>
 #else
 #include <cstdio>
 #include <iostream>
-#include <malloc.h>
 #endif
+#include <stdlib.h>
 
 using namespace std;
 
@@ -35,8 +34,8 @@ typedef unsigned char byte;
 
 class util {
 public:
-    static byte bit_count[256];
-    static byte bit_count2x[256];
+    static int bit_count[256];
+    static int bit_count2x[256];
     static byte first_bit_mask[256];
     static byte first_bit_offset[256];
 
@@ -57,34 +56,22 @@ public:
         *pos = val % 256;
     }
 
-    static void ptrToBytes(unsigned long addr_num, byte *addr) {
-        addr[0] = addr_num;
-        addr_num >>= 8;
-        addr[1] = addr_num;
-        addr_num >>= 8;
-        addr[2] = addr_num;
-        addr_num >>= 8;
-        addr[3] = addr_num;
-#if defined(ENV64BIT)
-        addr_num >>= 8;
-        addr[4] = addr_num;
-#endif
-        //addr[4] = 0;
+    static int ptrToBytes(unsigned long addr_num, byte *addr) {
+        int i = 0;
+        while (addr_num) {
+            addr[i++] = addr_num;
+            addr_num >>= 8;
+        }
+        return i;
     }
 
     static unsigned long bytesToPtr(const byte *addr) {
         unsigned long ret = 0;
-#if defined(ENV64BIT)
-        ret = addr[4];
-        ret <<= 8;
-#endif
-        ret = addr[3];
-        ret <<= 8;
-        ret |= addr[2];
-        ret <<= 8;
-        ret |= addr[1];
-        ret <<= 8;
-        ret |= addr[0];
+        int len = *addr;
+        do {
+            ret <<= 8;
+            ret |= addr[len];
+        } while (--len);
         return ret;
     }
 
@@ -114,14 +101,17 @@ public:
     }
 
     static void *alignedAlloc(int16_t blockSize) {
-#ifdef _MSC_VER
-        return malloc(blockSize);
-#elif defined(ARDUINO)
-        return malloc(blockSize);
-#elif defined(__MINGW32_VERSION)
-        return __mingw_aligned_malloc(blockSize, 64);
+#if defined(_MSC_VER)
+ return _aligned_malloc (blockSize, 64);
+#elif defined(__BORLANDC__) || defined(__GNUC__)
+ return malloc ((unsigned int)blockSize);
 #else
-        return memalign(64, blockSize);
+ void* aPtr;
+ if (posix_memalign (&aPtr, 64, blockSize))
+ {
+     aPtr = NULL;
+ }
+ return aPtr;
 #endif
     }
 

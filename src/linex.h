@@ -14,6 +14,7 @@ using namespace std;
 
 #define LX_BLK_HDR_SIZE 5
 #define LX_PREFIX_CODING 1
+#define LX_DATA_AREA 0
 
 class linex_node_handler : public bplus_tree_node_handler {
 private:
@@ -44,7 +45,7 @@ private:
     void recursiveUpdate(linex_node_handler *node, int16_t pos,
             byte *node_paths[], int16_t level);
 public:
-    static int count1, count2;
+    static long count1, count2;
     linex();
     ~linex();
     void put(const char *key, int16_t key_len, const char *value,

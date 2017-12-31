@@ -100,24 +100,18 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
                 root.isPut = true;
                 root.setLeaf(0);
                 byte addr[9];
-                util::ptrToBytes((unsigned long) node->buf, addr);
                 root.initVars();
                 root.key = "";
                 root.key_len = 1;
                 root.value = (char *) addr;
-#if defined(ENV64BIT)
-                root.value_len = 5;
-#else
-                root.value_len = 4;
-#endif
+                root.value_len = util::ptrToBytes((unsigned long) node->buf, addr);
                 root.pos = 0;
                 root.addData();
-                util::ptrToBytes((unsigned long) new_block.buf, addr);
                 root.initVars();
                 root.key = (char *) first_key;
                 root.key_len = first_len;
                 root.value = (char *) addr;
-                //root.value_len = sizeof(char *);
+                root.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
                 root.pos = ~root.locate();
                 root.addData();
                 numLevels++;
@@ -126,17 +120,12 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
                 byte *parent_data = node_paths[prev_level];
                 basix_node_handler parent(parent_data);
                 byte addr[9];
-                util::ptrToBytes((unsigned long) new_block.buf, addr);
                 parent.initVars();
                 parent.isPut = true;
                 parent.key = (char *) first_key;
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
-#if defined(ENV64BIT)
-                parent.value_len = 5;
-#else
-                parent.value_len = 4;
-#endif
+                parent.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
                 parent.locate();
                 recursiveUpdate(&parent, parent.pos, node_paths, prev_level);
             }
@@ -508,7 +497,7 @@ byte *basix_node_handler::getKey(int16_t pos, int16_t *plen) {
 }
 
 byte *basix_node_handler::getChildPtr(byte *ptr) {
-    ptr += (*ptr + 2);
+    ptr += (*ptr + 1);
     return (byte *) util::bytesToPtr(ptr);
 }
 

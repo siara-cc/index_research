@@ -1,129 +1,101 @@
 #ifndef dfos_H
 #define dfos_H
+#ifndef ARDUINO
 #include <cstdio>
 #include <cstring>
 #include <iostream>
-#include "util.h"
+#endif
+#include "bplus_tree.h"
 
 using namespace std;
 
-typedef unsigned char byte;
-#define DFOS_NODE_SIZE 1024
-#define DFOS_IDX_HDR_SIZE 5
+#define DS_INT64MAP 1
+#define DS_9_BIT_PTR 1
 
-#define DFOS_INSERT_MIDDLE1 1
-#define DFOS_INSERT_MIDDLE2 2
-#define DFOS_INSERT_THREAD 3
-#define DFOS_INSERT_LEAF 4
+#define DFOS_NODE_SIZE 512
 
-#define DFOS_IS_LEAF buf[0]
-#define DFOS_TRIE_LEN buf[1]
-#define DFOS_FILLED_SIZE buf[2]
-#define DFOS_LAST_DATA_PTR buf+3
+#if DS_9_BIT_PTR == 1
+#define DS_MAX_PTR_BITMAP_BYTES 8
+#define DS_MAX_PTRS 63
+#else
+#define DS_MAX_PTR_BITMAP_BYTES 0
+#define DS_MAX_PTRS 240
+#endif
+#define DFOS_HDR_SIZE 6
+//#define MID_KEY_LEN buf[DS_MAX_PTR_BITMAP_BYTES+6]
 
-class dfos_node_handler {
+#define INSERT_MIDDLE1 1
+#define INSERT_MIDDLE2 2
+#define INSERT_LEAF 3
+#define INSERT_EMPTY 4
+#define INSERT_THREAD 5
+
+#define DFOS_MAX_KEY_PREFIX_LEN 60
+
+class dfos_iterator_status {
+public:
+    byte *t;
+    byte tp[DFOS_MAX_KEY_PREFIX_LEN];
+    byte tc_a[DFOS_MAX_KEY_PREFIX_LEN];
+    byte child_a[DFOS_MAX_KEY_PREFIX_LEN];
+    byte leaf_a[DFOS_MAX_KEY_PREFIX_LEN];
+    byte offset_a[DFOS_MAX_KEY_PREFIX_LEN];
+};
+
+class dfos_node_handler : public trie_node_handler {
 private:
-    byte *trie;
     static byte left_mask[8];
     static byte left_incl_mask[8];
     static byte ryte_mask[8];
     static byte ryte_incl_mask[8];
-    static byte pos_mask[48];
-    int copyToNewBlock(int i, int depth, dfos_node_handler *new_block);
-    int splitTrie(int i, int depth, dfos_node_handler *new_block,
-            byte *old_trie);
-    void insAt(byte pos, byte b);
-    void insAt(byte pos, int16_t i);
-    void insAt(byte pos, byte b1, int16_t i1);
-    void insAt(byte pos, byte b1, byte b2);
-    void insAt(byte pos, byte b1, byte b2, byte b3);
-    byte insAt(byte pos, byte tc, byte leaf, int16_t c1_kv_pos);
-    byte insAt(byte pos, byte tc, byte child, byte leaf, int16_t c1_kv_pos,
-            int16_t c2_kv_pos = 0, byte c2_mask = 0);
-    inline void setAt(byte pos, byte b);
-    inline byte getAt(byte pos);
-    inline void delAt(byte pos);
-    inline void delAt(byte pos, int16_t count);
-    static byte *alignedAlloc();
+    inline byte insChildAndLeafAt(byte *ptr, byte b1, byte b2);
+    inline void append(byte b);
+    int16_t findPos(dfos_iterator_status& s, int brk_idx);
+    int16_t nextKey(dfos_iterator_status& s);
+    void deleteTrieLastHalf(int16_t brk_key_len, dfos_iterator_status& s);
+    void deleteTrieFirstHalf(int16_t brk_key_len, dfos_iterator_status& s);
 public:
-    byte *buf;
-    byte tc;
-    byte mask;
-    byte msb5;
-    byte keyPos;
-    byte children;
-    byte leaves;
-    byte triePos;
-    byte origPos;
-    int16_t need_count;
-    byte insertState;
-    byte isPut;
-    const char *key;
-    int16_t key_len;
-    const char *key_at;
-    int16_t key_at_len;
-    const char *value;
-    int16_t value_len;
-    int16_t last_ptr;
-    int16_t brk_idx;
-    int16_t brk_kv_pos;
-    int16_t half_kv_len;
+    int16_t pos, key_at_pos;
+#if defined(DS_INT64MAP)
+    uint64_t *bitmap;
+#else
+    uint32_t *bitmap1;
+    uint32_t *bitmap2;
+#endif
     dfos_node_handler(byte *m);
     void initBuf();
-    void initVars();
+    inline void initVars();
     void setBuf(byte *m);
     bool isFull(int16_t kv_lens);
-    inline bool isLeaf();
-    inline void setLeaf(char isLeaf);
-    int16_t filledSize();
-    inline void setFilledSize(int16_t filledSize);
-    inline int16_t getKVLastPos();
-    inline void setKVLastPos(int16_t val);
-    void addData(int16_t ptr);
-    byte *getChild(int16_t ptr);
-    int16_t getFirstPtr(int i = 0);
-    byte *getFirstKey(int16_t *plen);
-    byte *getKey(int16_t ptr, int16_t *plen);
-    byte *getData(int16_t ptr, int16_t *plen);
-    byte *split();
-    int16_t locate(int16_t level);
-    int16_t locate(int16_t level, int16_t *ptr, int i, byte *ret);
-    void insertCurrent(int16_t kv_pos);
+    void addData();
+    byte *split(byte *first_key, int16_t *first_len_ptr);
+    inline int16_t getPtr(int16_t pos);
+    inline void setPtr(int16_t pos, int16_t ptr);
+    void insPtr(int16_t pos, int16_t kvIdx);
+    void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
+    void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
+    void traverseToLeaf(byte *node_paths[] = null);
+    int16_t locate();
+    void insertCurrent();
+    byte *getKey(int16_t pos, int16_t *plen);
+    inline char *getValueAt(int16_t *vlen);
+    inline byte *getChildPtr(byte *ptr);
 };
 
-class dfos {
+class dfos : public bplus_tree {
 private:
-    long total_size;
-    int numLevels;
-    int maxKeyCount;
-    int blockCount;
-    void recursiveSearch(dfos_node_handler *node, int16_t lastSearchPos[],
-            byte *node_paths[], int16_t *pIdx);
-    void recursiveSearchForGet(dfos_node_handler *node, int16_t *pIdx);
-    void recursiveUpdate(dfos_node_handler *node, int16_t pos,
-            int16_t lastSearchPos[], byte *node_paths[], int16_t level);
+    void recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
+            byte *node_paths[], int16_t level);
 public:
-    byte *root_data;
-    int maxThread;
+    static long count1, count2;
     dfos();
     ~dfos();
-    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
     void put(const char *key, int16_t key_len, const char *value,
             int16_t value_len);
-    void printMaxKeyCount(long num_entries) {
-        std::cout << "Block Count:" << blockCount << std::endl;
-        std::cout << "Avg Block Count:" << (num_entries / blockCount)
-                << std::endl;
-        std::cout << "Avg Max Count:" << (maxKeyCount / blockCount)
-                << std::endl;
+    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
+    static void printCounts() {
+        cout << "Count1:" << count1 << ", Count2:" << count2 << endl;
     }
-    void printNumLevels() {
-        std::cout << "Level Count:" << numLevels << std::endl;
-    }
-    long size() {
-        return total_size;
-    }
-
 };
 
 #endif

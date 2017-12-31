@@ -1,87 +1,42 @@
-#include <iostream>
 #include <math.h>
-#include <malloc.h>
 #include <stdint.h>
 #include "dfos.h"
 #include "GenTree.h"
 
 char *dfos::get(const char *key, int16_t key_len, int16_t *pValueLen) {
-    int16_t pos = -1;
-    byte *node_data = root_data;
-    dfos_node_handler node(node_data);
+    dfos_node_handler node(root_data);
     node.key = key;
     node.key_len = key_len;
-    recursiveSearchForGet(&node, &pos);
-    if (pos <= 0)
+    if (!node.isLeaf())
+        node.traverseToLeaf();
+    if (node.locate() < 0)
         return null;
-    return (char *) node.getData(pos, pValueLen);
+    char * ret = node.getValueAt(pValueLen);
+    return ret;
 }
 
-void dfos::recursiveSearchForGet(dfos_node_handler *node, int16_t *pIdx) {
-    int16_t level = 0;
-    int16_t pos = -1;
-    byte *node_data = node->buf;
-    node->initVars();
-    while (!node->isLeaf()) {
-        pos = node->locate(level);
-        if (pos < 0) {
-            pos = ~pos;
-        }/* else {
-         do {
-         node_data = node->getChild(pos);
-         node->setBuf(node_data);
-         level++;
-         pos = node->getFirstPtr();
-         } while (!node->isLeaf());
-         *pIdx = pos;
-         return;
-         }*/
-        node_data = node->getChild(pos);
-        node->setBuf(node_data);
-        node->initVars();
-        level++;
+void dfos_node_handler::traverseToLeaf(byte *node_paths[]) {
+    byte level;
+    level = 1;
+    if (isPut)
+        *node_paths = buf;
+    while (!isLeaf()) {
+        int16_t idx = locate();
+        if (idx < 0) {
+            idx = ~idx;
+            if (idx)
+                idx--;
+        }
+        key_at = buf + getPtr(idx);
+        setBuf(getChildPtr(key_at));
+        if (isPut)
+            node_paths[level++] = buf;
     }
-    pos = node->locate(level);
-    *pIdx = pos;
-    return;
-}
-
-void dfos::recursiveSearch(dfos_node_handler *node, int16_t lastSearchPos[],
-        byte *node_paths[], int16_t *pIdx) {
-    int16_t level = 0;
-    byte *node_data = node->buf;
-    node->initVars();
-    while (!node->isLeaf()) {
-        lastSearchPos[level] = node->locate(level);
-        node_paths[level] = node->buf;
-        if (lastSearchPos[level] < 0) {
-            lastSearchPos[level] = ~lastSearchPos[level];
-        }/* else {
-         do {
-         node_data = node->getChild(lastSearchPos[level]);
-         node->setBuf(node_data);
-         level++;
-         node_paths[level] = node->buf;
-         lastSearchPos[level] = node->getFirstPtr();
-         } while (!node->isLeaf());
-         *pIdx = lastSearchPos[level];
-         return;
-         }*/
-        node_data = node->getChild(lastSearchPos[level]);
-        node->setBuf(node_data);
-        node->initVars();
-        level++;
-    }
-    node_paths[level] = node_data;
-    lastSearchPos[level] = node->locate(level);
-    *pIdx = lastSearchPos[level];
-    return;
 }
 
 void dfos::put(const char *key, int16_t key_len, const char *value,
         int16_t value_len) {
-    int16_t lastSearchPos[10];
-    byte *block_paths[10];
+    byte *node_paths[10];
     dfos_node_handler node(root_data);
     node.key = key;
     node.key_len = key_len;
@@ -89,17 +44,20 @@ void dfos::put(const char *key, int16_t key_len, const char *value,
     node.value_len = value_len;
     node.isPut = true;
     if (node.filledSize() == 0) {
-        node.addData(0);
+        node.pos = 0;
+        node.insertState = INSERT_EMPTY;
+        node.addData();
         total_size++;
     } else {
-        int16_t pos = -1;
-        recursiveSearch(&node, lastSearchPos, block_paths, &pos);
-        recursiveUpdate(&node, pos, lastSearchPos, block_paths, numLevels - 1);
+        if (!node.isLeaf())
+            node.traverseToLeaf(node_paths);
+        node.locate();
+        recursiveUpdate(&node, -1, node_paths, numLevels - 1);
     }
 }
 
-void dfos::recursiveUpdate(dfos_node_handler *node, int16_t pos,
-        int16_t lastSearchPos[], byte *node_paths[], int16_t level) {
+void dfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
+        byte *node_paths[], int16_t level) {
     int16_t idx = pos; // lastSearchPos[level];
     if (idx < 0) {
         idx = ~idx;
@@ -107,68 +65,77 @@ void dfos::recursiveUpdate(dfos_node_handler *node, int16_t pos,
             //std::cout << "Full\n" << std::endl;
             //if (maxKeyCount < block->filledSize())
             //    maxKeyCount = block->filledSize();
-            //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->DFOS_TRIE_LEN);
-            maxKeyCount += node->filledSize();
-            byte *b = node->split();
+            //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
+            //cout << (int) node->TRIE_LEN << endl;
+            if (node->isLeaf()) {
+                maxKeyCountLeaf += node->filledSize();
+                blockCountLeaf++;
+            } else {
+                maxKeyCountNode += node->filledSize();
+                blockCountNode++;
+            }
+                //maxKeyCount += node->BPT_TRIE_LEN;
+            //maxKeyCount += node->PREFIX_LEN;
+            byte first_key[64];
+            int16_t first_len;
+            byte *b = node->split(first_key, &first_len);
             dfos_node_handler new_block(b);
-            new_block.initVars();
             new_block.isPut = true;
-            if (node->isLeaf())
-                blockCount++;
-            bool isRoot = false;
-            if (root_data == node->buf)
-                isRoot = true;
-            int16_t first_key_len = node->key_len;
-            byte *old_buf = node->buf;
-            const char *new_block_first_key = (char *) new_block.getFirstKey(
-                    &first_key_len);
-            int16_t cmp = util::compare(new_block_first_key, first_key_len,
+            int16_t cmp = util::compare((char *) first_key, first_len,
                     node->key, node->key_len);
-            if (cmp <= 0)
-                node->setBuf(new_block.buf);
-            if (isRoot) {
-                root_data = (byte *) util::alignedAlloc(DFOS_NODE_SIZE);
+            if (cmp <= 0) {
+                new_block.initVars();
+                new_block.key = node->key;
+                new_block.key_len = node->key_len;
+                new_block.value = node->value;
+                new_block.value_len = node->value_len;
+                idx = ~new_block.locate();
+                new_block.addData();
+            } else {
+                node->initVars();
+                idx = ~node->locate();
+                node->addData();
+            }
+            if (root_data == node->buf) {
+                blockCountNode++;
+                root_data = (byte *) util::alignedAlloc(node_size);
                 dfos_node_handler root(root_data);
                 root.initBuf();
                 root.isPut = true;
-                char addr[5];
-                util::ptrToFourBytes((unsigned long) old_buf, addr);
+                root.setLeaf(0);
+                byte addr[9];
                 root.initVars();
                 root.key = "";
                 root.key_len = 1;
-                root.value = addr;
-                root.value_len = sizeof(char *);
-                root.addData(0);
-                util::ptrToFourBytes((unsigned long) new_block.buf, addr);
+                root.value = (char *) addr;
+                root.value_len = util::ptrToBytes((unsigned long) node->buf, addr);
+                root.pos = 0;
+                root.insertState = INSERT_EMPTY;
+                root.addData();
                 root.initVars();
-                root.key = new_block_first_key;
-                root.key_len = first_key_len;
-                root.value = addr;
-                root.value_len = sizeof(char *);
-                root.locate(0);
-                root.addData(1);
-                root.setLeaf(false);
+                root.key = (char *) first_key;
+                root.key_len = first_len;
+                root.value = (char *) addr;
+                root.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
+                root.locate();
+                root.addData();
                 numLevels++;
             } else {
                 int16_t prev_level = level - 1;
                 byte *parent_data = node_paths[prev_level];
                 dfos_node_handler parent(parent_data);
-                char addr[5];
-                util::ptrToFourBytes((unsigned long) new_block.buf, addr);
+                byte addr[9];
                 parent.initVars();
                 parent.isPut = true;
-                parent.key = new_block_first_key;
-                parent.key_len = first_key_len;
-                parent.value = addr;
-                parent.value_len = sizeof(char *);
-                parent.locate(prev_level);
-                recursiveUpdate(&parent, ~(lastSearchPos[prev_level] + 1),
-                        lastSearchPos, node_paths, prev_level);
+                parent.key = (char *) first_key;
+                parent.key_len = first_len;
+                parent.value = (char *) addr;
+                parent.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
+                parent.locate();
+                recursiveUpdate(&parent, -1, node_paths, prev_level);
             }
-            node->initVars();
-            idx = ~node->locate(level);
-        }
-        node->addData(idx);
+        } else
+            node->addData();
     } else {
         //if (node->isLeaf) {
         //    int16_t vIdx = idx + mSizeBy2;
@@ -178,1147 +145,758 @@ void dfos::recursiveUpdate(dfos_node_handler *node, int16_t pos,
     }
 }
 
-int dfos_node_handler::copyToNewBlock(int i, int depth,
-        dfos_node_handler *new_block) {
-    byte tc;
+int16_t dfos_node_handler::findPos(dfos_iterator_status& s, int brk_idx) {
+    byte *t = trie;
+    int pos = 0;
+    int keyPos = 0;
     do {
-        tc = trie[i];
-        new_block->trie[i++] = tc;
-        byte children = 0;
-        byte leaves = 0;
-        if (tc & 0x02) {
-            children = trie[i];
-            new_block->trie[i++] = children;
-        }
-        byte ptr_high_bits = 0;
-        byte ptr_pos = 0;
-        byte high_bits_pos = 0;
-        if (tc & 0x01) {
-            leaves = trie[i];
-            new_block->trie[i++] = leaves;
-            if (DFOS_NODE_SIZE == 512) {
-                ptr_high_bits = trie[i];
-                high_bits_pos = i;
-                new_block->trie[i++] = 0;
-            }
-            ptr_pos = i;
-            if (DFOS_NODE_SIZE != 512)
-                i += GenTree::bit_count[leaves];
-            i += GenTree::bit_count[leaves];
-        }
-        for (int bit = 0; bit < 8; bit++) {
-            byte mask = 0x80 >> bit;
-            if (leaves & mask) {
-                int16_t ptr = 0;
-                if (DFOS_NODE_SIZE == 512) {
-                    ptr = trie[ptr_pos];
-                    if (ptr_high_bits & mask)
-                        ptr += 256;
-                } else {
-                    ptr = util::getInt(trie + ptr_pos);
-                }
-                int key_len = buf[ptr];
-                int value_len = buf[ptr + key_len + 1];
-                int kv_len = (key_len + value_len + 2);
-                int16_t kv_last_pos = new_block->getKVLastPos();
-                memcpy(new_block->buf + kv_last_pos, buf + ptr, kv_len);
-                if ((DFOS_NODE_SIZE - kv_last_pos) < half_kv_len) {
-                    if (brk_kv_pos == 0) {
-                        brk_idx++;
-                        brk_kv_pos = kv_last_pos;
-                        new_block->brk_idx = brk_idx;
-                        new_block->brk_kv_pos = kv_last_pos;
+        byte tc = s.tc_a[keyPos] = *t;
+        s.tp[keyPos] = t - trie;
+        t++;
+        byte children = (tc & x02 ? *t++ : x00);
+        byte leaves = *t++;
+        if (children) {
+            byte b = util::first_bit_offset[children];
+            s.offset_a[keyPos] = b;
+            b = ryte_incl_mask[b];
+            pos += util::bit_count[leaves & b];
+            if (pos >= brk_idx) {
+                do {
+                    if (leaves & (x01 << s.offset_a[keyPos])) {
+                        if (pos == brk_idx)
+                            break;
+                        pos--;
                     }
-                } else
-                    brk_idx++;
-                if (DFOS_NODE_SIZE == 512) {
-                    if (kv_last_pos >= 256)
-                        new_block->trie[high_bits_pos] |= mask;
-                    new_block->trie[ptr_pos] = kv_last_pos & 0xFF;
-                    ptr_pos++;
-                } else {
-                    util::setInt(new_block->trie + ptr_pos, kv_last_pos);
-                    ptr_pos += 2;
-                }
-                kv_last_pos += kv_len;
-                new_block->setKVLastPos(kv_last_pos);
+                } while (s.offset_a[keyPos]--);
+                s.t = t;
+                s.child_a[keyPos] = children;
+                s.leaf_a[keyPos] = leaves & left_mask[s.offset_a[keyPos]];
+                this->keyPos = keyPos;
+                return keyPos;
             }
-            if (children & mask)
-                i = copyToNewBlock(i, depth + 1, new_block);
+            b = ~b;
+            children &= b;
+            s.child_a[keyPos] = children;
+            s.leaf_a[keyPos] = leaves & b;
+            keyPos++;
+            if (!children)
+                continue;
+        } else {
+            pos += util::bit_count[leaves];
+            if (pos >= brk_idx) {
+                s.offset_a[keyPos] = 7;
+                do {
+                    if (leaves & (x01 << s.offset_a[keyPos])) {
+                        if (pos == brk_idx)
+                            break;
+                        pos--;
+                    }
+                } while (s.offset_a[keyPos]--);
+                s.t = t;
+                s.child_a[keyPos] = 0;
+                s.leaf_a[keyPos] = leaves & left_mask[s.offset_a[keyPos]];
+                this->keyPos = keyPos;
+                return keyPos;
+            }
         }
-    } while (0 == (tc & 0x04));
-    return i;
-
+        while (!children && (tc & 0x04)) {
+            keyPos--;
+            tc = s.tc_a[keyPos];
+            children = s.child_a[keyPos];
+            leaves = s.leaf_a[keyPos];
+            byte b = children ? util::first_bit_offset[children] : x07;
+            s.offset_a[keyPos] = b;
+            b = ryte_incl_mask[b];
+            pos += util::bit_count[leaves & b];
+            if (pos >= brk_idx) {
+                do {
+                    if (leaves & (x01 << s.offset_a[keyPos])) {
+                        if (pos == brk_idx)
+                            break;
+                        pos--;
+                    }
+                } while (s.offset_a[keyPos]--);
+                s.t = t;
+                s.leaf_a[keyPos] = leaves & left_mask[s.offset_a[keyPos]];
+                this->keyPos = keyPos;
+                return keyPos;
+            }
+            if (children) {
+                b = ~b;
+                children &= b;
+                s.child_a[keyPos] = children;
+                s.leaf_a[keyPos] = leaves & b;
+                keyPos++;
+                break;
+            }
+        }
+    } while (1); // (t - trie) < BPT_TRIE_LEN);
+    return -1;
 }
 
-int dfos_node_handler::splitTrie(int i, int depth, dfos_node_handler *old_block,
-        byte *old_trie) {
-    byte tc;
+int16_t dfos_node_handler::nextKey(dfos_iterator_status& s) {
+    if (s.t == trie) {
+        keyPos = 0;
+        s.offset_a[keyPos] = x08;
+    } else {
+        while (s.offset_a[keyPos] == x08 && (s.tc_a[keyPos] & x04))
+            s.offset_a[--keyPos]++;
+    }
     do {
-        tc = old_trie[i++];
-        byte children = 0;
-        byte leaves = 0;
-        if (tc & 0x02)
-            children = old_trie[i++];
-        byte ptr_high_bits = 0;
-        byte ptr_pos = 0;
-        if (tc & 0x01) {
-            leaves = old_trie[i++];
-            if (DFOS_NODE_SIZE == 512) {
-                ptr_high_bits = old_trie[i++];
-            }
-            ptr_pos = i;
-            if (DFOS_NODE_SIZE != 512)
-                i += GenTree::bit_count[leaves];
-            i += GenTree::bit_count[leaves];
+        if (s.offset_a[keyPos] > x07) {
+            byte tc, children, leaves;
+            s.tp[keyPos] = s.t - trie;
+            tc = s.tc_a[keyPos] = *s.t++;
+            children = s.child_a[keyPos] = (tc & x02 ? *s.t++ : x00);
+            leaves = s.leaf_a[keyPos] = *s.t++;
+            s.offset_a[keyPos] = util::first_bit_offset[children | leaves];
         }
-        for (int bit = 0; bit < 8; bit++) {
-            byte mask = 0x80 >> bit;
-            if (leaves & mask) {
-                int16_t ptr = 0;
-                if (DFOS_NODE_SIZE == 512) {
-                    ptr = old_trie[ptr_pos];
-                    if (ptr_high_bits & mask)
-                        ptr += 256;
-                    ptr_pos++;
-                } else {
-                    ptr = util::getInt(old_trie + ptr_pos);
-                    ptr_pos += 2;
-                }
-                if (ptr < brk_kv_pos) {
-                    ptr += DFOS_NODE_SIZE;
-                    ptr -= old_block->half_kv_len;
-                    ptr -= old_block->getKVLastPos();
-                    old_block->key_len = old_block->buf[ptr];
-                    old_block->key = (const char *) old_block->buf + ptr + 1;
-                    old_block->value_len = old_block->key[old_block->key_len];
-                    old_block->value = old_block->key + old_block->key_len + 1;
-                    if (old_block->DFOS_TRIE_LEN > 0)
-                        old_block->locate(0);
-                    old_block->insertCurrent(ptr);
-                    old_block->DFOS_FILLED_SIZE++;
-                } else {
-                    key_len = buf[ptr];
-                    key = (const char *) buf + ptr + 1;
-                    value_len = key[key_len];
-                    value = key + key_len + 1;
-                    if (DFOS_TRIE_LEN > 0)
-                        locate(0);
-                    insertCurrent(ptr);
-                    DFOS_FILLED_SIZE++;
-                }
-            }
-            if (children & mask)
-                i = splitTrie(i, depth + 1, old_block, old_trie);
+        byte mask = x01 << s.offset_a[keyPos];
+        if (s.leaf_a[keyPos] & mask) {
+            if (s.child_a[keyPos] & mask)
+                s.leaf_a[keyPos] &= ~mask;
+            return keyPos;
         }
-    } while (0 == (tc & 0x04));
-    return i;
-
+        if (s.child_a[keyPos] & mask)
+            s.offset_a[++keyPos] = x08;
+        while (s.offset_a[keyPos] == x07 && (s.tc_a[keyPos] & x04))
+            keyPos--;
+        s.offset_a[keyPos]++;
+    } while (1); // (s.t - trie) < BPT_TRIE_LEN);
+    return -1;
 }
 
-byte *dfos_node_handler::split() {
+byte *dfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
+    int16_t orig_filled_size = filledSize();
     byte *b = (byte *) util::alignedAlloc(DFOS_NODE_SIZE);
-    dfos_node_handler old_block(this->buf);
-    old_block.isPut = true;
     dfos_node_handler new_block(b);
     new_block.initBuf();
     new_block.isPut = true;
     if (!isLeaf())
         new_block.setLeaf(false);
-    int16_t trie_len = old_block.DFOS_TRIE_LEN;
-    int16_t kv_last_pos = old_block.getKVLastPos();
-    old_block.half_kv_len = DFOS_NODE_SIZE - kv_last_pos + 1;
-    old_block.half_kv_len /= 2;
+    int16_t kv_last_pos = getKVLastPos();
+    int16_t halfKVLen = DFOS_NODE_SIZE - kv_last_pos + 1;
+    halfKVLen /= 2;
 
-    old_block.brk_idx = 0;
-    old_block.brk_kv_pos = 0;
-    new_block.setKVLastPos(kv_last_pos);
-    old_block.copyToNewBlock(0, 0, &new_block);
-    memcpy(old_block.buf, new_block.buf, DFOS_NODE_SIZE);
-    old_block.half_kv_len = old_block.brk_kv_pos - kv_last_pos;
-    memmove(old_block.buf + DFOS_NODE_SIZE - old_block.half_kv_len,
-            old_block.buf + kv_last_pos, old_block.half_kv_len);
-    // assumption: trie is shorter than half the data
-    memcpy(old_block.buf + kv_last_pos, new_block.trie, trie_len);
-    old_block.DFOS_TRIE_LEN = 0;
-    old_block.DFOS_FILLED_SIZE = 0;
-    new_block.DFOS_TRIE_LEN = 0;
-    new_block.DFOS_FILLED_SIZE = 0;
-    new_block.setKVLastPos(new_block.brk_kv_pos);
-    old_block.setKVLastPos(kv_last_pos);
-    new_block.splitTrie(0, 0, &old_block, old_block.buf + kv_last_pos);
-    old_block.setKVLastPos(DFOS_NODE_SIZE - old_block.half_kv_len);
+    int16_t brk_idx = -1;
+    int16_t brk_kv_pos;
+    int16_t tot_len;
+    brk_kv_pos = tot_len = 0;
+    // (1) move all data to new_block in order
+    int16_t idx;
+    for (idx = 0; idx < orig_filled_size; idx++) {
+        int16_t src_idx = getPtr(idx);
+        int16_t kv_len = buf[src_idx];
+        kv_len++;
+        kv_len += buf[src_idx + kv_len];
+        kv_len++;
+        tot_len += kv_len;
+        memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
+        new_block.insPtr(idx, kv_last_pos);
+        kv_last_pos += kv_len;
+        if (brk_idx == -1) {
+            //brk_key_len = nextKey(s);
+            //if (tot_len > halfKVLen) {
+            if (tot_len > halfKVLen || idx == (orig_filled_size / 2)) {
+                brk_idx = idx + 1;
+                brk_kv_pos = kv_last_pos;
+            }
+        }
+    }
+    kv_last_pos = getKVLastPos();
+    memcpy(new_block.trie, trie, BPT_TRIE_LEN);
+    new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
+#if DS_9_BIT_PTR == 1
+    memcpy(buf, new_block.buf, DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + brk_idx);
+#else
+    memcpy(buf, new_block.buf, DFOS_HDR_SIZE + (brk_idx << 1));
+#endif
+
+    {
+        dfos_iterator_status s;
+        int16_t brk_key_len = findPos(s, brk_idx);
+        deleteTrieLastHalf(brk_key_len, s);
+
+        brk_key_len = nextKey(s) + 1;
+        new_block.key_at = new_block.getKey(brk_idx, &new_block.key_at_len);
+        if (isLeaf())
+            *first_len_ptr = brk_key_len;
+        else {
+            if (new_block.key_at_len) {
+                memcpy(first_key + brk_key_len, new_block.key_at,
+                        new_block.key_at_len);
+                *first_len_ptr = brk_key_len + new_block.key_at_len;
+            } else
+                *first_len_ptr = brk_key_len;
+        }
+        brk_key_len--;
+        new_block.deleteTrieFirstHalf(brk_key_len, s);
+        do {
+            first_key[brk_key_len] = (s.tc_a[brk_key_len] & xF8)
+                    | s.offset_a[brk_key_len];
+        } while (brk_key_len--);
+    }
+
+    {
+        int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
+        memcpy(buf + DFOS_NODE_SIZE - old_blk_new_len,
+                new_block.buf + kv_last_pos, old_blk_new_len); // Copy back first half to old block
+        int16_t diff = DFOS_NODE_SIZE - brk_kv_pos;
+        idx = brk_idx;
+        while (idx--)
+            setPtr(idx, getPtr(idx) + diff);
+#if DS_9_BIT_PTR == 1
+        byte *block_ptrs = buf + DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + brk_idx;
+#else
+        byte *block_ptrs = buf + DFOS_HDR_SIZE + (brk_idx << 1);
+#endif
+        memmove(block_ptrs, trie, BPT_TRIE_LEN);
+        trie = block_ptrs;
+        setKVLastPos(DFOS_NODE_SIZE - old_blk_new_len);
+        setFilledSize(brk_idx);
+    }
+
+    {
+#if DS_9_BIT_PTR == 1
+#if defined(DS_INT64MAP)
+        (*new_block.bitmap) <<= brk_idx;
+#else
+        if (brk_idx & 0xFFE0)
+        *new_block.bitmap1 = *new_block.bitmap2 << (brk_idx - 32);
+        else {
+            *new_block.bitmap1 <<= brk_idx;
+            *new_block.bitmap1 |= (*new_block.bitmap2 >> (32 - brk_idx));
+        }
+#endif
+#endif
+        int16_t new_size = orig_filled_size - brk_idx;
+        byte *block_ptrs = new_block.buf + DFOS_HDR_SIZE
+                + DS_MAX_PTR_BITMAP_BYTES;
+#if DS_9_BIT_PTR == 1
+        memmove(block_ptrs, block_ptrs + brk_idx,
+                new_size + new_block.BPT_TRIE_LEN);
+        new_block.trie = block_ptrs + new_size;
+#else
+        memmove(block_ptrs, block_ptrs + (brk_idx << 1),
+                (new_size << 1) + new_block.BPT_TRIE_LEN);
+        new_block.trie = block_ptrs + (new_size * 2);
+#endif
+        new_block.setKVLastPos(brk_kv_pos);
+        new_block.setFilledSize(new_size);
+    }
 
     return new_block.buf;
+}
+
+void dfos_node_handler::deleteTrieLastHalf(int16_t brk_key_len,
+        dfos_iterator_status& s) {
+    byte *t = 0;
+    byte children = 0;
+    for (int idx = 0; idx <= brk_key_len; idx++) {
+        byte offset = s.offset_a[idx];
+        t = trie + s.tp[idx];
+        byte tc = *t;
+        *t++ = (tc | x04);
+        children = 0;
+        if (tc & x02) {
+            children = *t;
+            children &= (
+                    (idx == brk_key_len) ?
+                            ryte_mask[offset] : ryte_incl_mask[offset]);
+            *t++ = children;
+        }
+        *t++ &= ryte_incl_mask[offset];
+    }
+    byte to_skip = util::bit_count[children];
+    while (to_skip) {
+        byte tc = *t++;
+        if (tc & x02)
+            to_skip += util::bit_count[*t++];
+        t++;
+        if (tc & x04)
+            to_skip--;
+    }
+    BPT_TRIE_LEN = t - trie;
+
+}
+
+void dfos_node_handler::deleteTrieFirstHalf(int16_t brk_key_len,
+        dfos_iterator_status& s) {
+    byte *delete_start = trie;
+    int tot_del = 0;
+    for (int idx = 0; idx <= brk_key_len; idx++) {
+        byte offset = s.offset_a[idx];
+        byte *t = trie + s.tp[idx] - tot_del;
+        int count = t - delete_start;
+        if (count) {
+            BPT_TRIE_LEN -= count;
+            memmove(delete_start, t, trie + BPT_TRIE_LEN - delete_start);
+            t -= count;
+            tot_del += count;
+        }
+        byte tc = *t++;
+        count = 0;
+        if (tc & x02) {
+            byte children = *t;
+            count = util::bit_count[children & ryte_mask[offset]];
+            children &= left_incl_mask[offset];
+            *t++ = children;
+        }
+        *t++ &= (
+                    (idx == brk_key_len) ?
+                            left_incl_mask[offset] : left_mask[offset]);
+        delete_start = t;
+        while (count) {
+            tc = *t++;
+            if (tc & x02)
+                count += util::bit_count[*t++];
+            t++;
+            if (tc & x04)
+                count--;
+        }
+        if (t != delete_start) {
+            count = t - delete_start;
+            BPT_TRIE_LEN -= count;
+            memmove(delete_start, t, trie + BPT_TRIE_LEN - delete_start);
+            t -= count;
+            tot_del += count;
+        }
+    }
+
 }
 
 dfos::dfos() {
     root_data = (byte *) util::alignedAlloc(DFOS_NODE_SIZE);
     dfos_node_handler root(root_data);
     root.initBuf();
-    total_size = 0;
-    numLevels = 1;
-    maxKeyCount = 0; //9999;
-    blockCount = 1;
+    total_size = maxKeyCountLeaf = maxKeyCountNode = 0;
+    numLevels = blockCountLeaf = blockCountNode = 1;
     maxThread = 9999;
+    count1 = 0;
 }
 
 dfos::~dfos() {
     delete root_data;
 }
 
-dfos_node_handler::dfos_node_handler(byte *m) {
+dfos_node_handler::dfos_node_handler(byte * m) {
     setBuf(m);
     isPut = false;
 }
 
 void dfos_node_handler::initBuf() {
-    memset(buf, '\0', DFOS_NODE_SIZE);
+    //memset(buf, '\0', DFOS_NODE_SIZE);
     setLeaf(1);
-    DFOS_FILLED_SIZE = 0;
-    DFOS_TRIE_LEN = 0;
+    setFilledSize(0);
+    BPT_TRIE_LEN = 0;
+    //MID_KEY_LEN = 0;
     setKVLastPos(DFOS_NODE_SIZE);
+    trie = buf + DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES;
+#if defined(DS_INT64MAP)
+    bitmap = (uint64_t *) (buf + DFOS_HDR_SIZE);
+#else
+    bitmap1 = (uint32_t *) (buf + DFOS_HDR_SIZE);
+    bitmap2 = bitmap1 + 1;
+#endif
 }
 
 void dfos_node_handler::setBuf(byte *m) {
     buf = m;
-    trie = buf + DFOS_IDX_HDR_SIZE;
+    trie = buf + DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES
+            + filledSize() * (DS_9_BIT_PTR == 1 ? 1 : 2);
+#if defined(DS_INT64MAP)
+    bitmap = (uint64_t *) (buf + DFOS_HDR_SIZE);
+#else
+    bitmap1 = (uint32_t *) (buf + DFOS_HDR_SIZE);
+    bitmap2 = bitmap1 + 1;
+#endif
 }
 
-void dfos_node_handler::setKVLastPos(int16_t val) {
-    util::setInt(DFOS_LAST_DATA_PTR, val);
-}
+void dfos_node_handler::addData() {
 
-int16_t dfos_node_handler::getKVLastPos() {
-    return util::getInt(DFOS_LAST_DATA_PTR);
-}
+    insertCurrent();
 
-void dfos_node_handler::addData(int16_t ptr) {
-
-    int16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
+    int16_t key_left = key_len - keyPos;
+    int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
     setKVLastPos(kv_last_pos);
-    buf[kv_last_pos] = key_len;
-    memcpy(buf + kv_last_pos + 1, key, key_len);
-    buf[kv_last_pos + key_len + 1] = value_len;
-    memcpy(buf + kv_last_pos + key_len + 2, value, value_len);
+    buf[kv_last_pos] = key_left;
+    if (key_left)
+        memcpy(buf + kv_last_pos + 1, key + keyPos, key_left);
+    buf[kv_last_pos + key_left + 1] = value_len;
+    memcpy(buf + kv_last_pos + key_left + 2, value, value_len);
 
-    insertCurrent(kv_last_pos);
-    DFOS_FILLED_SIZE++;
+    insPtr(pos, kv_last_pos);
 
 }
 
-bool dfos_node_handler::isLeaf() {
-    return DFOS_IS_LEAF;
+void dfos_node_handler::insPtr(int16_t pos, int16_t kv_pos) {
+    int16_t filledSz = filledSize();
+#if DS_9_BIT_PTR == 1
+    byte *kvIdx = buf + DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + pos;
+    memmove(kvIdx + 1, kvIdx, filledSz - pos + BPT_TRIE_LEN);
+    *kvIdx = kv_pos;
+    trie++;
+#if defined(DS_INT64MAP)
+    insBit(bitmap, pos, kv_pos);
+#else
+    if (pos & 0xFFE0) {
+        insBit(bitmap2, pos - 32, kv_pos);
+    } else {
+        byte last_bit = (*bitmap1 & 0x01);
+        insBit(bitmap1, pos, kv_pos);
+        *bitmap2 >>= 1;
+        if (last_bit)
+        *bitmap2 |= *util::mask32;
+    }
+#endif
+#else
+    byte *kvIdx = buf + DFOS_HDR_SIZE + (pos << 1);
+    memmove(kvIdx + 2, kvIdx, (filledSz - pos) * 2 + BPT_TRIE_LEN);
+    util::setInt(kvIdx, kv_pos);
+    trie += 2;
+#endif
+    setFilledSize(filledSz + 1);
+
 }
 
-void dfos_node_handler::setLeaf(char isLeaf) {
-    DFOS_IS_LEAF = isLeaf;
+void dfos_node_handler::insBit(uint32_t *ui32, int pos, int16_t kv_pos) {
+    uint32_t ryte_part = (*ui32) & util::ryte_mask32[pos];
+    ryte_part >>= 1;
+    if (kv_pos >= 256)
+        ryte_part |= util::mask32[pos];
+    (*ui32) = (ryte_part | ((*ui32) & util::left_mask32[pos]));
 }
 
-void dfos_node_handler::setFilledSize(int16_t filledSize) {
-    DFOS_FILLED_SIZE = filledSize;
+void dfos_node_handler::insBit(uint64_t *ui64, int pos, int16_t kv_pos) {
+    uint64_t ryte_part = (*ui64) & util::ryte_mask64[pos];
+    ryte_part >>= 1;
+    if (kv_pos >= 256)
+        ryte_part |= util::mask64[pos];
+    (*ui64) = (ryte_part | ((*ui64) & util::left_mask64[pos]));
 }
 
 bool dfos_node_handler::isFull(int16_t kv_len) {
+    int16_t ptr_size = filledSize() + 1;
+#if DS_9_BIT_PTR == 0
+    ptr_size <<= 1;
+#endif
     if ((getKVLastPos() - kv_len - 2)
-            < (DFOS_TRIE_LEN + need_count + DFOS_IDX_HDR_SIZE))
+            < (DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + BPT_TRIE_LEN
+                    + need_count + ptr_size))
+        return true;
+    if (filledSize() > DS_MAX_PTRS)
+        return true;
+    if (BPT_TRIE_LEN + need_count > 240)
         return true;
     return false;
 }
 
-int16_t dfos_node_handler::filledSize() {
-    return DFOS_FILLED_SIZE;
-}
-
-byte *dfos_node_handler::getChild(int16_t ptr) {
-    byte *idx = getData(ptr, &ptr);
-    unsigned long addr_num = util::fourBytesToPtr(idx);
-    byte *ret = (byte *) addr_num;
-    return ret;
-}
-
-byte *dfos_node_handler::getKey(int16_t ptr, int16_t *plen) {
-    byte *kvIdx = buf + ptr;
-    *plen = kvIdx[0];
-    kvIdx++;
-    return kvIdx;
-}
-
-int16_t dfos_node_handler::getFirstPtr(int i) {
-    int16_t ptr = 0;
-    while (i < DFOS_TRIE_LEN) {
-        byte tc = trie[i++];
-        byte leaves = 0;
-        byte children = 0;
-        if (tc & 0x02)
-            children = trie[i++];
-        byte bitmap = 0;
-        if (tc & 0x01) {
-            leaves = trie[i++];
-            bitmap = trie[i++];
-        }
-        int16_t ptr_pos = i;
-        if (DFOS_NODE_SIZE != 512)
-            i += GenTree::bit_count[leaves];
-        i += GenTree::bit_count[leaves];
-        byte mask = 0x80;
-        while (mask) {
-            if (leaves & mask) {
-                if (DFOS_NODE_SIZE == 512) {
-                    if (bitmap & mask)
-                        ptr += 256;
-                    ptr += trie[ptr_pos];
-                    ptr_pos++;
-                } else {
-                    ptr = util::getInt(trie + ptr_pos);
-                    ptr_pos += 2;
-                }
-            }
-            if (ptr)
-                return ptr;
-            if (children & mask) {
-                ptr = getFirstPtr(i);
-                if (ptr)
-                    return ptr;
-            }
-            mask >>= 1;
-        }
+void dfos_node_handler::setPtr(int16_t pos, int16_t ptr) {
+#if DS_9_BIT_PTR == 1
+    buf[DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + pos] = ptr;
+#if defined(DS_INT64MAP)
+    if (ptr >= 256)
+    *bitmap |= util::mask64[pos];
+    else
+    *bitmap &= ~util::mask64[pos];
+#else
+    if (pos & 0xFFE0) {
+        pos -= 32;
+        if (ptr >= 256)
+        *bitmap2 |= util::mask32[pos];
+        else
+        *bitmap2 &= ~util::mask32[pos];
+    } else {
+        if (ptr >= 256)
+        *bitmap1 |= util::mask32[pos];
+        else
+        *bitmap1 &= ~util::mask32[pos];
     }
+#endif
+#else
+    byte *kvIdx = buf + DFOS_HDR_SIZE + (pos << 1);
+    util::setInt(kvIdx, ptr);
+#endif
+}
+
+int16_t dfos_node_handler::getPtr(int16_t pos) {
+#if DS_9_BIT_PTR == 1
+    int16_t ptr = buf[DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + pos];
+#if defined(DS_INT64MAP)
+    if (*bitmap & util::mask64[pos])
+    ptr |= 256;
+#else
+    if (pos & 0xFFE0) {
+        if (*bitmap2 & util::mask32[pos - 32])
+        ptr |= 256;
+    } else {
+        if (*bitmap1 & util::mask32[pos])
+        ptr |= 256;
+    }
+#endif
     return ptr;
+#else
+    byte *kvIdx = buf + DFOS_HDR_SIZE + (pos << 1);
+    return util::getInt(kvIdx);
+#endif
 }
 
-byte *dfos_node_handler::getFirstKey(int16_t *plen) {
-    int16_t ptr = getFirstPtr();
-    byte *kvIdx = buf + ptr;
-    *plen = kvIdx[0];
-    kvIdx++;
-    return kvIdx;
-}
-
-byte *dfos_node_handler::getData(int16_t ptr, int16_t *plen) {
-    byte *kvIdx = buf + ptr;
-    *plen = kvIdx[0];
-    kvIdx++;
-    kvIdx += *plen;
-    *plen = kvIdx[0];
-    kvIdx++;
-    return kvIdx;
-}
-
-void dfos_node_handler::insertCurrent(int16_t kv_pos) {
-    byte child;
+void dfos_node_handler::insertCurrent() {
     byte origTC;
-    byte leafPos;
-    byte childPos;
-    int16_t pos, min;
-
-    if (DFOS_TRIE_LEN == 0) {
-        byte kc = key[0];
-        byte offset = (kc & 0x07);
-        byte mask = 0x80 >> offset;
-        insAt(0, (kc & 0xF8) | 0x05, mask, kv_pos);
-        insertState = 0;
-        return;
-    }
+    byte key_char;
+    byte mask;
+    byte *leafPos;
 
     switch (insertState) {
-    case DFOS_INSERT_MIDDLE1:
-        tc &= 0xFB;
-        setAt(origPos, tc);
-        insAt(triePos, (msb5 | 0x05), mask, kv_pos);
-        triePos += 2;
+    case INSERT_MIDDLE1:
+        key_char = key[keyPos - 1];
+        mask = x01 << (key_char & x07);
+        *origPos &= xFB;
+        insAt(triePos, ((key_char & xF8) | x04), mask);
         break;
-    case DFOS_INSERT_MIDDLE2:
-        insAt(triePos, (msb5 | 0x01), mask, kv_pos);
-        triePos += 2;
+    case INSERT_MIDDLE2:
+        key_char = key[keyPos - 1];
+        mask = x01 << (key_char & x07);
+        insAt(triePos, key_char & xF8, mask);
         break;
-    case DFOS_INSERT_LEAF:
-        origTC = getAt(origPos);
-        leafPos = origPos + 1;
-        if (origTC & 0x02)
-            leafPos++;
-        if (origTC & 0x01) {
-            byte ptr_count = GenTree::bit_count[leaves & ~(mask - 1)];
-            leaves |= mask;
-            setAt(leafPos, leaves);
-            leafPos++;
-            if (DFOS_NODE_SIZE == 512) {
-                if (kv_pos >= 256) {
-                    byte high_bits = getAt(leafPos);
-                    setAt(leafPos, high_bits | mask);
-                }
-                leafPos++;
-                insAt(leafPos + ptr_count, (byte) (kv_pos & 0xFF));
-                triePos++;
-            } else {
-                insAt(leafPos + ptr_count * 2, kv_pos);
-                triePos += 2;
-            }
-        } else {
-            if (DFOS_NODE_SIZE == 512)
-                insAt(leafPos, mask, (kv_pos >= 256 ? mask : 0),
-                        (byte) (kv_pos & 0xFF));
-            else
-                insAt(leafPos, mask, kv_pos);
-            triePos += 3;
-            setAt(origPos, (origTC | 0x01));
-        }
+    case INSERT_LEAF:
+        key_char = key[keyPos - 1];
+        mask = x01 << (key_char & x07);
+        origTC = *origPos;
+        leafPos = origPos + (origTC & x02 ? 2 : 1);
+        *leafPos |= mask;
         break;
-    case DFOS_INSERT_THREAD:
-        childPos = origPos + 1;
-        child = mask;
-        origTC = getAt(origPos);
-        if (origTC & 0x02) {
-            child |= getAt(childPos);
-            setAt(childPos, child);
-        } else {
-            insAt(childPos, child);
-            triePos++;
-            origTC |= 0x02;
-            setAt(origPos, origTC);
-        }
-        pos = keyPos - 1;
-        min = util::min(key_len, key_at_len);
+    case INSERT_THREAD:
+        int16_t p, min;
         byte c1, c2;
-        c1 = key[pos];
-        c2 = key_at[pos];
-        int16_t c2_kv_pos = 0;
-        pos++;
-        if (pos < min) {
-            leafPos = childPos;
-            if (origTC & 0x01) {
-                leafPos++;
-                byte leaf = getAt(leafPos);
-                leaf &= ~mask;
-                if (leaf) {
-                    setAt(leafPos, leaf);
-                    byte ptr_count = GenTree::bit_count[leaf & ~(mask - 1)];
-                    leafPos++;
-                    if (DFOS_NODE_SIZE == 512) {
-                        if (getAt(leafPos) & mask)
-                            c2_kv_pos = 256;
-                        leafPos++;
-                        c2_kv_pos += getAt(leafPos + ptr_count);
-                        delAt(leafPos + ptr_count);
-                        triePos--;
-                    } else {
-                        c2_kv_pos = util::getInt(
-                                trie + leafPos + ptr_count * 2);
-                        delAt(leafPos + ptr_count * 2, 2);
-                        triePos -= 2;
-                    }
-                } else {
-                    if (DFOS_NODE_SIZE == 512) {
-                        c2_kv_pos = getAt(leafPos + 2);
-                        if (getAt(leafPos + 1) & mask)
-                            c2_kv_pos += 256;
-                    } else {
-                        c2_kv_pos = util::getInt(trie + leafPos + 1);
-                    }
-                    delAt(leafPos, 3);
-                    triePos -= 3;
-                    origTC &= 0xFE;
-                    setAt(origPos, origTC);
-                }
-            }
-            do {
-                c1 = key[pos];
-                c2 = key_at[pos];
-                if (c1 > c2) {
-                    int16_t swap = c1;
-                    c1 = c2;
-                    c2 = swap;
-                    swap = kv_pos;
-                    kv_pos = c2_kv_pos;
-                    c2_kv_pos = swap;
-                }
-                byte msb5c1 = (c1 & 0xF8);
-                byte offc1 = (c1 & 0x07);
-                byte msb5c2 = (c2 & 0xF8);
-                byte offc2 = (c2 & 0x07);
-                byte c1leaf = 0;
-                byte c2leaf = 0;
-                byte c1child = 0;
-                if (c1 == c2) {
-                    c1child = (0x80 >> offc1);
-                    if (pos + 1 == min) {
-                        c1leaf = (0x80 >> offc1);
-                        msb5c1 |= 0x07;
-                    } else
-                        msb5c1 |= 0x06;
-                } else {
-                    if (msb5c1 == msb5c2) {
-                        msb5c1 |= 0x05;
-                        c1leaf = ((0x80 >> offc1) | (0x80 >> offc2));
-                    } else {
-                        c1leaf = (0x80 >> offc1);
-                        c2leaf = (0x80 >> offc2);
-                        msb5c2 |= 0x05;
-                        msb5c1 |= 0x01;
-                        insAt(triePos, msb5c2, c2leaf, c2_kv_pos);
-                    }
-                }
-                if (c1leaf != 0) {
-                    if (((c1 ^ c2) < 0x08) && c1 != c2)
-                        triePos += insAt(triePos, msb5c1, c1child, c1leaf,
-                                kv_pos, c2_kv_pos, (0x80 >> offc2));
-                    else {
-                        int16_t c1_kv_pos = kv_pos;
-                        if (c1 == c2 && (pos + 1) == key_at_len)
-                            c1_kv_pos = c2_kv_pos;
-                        triePos += insAt(triePos, msb5c1, c1child, c1leaf,
-                                c1_kv_pos);
-                    }
-                } else {
-                    insAt(triePos, msb5c1, c1child);
-                    triePos += 2;
-                }
-                if (c1 != c2)
-                    break;
-                pos++;
-            } while (pos < min);
+        byte *childPos;
+        key_char = key[keyPos - 1];
+        mask = x01 << (key_char & x07);
+        origTC = *origPos;
+        childPos = origPos + 1;
+        if (origTC & x02) {
+            *childPos |= mask;
+        } else {
+            insAt(childPos, mask);
+            triePos++;
+            origTC |= x02;
+            *origPos = origTC;
         }
-        if (c1 == c2) {
-            if (pos == key_at_len) {
-                c2 = key[pos];
-            } else {
-                leafPos = childPos;
-                if (origTC & 0x01) {
-                    leafPos++;
-                    byte ptr_count = GenTree::bit_count[leaves & ~(mask - 1)];
-                    leafPos++;
-                    if (DFOS_NODE_SIZE == 512) {
-                        c2_kv_pos = getAt(leafPos + ptr_count);
-                        byte bitmap = getAt(leafPos);
-                        if (bitmap & mask)
-                            c2_kv_pos += 256;
-                        if (kv_pos >= 256)
-                            bitmap |= mask;
-                        else
-                            bitmap &= ~mask;
-                        setAt(leafPos, bitmap);
-                        setAt(leafPos + ptr_count, kv_pos & 0xFF);
-                    } else {
-                        ptr_count--; // re-evaluate
-                        c2_kv_pos = util::getInt(
-                                trie + leafPos + ptr_count * 2);
-                        setAt(leafPos + ptr_count * 2, kv_pos);
-                    }
-                }
-                c2 = key_at[pos];
-                kv_pos = c2_kv_pos;
+        c1 = c2 = key_char;
+        p = keyPos;
+        min = util::min16(key_len, keyPos + key_at_len);
+        if (p < min) {
+            leafPos = childPos + 1;
+            (*leafPos) &= ~mask;
+        }
+        while (p < min) {
+            c1 = key[p];
+            c2 = key_at[p - keyPos];
+            if (c1 > c2) {
+                byte swap = c1;
+                c1 = c2;
+                c2 = swap;
             }
-            int16_t msb5c2 = (c2 & 0xF8);
-            int16_t offc2 = (c2 & 0x07);
-            msb5c2 |= 0x05;
-            insAt(triePos, msb5c2, (0x80 >> offc2), kv_pos);
-            triePos += 4;
+            switch ((c1 ^ c2) > x07 ?
+                    0 : (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1)) {
+            case 0:
+                triePos += insAt(triePos, c1 & xF8, x01 << (c1 & x07),
+                        (c2 & xF8) | x04, x01 << (c2 & x07));
+                break;
+            case 1:
+                triePos += insAt(triePos, (c1 & xF8) | x04,
+                        (x01 << (c1 & x07)) | (x01 << (c2 & x07)));
+                break;
+            case 2:
+                dfos::count1++;
+                triePos += insAt(triePos, (c1 & xF8) | x06, x01 << (c1 & x07),
+                        0);
+                break;
+            case 3:
+                triePos += insChildAndLeafAt(triePos, (c1 & xF8) | x06,
+                        x01 << (c1 & x07));
+                break;
+            }
+            if (c1 != c2)
+                break;
+            p++;
+        }
+        int16_t diff;
+        diff = p - keyPos;
+        keyPos = p + 1;
+        if (c1 == c2) {
+            c2 = (p == key_len ? key_at[diff] : key[p]);
+            insAt(triePos, (c2 & xF8) | x04, (x01 << (c2 & x07)));
+            if (p == key_len)
+                keyPos--;
+        }
+        if (diff < key_at_len)
+            diff++;
+        if (diff) {
+            p = getPtr(key_at_pos);
+            key_at_len -= diff;
+            p += diff;
+            if (key_at_len >= 0) {
+                buf[p] = key_at_len;
+                setPtr(key_at_pos, p);
+            }
         }
         break;
+    case INSERT_EMPTY:
+        key_char = *key;
+        mask = x01 << (key_char & x07);
+        append((key_char & xF8) | x04);
+        append(mask);
+        keyPos = 1;
+        break;
     }
-    insertState = 0;
+
 }
 
-int16_t dfos_node_handler::locate(int16_t level) {
-    int16_t ptr = 0;
-    keyPos = 0;
-    byte ret = 0;
-    locate(level, &ptr, 0, &ret);
-    return ptr;
-}
-
-int16_t dfos_node_handler::locate(int16_t level, int16_t *ptr, int i,
-        byte *ret) {
-    byte tc;
-    byte kc = 0xFF;
-    if (level > -1)
-        kc = key[keyPos++];
+int16_t dfos_node_handler::locate() {
+    byte key_char;
+    byte *t = trie;
+    pos = 0;
+    keyPos = 1;
+    key_char = *key;
     do {
-        if (level >= 0)
-            origPos = i;
-        tc = trie[i];
-        if ((kc ^ tc) < 0x08) {
-            i++;
-            byte children = 0;
-            byte r_leaves = 0;
-            if (tc & 0x02)
-                children = trie[i++];
-            byte ptr_high_bits = 0;
-            byte ptr_pos = 0;
-            if (tc & 0x01) {
-                r_leaves = trie[i++];
-                if (DFOS_NODE_SIZE == 512) {
-                    ptr_high_bits = trie[i++];
-                }
-                ptr_pos = i;
-                if (DFOS_NODE_SIZE != 512)
-                    i += GenTree::bit_count[r_leaves];
-                i += GenTree::bit_count[r_leaves];
+        byte trie_char = *t;
+        int to_skip;
+        switch ((key_char ^ trie_char) > x07 ?
+                (key_char > trie_char ? 0 : 2) : 1) {
+        case 0:
+            origPos = t++;
+            to_skip = (trie_char & x02 ? util::bit_count[*t++] : x00);
+            pos += util::bit_count[*t++];
+            while (to_skip) {
+                byte child_tc = *t++;
+                if (child_tc & x02)
+                    to_skip += util::bit_count[*t++];
+                pos += util::bit_count[*t++];
+                if (child_tc & x04)
+                    to_skip--;
             }
-            byte offset = kc & 0x07;
-            byte r_mask = 0x80 >> offset;
-            for (int bit = 0; bit < 8; bit++) {
-                byte mask = 0x80 >> bit;
-                int16_t cur_ptr = 0;
-                if (r_leaves & mask) {
-                    if (DFOS_NODE_SIZE == 512) {
-                        cur_ptr = trie[ptr_pos];
-                        if (ptr_high_bits & mask)
-                            cur_ptr += 256;
-                        ptr_pos++;
-                    } else {
-                        cur_ptr = util::getInt(trie + ptr_pos);
-                        ptr_pos += 2;
-                    }
-                }
-                if (offset == bit) {
-                    if (children & r_mask) {
-                        if (r_leaves & r_mask) {
-                            if (keyPos == key_len) {
-                                *ptr = cur_ptr;
-                                *ret = 1;
-                                return i;
-                            }
-                        } else {
-                            if (keyPos == key_len) {
-                                if (isPut) {
-                                    this->leaves = r_leaves;
-                                    this->mask = r_mask;
-                                    triePos = i;
-                                    insertState = DFOS_INSERT_LEAF;
-                                    need_count = 1;
-                                    if (DFOS_NODE_SIZE != 512)
-                                        need_count++;
-                                }
-                                *ptr = ~last_ptr;
-                                *ret = 1;
-                                return i;
-                            }
-                        }
-                        if (cur_ptr)
-                            last_ptr = cur_ptr;
-                        i = locate(level + 1, ptr, i, ret);
-                        if (ret)
-                            return i;
-                    } else {
-                        if (r_leaves & r_mask) {
-                            int16_t key_at_len;
-                            const char *key_at = (char *) getKey(cur_ptr,
-                                    &key_at_len);
-                            int16_t cmp = util::compare(key, key_len, key_at,
-                                    key_at_len, keyPos);
-                            if (cmp == 0) {
-                                *ptr = cur_ptr;
-                                *ret = 1;
-                                return i;
-                            }
-                            if (isPut) {
-                                triePos = i;
-                                this->mask = r_mask;
-                                this->keyPos = keyPos;
-                                this->key_at = key_at;
-                                this->key_at_len = key_at_len;
-                                insertState = DFOS_INSERT_THREAD;
-                                need_count = cmp;
-                                if (need_count < 0)
-                                    need_count = -need_count;
-                                if (keyPos < need_count)
-                                    need_count -= keyPos;
-                                need_count *= 2;
-                                need_count += 8;
-                            }
-                            *ptr = ~(cmp > 0 ? cur_ptr : last_ptr);
-                            *ret = 1;
-                            return i;
-                        } else {
-                            if (isPut) {
-                                triePos = i;
-                                this->tc = tc;
-                                this->mask = r_mask;
-                                this->leaves = r_leaves;
-                                insertState = DFOS_INSERT_LEAF;
-                                need_count = 1;
-                                if (DFOS_NODE_SIZE != 512)
-                                    need_count++;
-                            }
-                            *ptr = ~last_ptr;
-                            *ret = 1;
-                            return i;
-                        }
-                    }
-                    last_ptr = cur_ptr;
-                } else {
-                    if (cur_ptr)
-                        last_ptr = cur_ptr;
-                    if (children & mask) {
-                        i = locate(-1, ptr, i, ret);
-                        *ptr = 0;
-                    }
-                }
-            }
-        } else if (kc > tc || level < 0) {
-            i++;
-            byte children = 0;
-            byte r_leaves = 0;
-            if (tc & 0x02)
-                children = trie[i++];
-            byte ptr_high_bits = 0;
-            byte ptr_pos = 0;
-            if (tc & 0x01) {
-                r_leaves = trie[i++];
-                if (DFOS_NODE_SIZE == 512) {
-                    ptr_high_bits = trie[i++];
-                }
-                ptr_pos = i;
-                if (DFOS_NODE_SIZE != 512)
-                    i += GenTree::bit_count[r_leaves];
-                i += GenTree::bit_count[r_leaves];
-            }
-            for (int bit = 0; bit < 8; bit++) {
-                byte r_mask = 0x80 >> bit;
-                if (r_leaves & r_mask) {
-                    if (DFOS_NODE_SIZE == 512) {
-                        last_ptr = trie[ptr_pos];
-                        if (ptr_high_bits & r_mask)
-                            last_ptr += 256;
-                        ptr_pos++;
-                    } else {
-                        last_ptr = util::getInt(trie + ptr_pos);
-                        ptr_pos += 2;
-                    }
-                }
-                if (children & r_mask)
-                    i = locate(-1, ptr, i, ret);
-                *ptr = 0;
-            }
-            if (level >= 0 && (tc & 0x04)) {
+            if (trie_char & x04) {
                 if (isPut) {
-                    triePos = i;
-                    this->tc = tc;
-                    this->mask = (0x80 >> (kc & 0x07));
-                    msb5 = (kc & 0xF8);
-                    insertState = DFOS_INSERT_MIDDLE1;
-                    need_count = 4;
+                    triePos = t;
+                    insertState = INSERT_MIDDLE1;
+                    need_count = 3;
                 }
-                *ptr = ~last_ptr;
-                *ret = 1;
-                return i;
+                return ~pos;
             }
-        } else {
+            break;
+        case 1:
+            byte r_leaves, r_children, r_mask;
+            origPos = t++;
+            r_children = (trie_char & x02 ? *t++ : x00);
+            r_leaves = *t++;
+            key_char &= x07;
+            r_mask = ryte_mask[key_char];
+            pos += util::bit_count[r_leaves & r_mask];
+            to_skip = util::bit_count[r_children & r_mask];
+            while (to_skip) {
+                trie_char = *t++;
+                if (trie_char & x02)
+                    to_skip += util::bit_count[*t++];
+                pos += util::bit_count[*t++];
+                if (trie_char & x04)
+                    to_skip--;
+            }
+            r_mask = (x01 << key_char);
+            switch (r_leaves & r_mask ?
+                    (r_children & r_mask ? (keyPos == key_len ? 3 : 4) : 2) :
+                    (r_children & r_mask ? (keyPos == key_len ? 0 : 1) : 0)) {
+            case 0:
+                if (isPut) {
+                    triePos = t;
+                    insertState = INSERT_LEAF;
+                    need_count = 3;
+                }
+                return ~pos;
+            case 1:
+                break;
+            case 2:
+                int16_t cmp;
+                key_at = getKey(pos, &key_at_len);
+                cmp = util::compare(key + keyPos, key_len - keyPos,
+                        (char *) key_at, key_at_len);
+                if (cmp == 0)
+                    return pos;
+                key_at_pos = pos;
+                if (cmp > 0)
+                    pos++;
+                else
+                    cmp = -cmp;
+                if (isPut) {
+                    triePos = t;
+                    insertState = INSERT_THREAD;
+                    need_count = (cmp * 3) + 4;
+                }
+                return ~pos;
+            case 3:
+                return pos;
+            case 4:
+                pos++;
+                break;
+            }
+            key_char = key[keyPos++];
+            break;
+        case 2:
             if (isPut) {
-                msb5 = (kc & 0xF8);
-                this->mask = (0x80 >> (kc & 0x07));
-                insertState = DFOS_INSERT_MIDDLE2;
-                need_count = 4;
-                this->tc = tc;
-                triePos = i;
+                triePos = t;
+                insertState = INSERT_MIDDLE2;
+                need_count = 3;
             }
-            *ptr = ~last_ptr;
-            *ret = 1;
-            return i;
+            return ~pos;
+            break;
         }
-    } while (0 == (tc & 0x04));
-    return i;
-
+    } while (1);
+    return ~pos;
 }
 
-//int16_t dfos_node_handler::locate(int16_t level) {
-//    register int keyPos = 0;
-//    int i = 0;
-//    register byte kc = key[keyPos++];
-//    int16_t last_ptr = getFirstPtr();
-//    do {
-//        byte tc = trie[i];
-//        if ((kc ^ tc) < 0x08) {
-//            byte r_leaves;
-//            byte children;
-//            register byte offset = (kc & 0x07);
-//            register byte r_mask = (0x80 >> offset);
-//            if (isPut)
-//                origPos = i;
-//            i++;
-//            children = 0;
-//            r_leaves = 0;
-//            if (tc & 0x02)
-//                children = trie[i++];
-//            if (tc & 0x01) {
-//                r_leaves = trie[i++];
-//            }
-//            byte left_leaf = r_leaves & left_mask[offset];
-//            int leaf_count = GenTree::bit_count[left_leaf];
-//            if (leaf_count) {
-//                if (DFOS_NODE_SIZE == 512) {
-//                    register byte bitmap = trie[i];
-//                    if (bitmap & GenTree::last_bit_mask[left_leaf])
-//                        last_ptr = 256 + trie[i + leaf_count];
-//                    else
-//                        last_ptr = trie[i + leaf_count];
-//                } else
-//                    last_ptr = util::getInt(trie + i + leaf_count * 2);
-//            }
-//            if (children & r_mask) {
-//                if (r_leaves & r_mask) {
-//                    if (keyPos == key_len) {
-//                        int leaf_count = GenTree::bit_count[r_leaves
-//                                & left_incl_mask[offset]];
-//                        if (leaf_count) {
-//                            leaf_count--;
-//                            if (DFOS_NODE_SIZE == 512) {
-//                                register byte bitmap = trie[i++];
-//                                if (bitmap & r_mask)
-//                                    last_ptr = 256 + trie[i + leaf_count];
-//                                else
-//                                    last_ptr = trie[i + leaf_count];
-//                            } else
-//                                last_ptr = util::getInt(
-//                                        trie + i + leaf_count * 2);
-//                        }
-//                        return last_ptr;
-//                    }
-//                } else {
-//                    if (keyPos == key_len) {
-//                        if (isPut) {
-//                            this->leaves = r_leaves;
-//                            this->mask = r_mask;
-//                            triePos = i;
-//                            insertState = DFOS_INSERT_LEAF;
-//                            need_count = 1;
-//                            if (DFOS_NODE_SIZE != 512)
-//                                need_count++;
-//                        }
-//                        return ~last_ptr;
-//                    }
-//                }
-//                int leaf_count = GenTree::bit_count[r_leaves];
-//                if (DFOS_NODE_SIZE == 512) {
-//                    if (leaf_count)
-//                        leaf_count++;
-//                } else
-//                    leaf_count <<= 1;
-//                i += leaf_count;
-//                register int to_skip = GenTree::bit_count[children
-//                        & left_mask[offset]];
-//                while (to_skip) {
-//                    register byte child_tc = trie[i++];
-//                    if (child_tc & 0x02)
-//                        to_skip += GenTree::bit_count[trie[i++]];
-//                    if (child_tc & 0x01) {
-//                        byte leaf = trie[i++];
-//                        byte leaf_count = GenTree::bit_count[leaf];
-//                        if (leaf_count) {
-//                            if (DFOS_NODE_SIZE == 512) {
-//                                last_ptr = trie[i + leaf_count];
-//                                if (trie[i] & GenTree::last_bit_mask[leaf])
-//                                    last_ptr += 256;
-//                                leaf_count++;
-//                            } else {
-//                                leaf_count--;
-//                                leaf_count <<= 1;
-//                                last_ptr = trie[i + leaf_count];
-//                                leaf_count += 2;
-//                            }
-//                            i += leaf_count;
-//                        }
-//                    }
-//                    if (child_tc & 0x04)
-//                        to_skip--;
-//                }
-//            } else {
-//                if (r_leaves & r_mask) {
-//                    int16_t ptr;
-//                    register int leaf_count = GenTree::bit_count[r_leaves
-//                            & left_incl_mask[offset]];
-//                    if (DFOS_NODE_SIZE == 512) {
-//                        register byte bitmap = trie[i];
-//                        ptr = trie[i + leaf_count];
-//                        if (bitmap & r_mask)
-//                            ptr += 256;
-//                        i++;
-//                    } else {
-//                        leaf_count--;
-//                        ptr = util::getInt(trie + i + leaf_count * 2);
-//                        i += GenTree::bit_count[r_leaves];
-//                    }
-//                    i += GenTree::bit_count[r_leaves];
-//                    int16_t key_at_len;
-//                    const char *key_at = (char *) getKey(ptr, &key_at_len);
-//                    int16_t cmp = util::compare(key, key_len, key_at,
-//                            key_at_len, keyPos);
-//                    if (cmp == 0)
-//                        return ptr;
-//                    if (isPut) {
-//                        register int to_skip = GenTree::bit_count[children
-//                                & left_mask[offset]];
-//                        while (to_skip) {
-//                            register byte child_tc = trie[i++];
-//                            if (child_tc & 0x02)
-//                                to_skip += GenTree::bit_count[trie[i++]];
-//                            if (child_tc & 0x01) {
-//                                byte leaf = trie[i++];
-//                                byte leaf_count = GenTree::bit_count[leaf];
-//                                if (leaf_count) {
-//                                    if (DFOS_NODE_SIZE == 512) {
-//                                        last_ptr = trie[i + leaf_count];
-//                                        if (trie[i]
-//                                                & GenTree::last_bit_mask[leaf])
-//                                            last_ptr += 256;
-//                                        leaf_count++;
-//                                    } else {
-//                                        leaf_count--;
-//                                        leaf_count <<= 1;
-//                                        last_ptr = trie[i + leaf_count];
-//                                        leaf_count += 2;
-//                                    }
-//                                    i += leaf_count;
-//                                }
-//                            }
-//                            if (child_tc & 0x04)
-//                                to_skip--;
-//                        }
-//                        triePos = i;
-//                        this->mask = r_mask;
-//                        this->keyPos = keyPos;
-//                        this->key_at = key_at;
-//                        this->key_at_len = key_at_len;
-//                        insertState = DFOS_INSERT_THREAD;
-//                        need_count = cmp;
-//                        if (need_count < 0)
-//                            need_count = -need_count;
-//                        if (keyPos < need_count)
-//                            need_count -= keyPos;
-//                        need_count *= 2;
-//                        need_count += 8;
-//                    }
-//                    return ~(cmp > 0 ? ptr : last_ptr);
-//                } else {
-//                    if (isPut) {
-//                        triePos = GenTree::bit_count[r_leaves];
-//                        if (DFOS_NODE_SIZE == 512)
-//                            triePos++;
-//                        else
-//                            triePos <<= 1;
-//                        triePos += i;
-//                        this->tc = tc;
-//                        this->mask = r_mask;
-//                        this->leaves = r_leaves;
-//                        insertState = DFOS_INSERT_LEAF;
-//                        need_count = 1;
-//                        if (DFOS_NODE_SIZE != 512)
-//                            need_count++;
-//                    }
-//                    return ~last_ptr;
-//                }
-//            }
-//            kc = key[keyPos++];
-//        } else if (kc > tc) {
-//            register int to_skip = 0;
-//            if (isPut)
-//                origPos = i;
-//            i++;
-//            if (tc & 0x02)
-//                to_skip += GenTree::bit_count[trie[i++]];
-//            if (tc & 0x01) {
-//                byte leaf = trie[i++];
-//                byte leaf_count = GenTree::bit_count[leaf];
-//                if (leaf_count) {
-//                    if (DFOS_NODE_SIZE == 512) {
-//                        last_ptr = trie[i + leaf_count];
-//                        if (trie[i] & GenTree::last_bit_mask[leaf])
-//                            last_ptr += 256;
-//                        leaf_count++;
-//                    } else {
-//                        leaf_count--;
-//                        leaf_count <<= 1;
-//                        last_ptr = trie[i + leaf_count];
-//                        leaf_count += 2;
-//                    }
-//                    i += leaf_count;
-//                }
-//            }
-//            while (to_skip) {
-//                register byte child_tc = trie[i++];
-//                if (child_tc & 0x02)
-//                    to_skip += GenTree::bit_count[trie[i++]];
-//                if (child_tc & 0x01) {
-//                    byte leaf = trie[i++];
-//                    byte leaf_count = GenTree::bit_count[leaf];
-//                    if (leaf_count) {
-//                        if (DFOS_NODE_SIZE == 512) {
-//                            last_ptr = trie[i + leaf_count];
-//                            if (trie[i] & GenTree::last_bit_mask[leaf])
-//                                last_ptr += 256;
-//                            leaf_count++;
-//                        } else {
-//                            leaf_count--;
-//                            leaf_count <<= 1;
-//                            last_ptr = trie[i + leaf_count];
-//                            leaf_count += 2;
-//                        }
-//                        i += leaf_count;
-//                    }
-//                }
-//                if (child_tc & 0x04)
-//                    to_skip--;
-//            }
-//            if (tc & 0x04) {
-//                if (isPut) {
-//                    triePos = i;
-//                    this->tc = tc;
-//                    this->mask = (0x80 >> (kc & 0x07));
-//                    msb5 = (kc & 0xF8);
-//                    insertState = DFOS_INSERT_MIDDLE1;
-//                    need_count = 4;
-//                }
-//                return ~last_ptr;
-//            }
-//        } else {
-//            if (isPut) {
-//                msb5 = (kc & 0xF8);
-//                this->mask = (0x80 >> (kc & 0x07));
-//                insertState = DFOS_INSERT_MIDDLE2;
-//                need_count = 4;
-//                this->tc = tc;
-//                triePos = i;
-//            }
-//            return ~last_ptr;
-//        }
-//    } while (1);
-//    return ~last_ptr;
-//}
-
-void dfos_node_handler::delAt(byte pos) {
-    DFOS_TRIE_LEN--;
-    byte *ptr = trie + pos;
-    memmove(ptr, ptr + 1, DFOS_TRIE_LEN - pos);
+byte dfos_node_handler::insChildAndLeafAt(byte *ptr, byte b1, byte b2) {
+    memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN - ptr);
+    *ptr++ = b1;
+    *ptr++ = b2;
+    *ptr = b2;
+    BPT_TRIE_LEN += 3;
+    return 3;
 }
 
-void dfos_node_handler::delAt(byte pos, int16_t count) {
-    DFOS_TRIE_LEN -= count;
-    byte *ptr = trie + pos;
-    memmove(ptr, ptr + count, DFOS_TRIE_LEN - pos);
+void dfos_node_handler::append(byte b) {
+    trie[BPT_TRIE_LEN++] = b;
 }
 
-void dfos_node_handler::insAt(byte pos, byte b) {
-    byte *ptr = trie + pos;
-    memmove(ptr + 1, ptr, DFOS_TRIE_LEN - pos);
-    trie[pos] = b;
-    DFOS_TRIE_LEN++;
+byte *dfos_node_handler::getKey(int16_t pos, int16_t *plen) {
+    byte *kvIdx = buf + getPtr(pos);
+    *plen = kvIdx[0];
+    kvIdx++;
+    return kvIdx;
 }
 
-void dfos_node_handler::insAt(byte pos, int16_t i) {
-    byte *ptr = trie + pos;
-    memmove(ptr + 2, ptr, DFOS_TRIE_LEN - pos);
-    util::setInt(trie + pos, i);
-    DFOS_TRIE_LEN += 2;
+byte *dfos_node_handler::getChildPtr(byte *ptr) {
+    ptr += (*ptr + 1);
+    return (byte *) util::bytesToPtr(ptr);
 }
 
-void dfos_node_handler::insAt(byte pos, byte b1, byte b2) {
-    byte *ptr = trie + pos;
-    memmove(ptr + 2, ptr, DFOS_TRIE_LEN - pos);
-    trie[pos++] = b1;
-    trie[pos] = b2;
-    DFOS_TRIE_LEN += 2;
-}
-
-void dfos_node_handler::insAt(byte pos, byte b1, byte b2, byte b3) {
-    byte *ptr = trie + pos;
-    memmove(ptr + 3, ptr, DFOS_TRIE_LEN - pos);
-    trie[pos++] = b1;
-    trie[pos++] = b2;
-    trie[pos] = b3;
-    DFOS_TRIE_LEN += 3;
-}
-
-void dfos_node_handler::insAt(byte pos, byte b1, int16_t i1) {
-    byte *ptr = trie + pos;
-    memmove(ptr + 3, ptr, DFOS_TRIE_LEN - pos);
-    trie[pos++] = b1;
-    util::setInt(trie + pos, i1);
-    DFOS_TRIE_LEN += 3;
-}
-
-byte dfos_node_handler::insAt(byte pos, byte tc, byte child, byte leaf,
-        int16_t c1_kv_pos, int16_t c2_kv_pos, byte c2_mask) {
-    byte *ptr = trie + pos;
-    int size = 4;
-    if (c2_kv_pos) {
-        if (DFOS_NODE_SIZE == 512)
-            size = 5;
-        else
-            size = 6;
-    }
-    if (child)
-        size++;
-    memmove(ptr + size, ptr, DFOS_TRIE_LEN - pos);
-    trie[pos++] = tc;
-    if (child)
-        trie[pos++] = child;
-    trie[pos++] = leaf;
-    if (DFOS_NODE_SIZE == 512) {
-        byte bitmap = 0;
-        if (c1_kv_pos >= 256 && c2_kv_pos >= 256)
-            bitmap = leaf;
-        else if (c1_kv_pos >= 256)
-            bitmap = leaf & ~c2_mask;
-        else if (c2_kv_pos >= 256)
-            bitmap = c2_mask;
-        trie[pos++] = bitmap;
-        trie[pos++] = (c1_kv_pos & 0xFF);
-        if (c2_kv_pos)
-            trie[pos] = (c2_kv_pos & 0xFF);
-    } else {
-        util::setInt(trie + pos, c1_kv_pos);
-        if (c2_kv_pos)
-            util::setInt(trie + pos + 2, c2_kv_pos);
-    }
-    DFOS_TRIE_LEN += size;
-    return size;
-}
-
-byte dfos_node_handler::insAt(byte pos, byte tc, byte leaf, int16_t c1_kv_pos) {
-    byte *ptr = trie + pos;
-    int size = 4;
-    memmove(ptr + size, ptr, DFOS_TRIE_LEN - pos);
-    trie[pos++] = tc;
-    trie[pos++] = leaf;
-    if (DFOS_NODE_SIZE == 512) {
-        if (c1_kv_pos >= 256)
-            trie[pos++] = leaf;
-        else
-            trie[pos++] = 0x00;
-        trie[pos] = (c1_kv_pos & 0xFF);
-    } else
-        util::setInt(trie + pos, c1_kv_pos);
-    DFOS_TRIE_LEN += size;
-    return size;
-}
-
-void dfos_node_handler::setAt(byte pos, byte b) {
-    trie[pos] = b;
-}
-
-byte dfos_node_handler::getAt(byte pos) {
-    return trie[pos];
+char *dfos_node_handler::getValueAt(int16_t *vlen) {
+    key_at = buf + getPtr(pos);
+    key_at += *key_at;
+    key_at++;
+    *vlen = *key_at;
+    key_at++;
+    return (char *) key_at;
 }
 
 void dfos_node_handler::initVars() {
-//keyPos = 0;
-    last_ptr = 0;
-    triePos = 0;
-    need_count = 0;
-    insertState = 0;
 }
 
-byte dfos_node_handler::left_mask[8] = { 0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8,
-        0xFC, 0xFE };
-byte dfos_node_handler::left_incl_mask[8] = { 0x80, 0xC0, 0xE0, 0xF0, 0xF8,
-        0xFC, 0xFE, 0xFF };
-byte dfos_node_handler::ryte_mask[8] = { 0x7F, 0x3F, 0x1F, 0x0F, 0x07, 0x03,
-        0x01, 0x00 };
-byte dfos_node_handler::ryte_incl_mask[8] = { 0xFF, 0x7F, 0x3F, 0x1F, 0x0F,
-        0x07, 0x03, 0x01 };
-byte dfos_node_handler::pos_mask[48] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04,
-        0x02, 0x01, 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80, 0x40,
-        0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80, 0x40, 0x20, 0x10, 0x08, 0x04,
-        0x02, 0x01, 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80, 0x40,
-        0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
+byte dfos_node_handler::left_mask[8] = { 0xFE, 0xFC, 0xF8, 0xF0, 0xE0, 0xC0,
+        x80, 0x00 };
+byte dfos_node_handler::left_incl_mask[8] = { 0xFF, 0xFE, 0xFC, 0xF8, 0xF0,
+        0xE0, 0xC0, 0x80 };
+byte dfos_node_handler::ryte_mask[8] = { 0x00, 0x01, 0x03, 0x07, 0x0F, 0x1F,
+        0x3F, 0x7F };
+byte dfos_node_handler::ryte_incl_mask[8] = { 0x01, 0x03, 0x07, 0x0F, 0x1F,
+        0x3F, 0x7F, 0xFF };
+long dfos::count1, dfos::count2;
