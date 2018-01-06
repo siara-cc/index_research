@@ -47,9 +47,11 @@ private:
     static byte left_mask[4];
     static byte left_incl_mask[4];
     static byte ryte_mask[4];
+    static byte dbl_ryte_mask[4];
     static byte ryte_incl_mask[4];
     static byte first_bit_offset[16];
     static byte bit_count[16];
+    static uint16_t dbl_bit_count[256];
     //static byte first_bit_offset4[16];
     //static byte bit_count_16[16];
     inline void append(byte b);
