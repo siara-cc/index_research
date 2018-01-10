@@ -8,32 +8,20 @@ char *dfqx::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     node.key = key;
     node.key_len = key_len;
     if (!node.isLeaf())
-        node.traverseToLeafForGet();
-    if (node.locateForGet() < 0)
+        node.traverseToLeaf();
+    if (node.locate() < 0)
         return null;
     char * ret = node.getValueAt(pValueLen);
     return ret;
 }
 
-void dfqx_node_handler::traverseToLeafForGet() {
-    while (!isLeaf()) {
-        int16_t idx = locateForGet();
-        if (idx < 0) {
-            idx = ~idx;
-            if (idx)
-                idx--;
-        }
-        key_at = buf + getPtr(idx);
-        setBuf(getChildPtr(key_at));
-    }
-}
-
 void dfqx_node_handler::traverseToLeaf(byte *node_paths[]) {
     byte level;
     level = 1;
-    *node_paths = buf;
+    if (isPut)
+        *node_paths = buf;
     while (!isLeaf()) {
-        int16_t idx = locateForGet();
+        int16_t idx = locate();
         if (idx < 0) {
             idx = ~idx;
             if (idx)
@@ -41,7 +29,8 @@ void dfqx_node_handler::traverseToLeaf(byte *node_paths[]) {
         }
         key_at = buf + getPtr(idx);
         setBuf(getChildPtr(key_at));
-        node_paths[level++] = buf;
+        if (isPut)
+            node_paths[level++] = buf;
     }
 }
 
@@ -53,7 +42,7 @@ void dfqx::put(const char *key, int16_t key_len, const char *value,
     node.key_len = key_len;
     node.value = value;
     node.value_len = value_len;
-    //node.isPut = true;
+    node.isPut = true;
     if (node.filledSize() == 0) {
         node.pos = 0;
         node.insertState = INSERT_EMPTY;
@@ -91,7 +80,7 @@ void dfqx::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             dfqx_node_handler new_block(b);
-            //new_block.isPut = true;
+            new_block.isPut = true;
             int16_t cmp = util::compare((char *) first_key, first_len,
                     node->key, node->key_len);
             if (cmp <= 0) {
@@ -112,7 +101,7 @@ void dfqx::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 root_data = (byte *) util::alignedAlloc(DFQX_NODE_SIZE);
                 dfqx_node_handler root(root_data);
                 root.initBuf();
-                //root.isPut = true;
+                root.isPut = true;
                 root.setLeaf(0);
                 byte addr[9];
                 root.initVars();
@@ -137,7 +126,7 @@ void dfqx::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 dfqx_node_handler parent(parent_data);
                 byte addr[9];
                 parent.initVars();
-                //parent.isPut = true;
+                parent.isPut = true;
                 parent.key = (char *) first_key;
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
@@ -163,8 +152,6 @@ byte *dfqx_node_handler::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, 
     } else {
         while (ctr == x04 && (tc & x01)) {
             keyPos--;
-            if (keyPos < 0)
-                cout << "LTZ1" << endl;
             tc = trie[tp[keyPos]];
             child_leaf = trie[tp[keyPos] + 1];
             ctr = first_key[keyPos] & 0x03;
@@ -178,22 +165,27 @@ byte *dfqx_node_handler::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, 
             child_leaf = *t++;
             ctr = 0;
         }
+        byte mask;
+        if (ctr < 0) {
+            ctr = ~ctr;
+            mask = x08;
+        } else
+            mask = (child_leaf << ctr) & 0x88;
         first_key[keyPos] = (tc & xFC) | ctr;
-        if (child_leaf & (x80 >> ctr)) {
-            if (child_leaf & (x08 >> ctr))
-                child_leaf &= ~(x80 >> ctr);
-            else
-                ctr++;
+        switch (mask) {
+        case 0x80:
+            ctr++;
             return t;
-        }
-        if (child_leaf & (x08 >> ctr)) {
+        case 0x08:
             keyPos++;
             ctr = x04;
+            break;
+        case 0x88:
+            ctr = ~ctr;
+            return t;
         }
         while (ctr == x03 && (tc & x01)) {
             keyPos--;
-            if (keyPos < 0)
-                cout << "LTZ2" << endl;
             tc = trie[tp[keyPos]];
             child_leaf = trie[tp[keyPos] + 1];
             ctr = first_key[keyPos] & 0x03;
@@ -208,7 +200,7 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     byte *b = (byte *) util::alignedAlloc(DFQX_NODE_SIZE);
     dfqx_node_handler new_block(b);
     new_block.initBuf();
-    //new_block.isPut = true;
+    new_block.isPut = true;
     if (!isLeaf())
         new_block.setLeaf(false);
     int16_t kv_last_pos = getKVLastPos();
@@ -240,13 +232,9 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         kv_last_pos += kv_len;
         if (brk_idx == -1) {
             t = nextKey(first_key, tp, t, ctr, tc, child_leaf);
-            //memcpy(first_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
-            //first_key[keyPos + 1 + buf[src_idx]] = 0;
-            //cout << first_key << endl;
             //if (tot_len > halfKVLen) {
             if (tot_len > halfKVLen || idx == (orig_filled_size / 2)) {
                 brk_idx = idx + 1;
-                //cout << "brk_idx:" << brk_idx << endl;
                 brk_kv_pos = kv_last_pos;
                 memcpy(new_block.trie, trie, BPT_TRIE_LEN);
                 new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
@@ -305,7 +293,7 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 
     {
 #if DQ_9_BIT_PTR == 1
-#if defined(DQ_INT64MAP)
+#if DQ_INT64MAP == 1
         (*new_block.bitmap) <<= brk_idx;
 #else
         if (brk_idx & 0xFFE0)
@@ -421,7 +409,7 @@ dfqx::~dfqx() {
 
 dfqx_node_handler::dfqx_node_handler(byte * m) {
     setBuf(m);
-    //isPut = false;
+    isPut = false;
 }
 
 void dfqx_node_handler::initBuf() {
@@ -432,7 +420,7 @@ void dfqx_node_handler::initBuf() {
     //MID_KEY_LEN = 0;
     setKVLastPos(DFQX_NODE_SIZE);
     trie = buf + DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES;
-#if defined(DQ_INT64MAP)
+#if DQ_INT64MAP == 1
     bitmap = (uint64_t *) (buf + DFQX_HDR_SIZE);
 #else
     bitmap1 = (uint32_t *) (buf + DFQX_HDR_SIZE);
@@ -444,7 +432,7 @@ void dfqx_node_handler::setBuf(byte *m) {
     buf = m;
     trie = buf + DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES
             + filledSize() * (DQ_9_BIT_PTR == 1 ? 1 : 2);
-#if defined(DQ_INT64MAP)
+#if DQ_INT64MAP == 1
     bitmap = (uint64_t *) (buf + DFQX_HDR_SIZE);
 #else
     bitmap1 = (uint32_t *) (buf + DFQX_HDR_SIZE);
@@ -476,7 +464,7 @@ void dfqx_node_handler::insPtr(int16_t pos, int16_t kv_pos) {
     memmove(kvIdx + 1, kvIdx, filledSz - pos + BPT_TRIE_LEN);
     *kvIdx = kv_pos;
     trie++;
-#if defined(DQ_INT64MAP)
+#if DQ_INT64MAP == 1
     insBit(bitmap, pos, kv_pos);
 #else
     if (pos & 0xFFE0) {
@@ -534,7 +522,7 @@ bool dfqx_node_handler::isFull(int16_t kv_len) {
 void dfqx_node_handler::setPtr(int16_t pos, int16_t ptr) {
 #if DQ_9_BIT_PTR == 1
     buf[DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES + pos] = ptr;
-#if defined(DQ_INT64MAP)
+#if DQ_INT64MAP == 1
     if (ptr >= 256)
         *bitmap |= util::mask64[pos];
     else
@@ -562,7 +550,7 @@ void dfqx_node_handler::setPtr(int16_t pos, int16_t ptr) {
 int16_t dfqx_node_handler::getPtr(int16_t pos) {
 #if DQ_9_BIT_PTR == 1
     int16_t ptr = buf[DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES + pos];
-#if defined(DQ_INT64MAP)
+#if DQ_INT64MAP == 1
     if (*bitmap & util::mask64[pos])
         ptr |= 256;
 #else
@@ -682,77 +670,6 @@ void dfqx_node_handler::insertCurrent() {
 
 }
 
-int16_t dfqx_node_handler::locateForGet() {
-    byte key_char;
-    byte *t = trie;
-    uint16_t to_skip = 0;
-    keyPos = 1;
-    key_char = *key;
-    do {
-        byte trie_char = *t++;
-        switch ((key_char ^ trie_char) > x03 ?
-                (key_char > trie_char ? 0 : 2) : 1) {
-        case 0:
-            to_skip += dbl_bit_count[*t++];
-            while (to_skip & 0xFF) {
-                to_skip -= (*t++ & x01);
-                to_skip += dbl_bit_count[*t++];
-            }
-            if (trie_char & x01) {
-                pos = to_skip >> 8;
-                return ~pos;
-            }
-            break;
-        case 1:
-            byte r_leaves_children;
-            r_leaves_children = *t++;
-            key_char &= x03;
-            //to_skip += dbl_bit_count[r_leaves_children & dbl_ryte_mask[key_char]];
-            to_skip += dbl_bit_count[r_leaves_children & ((0xEECC8800 >> (key_char << 3)) & xFF)];
-            while (to_skip & 0xFF) {
-                to_skip -= (*t++ & x01);
-                to_skip += dbl_bit_count[*t++];
-            }
-            switch ((r_leaves_children << key_char) & 0x88) {
-            case 0: // 00000000
-                pos = to_skip >> 8;
-                return ~pos;
-            case 0x08: // 00001000
-                if (keyPos == key_len) {
-                    pos = to_skip >> 8;
-                    return ~pos;
-                }
-                break;
-            case 0x80: // 10000000
-                int16_t cmp;
-                pos = to_skip >> 8;
-                key_at = getKey(pos, &key_at_len);
-                cmp = util::compare(key + keyPos, key_len - keyPos,
-                        (char *) key_at, key_at_len);
-                if (cmp == 0)
-                    return pos;
-                if (cmp > 0)
-                    pos++;
-                return ~pos;
-            case 0x88: // 10001000
-                if (keyPos == key_len) {
-                    pos = to_skip >> 8;
-                    return pos;
-                } else {
-                    to_skip += 0x100;
-                }
-                break;
-            }
-            key_char = key[keyPos++];
-            break;
-        case 2:
-            pos = to_skip >> 8;
-            return ~pos;
-        }
-    } while (1);
-    return ~pos;
-}
-
 int16_t dfqx_node_handler::locate() {
     byte key_char;
     byte *t = trie;
@@ -771,9 +688,11 @@ int16_t dfqx_node_handler::locate() {
                 to_skip += dbl_bit_count[*t++];
             }
             if (trie_char & x01) {
+                if (isPut) {
                     triePos = t;
                     insertState = INSERT_MIDDLE1;
                     need_count = 2;
+                }
                 pos = to_skip >> 8;
                 return ~pos;
             }
@@ -791,16 +710,20 @@ int16_t dfqx_node_handler::locate() {
             }
             switch ((r_leaves_children << key_char) & 0x88) {
             case 0: // 00000000
+                if (isPut) {
                     triePos = t;
                     insertState = INSERT_LEAF;
                     need_count = 2;
+                }
                 pos = to_skip >> 8;
                 return ~pos;
             case 0x08: // 00001000
                 if (keyPos == key_len) {
+                    if (isPut) {
                         triePos = t;
                         insertState = INSERT_LEAF;
                         need_count = 2;
+                    }
                     pos = to_skip >> 8;
                     return ~pos;
                 }
@@ -818,9 +741,11 @@ int16_t dfqx_node_handler::locate() {
                     pos++;
                 else
                     cmp = -cmp;
+                if (isPut) {
                     triePos = t;
                     insertState = INSERT_THREAD;
                     need_count = (cmp * 2) + 4;
+                }
                 return ~pos;
             case 0x88: // 10001000
                 if (keyPos == key_len) {
@@ -834,9 +759,11 @@ int16_t dfqx_node_handler::locate() {
             key_char = key[keyPos++];
             break;
         case 2:
+            if (isPut) {
                 triePos = t;
                 insertState = INSERT_MIDDLE2;
                 need_count = 2;
+            }
             pos = to_skip >> 8;
             return ~pos;
             break;

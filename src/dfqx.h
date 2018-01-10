@@ -50,7 +50,7 @@ private:
     void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
 public:
     int16_t pos, key_at_pos;
-#if defined(DQ_INT64MAP)
+#if DQ_INT64MAP == 1
     uint64_t *bitmap;
 #else
     uint32_t *bitmap1;
