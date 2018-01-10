@@ -32,16 +32,6 @@ using namespace std;
 
 #define DFQX_MAX_KEY_PREFIX_LEN 60
 
-class dfqx_iterator_status {
-public:
-    byte *t;
-    byte tp[DFQX_MAX_KEY_PREFIX_LEN];
-    byte tc_a[DFQX_MAX_KEY_PREFIX_LEN];
-    byte child_a[DFQX_MAX_KEY_PREFIX_LEN];
-    byte leaf_a[DFQX_MAX_KEY_PREFIX_LEN];
-    byte offset_a[DFQX_MAX_KEY_PREFIX_LEN];
-};
-
 class dfqx_node_handler: public trie_node_handler {
 private:
     static byte left_mask[4];
@@ -55,10 +45,9 @@ private:
     //static byte first_bit_offset4[16];
     //static byte bit_count_16[16];
     inline void append(byte b);
-    int16_t findPos(dfqx_iterator_status& s, int brk_idx);
-    int16_t nextKey(dfqx_iterator_status& s);
-    void deleteTrieLastHalf(int16_t brk_key_len, dfqx_iterator_status& s);
-    void deleteTrieFirstHalf(int16_t brk_key_len, dfqx_iterator_status& s);
+    byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child_leaf);
+    void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
+    void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
 public:
     int16_t pos, key_at_pos;
 #if defined(DQ_INT64MAP)
@@ -80,7 +69,9 @@ public:
     void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     void traverseToLeaf(byte *node_paths[] = null);
+    void traverseToLeafForGet();
     int16_t locate();
+    int16_t locateForGet();
     void updatePtrs(byte *upto, int diff);
     void insertCurrent();
     byte *getKey(int16_t pos, int16_t *plen);
