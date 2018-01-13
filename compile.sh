@@ -11,4 +11,4 @@ g++ -I./hdr -I./src -O3 -Wall -c -fmessage-length=0 -o Release/src/linex.o ./src
 g++ -I./hdr -I./src -O3 -Wall -c -fmessage-length=0 -o Release/src/basix.o ./src/basix.cpp
 g++ -I./hdr -I./src -O3 -Wall -c -fmessage-length=0 -o src/univix_util.o ./src/univix_util.cpp
 cd Release
-g++ -o huge_db src/rb_tree.o src/basix.o src/huge_db.o src/dfox.o src/dfqx.o src/linex.o src/bfos.o src/dft.o src/bft.o src/art.o src/GenTree.o src/univix_util.o
+g++ -o ../huge_db src/rb_tree.o src/basix.o src/huge_db.o src/dfox.o src/dfqx.o src/linex.o src/bfos.o src/dft.o src/bft.o src/art.o src/GenTree.o src/univix_util.o

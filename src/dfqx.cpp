@@ -165,24 +165,17 @@ byte *dfqx_node_handler::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, 
             child_leaf = *t++;
             ctr = 0;
         }
-        byte mask;
-        if (ctr < 0) {
-            ctr = ~ctr;
-            mask = x08;
-        } else
-            mask = (child_leaf << ctr) & 0x88;
         first_key[keyPos] = (tc & xFC) | ctr;
-        switch (mask) {
-        case 0x80:
-            ctr++;
+        if (child_leaf & (x80 >> ctr)) {
+            if (child_leaf & (x08 >> ctr))
+                child_leaf &= ~(x80 >> ctr);
+            else
+                ctr++;
             return t;
-        case 0x08:
+        }
+        if (child_leaf & (x08 >> ctr)) {
             keyPos++;
             ctr = x04;
-            break;
-        case 0x88:
-            ctr = ~ctr;
-            return t;
         }
         while (ctr == x03 && (tc & x01)) {
             keyPos--;

@@ -27,7 +27,6 @@
 #include <tr1/unordered_map>
 #endif
 #include <sys/time.h>
-#include <stx/btree_map.h>
 #endif
 
 #ifndef __APPLE__
@@ -967,13 +966,6 @@ int main4() {
     return 0;
 }
 
-int main5() {
-    stx::btree_map<string, string> bm;
-    bm.insert(pair<string, string>("hello", "world"));
-    cout << bm["hello"] << endl;
-    return 1;
-}
-
 int main6() {
     art_tree at;
     art_tree_init(&at);
@@ -1138,8 +1130,8 @@ int main(int argc, char *argv[]) {
     //bft *dx = new bft();
     //dft *dx = new dft();
     //dfox *dx = new dfox();
-    //dfqx *dx = new dfqx();
-    dfos *dx = new dfos();
+    dfqx *dx = new dfqx();
+    //dfos *dx = new dfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();
     start = getTimeVal();
