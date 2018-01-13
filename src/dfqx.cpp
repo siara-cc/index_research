@@ -150,7 +150,7 @@ byte *dfqx_node_handler::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, 
         keyPos = 0;
         ctr = x04;
     } else {
-        while (ctr == x04 && (tc & x01)) {
+        while (ctr == x04 && (tc & x02)) {
             keyPos--;
             tc = trie[tp[keyPos]];
             child_leaf = trie[tp[keyPos] + 1];
@@ -177,7 +177,7 @@ byte *dfqx_node_handler::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, 
             keyPos++;
             ctr = x04;
         }
-        while (ctr == x03 && (tc & x01)) {
+        while (ctr == x03 && (tc & x02)) {
             keyPos--;
             tc = trie[tp[keyPos]];
             child_leaf = trie[tp[keyPos] + 1];
@@ -324,7 +324,7 @@ void dfqx_node_handler::deleteTrieLastHalf(int16_t brk_key_len,
         byte offset = first_key[idx] & 0x03;
         t = trie + tp[idx];
         byte tc = *t;
-        *t++ = (tc | x01);
+        *t++ = (tc | x02);
         children = *t & x0F;
         children &= (
                 (idx == brk_key_len) ?
@@ -337,7 +337,7 @@ void dfqx_node_handler::deleteTrieLastHalf(int16_t brk_key_len,
         byte tc = *t++;
         to_skip += bit_count[*t & x0F];
         t++;
-        if (tc & x01)
+        if (tc & x02)
             to_skip--;
     }
     BPT_TRIE_LEN = t - trie;
@@ -372,7 +372,7 @@ void dfqx_node_handler::deleteTrieFirstHalf(int16_t brk_key_len,
             tc = *t++;
             count += bit_count[*t & x0F];
             t++;
-            if (tc & x01)
+            if (tc & x02)
                 count--;
         }
         if (t != delete_start) {
@@ -571,8 +571,8 @@ void dfqx_node_handler::insertCurrent() {
     case INSERT_MIDDLE1:
         key_char = key[keyPos - 1];
         mask = x80 >> (key_char & x03);
-        *origPos &= xFE;
-        insAt(triePos, ((key_char & xFC) | x01), mask);
+        *origPos &= xFD;
+        insAt(triePos, ((key_char & xFC) | x02), mask);
         break;
     case INSERT_MIDDLE2:
         key_char = key[keyPos - 1];
@@ -612,18 +612,18 @@ void dfqx_node_handler::insertCurrent() {
                     0 : (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1)) {
             case 0:
                 triePos += insAt(triePos, (c1 & xFC), x80 >> (c1 & x03),
-                        (c2 & xFC) | x01, x80 >> (c2 & x03));
+                        (c2 & xFC) | x02, x80 >> (c2 & x03));
                 break;
             case 1:
-                triePos += insAt(triePos, (c1 & xFC) | x01,
+                triePos += insAt(triePos, (c1 & xFC) | x02,
                         (x80 >> (c1 & x03)) | (x80 >> (c2 & x03)));
                 break;
             case 2:
                 dfqx::count1++;
-                triePos += insAt(triePos, (c1 & xFC) | x01, x08 >> (c1 & x03));
+                triePos += insAt(triePos, (c1 & xFC) | x02, x08 >> (c1 & x03));
                 break;
             case 3:
-                triePos += insAt(triePos, (c1 & xFC) | x01,
+                triePos += insAt(triePos, (c1 & xFC) | x02,
                         (0x88 >> (c1 & x03)));
                 break;
             }
@@ -636,7 +636,7 @@ void dfqx_node_handler::insertCurrent() {
         keyPos = p + 1;
         if (c1 == c2) {
             c2 = (p == key_len ? key_at[diff] : key[p]);
-            insAt(triePos, (c2 & xFC) | x01, (x80 >> (c2 & x03)));
+            insAt(triePos, (c2 & xFC) | x02, (x80 >> (c2 & x03)));
             if (p == key_len)
                 keyPos--;
         }
@@ -655,7 +655,7 @@ void dfqx_node_handler::insertCurrent() {
     case INSERT_EMPTY:
         key_char = *key;
         mask = x80 >> (key_char & x03);
-        append((key_char & xFC) | x01);
+        append((key_char & xFC) | x02);
         append(mask);
         keyPos = 1;
         break;
@@ -677,10 +677,11 @@ int16_t dfqx_node_handler::locate() {
             origPos = t++;
             to_skip += dbl_bit_count[*t++];
             while (to_skip & 0xFF) {
-                to_skip -= (*t++ & x01);
+                if (*t++ & x02)
+                    to_skip --;
                 to_skip += dbl_bit_count[*t++];
             }
-            if (trie_char & x01) {
+            if (trie_char & x02) {
                 if (isPut) {
                     triePos = t;
                     insertState = INSERT_MIDDLE1;
@@ -698,7 +699,8 @@ int16_t dfqx_node_handler::locate() {
             //to_skip += dbl_bit_count[r_leaves_children & dbl_ryte_mask[key_char]];
             to_skip += dbl_bit_count[r_leaves_children & ((0xEECC8800 >> (key_char << 3)) & xFF)];
             while (to_skip & 0xFF) {
-                to_skip -= (*t++ & x01);
+                if (*t++ & x02)
+                    to_skip --;
                 to_skip += dbl_bit_count[*t++];
             }
             switch ((r_leaves_children << key_char) & 0x88) {
