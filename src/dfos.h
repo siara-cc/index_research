@@ -32,27 +32,16 @@ using namespace std;
 
 #define DFOS_MAX_KEY_PREFIX_LEN 60
 
-class dfos_iterator_status {
-public:
-    byte *t;
-    byte tp[DFOS_MAX_KEY_PREFIX_LEN];
-    byte tc_a[DFOS_MAX_KEY_PREFIX_LEN];
-    byte child_a[DFOS_MAX_KEY_PREFIX_LEN];
-    byte leaf_a[DFOS_MAX_KEY_PREFIX_LEN];
-    byte offset_a[DFOS_MAX_KEY_PREFIX_LEN];
-};
-
 class dfos_node_handler : public trie_node_handler {
 private:
     inline byte insChildAndLeafAt(byte *ptr, byte b1, byte b2);
     inline void append(byte b);
-    int16_t findPos(dfos_iterator_status& s, int brk_idx);
-    int16_t nextKey(dfos_iterator_status& s);
-    void deleteTrieLastHalf(int16_t brk_key_len, dfos_iterator_status& s);
-    void deleteTrieFirstHalf(int16_t brk_key_len, dfos_iterator_status& s);
+    byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf);
+    void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
+    void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
 public:
     int16_t pos, key_at_pos;
-#if defined(DS_INT64MAP)
+#if DS_INT64MAP == 1
     uint64_t *bitmap;
 #else
     uint32_t *bitmap1;

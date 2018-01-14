@@ -76,7 +76,7 @@ void dfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             }
                 //maxKeyCount += node->BPT_TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[64];
+            byte first_key[DFOS_MAX_KEY_PREFIX_LEN];
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             dfos_node_handler new_block(b);
@@ -145,125 +145,51 @@ void dfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
     }
 }
 
-int16_t dfos_node_handler::findPos(dfos_iterator_status& s, int brk_idx) {
-    byte *t = trie;
-    int pos = 0;
-    int keyPos = 0;
-    do {
-        byte tc = s.tc_a[keyPos] = *t;
-        s.tp[keyPos] = t - trie;
-        t++;
-        byte children = (tc & x02 ? *t++ : x00);
-        byte leaves = *t++;
-        if (children) {
-            byte b = util::first_bit_offset[children];
-            s.offset_a[keyPos] = b;
-            b = ~(xFE << b); // ryte_incl_mask[b];
-            pos += util::bit_count[leaves & b];
-            if (pos >= brk_idx) {
-                do {
-                    if (leaves & (x01 << s.offset_a[keyPos])) {
-                        if (pos == brk_idx)
-                            break;
-                        pos--;
-                    }
-                } while (s.offset_a[keyPos]--);
-                s.t = t;
-                s.child_a[keyPos] = children;
-                s.leaf_a[keyPos] = leaves & (xFE << s.offset_a[keyPos]); // left_mask[s.offset_a[keyPos]];
-                this->keyPos = keyPos;
-                return keyPos;
-            }
-            b = ~b;
-            children &= b;
-            s.child_a[keyPos] = children;
-            s.leaf_a[keyPos] = leaves & b;
-            keyPos++;
-            if (!children)
-                continue;
-        } else {
-            pos += util::bit_count[leaves];
-            if (pos >= brk_idx) {
-                s.offset_a[keyPos] = 7;
-                do {
-                    if (leaves & (x01 << s.offset_a[keyPos])) {
-                        if (pos == brk_idx)
-                            break;
-                        pos--;
-                    }
-                } while (s.offset_a[keyPos]--);
-                s.t = t;
-                s.child_a[keyPos] = 0;
-                s.leaf_a[keyPos] = leaves & (xFE << s.offset_a[keyPos]); // left_mask[s.offset_a[keyPos]];
-                this->keyPos = keyPos;
-                return keyPos;
-            }
-        }
-        while (!children && (tc & 0x04)) {
-            keyPos--;
-            tc = s.tc_a[keyPos];
-            children = s.child_a[keyPos];
-            leaves = s.leaf_a[keyPos];
-            byte b = children ? util::first_bit_offset[children] : x07;
-            s.offset_a[keyPos] = b;
-            b = ~(xFE << b); // ryte_incl_mask[b];
-            pos += util::bit_count[leaves & b];
-            if (pos >= brk_idx) {
-                do {
-                    if (leaves & (x01 << s.offset_a[keyPos])) {
-                        if (pos == brk_idx)
-                            break;
-                        pos--;
-                    }
-                } while (s.offset_a[keyPos]--);
-                s.t = t;
-                s.leaf_a[keyPos] = leaves & (xFE << s.offset_a[keyPos]); // left_mask[s.offset_a[keyPos]];
-                this->keyPos = keyPos;
-                return keyPos;
-            }
-            if (children) {
-                b = ~b;
-                children &= b;
-                s.child_a[keyPos] = children;
-                s.leaf_a[keyPos] = leaves & b;
-                keyPos++;
-                break;
-            }
-        }
-    } while (1); // (t - trie) < BPT_TRIE_LEN);
-    return -1;
-}
-
-int16_t dfos_node_handler::nextKey(dfos_iterator_status& s) {
-    if (s.t == trie) {
+byte *dfos_node_handler::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf) {
+    if (t == trie) {
         keyPos = 0;
-        s.offset_a[keyPos] = x08;
+        ctr = x08;
     } else {
-        while (s.offset_a[keyPos] == x08 && (s.tc_a[keyPos] & x04))
-            s.offset_a[--keyPos]++;
+        while (ctr == x08 && (tc & x04)) {
+            keyPos--;
+            tc = trie[tp[keyPos]];
+            child = (tc & x02 ? trie[tp[keyPos] + 1] : x00);
+            leaf = trie[tp[keyPos] + (tc & x02 ? 2 : 1)];
+            ctr = first_key[keyPos] & 0x07;
+            ctr++;
+        }
     }
     do {
-        if (s.offset_a[keyPos] > x07) {
-            byte tc, children, leaves;
-            s.tp[keyPos] = s.t - trie;
-            tc = s.tc_a[keyPos] = *s.t++;
-            children = s.child_a[keyPos] = (tc & x02 ? *s.t++ : x00);
-            leaves = s.leaf_a[keyPos] = *s.t++;
-            s.offset_a[keyPos] = util::first_bit_offset[children | leaves];
+        if (ctr > x07) {
+            tp[keyPos] = t - trie;
+            tc = *t++;
+            child = (tc & x02 ? *t++ : x00);
+            leaf = *t++;
+            ctr = util::first_bit_offset[child | leaf];
         }
-        byte mask = x01 << s.offset_a[keyPos];
-        if (s.leaf_a[keyPos] & mask) {
-            if (s.child_a[keyPos] & mask)
-                s.leaf_a[keyPos] &= ~mask;
-            return keyPos;
+        first_key[keyPos] = (tc & xF8) | ctr;
+        byte mask = (x01 << ctr);
+        if (leaf & mask) {
+            if (child & mask)
+                leaf &= ~mask;
+            else
+                ctr++;
+            return t;
         }
-        if (s.child_a[keyPos] & mask)
-            s.offset_a[++keyPos] = x08;
-        while (s.offset_a[keyPos] == x07 && (s.tc_a[keyPos] & x04))
+        if (child & mask) {
+            keyPos++;
+            ctr = x08;
+        }
+        while (ctr == x07 && (tc & x04)) {
             keyPos--;
-        s.offset_a[keyPos]++;
-    } while (1); // (s.t - trie) < BPT_TRIE_LEN);
-    return -1;
+            tc = trie[tp[keyPos]];
+            child = (tc & x02 ? trie[tp[keyPos] + 1] : x00);
+            leaf = trie[tp[keyPos] + (tc & x02 ? 2 : 1)];
+            ctr = first_key[keyPos] & 0x07;
+        }
+        ctr++;
+    } while (1); // (t - trie) < BPT_TRIE_LEN);
+    return t;
 }
 
 byte *dfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
@@ -282,6 +208,13 @@ byte *dfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t brk_kv_pos;
     int16_t tot_len;
     brk_kv_pos = tot_len = 0;
+    char ctr = 0;
+    byte tp[DFOS_MAX_KEY_PREFIX_LEN];
+    byte *t = trie;
+    byte tc, child, leaf;
+    tc = child = leaf = 0;
+    //cout << "Trie len:" << (int) BPT_TRIE_LEN << ", filled size:" << orig_filled_size << endl;
+    keyPos = 0;
     // (1) move all data to new_block in order
     int16_t idx;
     for (idx = 0; idx < orig_filled_size; idx++) {
@@ -295,46 +228,44 @@ byte *dfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         new_block.insPtr(idx, kv_last_pos);
         kv_last_pos += kv_len;
         if (brk_idx == -1) {
+            t = nextKey(first_key, tp, t, ctr, tc, child, leaf);
             //brk_key_len = nextKey(s);
             //if (tot_len > halfKVLen) {
             if (tot_len > halfKVLen || idx == (orig_filled_size / 2)) {
                 brk_idx = idx + 1;
                 brk_kv_pos = kv_last_pos;
+                memcpy(new_block.trie, trie, BPT_TRIE_LEN);
+                new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
+                deleteTrieLastHalf(keyPos, first_key, tp);
+                new_block.keyPos = keyPos;
+                t = new_block.trie + (t - trie);
+                t = new_block.nextKey(first_key, tp, t, ctr, tc, child, leaf);
+                keyPos = new_block.keyPos;
             }
         }
     }
     kv_last_pos = getKVLastPos();
-    memcpy(new_block.trie, trie, BPT_TRIE_LEN);
-    new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
 #if DS_9_BIT_PTR == 1
-    memcpy(buf, new_block.buf, DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + brk_idx);
+    memcpy(buf + DFOS_HDR_SIZE, new_block.buf + DFOS_HDR_SIZE, DS_MAX_PTR_BITMAP_BYTES + brk_idx);
 #else
-    memcpy(buf, new_block.buf, DFOS_HDR_SIZE + (brk_idx << 1));
+    memcpy(buf + DFOS_HDR_SIZE, new_block.buf + DFOS_HDR_SIZE, (brk_idx << 1));
 #endif
 
     {
-        dfos_iterator_status s;
-        int16_t brk_key_len = findPos(s, brk_idx);
-        deleteTrieLastHalf(brk_key_len, s);
-
-        brk_key_len = nextKey(s) + 1;
         new_block.key_at = new_block.getKey(brk_idx, &new_block.key_at_len);
+        keyPos++;
         if (isLeaf())
-            *first_len_ptr = brk_key_len;
+            *first_len_ptr = keyPos;
         else {
             if (new_block.key_at_len) {
-                memcpy(first_key + brk_key_len, new_block.key_at,
+                memcpy(first_key + keyPos, new_block.key_at,
                         new_block.key_at_len);
-                *first_len_ptr = brk_key_len + new_block.key_at_len;
+                *first_len_ptr = keyPos + new_block.key_at_len;
             } else
-                *first_len_ptr = brk_key_len;
+                *first_len_ptr = keyPos;
         }
-        brk_key_len--;
-        new_block.deleteTrieFirstHalf(brk_key_len, s);
-        do {
-            first_key[brk_key_len] = (s.tc_a[brk_key_len] & xF8)
-                    | s.offset_a[brk_key_len];
-        } while (brk_key_len--);
+        keyPos--;
+        new_block.deleteTrieFirstHalf(keyPos, first_key, tp);
     }
 
     {
@@ -358,7 +289,7 @@ byte *dfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 
     {
 #if DS_9_BIT_PTR == 1
-#if defined(DS_INT64MAP)
+#if DS_INT64MAP == 1
         (*new_block.bitmap) <<= brk_idx;
 #else
         if (brk_idx & 0xFFE0)
@@ -388,13 +319,12 @@ byte *dfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     return new_block.buf;
 }
 
-void dfos_node_handler::deleteTrieLastHalf(int16_t brk_key_len,
-        dfos_iterator_status& s) {
+void dfos_node_handler::deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
     byte *t = 0;
     byte children = 0;
     for (int idx = 0; idx <= brk_key_len; idx++) {
-        byte offset = s.offset_a[idx];
-        t = trie + s.tp[idx];
+        byte offset = first_key[idx] & 0x07;
+        t = trie + tp[idx];
         byte tc = *t;
         *t++ = (tc | x04);
         children = 0;
@@ -419,13 +349,12 @@ void dfos_node_handler::deleteTrieLastHalf(int16_t brk_key_len,
 
 }
 
-void dfos_node_handler::deleteTrieFirstHalf(int16_t brk_key_len,
-        dfos_iterator_status& s) {
+void dfos_node_handler::deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
     byte *delete_start = trie;
     int tot_del = 0;
     for (int idx = 0; idx <= brk_key_len; idx++) {
-        byte offset = s.offset_a[idx];
-        byte *t = trie + s.tp[idx] - tot_del;
+        byte offset = first_key[idx] & 0x07;
+        byte *t = trie + tp[idx] - tot_del;
         int count = t - delete_start;
         if (count) {
             BPT_TRIE_LEN -= count;
@@ -490,7 +419,7 @@ void dfos_node_handler::initBuf() {
     //MID_KEY_LEN = 0;
     setKVLastPos(DFOS_NODE_SIZE);
     trie = buf + DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES;
-#if defined(DS_INT64MAP)
+#if DS_INT64MAP == 1
     bitmap = (uint64_t *) (buf + DFOS_HDR_SIZE);
 #else
     bitmap1 = (uint32_t *) (buf + DFOS_HDR_SIZE);
@@ -502,7 +431,7 @@ void dfos_node_handler::setBuf(byte *m) {
     buf = m;
     trie = buf + DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES
             + filledSize() * (DS_9_BIT_PTR == 1 ? 1 : 2);
-#if defined(DS_INT64MAP)
+#if DS_INT64MAP == 1
     bitmap = (uint64_t *) (buf + DFOS_HDR_SIZE);
 #else
     bitmap1 = (uint32_t *) (buf + DFOS_HDR_SIZE);
@@ -534,7 +463,7 @@ void dfos_node_handler::insPtr(int16_t pos, int16_t kv_pos) {
     memmove(kvIdx + 1, kvIdx, filledSz - pos + BPT_TRIE_LEN);
     *kvIdx = kv_pos;
     trie++;
-#if defined(DS_INT64MAP)
+#if DS_INT64MAP == 1
     insBit(bitmap, pos, kv_pos);
 #else
     if (pos & 0xFFE0) {
@@ -592,7 +521,7 @@ bool dfos_node_handler::isFull(int16_t kv_len) {
 void dfos_node_handler::setPtr(int16_t pos, int16_t ptr) {
 #if DS_9_BIT_PTR == 1
     buf[DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + pos] = ptr;
-#if defined(DS_INT64MAP)
+#if DS_INT64MAP == 1
     if (ptr >= 256)
     *bitmap |= util::mask64[pos];
     else
@@ -620,7 +549,7 @@ void dfos_node_handler::setPtr(int16_t pos, int16_t ptr) {
 int16_t dfos_node_handler::getPtr(int16_t pos) {
 #if DS_9_BIT_PTR == 1
     int16_t ptr = buf[DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + pos];
-#if defined(DS_INT64MAP)
+#if DS_INT64MAP == 1
     if (*bitmap & util::mask64[pos])
     ptr |= 256;
 #else

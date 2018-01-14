@@ -241,8 +241,7 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     }
     kv_last_pos = getKVLastPos();
 #if DQ_9_BIT_PTR == 1
-    memcpy(buf + DFQX_HDR_SIZE, new_block.buf + DFQX_HDR_SIZE,
-            DQ_MAX_PTR_BITMAP_BYTES + brk_idx);
+    memcpy(buf + DFQX_HDR_SIZE, new_block.buf + DFQX_HDR_SIZE, DQ_MAX_PTR_BITMAP_BYTES + brk_idx);
 #else
     memcpy(buf + DFQX_HDR_SIZE, new_block.buf + DFQX_HDR_SIZE, (brk_idx << 1));
 #endif
