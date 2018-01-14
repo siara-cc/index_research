@@ -44,10 +44,6 @@ public:
 
 class dfos_node_handler : public trie_node_handler {
 private:
-    static byte left_mask[8];
-    static byte left_incl_mask[8];
-    static byte ryte_mask[8];
-    static byte ryte_incl_mask[8];
     inline byte insChildAndLeafAt(byte *ptr, byte b1, byte b2);
     inline void append(byte b);
     int16_t findPos(dfos_iterator_status& s, int brk_idx);

@@ -158,7 +158,7 @@ int16_t dfos_node_handler::findPos(dfos_iterator_status& s, int brk_idx) {
         if (children) {
             byte b = util::first_bit_offset[children];
             s.offset_a[keyPos] = b;
-            b = ryte_incl_mask[b];
+            b = ~(xFE << b); // ryte_incl_mask[b];
             pos += util::bit_count[leaves & b];
             if (pos >= brk_idx) {
                 do {
@@ -170,7 +170,7 @@ int16_t dfos_node_handler::findPos(dfos_iterator_status& s, int brk_idx) {
                 } while (s.offset_a[keyPos]--);
                 s.t = t;
                 s.child_a[keyPos] = children;
-                s.leaf_a[keyPos] = leaves & left_mask[s.offset_a[keyPos]];
+                s.leaf_a[keyPos] = leaves & (xFE << s.offset_a[keyPos]); // left_mask[s.offset_a[keyPos]];
                 this->keyPos = keyPos;
                 return keyPos;
             }
@@ -194,7 +194,7 @@ int16_t dfos_node_handler::findPos(dfos_iterator_status& s, int brk_idx) {
                 } while (s.offset_a[keyPos]--);
                 s.t = t;
                 s.child_a[keyPos] = 0;
-                s.leaf_a[keyPos] = leaves & left_mask[s.offset_a[keyPos]];
+                s.leaf_a[keyPos] = leaves & (xFE << s.offset_a[keyPos]); // left_mask[s.offset_a[keyPos]];
                 this->keyPos = keyPos;
                 return keyPos;
             }
@@ -206,7 +206,7 @@ int16_t dfos_node_handler::findPos(dfos_iterator_status& s, int brk_idx) {
             leaves = s.leaf_a[keyPos];
             byte b = children ? util::first_bit_offset[children] : x07;
             s.offset_a[keyPos] = b;
-            b = ryte_incl_mask[b];
+            b = ~(xFE << b); // ryte_incl_mask[b];
             pos += util::bit_count[leaves & b];
             if (pos >= brk_idx) {
                 do {
@@ -217,7 +217,7 @@ int16_t dfos_node_handler::findPos(dfos_iterator_status& s, int brk_idx) {
                     }
                 } while (s.offset_a[keyPos]--);
                 s.t = t;
-                s.leaf_a[keyPos] = leaves & left_mask[s.offset_a[keyPos]];
+                s.leaf_a[keyPos] = leaves & (xFE << s.offset_a[keyPos]); // left_mask[s.offset_a[keyPos]];
                 this->keyPos = keyPos;
                 return keyPos;
             }
@@ -400,12 +400,11 @@ void dfos_node_handler::deleteTrieLastHalf(int16_t brk_key_len,
         children = 0;
         if (tc & x02) {
             children = *t;
-            children &= (
-                    (idx == brk_key_len) ?
-                            ryte_mask[offset] : ryte_incl_mask[offset]);
+            children &= ~((idx == brk_key_len ? xFF : xFE) << offset);
+                            // ryte_mask[offset] : ryte_incl_mask[offset]);
             *t++ = children;
         }
-        *t++ &= ryte_incl_mask[offset];
+        *t++ &= ~(xFE << offset); // ryte_incl_mask[offset];
     }
     byte to_skip = util::bit_count[children];
     while (to_skip) {
@@ -438,13 +437,12 @@ void dfos_node_handler::deleteTrieFirstHalf(int16_t brk_key_len,
         count = 0;
         if (tc & x02) {
             byte children = *t;
-            count = util::bit_count[children & ryte_mask[offset]];
-            children &= left_incl_mask[offset];
+            count = util::bit_count[children & ~(xFF << offset)]; // ryte_mask[offset]];
+            children &= (xFF << offset); // left_incl_mask[offset];
             *t++ = children;
         }
-        *t++ &= (
-                    (idx == brk_key_len) ?
-                            left_incl_mask[offset] : left_mask[offset]);
+        *t++ &= ((idx == brk_key_len ? xFF : xFE) << offset);
+                            // left_incl_mask[offset] : left_mask[offset]);
         delete_start = t;
         while (count) {
             tc = *t++;
@@ -791,7 +789,7 @@ int16_t dfos_node_handler::locate() {
             r_children = (trie_char & x02 ? *t++ : x00);
             r_leaves = *t++;
             key_char &= x07;
-            r_mask = ryte_mask[key_char];
+            r_mask = ~(xFF << key_char);
             pos += util::bit_count[r_leaves & r_mask];
             to_skip = util::bit_count[r_children & r_mask];
             while (to_skip) {
@@ -891,12 +889,4 @@ char *dfos_node_handler::getValueAt(int16_t *vlen) {
 void dfos_node_handler::initVars() {
 }
 
-byte dfos_node_handler::left_mask[8] = { 0xFE, 0xFC, 0xF8, 0xF0, 0xE0, 0xC0,
-        x80, 0x00 };
-byte dfos_node_handler::left_incl_mask[8] = { 0xFF, 0xFE, 0xFC, 0xF8, 0xF0,
-        0xE0, 0xC0, 0x80 };
-byte dfos_node_handler::ryte_mask[8] = { 0x00, 0x01, 0x03, 0x07, 0x0F, 0x1F,
-        0x3F, 0x7F };
-byte dfos_node_handler::ryte_incl_mask[8] = { 0x01, 0x03, 0x07, 0x0F, 0x1F,
-        0x3F, 0x7F, 0xFF };
 long dfos::count1, dfos::count2;
