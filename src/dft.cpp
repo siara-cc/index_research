@@ -544,16 +544,14 @@ int16_t dft_node_handler::insertCurrent() {
     return ret;
 }
 
-#define PREVIOUS_LEAF do { \
+#define PREVIOUS_LEAF while (t > trie) { \
+   t -= DFT_UNIT_SIZE; \
    int16_t p = (DFT_UNIT_SIZE == 3 ? get9bitPtr(t) : util::getInt(t + 1)); \
    if (p) { \
        key_at = buf + p; \
        break; \
    } \
-   if (t - trie == 1) \
-       break; \
-   t -= DFT_UNIT_SIZE; \
-} while (1);
+}
 
 #define NEXT_LEVEL setBuf(getChildPtr(key_at)); \
     if (isPut) node_paths[level++] = buf; \
@@ -603,7 +601,6 @@ void dft_node_handler::traverseToLeaf(byte *node_paths[]) {
                     } else
                         t += DFT_UNIT_SIZE;
                 }
-                t -= DFT_UNIT_SIZE;
                 PREVIOUS_LEAF
                 NEXT_LEVEL
                 continue;
@@ -633,15 +630,11 @@ void dft_node_handler::traverseToLeaf(byte *node_paths[]) {
                         (char *) key_at + 1, key_at_len);
                 if (cmp < 0) {
                     cmp = -cmp;
-                    if (t - trie - 1)
-                        t -= DFT_UNIT_SIZE;
                     PREVIOUS_LEAF
                 }
                 NEXT_LEVEL
                 break;
             case 0:
-                if (t - trie - 1)
-                    t -= DFT_UNIT_SIZE;
                 PREVIOUS_LEAF
                 NEXT_LEVEL
                 break;
@@ -651,8 +644,6 @@ void dft_node_handler::traverseToLeaf(byte *node_paths[]) {
                 break;
             }
         } else {
-            if (t - trie - 1)
-                t -= DFT_UNIT_SIZE;
             PREVIOUS_LEAF
             NEXT_LEVEL
         }
