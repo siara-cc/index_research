@@ -69,9 +69,7 @@ public:
     void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     void traverseToLeaf(byte *node_paths[] = null);
-    void traverseToLeafForGet();
     int16_t locate();
-    int16_t locateForGet();
     void updatePtrs(byte *upto, int diff);
     void insertCurrent();
     byte *getKey(int16_t pos, int16_t *plen);
