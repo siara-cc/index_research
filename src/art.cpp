@@ -1,9 +1,17 @@
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
-//#include <emmintrin.h>
 #include <assert.h>
 #include "art.h"
+
+#ifdef __i386__
+    #include <emmintrin.h>
+#else
+#ifdef __amd64__
+    #include <emmintrin.h>
+#endif
+#endif
 
 /**
  * Macros to manipulate pointer tags
@@ -60,7 +68,7 @@ static void destroy_node(art_node *n) {
     }
 
     // Handle each node type
-    int i;
+    int i, idx;
     union {
         art_node4 *p1;
         art_node16 *p2;
@@ -84,8 +92,10 @@ static void destroy_node(art_node *n) {
 
         case NODE48:
             p.p3 = (art_node48*)n;
-            for (i=0;i<n->num_children;i++) {
-                destroy_node(p.p3->children[i]);
+            for (i=0;i<256;i++) {
+                idx = ((art_node48*)n)->keys[i];
+                if (!idx) continue;
+                destroy_node(p.p3->children[idx-1]);
             }
             break;
 
@@ -133,37 +143,60 @@ static art_node** find_child(art_node *n, unsigned char c) {
     switch (n->type) {
         case NODE4:
             p.p1 = (art_node4*)n;
-            for (i=0;i < n->num_children; i++) {
-                if (p.p1->keys[i] == c)
+            for (i=0 ; i < n->num_children; i++) {
+        /* this cast works around a bug in gcc 5.1 when unrolling loops
+         * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=59124
+         */
+                if (((unsigned char*)p.p1->keys)[i] == c)
                     return &p.p1->children[i];
             }
             break;
 
         {
-        //__m128i cmp;
         case NODE16:
-            //p.p2 = (art_node16*)n;
+            p.p2 = (art_node16*)n;
 
-            // Compare the key to all 16 stored keys
-            // cmp = _mm_cmpeq_epi8(_mm_set1_epi8(c),
-            //         _mm_loadu_si128((__m128i*)p.p2->keys));
+            // support non-86 architectures
+            #ifdef __i386__
+                // Compare the key to all 16 stored keys
+                __m128i cmp;
+                cmp = _mm_cmpeq_epi8(_mm_set1_epi8(c),
+                        _mm_loadu_si128((__m128i*)p.p2->keys));
 
-            // Use a mask to ignore children that don't exist
-            // mask = (1 << n->num_children) - 1;
-            // bitfield = _mm_movemask_epi8(cmp) & mask;
+                // Use a mask to ignore children that don't exist
+                mask = (1 << n->num_children) - 1;
+                bitfield = _mm_movemask_epi8(cmp) & mask;
+            #else
+            #ifdef __amd64__
+                // Compare the key to all 16 stored keys
+                __m128i cmp;
+                cmp = _mm_cmpeq_epi8(_mm_set1_epi8(c),
+                        _mm_loadu_si128((__m128i*)p.p2->keys));
+
+                // Use a mask to ignore children that don't exist
+                mask = (1 << n->num_children) - 1;
+                bitfield = _mm_movemask_epi8(cmp) & mask;
+            #else
+                // Compare the key to all 16 stored keys
+                bitfield = 0;
+                for (i = 0; i < 16; ++i) {
+                    if (p.p2->keys[i] == c)
+                        bitfield |= (1 << i);
+                }
+
+                // Use a mask to ignore children that don't exist
+                mask = (1 << n->num_children) - 1;
+                bitfield &= mask;
+            #endif
+            #endif
 
             /*
              * If we have a match (any bit set) then we can
              * return the pointer match using ctz to get
              * the index.
              */
-            // if (bitfield)
-            //    return &p.p2->children[__builtin_ctz(bitfield)];
-            p.p2 = (art_node16*)n;
-            for (i=0;i < n->num_children; i++) {
-                if (p.p2->keys[i] == c)
-                    return &p.p2->children[i];
-            }
+            if (bitfield)
+                return &p.p2->children[__builtin_ctz(bitfield)];
             break;
         }
 
@@ -268,18 +301,18 @@ static art_leaf* minimum(const art_node *n) {
     int idx;
     switch (n->type) {
         case NODE4:
-            return minimum(((art_node4*)n)->children[0]);
+            return minimum(((const art_node4*)n)->children[0]);
         case NODE16:
-            return minimum(((art_node16*)n)->children[0]);
+            return minimum(((const art_node16*)n)->children[0]);
         case NODE48:
             idx=0;
-            while (!((art_node48*)n)->keys[idx]) idx++;
-            idx = ((art_node48*)n)->keys[idx] - 1;
-            return minimum(((art_node48*)n)->children[idx]);
+            while (!((const art_node48*)n)->keys[idx]) idx++;
+            idx = ((const art_node48*)n)->keys[idx] - 1;
+            return minimum(((const art_node48*)n)->children[idx]);
         case NODE256:
             idx=0;
-            while (!((art_node256*)n)->children[idx]) idx++;
-            return minimum(((art_node256*)n)->children[idx]);
+            while (!((const art_node256*)n)->children[idx]) idx++;
+            return minimum(((const art_node256*)n)->children[idx]);
         default:
             abort();
     }
@@ -294,18 +327,18 @@ static art_leaf* maximum(const art_node *n) {
     int idx;
     switch (n->type) {
         case NODE4:
-            return maximum(((art_node4*)n)->children[n->num_children-1]);
+            return maximum(((const art_node4*)n)->children[n->num_children-1]);
         case NODE16:
-            return maximum(((art_node16*)n)->children[n->num_children-1]);
+            return maximum(((const art_node16*)n)->children[n->num_children-1]);
         case NODE48:
             idx=255;
-            while (!((art_node48*)n)->keys[idx]) idx--;
-            idx = ((art_node48*)n)->keys[idx] - 1;
-            return maximum(((art_node48*)n)->children[idx]);
+            while (!((const art_node48*)n)->keys[idx]) idx--;
+            idx = ((const art_node48*)n)->keys[idx] - 1;
+            return maximum(((const art_node48*)n)->children[idx]);
         case NODE256:
             idx=255;
-            while (!((art_node256*)n)->children[idx]) idx--;
-            return maximum(((art_node256*)n)->children[idx]);
+            while (!((const art_node256*)n)->children[idx]) idx--;
+            return maximum(((const art_node256*)n)->children[idx]);
         default:
             abort();
     }
@@ -380,32 +413,50 @@ static void add_child48(art_node48 *n, art_node **ref, unsigned char c, void *ch
 
 static void add_child16(art_node16 *n, art_node **ref, unsigned char c, void *child) {
     if (n->n.num_children < 16) {
-        //__m128i cmp;
+        unsigned mask = (1 << n->n.num_children) - 1;
 
-        // Compare the key to all 16 stored keys
-        //cmp = _mm_cmplt_epi8(_mm_set1_epi8(c),
-        //        _mm_loadu_si128((__m128i*)n->keys));
+        // support non-x86 architectures
+        #ifdef __i386__
+            __m128i cmp;
 
-        // Use a mask to ignore children that don't exist
-        //unsigned mask = (1 << n->n.num_children) - 1;
-        //unsigned bitfield = _mm_movemask_epi8(cmp) & mask;
+            // Compare the key to all 16 stored keys
+            cmp = _mm_cmplt_epi8(_mm_set1_epi8(c),
+                    _mm_loadu_si128((__m128i*)n->keys));
+
+            // Use a mask to ignore children that don't exist
+            unsigned bitfield = _mm_movemask_epi8(cmp) & mask;
+        #else
+        #ifdef __amd64__
+            __m128i cmp;
+
+            // Compare the key to all 16 stored keys
+            cmp = _mm_cmplt_epi8(_mm_set1_epi8(c),
+                    _mm_loadu_si128((__m128i*)n->keys));
+
+            // Use a mask to ignore children that don't exist
+            unsigned bitfield = _mm_movemask_epi8(cmp) & mask;
+        #else
+            // Compare the key to all 16 stored keys
+            unsigned bitfield = 0;
+            for (short i = 0; i < 16; ++i) {
+                if (c < n->keys[i])
+                    bitfield |= (1 << i);
+            }
+
+            // Use a mask to ignore children that don't exist
+            bitfield &= mask;
+        #endif
+        #endif
 
         // Check if less than any
-        unsigned idx = 0;
-        for (int i=0;i < n->n.num_children; i++) {
-            if (n->keys[i] < c)
-                idx = i;
-            else
-                break;
-        }
-
-        //if (bitfield) {
-        //    idx = __builtin_ctz(bitfield);
+        unsigned idx;
+        if (bitfield) {
+            idx = __builtin_ctz(bitfield);
             memmove(n->keys+idx+1,n->keys+idx,n->n.num_children-idx);
             memmove(n->children+idx+1,n->children+idx,
                     (n->n.num_children-idx)*sizeof(void*));
-        //} else
-        //    idx = n->n.num_children;
+        } else
+            idx = n->n.num_children;
 
         // Set the child
         n->keys[idx] = c;
@@ -885,12 +936,17 @@ int art_iter_prefix(art_tree *t, const unsigned char *key, int key_len, art_call
         if (n->partial_len) {
             prefix_len = prefix_mismatch(n, key, key_len, depth);
 
+            // Guard if the mis-match is longer than the MAX_PREFIX_LEN
+            if ((uint32_t)prefix_len > n->partial_len) {
+                prefix_len = n->partial_len;
+            }
+
             // If there is no match, search is terminated
-            if (!prefix_len)
+            if (!prefix_len) {
                 return 0;
 
             // If we've matched the prefix, iterate on this node
-            else if (depth + prefix_len == key_len) {
+            } else if (depth + prefix_len == key_len) {
                 return recursive_iter(n, cb, data);
             }
 
