@@ -333,11 +333,11 @@ void dfox_node_handler::deleteTrieLastHalf(int16_t brk_key_len, byte *first_key,
         }
         *t++ &= ~(xFE << offset); // ryte_incl_mask[offset];
     }
-    byte to_skip = util::bit_count[children];
+    byte to_skip = BIT_COUNT(children);
     while (to_skip) {
         byte tc = *t++;
         if (tc & x02)
-            to_skip += util::bit_count[*t++];
+            to_skip += BIT_COUNT(*t++);
         t++;
         if (tc & x04)
             to_skip--;
@@ -363,7 +363,7 @@ void dfox_node_handler::deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key
         count = 0;
         if (tc & x02) {
             byte children = *t;
-            count = util::bit_count[children & ~(xFF << offset)]; // ryte_mask[offset]];
+            count = BIT_COUNT(children & ~(xFF << offset)); // ryte_mask[offset]];
             children &= (xFF << offset); // left_incl_mask[offset];
             *t++ = children;
         }
@@ -373,7 +373,7 @@ void dfox_node_handler::deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key
         while (count) {
             tc = *t++;
             if (tc & x02)
-                count += util::bit_count[*t++];
+                count += BIT_COUNT(*t++);
             t++;
             if (tc & x04)
                 count--;
@@ -628,8 +628,8 @@ void dfox_node_handler::insertCurrent() {
                     continue;
                 }
                 if (child_tc & x02)
-                    to_skip += util::bit_count[*triePos++];
-                triePos++;
+                    to_skip += BIT_COUNT(*triePos++);
+                pos += BIT_COUNT(*triePos++);
                 if (child_tc & x04)
                     to_skip--;
             }
@@ -643,12 +643,15 @@ void dfox_node_handler::insertCurrent() {
         b = (cmp_rel == 2 ? x04 : x00) | (cmp_rel == 1 ? x00 : x02);
         need_count = *origPos >> 1; // save original count
         *triePos++ = ((cmp_rel == 0 ? c : key_char) & xF8) | b;
-        b = (cmp_rel == 1 ? (*origPos == x03 ? 3 : 4) : (*origPos == x03 ? 1 : 2));
+        b = (cmp_rel == 1 ? (need_count == 1 ? 3 : 4) : (need_count == 1 ? 1 : 2));
         if (diff) {
-            b++;
             triePos = origPos + diff + 2;
             *origPos = (diff << 1) | x01;
         }
+        need_count--;
+        need_count -= diff;
+        if (need_count)
+            b++;
         // this just inserts b number of bytes - buf is dummy
         insAt(triePos + (diff ? 0 : 1), (const char *) buf, b);
         *triePos++ = 1 << ((cmp_rel == 0 ? c : key_char) & x07);
@@ -659,9 +662,7 @@ void dfox_node_handler::insertCurrent() {
             *triePos++ = 1 << (c & x07);
             *triePos++ = 0;
         } else if (diff == 0)
-            *triePos++ = 1 << ((cmp_rel == 0 ? key_char : c) & x07);
-        need_count--;
-        need_count -= diff;
+            *triePos++ = ((cmp_rel == 0) ? 0 : (1 << (c & x07)));
         if (need_count)
             *triePos = (need_count << 1) | x01;
         break;
@@ -691,11 +692,10 @@ void dfox_node_handler::insertCurrent() {
         need_count -= 6;
         if (p + need_count == min && need_count)
             need_count--;
-        if (p + 1 < min) {
-        }
         if (p < min) {
+        //while (p < min) {
             if (need_count) {
-                insAt(origPos + 3, (need_count << 1) | x01, key + keyPos, need_count);
+                insAt(triePos, (need_count << 1) | x01, key + keyPos, need_count);
                 triePos += need_count;
                 triePos++;
                 p += need_count;
@@ -728,6 +728,9 @@ void dfox_node_handler::insertCurrent() {
                         x01 << (c1 & x07));
                 break;
             }
+            //if (c1 != c2)
+            //    break;
+            //p++;
             if (c1 == c2)
                 p++;
         }
@@ -775,7 +778,6 @@ void dfox_node_handler::insThreadAt(byte *ptr, byte b1, byte b2, byte b3, const 
 int16_t dfox_node_handler::locate() {
     byte key_char;
     byte *t = trie;
-    //byte *t_end = trie + BPT_TRIE_LEN;
     pos = 0;
     keyPos = 1;
     key_char = *key;
@@ -786,8 +788,8 @@ int16_t dfox_node_handler::locate() {
                 (key_char > trie_char ? 0 : 2) : 1)) {
         case 0:
             origPos = t++;
-            to_skip = (trie_char & x02 ? util::bit_count[*t++] : x00);
-            pos += util::bit_count[*t++];
+            to_skip = (trie_char & x02 ? BIT_COUNT(*t++) : x00);
+            pos += BIT_COUNT(*t++);
             while (to_skip) {
                 byte child_tc = *t++;
                 if (child_tc & x01) {
@@ -795,8 +797,8 @@ int16_t dfox_node_handler::locate() {
                     continue;
                 }
                 if (child_tc & x02)
-                    to_skip += util::bit_count[*t++];
-                pos += util::bit_count[*t++];
+                    to_skip += BIT_COUNT(*t++);
+                pos += BIT_COUNT(*t++);
                 if (child_tc & x04)
                     to_skip--;
             }
@@ -811,14 +813,14 @@ int16_t dfox_node_handler::locate() {
             break;
         case 1:
             byte r_leaves, r_children, r_mask;
-            int to_skip;
+            uint16_t to_skip;
             origPos = t++;
             r_children = (trie_char & x02 ? *t++ : x00);
             r_leaves = *t++;
             key_char &= x07;
             r_mask = ~(xFF << key_char);
-            pos += util::bit_count[r_leaves & r_mask];
-            to_skip = util::bit_count[r_children & r_mask];
+            pos += BIT_COUNT(r_leaves & r_mask);
+            to_skip = BIT_COUNT(r_children & r_mask);
             while (to_skip) {
                 trie_char = *t++;
                 if (trie_char & x01) {
@@ -826,8 +828,8 @@ int16_t dfox_node_handler::locate() {
                     continue;
                 }
                 if (trie_char & x02)
-                    to_skip += util::bit_count[*t++];
-                pos += util::bit_count[*t++];
+                    to_skip += BIT_COUNT(*t++);
+                pos += BIT_COUNT(*t++);
                 if (trie_char & x04)
                     to_skip--;
             }
@@ -872,17 +874,19 @@ int16_t dfox_node_handler::locate() {
             key_char = key[keyPos++];
             break;
         case 3:
+            byte pfx_len;
             origPos = t++;
-            to_skip = trie_char >> 1;
-            while (to_skip--) {
-                if (key_char != *t++) {
+            pfx_len = (trie_char >> 1);
+            while (pfx_len--) {
+                if (key_char != *t) {
                     if (isPut) {
                         triePos = t;
                         insertState = INSERT_CONVERT;
-                        need_count = 8;
+                        need_count = 5;
                     }
                     return ~pos;
                 }
+                t++;
                 key_char = key[keyPos++];
             }
             continue;
@@ -895,7 +899,7 @@ int16_t dfox_node_handler::locate() {
             return ~pos;
             break;
         }
-    } while (1); //t < t_end);
+    } while (1);
     return ~pos;
 }
 

@@ -29,34 +29,23 @@ using namespace std;
 #define INSERT_LEAF 3
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5
+#define INSERT_CONVERT 6
 
 #define DFOX_MAX_KEY_PREFIX_LEN 60
 
-class dfox_iterator_status {
-public:
-    byte *t;
-    byte tp[DFOX_MAX_KEY_PREFIX_LEN];
-    byte tc_a[DFOX_MAX_KEY_PREFIX_LEN];
-    byte child_a[DFOX_MAX_KEY_PREFIX_LEN];
-    byte leaf_a[DFOX_MAX_KEY_PREFIX_LEN];
-    byte offset_a[DFOX_MAX_KEY_PREFIX_LEN];
-};
-
 class dfox_node_handler : public trie_node_handler {
 private:
-    static byte left_mask[8];
-    static byte left_incl_mask[8];
-    static byte ryte_mask[8];
-    static byte ryte_incl_mask[8];
     inline byte insChildAndLeafAt(byte *ptr, byte b1, byte b2);
     inline void append(byte b);
-    int16_t findPos(dfox_iterator_status& s, int brk_idx);
-    int16_t nextKey(dfox_iterator_status& s);
-    void deleteTrieLastHalf(int16_t brk_key_len, dfox_iterator_status& s);
-    void deleteTrieFirstHalf(int16_t brk_key_len, dfox_iterator_status& s);
+    void updatePtrs(byte *upto, int diff);
+    byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf);
+    void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
+    void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
+protected:
+    void insThreadAt(byte *ptr, byte b1, byte b2, byte b3, const char *s, byte len);
 public:
     int16_t pos, key_at_pos;
-#if defined(DX_INT64MAP)
+#if DX_INT64MAP == 1
     uint64_t *bitmap;
 #else
     uint32_t *bitmap1;
