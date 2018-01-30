@@ -13,6 +13,16 @@
 
 using namespace std;
 
+#define USE_POP_CNT 1
+// __builtin_popcount(x)
+#if USE_POP_CNT == 1
+#define BIT_COUNT(x) util::popcnt(x)
+#define BIT_COUNT2(x) util::popcnt2(x)
+#else
+#define BIT_COUNT(x) util::bit_count[x]
+#define BIT_COUNT2(x) util::bit_count2x[x]
+#endif
+
 #define BPT_IS_LEAF_BYTE buf[0]
 #define BPT_FILLED_SIZE buf + 1
 #define BPT_LAST_DATA_PTR buf + 3
@@ -77,10 +87,25 @@ protected:
         memmove(ptr, ptr + count, trie + BPT_TRIE_LEN - ptr);
     }
 
-    inline void insAt(byte *ptr, byte b) {
+    inline void insAt(byte *ptr, byte b, const char *s, byte len) {
+        memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN - ptr);
+        *ptr++ = b;
+        memcpy(ptr, s, len);
+        BPT_TRIE_LEN += len;
+        BPT_TRIE_LEN++;
+    }
+
+    inline void insAt(byte *ptr, const char *s, byte len) {
+        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN - ptr);
+        memcpy(ptr, s, len);
+        BPT_TRIE_LEN += len;
+    }
+
+    inline byte insAt(byte *ptr, byte b) {
         memmove(ptr + 1, ptr, trie + BPT_TRIE_LEN - ptr);
         *ptr = b;
         BPT_TRIE_LEN++;
+        return 1;
     }
 
     inline byte insAt(byte *ptr, byte b1, byte b2) {
@@ -194,7 +219,7 @@ public:
     byte *trie;
     byte *triePos;
     byte *origPos;
-    int16_t need_count;
+    byte need_count;
     byte insertState;
     int keyPos;
     virtual ~trie_node_handler() {}

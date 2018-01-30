@@ -137,7 +137,7 @@ int16_t bfos_node_handler::nextPtr(bfos_iterator_status& s) {
             s.tc = *s.t++;
             s.orig_children = s.children = (s.tc & x02 ? *s.t++ : 0);
             s.orig_leaves = s.leaves = *s.t++;
-            s.t += util::bit_count[s.children];
+            s.t += BIT_COUNT(s.children);
             s.offset_a[s.keyPos] = util::first_bit_offset[s.children
                     | s.leaves];
         }
@@ -165,9 +165,9 @@ int16_t bfos_node_handler::nextPtr(bfos_iterator_status& s) {
                 s.tc = *s.t++;
                 s.orig_children = s.children = (s.tc & x02 ? *s.t++ : 0);
                 s.orig_leaves = s.leaves = *s.t++;
-                s.t += util::bit_count[s.children];
+                s.t += BIT_COUNT(s.children);
             } else {
-                s.t += util::bit_count2x[s.orig_leaves];
+                s.t += BIT_COUNT2(s.orig_leaves);
                 s.offset_a[s.keyPos] = 0x09;
                 break;
             }
@@ -315,14 +315,14 @@ void bfos_node_handler::updatePtrs(byte *upto, int diff) {
     byte *t = trie;
     byte tc = *t++;
     while (t <= upto) {
-        int count = (tc & x02 ? util::bit_count[*t++] : 0);
+        int count = (tc & x02 ? BIT_COUNT(*t++) : 0);
         byte leaves = *t++;
         while (count--) {
             if (t < upto && (t + *t) >= upto)
                 *t += diff;
             t++;
         }
-        t += util::bit_count2x[leaves];
+        t += BIT_COUNT2(leaves);
         tc = *t++;
     }
 }
@@ -358,7 +358,7 @@ int16_t bfos_node_handler::insertCurrent() {
         leafPos = origPos + ((*origPos & x02) ? 2 : 1);
         *leafPos |= mask;
         updatePtrs(triePos, 2);
-        insAt(triePos, 0, 0);
+        insAt(triePos, x00, x00);
         ret = triePos - trie;
         break;
     case INSERT_THREAD:
@@ -372,7 +372,7 @@ int16_t bfos_node_handler::insertCurrent() {
         childPos = origPos + 1;
         if (*origPos & x02) {
             triePos = childPos + 2
-                + util::bit_count[*childPos & ryte_mask[key_char]];
+                + BIT_COUNT(*childPos & ryte_mask[key_char]);
             insAt(triePos, (byte) (BPT_TRIE_LEN - (triePos - trie) + 1));
             updatePtrs(triePos, 1);
             *childPos |= mask;
@@ -386,8 +386,8 @@ int16_t bfos_node_handler::insertCurrent() {
         p = keyPos;
         min = util::min16(key_len, keyPos + key_at_len);
         leafPos = origPos + ((*origPos & x02) ? 2 : 1);
-        triePos = leafPos + util::bit_count[*childPos] + 1;
-        triePos += util::bit_count2x[*leafPos & ryte_mask[key_char]];
+        triePos = leafPos + BIT_COUNT(*childPos) + 1;
+        triePos += BIT_COUNT2(*leafPos & ryte_mask[key_char]);
         ptr = util::getInt(triePos);
         if (p < min) {
             (*leafPos) &= ~mask;
@@ -495,17 +495,17 @@ int16_t bfos_node_handler::getLastPtrOfChild(byte *triePos) {
         byte tc = *triePos++;
         byte children = (tc & x02 ? *triePos++ : 0);
         byte leaves = *triePos++;
-        triePos += util::bit_count[children];
+        triePos += BIT_COUNT(children);
         if (tc & x04) {
             if (util::first_bit_mask[leaves] <= children) {
                 triePos--;
                 triePos += *triePos;
             } else {
-                triePos += util::bit_count2x[leaves];
+                triePos += BIT_COUNT2(leaves);
                 return util::getInt(triePos - 2);
             }
         } else
-            triePos += util::bit_count2x[leaves];
+            triePos += BIT_COUNT2(leaves);
     } while (1);
     return -1;
 }
@@ -515,15 +515,15 @@ byte *bfos_node_handler::getLastPtr(byte *last_t, byte last_off) {
     byte trie_char = *last_t++;
     last_child = (trie_char & x02 ? *last_t++ : 0);
     last_leaf = *last_t++;
-    cnt = util::bit_count[last_child];
+    cnt = BIT_COUNT(last_child);
     last_child &= ryte_mask[last_off];
     last_leaf &= ryte_leaf_mask[last_off];
     if (last_child < util::first_bit_mask[last_leaf]) {
         last_t += cnt;
-        last_t += util::bit_count2x[last_leaf];
+        last_t += BIT_COUNT2(last_leaf);
         return buf + util::getInt(last_t - 2);
     }
-    last_t += util::bit_count[last_child];
+    last_t += BIT_COUNT(last_child);
     last_t--;
     return buf + getLastPtrOfChild(last_t + *last_t);
 }
@@ -548,13 +548,13 @@ void bfos_node_handler::traverseToLeaf(byte *node_paths[]) {
             last_off = 8;
             r_children = (trie_char & x02 ? *t++ : 0);
             r_leaves = *t++;
-            t += util::bit_count[r_children];
-            t += util::bit_count2x[r_leaves];
+            t += BIT_COUNT(r_children);
+            t += BIT_COUNT2(r_leaves);
             if (trie_char & x04) {
                 if (r_children < util::first_bit_mask[r_leaves])
                     key_at = buf + util::getInt(t - 2);
                 else {
-                    t -= util::bit_count2x[r_leaves];
+                    t -= BIT_COUNT2(r_leaves);
                     t--;
                     key_at = buf + getLastPtrOfChild(t + *t);
                 }
@@ -588,8 +588,8 @@ void bfos_node_handler::traverseToLeaf(byte *node_paths[]) {
             case 2:
                 int16_t cmp;
                 r_mask = ryte_mask[key_char];
-                t += util::bit_count[r_children];
-                t += util::bit_count2x[r_leaves & r_mask];
+                t += BIT_COUNT(r_children);
+                t += BIT_COUNT2(r_leaves & r_mask);
                 int16_t ptr;
                 ptr = util::getInt(t);
                 key_at = buf + ptr;
@@ -613,8 +613,8 @@ void bfos_node_handler::traverseToLeaf(byte *node_paths[]) {
                 NEXT_LEVEL
                 continue;
             case 3:
-                t += util::bit_count[r_children];
-                t += util::bit_count2x[r_leaves & ryte_mask[key_char]];
+                t += BIT_COUNT(r_children);
+                t += BIT_COUNT2(r_leaves & ryte_mask[key_char]);
                 key_at = buf + util::getInt(t);
                 NEXT_LEVEL
                 continue;
@@ -623,7 +623,7 @@ void bfos_node_handler::traverseToLeaf(byte *node_paths[]) {
                 last_off = key_char + 9;
                 break;
             }
-            t += util::bit_count[r_children & ryte_mask[key_char]];
+            t += BIT_COUNT(r_children & ryte_mask[key_char]);
             t += *t;
             key_char = key[keyPos++];
             continue;
@@ -649,8 +649,8 @@ int16_t bfos_node_handler::locate() {
             last_child_pos = 0;
             r_children = (trie_char & x02 ? *t++ : 0);
             r_leaves = *t++;
-            t += util::bit_count[r_children];
-            t += util::bit_count2x[r_leaves];
+            t += BIT_COUNT(r_children);
+            t += BIT_COUNT2(r_leaves);
             if (trie_char & x04) {
                 if (isPut) {
                     triePos = t;
@@ -672,8 +672,8 @@ int16_t bfos_node_handler::locate() {
                     (r_children & r_mask ? (keyPos == key_len ? 0 : 1) : 0)) {
             case 0:
                 if (isPut) {
-                    t += util::bit_count[r_children];
-                    t += util::bit_count2x[r_leaves & ryte_mask[key_char]];
+                    t += BIT_COUNT(r_children);
+                    t += BIT_COUNT2(r_leaves & ryte_mask[key_char]);
                     triePos = t;
                     insertState = INSERT_LEAF;
                     need_count = 2;
@@ -683,8 +683,8 @@ int16_t bfos_node_handler::locate() {
                 break;
             case 2:
                 int16_t cmp;
-                t += util::bit_count[r_children];
-                t += util::bit_count2x[r_leaves & ryte_mask[key_char]];
+                t += BIT_COUNT(r_children);
+                t += BIT_COUNT2(r_leaves & ryte_mask[key_char]);
                 int16_t ptr;
                 ptr = util::getInt(t);
                 key_at = buf + ptr;
@@ -704,12 +704,12 @@ int16_t bfos_node_handler::locate() {
                 }
                 return -1;
             case 3:
-                t += util::bit_count[r_children];
-                t += util::bit_count2x[r_leaves & ryte_mask[key_char]];
+                t += BIT_COUNT(r_children);
+                t += BIT_COUNT2(r_leaves & ryte_mask[key_char]);
                 key_at = buf + util::getInt(t);
                 return 1;
             }
-            t += util::bit_count[r_children & ryte_mask[key_char]];
+            t += BIT_COUNT(r_children & ryte_mask[key_char]);
             last_child_pos = t - trie;
             t += *t;
             key_char = key[keyPos++];

@@ -218,6 +218,36 @@ public:
         return 0x08;
     }
 
+    // SWAR algorithm
+    static int bitcount (byte x)  {
+        x -= ((x >> 1) & 0x55);
+        x = (((x >> 2) & 0x33) + (x & 0x33));
+        return (((x >> 4) + x) & 0x0f);
+        //x += (x >> 8);
+        //x += (x >> 16);
+        //return x; //(x & 0x3f);
+    }
+
+    static inline uint16_t popcnt(uint16_t a) {
+    uint16_t b;
+    __asm__ volatile ("POPCNT %1, %0;"
+                :"=r"(b)
+                :"r"(a)
+                :
+            );
+    return b;
+    }
+
+    static inline uint16_t popcnt2(uint16_t a) {
+    uint16_t b;
+    __asm__ volatile ("POPCNT %1, %0;"
+                :"=r"(b)
+                :"r"(a)
+                :
+            );
+    return b << 1;
+    }
+
 };
 
 #endif
