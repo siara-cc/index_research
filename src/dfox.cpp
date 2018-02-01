@@ -143,46 +143,35 @@ void dfox::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
 }
 
 byte *dfox_node_handler::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf) {
-    if (t == trie) {
-        keyPos = 0;
-        ctr = x08;
-    } else {
-        while (ctr == x08 && (tc & x04)) {
-            keyPos--;
-            tc = trie[tp[keyPos]];
-            child = (tc & x02 ? trie[tp[keyPos] + 1] : x00);
-            leaf = trie[tp[keyPos] + (tc & x02 ? 2 : 1)];
-            ctr = first_key[keyPos] & 0x07;
-            ctr++;
-        }
-    }
     do {
-        if (ctr > x07) {
-            tp[keyPos] = t - trie;
-            tc = *t++;
-            child = (tc & x02 ? *t++ : x00);
-            leaf = *t++;
-            ctr = util::first_bit_offset[child | leaf];
+        while (ctr > x07) {
+            if (tc & x04) {
+                keyPos--;
+                tc = trie[tp[keyPos]];
+                child = (tc & x02 ? trie[tp[keyPos] + 1] : 0);
+                leaf = trie[tp[keyPos] + (tc & x02 ? 2 : 1)];
+                ctr = first_key[keyPos] & 0x07;
+                ctr++;
+            } else {
+                tp[keyPos] = t - trie;
+                tc = *t++;
+                child = (tc & x02 ? *t++ : 0);
+                leaf = *t++;
+                ctr = 0;
+            }
         }
         first_key[keyPos] = (tc & xF8) | ctr;
-        byte mask = (x01 << ctr);
+        byte mask = x01 << ctr;
         if (leaf & mask) {
-            if (child & mask)
-                leaf &= ~mask;
-            else
+            leaf &= ~mask;
+            if (0 == (child & mask))
                 ctr++;
             return t;
         }
         if (child & mask) {
             keyPos++;
             ctr = x08;
-        }
-        while (ctr == x07 && (tc & x04)) {
-            keyPos--;
-            tc = trie[tp[keyPos]];
-            child = (tc & x02 ? trie[tp[keyPos] + 1] : x00);
-            leaf = trie[tp[keyPos] + (tc & x02 ? 2 : 1)];
-            ctr = first_key[keyPos] & 0x07;
+            tc = 0;
         }
         ctr++;
     } while (1); // (t - trie) < BPT_TRIE_LEN);
@@ -564,7 +553,7 @@ int16_t dfox_node_handler::getPtr(int16_t pos) {
     return util::getInt(kvIdx);
 #endif
 }
-
+/*
 void dfox_node_handler::updatePtrs(byte *upto, int diff) {
     byte *t = trie;
     byte tc = *t++;
@@ -583,7 +572,7 @@ void dfox_node_handler::updatePtrs(byte *upto, int diff) {
         tc = *t++;
     }
 }
-
+*/
 void dfox_node_handler::insertCurrent() {
     byte origTC;
     byte key_char;
@@ -618,7 +607,7 @@ void dfox_node_handler::insertCurrent() {
         diff = triePos - origPos;
         // 3 possible relationships between key_char and *triePos, 4 possible positions of triePos
         cmp_rel = ((*triePos ^ key_char) > x07 ? (*triePos < key_char ? 0 : 1) : 2);
-        if (cmp_rel == 0) {
+        if (key_char > *triePos) {
             triePos = origPos + 1 + (*origPos >> 1);
             char to_skip = 1;
             while (to_skip) {
@@ -633,7 +622,8 @@ void dfox_node_handler::insertCurrent() {
                 if (child_tc & x04)
                     to_skip--;
             }
-            insAt(triePos, (key_char & xF8) | 0x04, 1 << (key_char & x07));
+            if (cmp_rel == 0)
+                insAt(triePos, (key_char & xF8) | 0x04, 1 << (key_char & x07));
             triePos = origPos + diff;
         }
         diff--;
@@ -643,7 +633,7 @@ void dfox_node_handler::insertCurrent() {
         b = (cmp_rel == 2 ? x04 : x00) | (cmp_rel == 1 ? x00 : x02);
         need_count = *origPos >> 1; // save original count
         *triePos++ = ((cmp_rel == 0 ? c : key_char) & xF8) | b;
-        b = (cmp_rel == 1 ? (need_count == 1 ? 3 : 4) : (need_count == 1 ? 1 : 2));
+        b = (cmp_rel == 1 ? (diff ? 4 : 3) : (diff ? 2 : 1));
         if (diff) {
             triePos = origPos + diff + 2;
             *origPos = (diff << 1) | x01;
@@ -654,15 +644,15 @@ void dfox_node_handler::insertCurrent() {
             b++;
         // this just inserts b number of bytes - buf is dummy
         insAt(triePos + (diff ? 0 : 1), (const char *) buf, b);
-        *triePos++ = 1 << ((cmp_rel == 0 ? c : key_char) & x07);
+        *triePos++ = 1 << ((cmp_rel == 1 ? key_char : c) & x07);
         if (diff && cmp_rel != 1)
-            *triePos++ = 1 << (c & x07);
+            *triePos++ = (cmp_rel == 0 ? 0 : (1 << (key_char & x07)));
         if (cmp_rel == 1) {
             *triePos++ = (c & xF8) | x06;
             *triePos++ = 1 << (c & x07);
             *triePos++ = 0;
         } else if (diff == 0)
-            *triePos++ = ((cmp_rel == 0) ? 0 : (1 << (c & x07)));
+            *triePos++ = ((cmp_rel == 0) ? 0 : (1 << ((cmp_rel == 2 ? key_char : c) & x07)));
         if (need_count)
             *triePos = (need_count << 1) | x01;
         break;
@@ -699,6 +689,7 @@ void dfox_node_handler::insertCurrent() {
                 triePos += need_count;
                 triePos++;
                 p += need_count;
+                dfox::count1 += need_count;
             }
             c1 = key[p];
             c2 = key_at[p - keyPos];
@@ -719,7 +710,6 @@ void dfox_node_handler::insertCurrent() {
                         (x01 << (c1 & x07)) | (x01 << (c2 & x07)));
                 break;
             case 2:
-                dfox::count1++;
                 triePos += insAt(triePos, (c1 & xF8) | x06, x01 << (c1 & x07),
                         0);
                 break;
@@ -764,7 +754,7 @@ void dfox_node_handler::insertCurrent() {
     }
 
 }
-
+/*
 void dfox_node_handler::insThreadAt(byte *ptr, byte b1, byte b2, byte b3, const char *s, byte len) {
     memmove(ptr + 3 + len, ptr, trie + BPT_TRIE_LEN - ptr);
     *ptr++ = b1;
@@ -774,7 +764,7 @@ void dfox_node_handler::insThreadAt(byte *ptr, byte b1, byte b2, byte b3, const 
     BPT_TRIE_LEN += len;
     BPT_TRIE_LEN += 3;
 }
-
+*/
 int16_t dfox_node_handler::locate() {
     byte key_char;
     byte *t = trie;
@@ -784,6 +774,8 @@ int16_t dfox_node_handler::locate() {
     do {
         byte trie_char = *t;
         int to_skip;
+        //switch ((key_char ^ trie_char) > x07 ?
+        //        (key_char > trie_char ? 0 : 2) : 1) {
         switch ((trie_char & x01) ? 3 : ((key_char ^ trie_char) > x07 ?
                 (key_char > trie_char ? 0 : 2) : 1)) {
         case 0:
