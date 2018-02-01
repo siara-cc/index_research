@@ -13,10 +13,10 @@
 
 using namespace std;
 
-#define USE_POP_CNT 1
-// __builtin_popcount(x)
+#define USE_POP_CNT 0
+
 #if USE_POP_CNT == 1
-#define BIT_COUNT(x) util::popcnt(x)
+#define BIT_COUNT(x) __builtin_popcount(x)
 #define BIT_COUNT2(x) util::popcnt2(x)
 #else
 #define BIT_COUNT(x) util::bit_count[x]

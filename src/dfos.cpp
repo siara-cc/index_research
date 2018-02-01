@@ -336,11 +336,11 @@ void dfos_node_handler::deleteTrieLastHalf(int16_t brk_key_len, byte *first_key,
         }
         *t++ &= ~(xFE << offset); // ryte_incl_mask[offset];
     }
-    byte to_skip = util::bit_count[children];
+    byte to_skip = BIT_COUNT(children);
     while (to_skip) {
         byte tc = *t++;
         if (tc & x02)
-            to_skip += util::bit_count[*t++];
+            to_skip += BIT_COUNT(*t++);
         t++;
         if (tc & x04)
             to_skip--;
@@ -366,7 +366,7 @@ void dfos_node_handler::deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key
         count = 0;
         if (tc & x02) {
             byte children = *t;
-            count = util::bit_count[children & ~(xFF << offset)]; // ryte_mask[offset]];
+            count = BIT_COUNT(children & ~(xFF << offset)); // ryte_mask[offset]);
             children &= (xFF << offset); // left_incl_mask[offset];
             *t++ = children;
         }
@@ -376,7 +376,7 @@ void dfos_node_handler::deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key
         while (count) {
             tc = *t++;
             if (tc & x02)
-                count += util::bit_count[*t++];
+                count += BIT_COUNT(*t++);
             t++;
             if (tc & x04)
                 count--;
@@ -693,13 +693,13 @@ int16_t dfos_node_handler::locate() {
                 (key_char > trie_char ? 0 : 2) : 1) {
         case 0:
             origPos = t++;
-            to_skip = (trie_char & x02 ? util::bit_count[*t++] : x00);
-            pos += util::bit_count[*t++];
+            to_skip = (trie_char & x02 ? BIT_COUNT(*t++) : x00);
+            pos += BIT_COUNT(*t++);
             while (to_skip) {
                 byte child_tc = *t++;
                 if (child_tc & x02)
-                    to_skip += util::bit_count[*t++];
-                pos += util::bit_count[*t++];
+                    to_skip += BIT_COUNT(*t++);
+                pos += BIT_COUNT(*t++);
                 if (child_tc & x04)
                     to_skip--;
             }
@@ -719,13 +719,13 @@ int16_t dfos_node_handler::locate() {
             r_leaves = *t++;
             key_char &= x07;
             r_mask = ~(xFF << key_char);
-            pos += util::bit_count[r_leaves & r_mask];
-            to_skip = util::bit_count[r_children & r_mask];
+            pos += BIT_COUNT(r_leaves & r_mask);
+            to_skip = BIT_COUNT(r_children & r_mask);
             while (to_skip) {
                 trie_char = *t++;
                 if (trie_char & x02)
-                    to_skip += util::bit_count[*t++];
-                pos += util::bit_count[*t++];
+                    to_skip += BIT_COUNT(*t++);
+                pos += BIT_COUNT(*t++);
                 if (trie_char & x04)
                     to_skip--;
             }
