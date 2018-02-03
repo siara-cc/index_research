@@ -9,6 +9,7 @@
 
 using namespace std;
 
+#define DX_MIDDLE_PREFIX 1
 #define DX_INT64MAP 1
 #define DX_9_BIT_PTR 1
 
@@ -42,6 +43,7 @@ private:
     void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     int deleteSegment(byte *t, byte *delete_start);
+    byte *skipChildren(byte *t, int count);
 protected:
     void insThreadAt(byte *ptr, byte b1, byte b2, byte b3, const char *s, byte len);
 public:
