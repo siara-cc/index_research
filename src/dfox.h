@@ -41,6 +41,7 @@ private:
     byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf);
     void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
+    int deleteSegment(byte *t, byte *delete_start);
 protected:
     void insThreadAt(byte *ptr, byte b1, byte b2, byte b3, const char *s, byte len);
 public:

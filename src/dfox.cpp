@@ -148,6 +148,10 @@ byte *dfox_node_handler::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, 
             if (tc & x04) {
                 keyPos--;
                 tc = trie[tp[keyPos]];
+                while (tc & x01) {
+                    keyPos--;
+                    tc = trie[tp[keyPos]];
+                }
                 child = (tc & x02 ? trie[tp[keyPos] + 1] : 0);
                 leaf = trie[tp[keyPos] + (tc & x02 ? 2 : 1)];
                 ctr = first_key[keyPos] & 0x07;
@@ -155,6 +159,15 @@ byte *dfox_node_handler::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, 
             } else {
                 tp[keyPos] = t - trie;
                 tc = *t++;
+                if (tc & x01) {
+                    byte len = tc >> 1;
+                    memset(tp + keyPos, t - trie - 1, len);
+                    memcpy(first_key + keyPos, t, len);
+                    t += len;
+                    keyPos += len;
+                    tp[keyPos] = t - trie;
+                    tc = *t++;
+                }
                 child = (tc & x02 ? *t++ : 0);
                 leaf = *t++;
                 ctr = 0;
@@ -194,7 +207,7 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t brk_kv_pos;
     int16_t tot_len;
     brk_kv_pos = tot_len = 0;
-    char ctr = 0;
+    char ctr = x08;
     byte tp[DFOX_MAX_KEY_PREFIX_LEN];
     byte *t = trie;
     byte tc, child, leaf;
@@ -206,6 +219,7 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     for (idx = 0; idx < orig_filled_size; idx++) {
         int16_t src_idx = getPtr(idx);
         int16_t kv_len = buf[src_idx];
+        byte key_len = kv_len;
         kv_len++;
         kv_len += buf[src_idx + kv_len];
         kv_len++;
@@ -215,6 +229,9 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         kv_last_pos += kv_len;
         if (brk_idx == -1) {
             t = nextKey(first_key, tp, t, ctr, tc, child, leaf);
+            memcpy(first_key + keyPos + 1, buf + src_idx + 1, key_len);
+            first_key[keyPos+1+key_len] = 0;
+            cout << first_key << endl;
             //brk_key_len = nextKey(s);
             //if (tot_len > halfKVLen) {
             if (tot_len > halfKVLen || idx == (orig_filled_size / 2)) {
@@ -309,6 +326,8 @@ void dfox_node_handler::deleteTrieLastHalf(int16_t brk_key_len, byte *first_key,
     byte *t = 0;
     byte children = 0;
     for (int idx = 0; idx <= brk_key_len; idx++) {
+        if (trie[tp[idx]] & x01)
+            continue;
         byte offset = first_key[idx] & 0x07;
         t = trie + tp[idx];
         byte tc = *t;
@@ -325,6 +344,10 @@ void dfox_node_handler::deleteTrieLastHalf(int16_t brk_key_len, byte *first_key,
     byte to_skip = BIT_COUNT(children);
     while (to_skip) {
         byte tc = *t++;
+        if (tc & x01) {
+            t += (tc >> 1);
+            continue;
+        }
         if (tc & x02)
             to_skip += BIT_COUNT(*t++);
         t++;
@@ -335,21 +358,30 @@ void dfox_node_handler::deleteTrieLastHalf(int16_t brk_key_len, byte *first_key,
 
 }
 
+int dfox_node_handler::deleteSegment(byte *t, byte *delete_start) {
+    int count = t - delete_start;
+    if (count) {
+        BPT_TRIE_LEN -= count;
+        memmove(delete_start, t, trie + BPT_TRIE_LEN - delete_start);
+    }
+    return count;
+}
+
 void dfox_node_handler::deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
     byte *delete_start = trie;
     int tot_del = 0;
     for (int idx = 0; idx <= brk_key_len; idx++) {
-        byte offset = first_key[idx] & 0x07;
         byte *t = trie + tp[idx] - tot_del;
-        int count = t - delete_start;
-        if (count) {
-            BPT_TRIE_LEN -= count;
-            memmove(delete_start, t, trie + BPT_TRIE_LEN - delete_start);
-            t -= count;
-            tot_del += count;
+        int count = deleteSegment(t, delete_start);
+        t -= count;
+        tot_del += count;
+        while (trie[tp[idx] - tot_del] & x01) {
+            idx++;
         }
-        byte tc = *t++;
+        t = trie + tp[idx] - tot_del;
         count = 0;
+        byte offset = first_key[idx] & 0x07;
+        byte tc = *t++;
         if (tc & x02) {
             byte children = *t;
             count = BIT_COUNT(children & ~(xFF << offset)); // ryte_mask[offset]];
@@ -361,19 +393,17 @@ void dfox_node_handler::deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key
         delete_start = t;
         while (count) {
             tc = *t++;
+            if (tc & x01) {
+                t += (tc >> 1);
+                continue;
+            }
             if (tc & x02)
                 count += BIT_COUNT(*t++);
             t++;
             if (tc & x04)
                 count--;
         }
-        if (t != delete_start) {
-            count = t - delete_start;
-            BPT_TRIE_LEN -= count;
-            memmove(delete_start, t, trie + BPT_TRIE_LEN - delete_start);
-            t -= count;
-            tot_del += count;
-        }
+        tot_del += deleteSegment(t, delete_start);
     }
 
 }
@@ -698,9 +728,9 @@ void dfox_node_handler::insertCurrent() {
                 c1 = c2;
                 c2 = swap;
             }
-            //switch ((c1 ^ c2) > x07 ?
-            //        0 : (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1)) {
-            switch ((c1 ^ c2) > x07 ? 0 : (c1 == c2 ? 3 : 1)) {
+            switch ((c1 ^ c2) > x07 ?
+                    0 : (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1)) {
+            //switch ((c1 ^ c2) > x07 ? 0 : (c1 == c2 ? 3 : 1)) {
             case 0:
                 triePos += insAt(triePos, c1 & xF8, x01 << (c1 & x07),
                         (c2 & xF8) | x04, x01 << (c2 & x07));
@@ -874,7 +904,15 @@ int16_t dfox_node_handler::locate() {
                     if (isPut) {
                         triePos = t;
                         insertState = INSERT_CONVERT;
-                        need_count = 5;
+                        need_count = 6;
+                    }
+                    return ~pos;
+                }
+                if (keyPos == key_len) {
+                    if (isPut) {
+                        triePos = t;
+                        insertState = INSERT_CONVERT;
+                        need_count = 6;
                     }
                     return ~pos;
                 }
