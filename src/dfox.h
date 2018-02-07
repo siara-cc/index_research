@@ -32,7 +32,7 @@ using namespace std;
 #define INSERT_THREAD 5
 #define INSERT_CONVERT 6
 
-#define DFOX_MAX_KEY_PREFIX_LEN 60
+#define DFOX_MAX_KEY_PREFIX_LEN 72
 
 class dfox_node_handler : public trie_node_handler {
 private:

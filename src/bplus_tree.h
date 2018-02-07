@@ -262,7 +262,7 @@ public:
         util::print((long) (num_entries / blockCountLeaf));
         util::endl();
         util::print("Avg Max Count:");
-        util::print((long) (maxKeyCountNode / blockCountNode));
+        util::print((long) (maxKeyCountNode / (blockCountNode ? blockCountNode : 1)));
         util::print(", ");
         util::print((long) (maxKeyCountLeaf / blockCountLeaf));
         util::endl();

@@ -9,8 +9,8 @@
 
 using namespace std;
 
-#define BX_INT64MAP 0
-#define BX_9_BIT_PTR 0
+#define BX_INT64MAP 1
+#define BX_9_BIT_PTR 1
 #define BASIX_NODE_SIZE 512
 
 #if BX_9_BIT_PTR == 1
