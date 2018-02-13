@@ -34,8 +34,8 @@ typedef unsigned char byte;
 
 class util {
 public:
-    static int bit_count[256];
-    static int bit_count2x[256];
+    static int16_t bit_count[256];
+    static int16_t bit_count2x[256];
     static byte first_bit_mask[256];
     static byte first_bit_offset[256];
 

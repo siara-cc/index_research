@@ -555,13 +555,13 @@ void dfqx_node_handler::insertCurrent() {
     byte *leafPos;
 
     switch (insertState) {
-    case INSERT_MIDDLE1:
+    case INSERT_AFTER:
         key_char = key[keyPos - 1];
         mask = x80 >> (key_char & x03);
         *origPos &= xFD;
         insAt(triePos, ((key_char & xFC) | x02), mask);
         break;
-    case INSERT_MIDDLE2:
+    case INSERT_BEFORE:
         key_char = key[keyPos - 1];
         mask = x80 >> (key_char & x03);
         insAt(origPos, (key_char & xFC), mask);
@@ -670,7 +670,7 @@ int16_t dfqx_node_handler::locate() {
             if (trie_char & x02) {
                 if (isPut) {
                     triePos = t;
-                    insertState = INSERT_MIDDLE1;
+                    insertState = INSERT_AFTER;
                     need_count = 2;
                 }
                 pos = to_skip >> 8;
@@ -739,7 +739,7 @@ int16_t dfqx_node_handler::locate() {
             break;
         case 2:
             if (isPut) {
-                insertState = INSERT_MIDDLE2;
+                insertState = INSERT_BEFORE;
                 need_count = 2;
             }
             pos = to_skip >> 8;

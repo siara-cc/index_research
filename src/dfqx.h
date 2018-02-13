@@ -24,8 +24,8 @@ using namespace std;
 #define DFQX_HDR_SIZE 6
 //#define MID_KEY_LEN buf[DQ_MAX_PTR_BITMAP_BYTES+6]
 
-#define INSERT_MIDDLE1 1
-#define INSERT_MIDDLE2 2
+#define INSERT_AFTER 1
+#define INSERT_BEFORE 2
 #define INSERT_LEAF 3
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5

@@ -221,7 +221,7 @@ public:
     byte *origPos;
     byte need_count;
     byte insertState;
-    int keyPos;
+    int16_t keyPos;
     virtual ~trie_node_handler() {}
 };
 
