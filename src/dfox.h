@@ -9,7 +9,7 @@
 
 using namespace std;
 
-#define DX_MIDDLE_PREFIX 1
+#define DX_MIDDLE_PREFIX 0
 #define DX_INT64MAP 1
 #define DX_9_BIT_PTR 1
 
@@ -25,8 +25,8 @@ using namespace std;
 #define DFOX_HDR_SIZE 6
 //#define MID_KEY_LEN buf[DX_MAX_PTR_BITMAP_BYTES+6]
 
-#define INSERT_MIDDLE1 1
-#define INSERT_MIDDLE2 2
+#define INSERT_AFTER 1
+#define INSERT_BEFORE 2
 #define INSERT_LEAF 3
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5
@@ -38,12 +38,12 @@ class dfox_node_handler : public trie_node_handler {
 private:
     inline byte insChildAndLeafAt(byte *ptr, byte b1, byte b2);
     inline void append(byte b);
-    void updatePtrs(byte *upto, int diff);
+    void updatePtrs(byte *loop_upto, byte *covering_upto, int diff);
     byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf);
     void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     int deleteSegment(byte *t, byte *delete_start);
-    byte *skipChildren(byte *t, int count);
+    byte *skipChildren(byte *t, int16_t count);
 protected:
     void insThreadAt(byte *ptr, byte b1, byte b2, byte b3, const char *s, byte len);
 public:
