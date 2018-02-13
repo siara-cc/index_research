@@ -599,7 +599,7 @@ void dfox_node_handler::updatePtrs(byte *loop_upto, byte *covering_upto, int dif
             t += (tc >> 1);
         } else if (tc & x02) {
             t += 3;
-            if ((t + *t) >= covering_upto) {
+            if ((t + *t) > covering_upto) {
                 *t = *t + diff;
                 (*(t-1))++;
                 t++;
@@ -624,17 +624,17 @@ void dfox_node_handler::insertCurrent() {
         *origPos &= xFB;
         insAt(triePos, ((key_char & xF8) | x04), mask);
         if (keyPos > 1)
-            updatePtrs(origPos - 1, triePos, 2);
+            updatePtrs(origPos - 1, triePos - 1, 2);
         break;
     case INSERT_BEFORE:
         insAt(triePos, key_char & xF8, mask);
         if (keyPos > 1)
-            updatePtrs(origPos, triePos + 2, 2);
+            updatePtrs(origPos, triePos + 1, 2);
         break;
     case INSERT_LEAF:
         leafPos = origPos + (*origPos & x02 ? 2 : 1);
         *leafPos |= mask;
-        updatePtrs(origPos, origPos + 2, 0);
+        updatePtrs(origPos, origPos + 1, 0);
         break;
 #if DX_MIDDLE_PREFIX == 1
     case INSERT_CONVERT:
@@ -724,11 +724,16 @@ void dfox_node_handler::insertCurrent() {
         need_count /= 5;
         if (need_count) {
             need_count--;
-            if (p + need_count == min) {
-                need_count--;
-                need_count = need_count * 5 + 7;
-            } else
-                need_count = need_count * 5 + 4;
+            while (p < min) {
+                c1 = key[p];
+                c2 = key_at[p - keyPos];
+                diff = ((c1 ^ c2) > x07 ? 4 : (c1 == c2 ? (p + 1 == min ? 5 : 5) : 2));
+                if (c1 != c2)
+                    break;
+                p++;
+            }
+            p = keyPos;
+            need_count = need_count * 5 + diff;
         }
 #endif
         while (p < min) {
