@@ -108,6 +108,7 @@ void dfox::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 root.value = (char *) addr;
                 root.value_len = util::ptrToBytes((unsigned long) node->buf, addr);
                 root.pos = 0;
+                root.keyPos = 1;
                 root.insertState = INSERT_EMPTY;
                 root.addData();
                 root.initVars();
@@ -249,7 +250,7 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                 t = new_block.trie + (t - trie);
                 t = new_block.nextKey(first_key, tp, t, ctr, tc, child, leaf);
                 keyPos = new_block.keyPos;
-                src_idx = getPtr(idx + 1);
+                //src_idx = getPtr(idx + 1);
                 //memcpy(first_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
                 //first_key[keyPos+1+buf[src_idx]] = 0;
                 //cout << first_key << endl;
@@ -333,7 +334,7 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 
 void dfox_node_handler::deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
     byte *t;
-    for (int idx = 0; idx <= brk_key_len; idx++) {
+    for (int idx = brk_key_len; idx >= 0; idx--) {
         t = trie + tp[idx];
         byte tc = *t;
         if (tc & x01)
@@ -354,8 +355,9 @@ void dfox_node_handler::deleteTrieLastHalf(int16_t brk_key_len, byte *first_key,
             t = new_t;
         } else
             *t++ &= ~(xFE << offset); // ryte_incl_mask[offset];
+        if (idx == brk_key_len)
+            BPT_TRIE_LEN = t - trie;
     }
-    BPT_TRIE_LEN = t - trie;
 }
 
 byte *dfox_node_handler::skipChildren(byte *t, int16_t count) {
@@ -787,11 +789,8 @@ void dfox_node_handler::insertCurrent() {
         }
         break;
     case INSERT_EMPTY:
-        key_char = *key;
-        mask = x01 << (key_char & x07);
         append((key_char & xF8) | x04);
         append(mask);
-        keyPos = 1;
         break;
     }
 
