@@ -100,6 +100,37 @@ public:
         //return x;
     }
 
+    static int fast_memeq(const void* src1, const void* src2, int len) {
+        /* simple optimization */
+        if (src1 == src2)
+            return 0;
+        /* Convert char pointers to 4 byte integers */
+        int32_t *src1_as_int = (int32_t*) src1;
+        int32_t *src2_as_int = (int32_t*) src2;
+        int major_passes = len >> 2; /* Number of passes at 4 bytes at a time */
+        int minor_passes = len & 0x3; /* last 0..3 bytes leftover at the end */
+        for (int ii = 0; ii < major_passes; ii++) {
+            if (*src1_as_int++ != *src2_as_int++)
+                return 1; /* compare as ints */
+        }
+        /* Handle last few bytes, but has to be as characters */
+        char* src1_as_char = (char*) src1_as_int;
+        char* src2_as_char = (char*) src2_as_int;
+        switch (minor_passes) {
+        case 3:
+            if (*src1_as_char++ != *src2_as_char++)
+                return 1;
+        case 2:
+            if (*src1_as_char++ != *src2_as_char++)
+                return 1;
+        case 1:
+            if (*src1_as_char++ != *src2_as_char++)
+                return 1;
+        }
+        /* If we make it here, all compares succeeded */
+        return 0;
+    }
+
     static void *alignedAlloc(int16_t blockSize) {
 #if defined(_MSC_VER)
  return _aligned_malloc (blockSize, 64);

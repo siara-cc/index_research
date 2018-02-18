@@ -76,7 +76,7 @@ void dft::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             }
             if (root_data == node->buf) {
                 blockCountNode++;
-                root_data = (byte *) util::alignedAlloc(node_size);
+                root_data = (byte *) util::alignedAlloc(DFT_NODE_SIZE);
                 dft_node_handler root(root_data);
                 root.initBuf();
                 root.isPut = true;

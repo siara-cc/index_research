@@ -20,9 +20,8 @@ void basix_node_handler::traverseToLeaf(byte *node_paths[]) {
     while (!isLeaf()) {
         int16_t idx = locate();
         if (idx < 0) {
+            idx++;
             idx = ~idx;
-            if (idx)
-                idx--;
         }
         key_at = buf + getPtr(idx);
         setBuf(getChildPtr(key_at));
@@ -72,7 +71,7 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
             }
             //    maxKeyCount += node->TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[64];
+            byte first_key[72];
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             basix_node_handler new_block(b);
@@ -94,7 +93,7 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
             }
             if (root_data == node->buf) {
                 blockCountNode++;
-                root_data = (byte *) util::alignedAlloc(node_size);
+                root_data = (byte *) util::alignedAlloc(BASIX_NODE_SIZE);
                 basix_node_handler root(root_data);
                 root.initBuf();
                 root.isPut = true;

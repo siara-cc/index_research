@@ -97,7 +97,7 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
             }
             if (root_data == node->buf) {
                 blockCountNode++;
-                root_data = (byte *) util::alignedAlloc(node_size);
+                root_data = (byte *) util::alignedAlloc(RB_TREE_NODE_SIZE);
                 rb_tree_node_handler root(root_data);
                 root.initBuf();
                 root.isPut = true;

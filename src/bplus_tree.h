@@ -16,7 +16,8 @@ using namespace std;
 #define USE_POP_CNT 0
 
 #if USE_POP_CNT == 1
-#define BIT_COUNT(x) __builtin_popcount(x)
+//#define BIT_COUNT(x) __builtin_popcount(x)
+#define BIT_COUNT(x) util::bitcount(x)
 #define BIT_COUNT2(x) util::popcnt2(x)
 #else
 #define BIT_COUNT(x) util::bit_count[x]
@@ -236,7 +237,6 @@ protected:
     int maxKeyCountLeaf;
     int blockCountNode;
     int blockCountLeaf;
-    int node_size;
 
 public:
     byte *root_data;
@@ -245,7 +245,6 @@ public:
         numLevels = blockCountNode = blockCountLeaf = maxKeyCountNode =
                 maxKeyCountLeaf = total_size = maxThread = 0;
         root_data = NULL;
-        node_size = 512;
     }
     virtual ~bplus_tree() {
     }
