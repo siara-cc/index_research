@@ -10,9 +10,9 @@
 using namespace std;
 
 #define DQ_INT64MAP 1
-#define DQ_9_BIT_PTR 0
+#define DQ_9_BIT_PTR 1
 
-#define DFQX_NODE_SIZE 1024
+#define DFQX_NODE_SIZE 512
 
 #if DQ_9_BIT_PTR == 1
 #define DQ_MAX_PTR_BITMAP_BYTES 8
@@ -49,6 +49,7 @@ private:
     void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     int deleteSegment(byte *t, byte *delete_start);
+    inline byte *skipChildren(byte *t, uint16_t& count);
 public:
     int16_t pos, key_at_pos;
 #if DQ_INT64MAP == 1
