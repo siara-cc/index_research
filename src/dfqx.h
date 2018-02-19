@@ -48,6 +48,7 @@ private:
     byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child_leaf);
     void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
+    int deleteSegment(byte *t, byte *delete_start);
 public:
     int16_t pos, key_at_pos;
 #if DQ_INT64MAP == 1

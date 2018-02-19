@@ -16,7 +16,7 @@ char *dfox::get(const char *key, int16_t key_len, int16_t *pValueLen) {
 
 void dfox_node_handler::traverseToLeaf(byte *node_paths[]) {
     byte level = 1;
-    if (isPut)
+    if (node_paths)
         *node_paths = buf;
     while (!isLeaf()) {
         int16_t idx = locate();
@@ -26,7 +26,7 @@ void dfox_node_handler::traverseToLeaf(byte *node_paths[]) {
         }
         key_at = buf + getPtr(idx);
         setBuf(getChildPtr(key_at));
-        if (isPut)
+        if (node_paths)
             node_paths[level++] = buf;
     }
 }
@@ -331,9 +331,8 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 }
 
 void dfox_node_handler::deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
-    byte *t;
     for (int idx = brk_key_len; idx >= 0; idx--) {
-        t = trie + tp[idx];
+        byte *t = trie + tp[idx];
         byte tc = *t;
         if (tc & x01)
             continue;
@@ -828,17 +827,18 @@ int16_t dfox_node_handler::locate() {
                 byte r_mask = ~(xFF << (key_char & x07));
                 pos += BIT_COUNT(r_leaves & r_mask);
                 t = skipChildren(t, BIT_COUNT(r_children & r_mask++));
-                key_char = (r_leaves & r_mask ?
-                    (r_children & r_mask ? (keyPos == key_len ? 3 : 4) : 2) :
-                    (r_children & r_mask ? (keyPos == key_len ? 0 : 1) : 0));
+                key_char = (r_leaves & r_mask ? x01 : x00)
+                        | (r_children & r_mask ? x02 : x00)
+                        | (keyPos == key_len ? x04 : x00);
             } else {
                 byte r_leaves = *t++;
                 byte r_mask = ~(xFF << (key_char & x07));
                 pos += BIT_COUNT(r_leaves & r_mask);
-                key_char = (r_leaves & (r_mask + 1) ? 2 : 0);
+                key_char = (r_leaves & (r_mask + 1) ? x01 : x00);
             }
             switch (key_char) {
-            case 2:
+            case x01:
+            case x05:
                 int16_t cmp;
                 key_at = getKey(pos, &key_at_len);
                 cmp = util::compare(key + keyPos, key_len - keyPos,
@@ -860,21 +860,23 @@ int16_t dfox_node_handler::locate() {
 #endif
                 }
                 return ~pos;
-            case 1:
+            case x02:
                 break;
-            case 3:
+            case x07:
                 key_at = getKey(pos, &key_at_len);
                 return pos;
-            case 0:
+            case x03:
+                pos++;
+                break;
+            case x00:
+            case x04:
+            case x06:
                 if (isPut) {
                     triePos = t;
                     insertState = INSERT_LEAF;
                     need_count = 3;
                 }
                 return ~pos;
-            case 4:
-                pos++;
-                break;
             }
             key_char = key[keyPos++];
 #if DX_MIDDLE_PREFIX == 1
