@@ -10,9 +10,9 @@
 using namespace std;
 
 #define DQ_INT64MAP 1
-#define DQ_9_BIT_PTR 1
+#define DQ_9_BIT_PTR 0
 
-#define DFQX_NODE_SIZE 512
+#define DFQX_NODE_SIZE 1024
 
 #if DQ_9_BIT_PTR == 1
 #define DQ_MAX_PTR_BITMAP_BYTES 8

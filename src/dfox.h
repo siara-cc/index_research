@@ -11,9 +11,9 @@ using namespace std;
 
 #define DX_MIDDLE_PREFIX 1
 #define DX_INT64MAP 1
-#define DX_9_BIT_PTR 1
+#define DX_9_BIT_PTR 0
 
-#define DFOX_NODE_SIZE 512
+#define DFOX_NODE_SIZE 1024
 
 #if DX_9_BIT_PTR == 1
 #define DX_MAX_PTR_BITMAP_BYTES 8

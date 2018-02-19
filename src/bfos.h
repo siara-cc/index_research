@@ -12,7 +12,7 @@ using namespace std;
 #define BFOS_INT64MAP 1
 #define BFOS_9_BIT_PTR 0
 
-#define BFOS_NODE_SIZE 512
+#define BFOS_NODE_SIZE 1024
 
 #if BFOS_9_BIT_PTR == 1
 #define MAX_PTR_BITMAP_BYTES 8
