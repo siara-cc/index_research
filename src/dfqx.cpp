@@ -601,14 +601,20 @@ void dfqx_node_handler::insertCurrent() {
         updatePtrs(origPos, origPos + 1, 0);
         break;
     case INSERT_THREAD:
-        int16_t p, min;
+        uint16_t p, min;
         byte c1, c2;
         byte *fromPos;
         fromPos = triePos;
         if (*origPos & x02) {
             origPos[1]++;
         } else {
-            insAt(origPos + 1, bit_count[origPos[1] >> 4] + 1, x00);
+            p = dbl_bit_count[origPos[1]];
+            min = 0;
+            if (origPos[1] & x0F) {
+                byte *new_t = skipChildren(origPos + 2, p);
+                min = new_t - origPos - 2;
+            }
+            insAt(origPos + 1, (p >> 8) + 1, min);
             triePos += 2;
             *origPos |= x02;
         }
@@ -625,7 +631,7 @@ void dfqx_node_handler::insertCurrent() {
             while (p < min) {
                 c1 = key[p];
                 c2 = key_at[p - keyPos];
-                need_count += ((c1 ^ c2) > x03 ? 4 : (c1 == c2 ? (p + 1 == min ? 6 : 4) : 2));
+                need_count += ((c1 ^ c2) > x03 ? 4 : (c1 == c2 ? (p + 1 == min ? 6 : 2) : 2));
                 if (c1 != c2)
                     break;
                 p++;
@@ -652,8 +658,8 @@ void dfqx_node_handler::insertCurrent() {
                 break;
             case 2:
                 dfqx::count1++;
-                need_count -= 4;
-                triePos += insAt(triePos, (c1 & xFC) | x03, 2, need_count + 2,
+                need_count -= 2;
+                triePos += insAt(triePos, (c1 & xFC) | x01,
                         x08 >> (c1 & x03));
                 break;
             case 3:
@@ -675,7 +681,7 @@ void dfqx_node_handler::insertCurrent() {
                 keyPos--;
         }
         p = triePos - fromPos;
-        updatePtrs(origPos - 2, origPos, p);
+        updatePtrs(origPos - 1, origPos, p);
         origPos[2] += p;
         if (diff < key_at_len)
             diff++;
@@ -711,8 +717,11 @@ int16_t dfqx_node_handler::locate() {
             if (trie_char & x02) {
                 to_skip += (*t++ << 8);
                 t += *t;
-            } else
+            } else {
+                //to_skip &= 0xFF00;
                 to_skip += dbl_bit_count[*t++];
+                t = skipChildren(t, to_skip);
+            }
             if (trie_char & x01) {
                 if (isPut) {
                     triePos = t;
@@ -730,6 +739,7 @@ int16_t dfqx_node_handler::locate() {
                 t += 2;
             r_leaves_children = *t++;
             key_char &= x03;
+            //to_skip &= 0xFF00;
             //to_skip += dbl_bit_count[r_leaves_children & dbl_ryte_mask[key_char]];
             to_skip += dbl_bit_count[r_leaves_children & ((0xEECC8800 >> (key_char << 3)) & xFF)];
             t = skipChildren(t, to_skip);
