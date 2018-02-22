@@ -10,9 +10,9 @@
 using namespace std;
 
 #define DQ_INT64MAP 1
-#define DQ_9_BIT_PTR 1
+#define DQ_9_BIT_PTR 0
 
-#define DFQX_NODE_SIZE 512
+#define DFQX_NODE_SIZE 1024
 
 #if DQ_9_BIT_PTR == 1
 #define DQ_MAX_PTR_BITMAP_BYTES 8
@@ -72,7 +72,7 @@ public:
     void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     void traverseToLeaf(byte *node_paths[] = null);
     int16_t locate();
-    void updatePtrs(byte *upto, int diff);
+    void updatePtrs(byte *loop_upto, byte *covering_upto, int diff);
     void insertCurrent();
     byte *getKey(int16_t pos, int16_t *plen);
     inline char *getValueAt(int16_t *vlen);

@@ -536,7 +536,7 @@ bool dfox_node_handler::isFull(int16_t kv_len) {
         return true;
     if (filledSize() > DX_MAX_PTRS)
         return true;
-    if (BPT_TRIE_LEN > (240 - need_count))
+    if (BPT_TRIE_LEN > (254 - need_count))
         return true;
     return false;
 }
@@ -684,14 +684,13 @@ void dfox_node_handler::insertCurrent() {
         int16_t p, min;
         byte c1, c2;
         byte *fromPos;
+        fromPos = triePos;
         if (*origPos & x02) {
             origPos[3] |= mask;
             origPos[1]++;
-            fromPos = triePos;
         } else {
             insAt(origPos + 1, BIT_COUNT(origPos[1]) + 1, x00, mask);
             triePos += 3;
-            fromPos = triePos - 3;
             *origPos |= x02;
         }
         c1 = c2 = key_char;
@@ -771,7 +770,7 @@ void dfox_node_handler::insertCurrent() {
                 keyPos--;
         }
         p = triePos - fromPos;
-        updatePtrs(origPos - 2, origPos, p + (origPos[2] ? 0 : 0));
+        updatePtrs(origPos - 2, origPos, p);
         origPos[2] += p;
         if (diff < key_at_len)
             diff++;
