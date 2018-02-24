@@ -43,9 +43,10 @@ using namespace std;
 
 //char *IMPORT_FILE = "/Users/arun/index_research/Release/w7.txt";
 char *IMPORT_FILE = null; //"/Users/arun/index_research/Release/dbpedia_labels.txt";
-unsigned long NUM_ENTRIES = 1000;
+//char *IMPORT_FILE = "/Users/arun/index_research/Release/domain_rank.csv";
+unsigned long NUM_ENTRIES = 100;
 int CHAR_SET = 2;
-int KEY_LEN = 7;
+int KEY_LEN = 8;
 int VALUE_LEN = 4;
 int ctr = 0;
 
@@ -281,8 +282,8 @@ void print(linex *dx, const char *key, int16_t key_len) {
 int main2() {
     util::generateBitCounts();
     //rb_tree *dx = new rb_tree();
-    dfox *dx = new dfox();
-    //dfqx *dx = new dfqx();
+    //dfox *dx = new dfox();
+    dfqx *dx = new dfqx();
     //bfos *dx = new bfos();
     //bft *dx = new bft();
     //dft *dx = new dft();
@@ -478,6 +479,7 @@ int main2() {
 
     dx->put("arrogant", 8, "35", 2);
     dx->put("arrogance", 9, "36", 2);
+
     dx->put("aroma", 5, "37", 2); // cmp_rel = 1, case 3
     dx->put("ape", 3, "38", 2); // cmp_rel = 2, case 1
     dx->put("arrange", 7, "39", 2); // cmp_rel = 1, case 2
@@ -1158,35 +1160,19 @@ int main3() {
 int main4() {
     util::generateBitCounts();
     //basix *dx = new basix();
-    bfos *dx = new bfos();
-    //dfqx *dx = new dfqx();
+    //bfos *dx = new bfos();
+    dfox *dx = new dfox();
     //bft *dx = new bft();
     //dft *dx = new dft();
     //rb_tree *dx = new rb_tree();
     //dfqx *dx = new dfqx();
     //linex *dx = new linex();
 
-    dx->put("bdzdqqao", 8, "dzdb", 4);
-    dx->put("allftwdl", 8, "flla", 4);
-    dx->put("aaagswaf", 8, "gaaa", 4);
-    dx->put("elmtncss", 8, "tmle", 4);
-    dx->put("yjrktcpd", 8, "krjy", 4);
-    dx->put("lzfbzsey", 8, "bfzl", 4);
-    dx->put("ryjkqbmd", 8, "kjyr", 4);
-    dx->put("epsuiwpd", 8, "uspe", 4);
-    dx->put("kdcvvodz", 8, "vcdk", 4);
-    dx->put("yhrmqsjb", 8, "mrhy", 4);
+    dx->put("slenwjp", 8, "nels", 4);
+    dx->put("pfqkmdn", 8, "kqfp", 4);
 
-    print(dx, "bdzdqqao", 8);
-    print(dx, "allftwdl", 8);
-    print(dx, "aaagswaf", 8);
-    print(dx, "elmtncss", 8);
-    print(dx, "yjrktcpd", 8);
-    print(dx, "lzfbzsey", 8);
-    print(dx, "ryjkqbmd", 8);
-    print(dx, "epsuiwpd", 8);
-    print(dx, "kdcvvodz", 8);
-    print(dx, "yhrmqsjb", 8);
+    print(dx, "slenwjp", 8);
+    print(dx, "pfqkmdn", 8);
 
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
@@ -1348,9 +1334,9 @@ int main(int argc, char *argv[]) {
     //bft *lx = new bft();
     //dft *lx = new dft();
     //bfos *lx = new bfos();
-    dfox *lx = new dfox();
+    dfqx *lx = new dfqx();
+    //dfox *lx = new dfox();
     //dfos *lx = new dfos();
-    //dfqx *lx = new dfqx();
     it1 = m.begin();
     start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
@@ -1365,13 +1351,12 @@ int main(int argc, char *argv[]) {
 
     ctr = 0;
     //linex *dx = new linex();
-    basix *dx = new basix();
+    //basix *dx = new basix();
     //bft *dx = new bft();
     //bfos *dx = new bfos();
     //dft *dx = new dft();
-    //dfox *dx = new dfox();
     //dfqx *dx = new dfqx();
-    //dfox *dx = new dfox();
+    dfox *dx = new dfox();
     //dfos *dx = new dfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();
@@ -1452,7 +1437,7 @@ int main(int argc, char *argv[]) {
     cout << "Cmp:" << cmp << endl;
     lx->printMaxKeyCount(NUM_ENTRIES);
     lx->printNumLevels();
-    lx->printCounts();
+    //lx->printCounts();
     cout << "Root filled size:" << util::getInt(lx->root_data + 1) << endl;
 
     cmp = 0;

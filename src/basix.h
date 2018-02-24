@@ -22,7 +22,7 @@ using namespace std;
 
 class basix_node_handler : public bplus_tree_node_handler {
 private:
-    int16_t binarySearch(const char *key, int16_t key_len);
+    inline int16_t binarySearch(const char *key, int16_t key_len);
 public:
     int16_t pos;
 #if BX_INT64MAP == 1

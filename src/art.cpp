@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <stdio.h>
 #include <assert.h>
 #include "art.h"
@@ -166,6 +165,13 @@ static art_node** find_child(art_node *n, unsigned char c) {
                 // Use a mask to ignore children that don't exist
                 mask = (1 << n->num_children) - 1;
                 bitfield = _mm_movemask_epi8(cmp) & mask;
+                /*
+                 * If we have a match (any bit set) then we can
+                 * return the pointer match using ctz to get
+                 * the index.
+                 */
+                if (bitfield)
+                    return &p.p2->children[__builtin_ctz(bitfield)];
             #else
             #ifdef __amd64__
                 // Compare the key to all 16 stored keys
@@ -176,27 +182,22 @@ static art_node** find_child(art_node *n, unsigned char c) {
                 // Use a mask to ignore children that don't exist
                 mask = (1 << n->num_children) - 1;
                 bitfield = _mm_movemask_epi8(cmp) & mask;
+
+                /*
+                 * If we have a match (any bit set) then we can
+                 * return the pointer match using ctz to get
+                 * the index.
+                 */
+                if (bitfield)
+                    return &p.p2->children[__builtin_ctz(bitfield)];
             #else
-                // Compare the key to all 16 stored keys
-                bitfield = 0;
-                for (i = 0; i < 16; ++i) {
+                p.p2 = (art_node16*)n;
+                for (i=0;i < n->num_children; i++) {
                     if (p.p2->keys[i] == c)
-                        bitfield |= (1 << i);
+                        return &p.p2->children[i];
                 }
-
-                // Use a mask to ignore children that don't exist
-                mask = (1 << n->num_children) - 1;
-                bitfield &= mask;
             #endif
             #endif
-
-            /*
-             * If we have a match (any bit set) then we can
-             * return the pointer match using ctz to get
-             * the index.
-             */
-            if (bitfield)
-                return &p.p2->children[__builtin_ctz(bitfield)];
             break;
         }
 
@@ -415,6 +416,7 @@ static void add_child16(art_node16 *n, art_node **ref, unsigned char c, void *ch
     if (n->n.num_children < 16) {
         unsigned mask = (1 << n->n.num_children) - 1;
 
+        unsigned idx;
         // support non-x86 architectures
         #ifdef __i386__
             __m128i cmp;
@@ -425,6 +427,8 @@ static void add_child16(art_node16 *n, art_node **ref, unsigned char c, void *ch
 
             // Use a mask to ignore children that don't exist
             unsigned bitfield = _mm_movemask_epi8(cmp) & mask;
+            if (bitfield)
+                idx = __builtin_ctz(bitfield);
         #else
         #ifdef __amd64__
             __m128i cmp;
@@ -435,23 +439,22 @@ static void add_child16(art_node16 *n, art_node **ref, unsigned char c, void *ch
 
             // Use a mask to ignore children that don't exist
             unsigned bitfield = _mm_movemask_epi8(cmp) & mask;
+            if (bitfield)
+                idx = __builtin_ctz(bitfield);
         #else
-            // Compare the key to all 16 stored keys
             unsigned bitfield = 0;
-            for (short i = 0; i < 16; ++i) {
-                if (c < n->keys[i])
-                    bitfield |= (1 << i);
+            for (int i=0;i < n->n.num_children; i++) {
+                if (n->keys[i] == c) {
+                    idx = i;
+                    bitfield = 1;
+                    break;
+                }
             }
-
-            // Use a mask to ignore children that don't exist
-            bitfield &= mask;
         #endif
         #endif
 
         // Check if less than any
-        unsigned idx;
         if (bitfield) {
-            idx = __builtin_ctz(bitfield);
             memmove(n->keys+idx+1,n->keys+idx,n->n.num_children-idx);
             memmove(n->children+idx+1,n->children+idx,
                     (n->n.num_children-idx)*sizeof(void*));

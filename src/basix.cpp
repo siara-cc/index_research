@@ -310,6 +310,9 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 //    return middle;
 //}
 
+#ifndef _MSC_VER
+__attribute__((hot))
+#endif
 int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
     int middle, first, filled_upto;
     int16_t cmp;
@@ -366,6 +369,10 @@ int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
 //    return (cmp == 0) ? n : ~(n+1);
 //}
 
+#ifndef _MSC_VER
+__attribute__((aligned(32)))
+__attribute__((hot))
+#endif
 int16_t basix_node_handler::locate() {
     pos = binarySearch(key, key_len);
     return pos;

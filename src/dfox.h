@@ -42,10 +42,9 @@ private:
     byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf);
     void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
+    void movePtrList(byte orig_trie_len);
     int deleteSegment(byte *t, byte *delete_start);
     inline byte *skipChildren(byte *t, int16_t count);
-protected:
-    void insThreadAt(byte *ptr, byte b1, byte b2, byte b3, const char *s, byte len);
 public:
     int16_t pos, key_at_pos;
 #if DX_INT64MAP == 1

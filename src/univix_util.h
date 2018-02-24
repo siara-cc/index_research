@@ -131,18 +131,21 @@ public:
         return 0;
     }
 
+#ifndef _MSC_VER
+    __attribute__((assume_aligned(64)))
+    __attribute__((malloc))
+#endif
     static void *alignedAlloc(int16_t blockSize) {
 #if defined(_MSC_VER)
- return _aligned_malloc (blockSize, 64);
+        return _aligned_malloc (blockSize, 64);
 #elif defined(__BORLANDC__) || defined(__GNUC__)
- return malloc ((unsigned int)blockSize);
+        void* aPtr;
+        if (posix_memalign (&aPtr, 64, blockSize)) {
+             aPtr = NULL;
+        }
+        return aPtr;
 #else
- void* aPtr;
- if (posix_memalign (&aPtr, 64, blockSize))
- {
-     aPtr = NULL;
- }
- return aPtr;
+        return malloc ((unsigned int)blockSize);
 #endif
     }
 
@@ -259,6 +262,7 @@ public:
         //return x; //(x & 0x3f);
     }
 
+#ifndef _MSC_VER
     static inline uint16_t popcnt(uint16_t a) {
     uint16_t b;
     __asm__ volatile ("POPCNT %1, %0;"
@@ -278,6 +282,7 @@ public:
             );
     return b << 1;
     }
+#endif
 
 };
 

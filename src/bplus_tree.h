@@ -80,16 +80,28 @@ class trie_node_handler: public bplus_tree_node_handler {
 protected:
     inline void delAt(byte *ptr) {
         BPT_TRIE_LEN--;
-        memmove(ptr, ptr + 1, trie + BPT_TRIE_LEN - ptr);
+#if DX_9_BIT_PTR == 1
+        memmove(ptr, ptr + 1, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+        memmove(ptr, ptr + 1, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
     }
 
     inline void delAt(byte *ptr, int16_t count) {
         BPT_TRIE_LEN -= count;
-        memmove(ptr, ptr + count, trie + BPT_TRIE_LEN - ptr);
+#if DX_9_BIT_PTR == 1
+        memmove(ptr, ptr + count, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+        memmove(ptr, ptr + count, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
     }
 
     inline void insAt(byte *ptr, byte b, const char *s, byte len) {
-        memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN - ptr);
+#if DX_9_BIT_PTR == 1
+        memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+        memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
         *ptr++ = b;
         memcpy(ptr, s, len);
         BPT_TRIE_LEN += len;
@@ -97,20 +109,32 @@ protected:
     }
 
     inline void insAt(byte *ptr, const char *s, byte len) {
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN - ptr);
+#if DX_9_BIT_PTR == 1
+        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
         memcpy(ptr, s, len);
         BPT_TRIE_LEN += len;
     }
 
     inline byte insAt(byte *ptr, byte b) {
-        memmove(ptr + 1, ptr, trie + BPT_TRIE_LEN - ptr);
+#if DX_9_BIT_PTR == 1
+        memmove(ptr + 1, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+        memmove(ptr + 1, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
         *ptr = b;
         BPT_TRIE_LEN++;
         return 1;
     }
 
     inline byte insAt(byte *ptr, byte b1, byte b2) {
-        memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN - ptr);
+#if DX_9_BIT_PTR == 1
+        memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+        memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
         *ptr++ = b1;
         *ptr = b2;
         BPT_TRIE_LEN += 2;
@@ -118,7 +142,11 @@ protected:
     }
 
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3) {
-        memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN - ptr);
+#if DX_9_BIT_PTR == 1
+        memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+        memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr = b3;
@@ -127,7 +155,11 @@ protected:
     }
 
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
-        memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN - ptr);
+#if DX_9_BIT_PTR == 1
+        memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+        memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr++ = b3;
@@ -138,7 +170,11 @@ protected:
 
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4,
             byte b5) {
-        memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN - ptr);
+#if DX_9_BIT_PTR == 1
+        memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+        memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr++ = b3;
@@ -150,7 +186,11 @@ protected:
 
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4,
             byte b5, byte b6) {
-        memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN - ptr);
+#if DX_9_BIT_PTR == 1
+        memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+        memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr++ = b3;
