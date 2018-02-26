@@ -311,6 +311,36 @@ byte *bfos_node_handler::getChildPtr(byte *ptr) {
     return (byte *) util::bytesToPtr(ptr);
 }
 
+void bfos_node_handler::delAt(byte *ptr, int16_t count) {
+    BPT_TRIE_LEN -= count;
+    memmove(ptr, ptr + count, trie + BPT_TRIE_LEN - ptr);
+}
+
+byte bfos_node_handler::insAt(byte *ptr, byte b) {
+    memmove(ptr + 1, ptr, trie + BPT_TRIE_LEN - ptr);
+    *ptr = b;
+    BPT_TRIE_LEN++;
+    return 1;
+}
+
+byte bfos_node_handler::insAt(byte *ptr, byte b1, byte b2) {
+    memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN - ptr);
+    *ptr++ = b1;
+    *ptr = b2;
+    BPT_TRIE_LEN += 2;
+    return 2;
+}
+
+byte bfos_node_handler::insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
+    memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN - ptr);
+    *ptr++ = b1;
+    *ptr++ = b2;
+    *ptr++ = b3;
+    *ptr = b4;
+    BPT_TRIE_LEN += 4;
+    return 4;
+}
+
 void bfos_node_handler::updatePtrs(byte *upto, int diff) {
     byte *t = trie;
     byte tc = *t++;

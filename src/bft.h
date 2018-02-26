@@ -9,9 +9,9 @@
 
 using namespace std;
 
-#define BFT_UNIT_SIZE 3
+#define BFT_UNIT_SIZE 4
 
-#define BFT_NODE_SIZE 512
+#define BFT_NODE_SIZE 1024
 
 #define BFT_HDR_SIZE 7
 #define BFT_TRIE_LEN buf[5]

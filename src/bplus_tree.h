@@ -80,61 +80,23 @@ class trie_node_handler: public bplus_tree_node_handler {
 protected:
     inline void delAt(byte *ptr) {
         BPT_TRIE_LEN--;
-#if DX_9_BIT_PTR == 1
-        memmove(ptr, ptr + 1, trie + BPT_TRIE_LEN + filledSize() - ptr);
-#else
-        memmove(ptr, ptr + 1, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-#endif
+        memmove(ptr, ptr + 1, trie + BPT_TRIE_LEN - ptr);
     }
 
     inline void delAt(byte *ptr, int16_t count) {
         BPT_TRIE_LEN -= count;
-#if DX_9_BIT_PTR == 1
-        memmove(ptr, ptr + count, trie + BPT_TRIE_LEN + filledSize() - ptr);
-#else
-        memmove(ptr, ptr + count, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-#endif
-    }
-
-    inline void insAt(byte *ptr, byte b, const char *s, byte len) {
-#if DX_9_BIT_PTR == 1
-        memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-#else
-        memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-#endif
-        *ptr++ = b;
-        memcpy(ptr, s, len);
-        BPT_TRIE_LEN += len;
-        BPT_TRIE_LEN++;
-    }
-
-    inline void insAt(byte *ptr, const char *s, byte len) {
-#if DX_9_BIT_PTR == 1
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-#else
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-#endif
-        memcpy(ptr, s, len);
-        BPT_TRIE_LEN += len;
+        memmove(ptr, ptr + count, trie + BPT_TRIE_LEN - ptr);
     }
 
     inline byte insAt(byte *ptr, byte b) {
-#if DX_9_BIT_PTR == 1
-        memmove(ptr + 1, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-#else
-        memmove(ptr + 1, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-#endif
+        memmove(ptr + 1, ptr, trie + BPT_TRIE_LEN - ptr);
         *ptr = b;
         BPT_TRIE_LEN++;
         return 1;
     }
 
     inline byte insAt(byte *ptr, byte b1, byte b2) {
-#if DX_9_BIT_PTR == 1
-        memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-#else
-        memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-#endif
+        memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN - ptr);
         *ptr++ = b1;
         *ptr = b2;
         BPT_TRIE_LEN += 2;
@@ -142,11 +104,7 @@ protected:
     }
 
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3) {
-#if DX_9_BIT_PTR == 1
-        memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-#else
-        memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-#endif
+        memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr = b3;
@@ -155,50 +113,13 @@ protected:
     }
 
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
-#if DX_9_BIT_PTR == 1
-        memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-#else
-        memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-#endif
+        memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr++ = b3;
         *ptr = b4;
         BPT_TRIE_LEN += 4;
         return 4;
-    }
-
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4,
-            byte b5) {
-#if DX_9_BIT_PTR == 1
-        memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-#else
-        memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-#endif
-        *ptr++ = b1;
-        *ptr++ = b2;
-        *ptr++ = b3;
-        *ptr++ = b4;
-        *ptr = b5;
-        BPT_TRIE_LEN += 5;
-        return 5;
-    }
-
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4,
-            byte b5, byte b6) {
-#if DX_9_BIT_PTR == 1
-        memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-#else
-        memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-#endif
-        *ptr++ = b1;
-        *ptr++ = b2;
-        *ptr++ = b3;
-        *ptr++ = b4;
-        *ptr++ = b5;
-        *ptr = b6;
-        BPT_TRIE_LEN += 6;
-        return 6;
     }
 
     inline void setAt(byte pos, byte b) {
@@ -223,10 +144,6 @@ protected:
     inline void appendPtr(int16_t p) {
         util::setInt(trie + BPT_TRIE_LEN, p);
         BPT_TRIE_LEN += 2;
-    }
-
-    inline byte getAt(byte pos) {
-        return trie[pos];
     }
 
 public:
@@ -275,6 +192,8 @@ protected:
     int numLevels;
     int maxKeyCountNode;
     int maxKeyCountLeaf;
+    int maxTrieLenNode;
+    int maxTrieLenLeaf;
     int blockCountNode;
     int blockCountLeaf;
 
@@ -304,6 +223,11 @@ public:
         util::print((long) (maxKeyCountNode / (blockCountNode ? blockCountNode : 1)));
         util::print(", ");
         util::print((long) (maxKeyCountLeaf / blockCountLeaf));
+        util::endl();
+        util::print("Avg Trie Len:");
+        util::print((long) (maxTrieLenNode / (blockCountNode ? blockCountNode : 1)));
+        util::print(", ");
+        util::print((long) (maxTrieLenLeaf / blockCountLeaf));
         util::endl();
     }
     void printNumLevels() {

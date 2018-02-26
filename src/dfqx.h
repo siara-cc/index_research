@@ -45,6 +45,15 @@ private:
     //static byte first_bit_offset4[16];
     //static byte bit_count_16[16];
     inline void append(byte b);
+    inline void insAtWithPtrs(byte *ptr, const char *s, byte len);
+    inline void insAtWithPtrs(byte *ptr, byte b, const char *s, byte len);
+    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2);
+    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3);
+    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4);
+    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
+            byte b5);
+    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
+            byte b5, byte b6);
     byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child_leaf);
     void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
@@ -73,7 +82,7 @@ public:
     void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     void traverseToLeaf(byte *node_paths[] = null);
     int16_t locate();
-    void updatePtrs(byte *loop_upto, byte *covering_upto, int diff);
+    void updateSkipLens(byte *loop_upto, byte *covering_upto, int diff);
     void insertCurrent();
     byte *getKey(int16_t pos, int16_t *plen);
     inline char *getValueAt(int16_t *vlen);

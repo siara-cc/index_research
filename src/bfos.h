@@ -53,6 +53,10 @@ private:
     static byte ryte_mask[18];
     static byte ryte_incl_mask[8];
     static byte ryte_leaf_mask[18];
+    inline void delAt(byte *ptr, int16_t count);
+    inline byte insAt(byte *ptr, byte b);
+    inline byte insAt(byte *ptr, byte b1, byte b2);
+    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4);
     int16_t nextPtr(bfos_iterator_status& s);
     int16_t getLastPtrOfChild(byte *triePos);
     inline byte *getLastPtr(byte *last_t, byte last_off);

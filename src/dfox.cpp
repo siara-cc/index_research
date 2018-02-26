@@ -66,9 +66,11 @@ void dfox::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             //cout << (int) node->TRIE_LEN << endl;
             if (node->isLeaf()) {
                 maxKeyCountLeaf += node->filledSize();
+                maxTrieLenLeaf += node->BPT_TRIE_LEN;
                 blockCountLeaf++;
             } else {
                 maxKeyCountNode += node->filledSize();
+                maxTrieLenNode += node->BPT_TRIE_LEN;
                 blockCountNode++;
             }
                 //maxKeyCount += node->BPT_TRIE_LEN;
@@ -425,6 +427,7 @@ dfox::dfox() {
     dfox_node_handler root(root_data);
     root.initBuf();
     total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
+    maxTrieLenLeaf = maxTrieLenNode = 0;
     numLevels = blockCountLeaf = 1;
     maxThread = 9999;
     count1 = 0;
@@ -624,12 +627,12 @@ void dfox_node_handler::insertCurrent() {
     switch (insertState) {
     case INSERT_AFTER:
         *origPos &= xFB;
-        insAt(triePos, ((key_char & xF8) | x04), mask);
+        insAtWithPtrs(triePos, ((key_char & xF8) | x04), mask);
         if (keyPos > 1)
             updatePtrs(origPos - 1, triePos - 1, 2);
         break;
     case INSERT_BEFORE:
-        insAt(triePos, key_char & xF8, mask);
+        insAtWithPtrs(triePos, key_char & xF8, mask);
         if (keyPos > 1)
             updatePtrs(origPos, triePos + 1, 2);
         break;
@@ -649,7 +652,7 @@ void dfox_node_handler::insertCurrent() {
         c = *triePos;
         cmp_rel = ((c ^ key_char) > x07 ? (c < key_char ? 0 : 1) : 2);
         if (cmp_rel == 0)
-            insAt(triePos + key_at_pos, (key_char & xF8) | 0x04, 1 << (key_char & x07));
+            insAtWithPtrs(triePos + key_at_pos, (key_char & xF8) | 0x04, 1 << (key_char & x07));
         if (diff == 1)
             triePos = origPos;
         b = (cmp_rel == 2 ? x04 : x00) | (cmp_rel == 1 ? x00 : x02);
@@ -662,7 +665,7 @@ void dfox_node_handler::insertCurrent() {
         if (need_count)
             b++;
         // this just inserts b number of bytes - buf is dummy
-        insAt(triePos + (diff ? 0 : 1), (const char *) buf, b);
+        insAtWithPtrs(triePos + (diff ? 0 : 1), (const char *) buf, b);
         updatePtrs(origPos, triePos, b + (cmp_rel == 0 ? 2 : 0));
         if (cmp_rel == 1) {
             *triePos++ = 1 << (key_char & x07);
@@ -692,7 +695,7 @@ void dfox_node_handler::insertCurrent() {
             origPos[1]++;
             fromPos = triePos;
         } else {
-            insAt(origPos + 1, BIT_COUNT(origPos[1]) + 1, x00, mask);
+            insAtWithPtrs(origPos + 1, BIT_COUNT(origPos[1]) + 1, x00, mask);
             triePos += 3;
             fromPos = triePos - 3;
             *origPos |= x02;
@@ -707,7 +710,7 @@ void dfox_node_handler::insertCurrent() {
         if (p + need_count == min && need_count)
             need_count--;
         if (need_count) {
-            insAt(triePos, (need_count << 1) | x01, key + keyPos, need_count);
+            insAtWithPtrs(triePos, (need_count << 1) | x01, key + keyPos, need_count);
             triePos += need_count;
             triePos++;
             p += need_count;
@@ -744,16 +747,16 @@ void dfox_node_handler::insertCurrent() {
                     0 : (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1)) {
             case 2:
                 need_count -= 5;
-                triePos += insAt(triePos, (c1 & xF8) | x06, 2, need_count + 3,
+                triePos += insAtWithPtrs(triePos, (c1 & xF8) | x06, 2, need_count + 3,
                         x01 << (c1 & x07), 0);
                 break;
 #endif
             case 0:
-                triePos += insAt(triePos, c1 & xF8, x01 << (c1 & x07),
+                triePos += insAtWithPtrs(triePos, c1 & xF8, x01 << (c1 & x07),
                         (c2 & xF8) | x04, x01 << (c2 & x07));
                 break;
             case 1:
-                triePos += insAt(triePos, (c1 & xF8) | x04,
+                triePos += insAtWithPtrs(triePos, (c1 & xF8) | x04,
                         (x01 << (c1 & x07)) | (x01 << (c2 & x07)));
                 break;
             case 3:
@@ -769,7 +772,7 @@ void dfox_node_handler::insertCurrent() {
         keyPos = p + 1;
         if (c1 == c2) {
             c2 = (p == key_len ? key_at[diff] : key[p]);
-            triePos += insAt(triePos, (c2 & xF8) | x04, (x01 << (c2 & x07)));
+            triePos += insAtWithPtrs(triePos, (c2 & xF8) | x04, (x01 << (c2 & x07)));
             if (p == key_len)
                 keyPos--;
         }
@@ -921,6 +924,100 @@ int16_t dfox_node_handler::locate() {
         }
     } while (1);
     return ~pos;
+}
+
+void dfox_node_handler::insAtWithPtrs(byte *ptr, const char *s, byte len) {
+#if DX_9_BIT_PTR == 1
+    memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+    memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
+    memcpy(ptr, s, len);
+    BPT_TRIE_LEN += len;
+}
+
+void dfox_node_handler::insAtWithPtrs(byte *ptr, byte b, const char *s, byte len) {
+#if DX_9_BIT_PTR == 1
+    memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+    memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
+    *ptr++ = b;
+    memcpy(ptr, s, len);
+    BPT_TRIE_LEN += len;
+    BPT_TRIE_LEN++;
+}
+
+byte dfox_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2) {
+#if DX_9_BIT_PTR == 1
+    memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+    memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
+    *ptr++ = b1;
+    *ptr = b2;
+    BPT_TRIE_LEN += 2;
+    return 2;
+}
+
+byte dfox_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3) {
+#if DX_9_BIT_PTR == 1
+    memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+    memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
+    *ptr++ = b1;
+    *ptr++ = b2;
+    *ptr = b3;
+    BPT_TRIE_LEN += 3;
+    return 3;
+}
+
+byte dfox_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
+#if DX_9_BIT_PTR == 1
+    memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+    memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
+    *ptr++ = b1;
+    *ptr++ = b2;
+    *ptr++ = b3;
+    *ptr = b4;
+    BPT_TRIE_LEN += 4;
+    return 4;
+}
+
+byte dfox_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
+        byte b5) {
+#if DX_9_BIT_PTR == 1
+    memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+    memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
+    *ptr++ = b1;
+    *ptr++ = b2;
+    *ptr++ = b3;
+    *ptr++ = b4;
+    *ptr = b5;
+    BPT_TRIE_LEN += 5;
+    return 5;
+}
+
+byte dfox_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
+        byte b5, byte b6) {
+#if DX_9_BIT_PTR == 1
+    memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+    memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
+    *ptr++ = b1;
+    *ptr++ = b2;
+    *ptr++ = b3;
+    *ptr++ = b4;
+    *ptr++ = b5;
+    *ptr = b6;
+    BPT_TRIE_LEN += 6;
+    return 6;
 }
 
 byte dfox_node_handler::insChildAndLeafAt(byte *ptr, byte b1, byte b2) {

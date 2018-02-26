@@ -36,6 +36,15 @@ using namespace std;
 
 class dfox_node_handler : public trie_node_handler {
 private:
+    inline void insAtWithPtrs(byte *ptr, const char *s, byte len);
+    inline void insAtWithPtrs(byte *ptr, byte b, const char *s, byte len);
+    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2);
+    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3);
+    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4);
+    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
+            byte b5);
+    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
+            byte b5, byte b6);
     inline byte insChildAndLeafAt(byte *ptr, byte b1, byte b2);
     inline void append(byte b);
     void updatePtrs(byte *loop_upto, byte *covering_upto, int diff);
