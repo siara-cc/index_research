@@ -231,7 +231,6 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         kv_len++;
         tot_len += kv_len;
         memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
-        new_block.insPtr(idx, kv_last_pos);
         kv_last_pos += kv_len;
         if (brk_idx == -1) {
             t = nextKey(first_key, tp, t, ctr, tc, child, leaf);
@@ -258,7 +257,20 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             }
         }
     }
-    kv_last_pos = getKVLastPos();
+    kv_last_pos = getKVLastPos() + DFOX_NODE_SIZE - kv_last_pos;
+    new_block.setKVLastPos(kv_last_pos);
+    memmove(new_block.buf + kv_last_pos, new_block.buf + getKVLastPos(), DFOX_NODE_SIZE - kv_last_pos);
+    brk_kv_pos += (kv_last_pos - getKVLastPos());
+    int16_t diff = DFOX_NODE_SIZE - brk_kv_pos;
+    for (idx = 0; idx < orig_filled_size; idx++) {
+        new_block.insPtr(idx, kv_last_pos + (idx < brk_idx ? diff : 0));
+        kv_last_pos += new_block.buf[kv_last_pos];
+        kv_last_pos++;
+        kv_last_pos += new_block.buf[kv_last_pos];
+        kv_last_pos++;
+    }
+    kv_last_pos = new_block.getKVLastPos();
+
 #if DX_9_BIT_PTR == 1
     memcpy(buf + DFOX_HDR_SIZE, new_block.buf + DFOX_HDR_SIZE, DX_MAX_PTR_BITMAP_BYTES);
     memcpy(trie + BPT_TRIE_LEN, new_block.trie + new_block.BPT_TRIE_LEN, brk_idx);
@@ -287,10 +299,6 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
         memcpy(buf + DFOX_NODE_SIZE - old_blk_new_len,
                 new_block.buf + kv_last_pos, old_blk_new_len); // Copy back first half to old block
-        int16_t diff = DFOX_NODE_SIZE - brk_kv_pos;
-        idx = brk_idx;
-        while (idx--)
-            setPtr(idx, getPtr(idx) + diff);
         setKVLastPos(DFOX_NODE_SIZE - old_blk_new_len);
         setFilledSize(brk_idx);
     }
