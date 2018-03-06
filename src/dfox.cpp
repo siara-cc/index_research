@@ -25,10 +25,6 @@ void dfox_node_handler::traverseToLeaf(byte *node_paths[]) {
             idx = ~idx;
         }
         key_at = buf + getPtr(idx);
-        if (!node_paths) {
-            dfox::count1 += (keyPos - 1);
-            dfox::count2++;
-        }
         setBuf(getChildPtr(key_at));
         if (node_paths)
             node_paths[level++] = buf;
@@ -79,7 +75,7 @@ int16_t dfox_node_handler::locate() {
                 if (isPut) {
                     triePos = t;
                     insertState = INSERT_AFTER;
-                    need_count = 3;
+                    need_count = 2;
                 }
                 return ~pos;
             }
@@ -139,7 +135,7 @@ int16_t dfox_node_handler::locate() {
                 if (isPut) {
                     triePos = t;
                     insertState = INSERT_LEAF;
-                    need_count = 3;
+                    need_count = 2;
                 }
                 return ~pos;
             }
@@ -171,7 +167,7 @@ int16_t dfox_node_handler::locate() {
             if (isPut) {
                 triePos = origPos;
                 insertState = INSERT_BEFORE;
-                need_count = 3;
+                need_count = 2;
             }
             return ~pos;
             break;
@@ -828,8 +824,7 @@ void dfox_node_handler::insertCurrent() {
             *origPos = (diff << 1) | x01;
         if (need_count)
             b++;
-        // this just inserts b number of bytes - buf is dummy
-        insAtWithPtrs(triePos + (diff ? 0 : 1), (const char *) buf, b);
+        insBytesWithPtrs(triePos + (diff ? 0 : 1), b);
         updateSkipLens(origPos, triePos, b + (cmp_rel == 0 ? 2 : 0));
         if (cmp_rel == 1) {
             *triePos++ = 1 << (key_char & x07);
@@ -854,14 +849,13 @@ void dfox_node_handler::insertCurrent() {
         int16_t p, min;
         byte c1, c2;
         byte *fromPos;
+        fromPos = triePos;
         if (*origPos & x02) {
             origPos[3] |= mask;
             origPos[1]++;
-            fromPos = triePos;
         } else {
             insAtWithPtrs(origPos + 1, BIT_COUNT(origPos[1]) + 1, x00, mask);
             triePos += 3;
-            fromPos = triePos - 3;
             *origPos |= x02;
         }
         c1 = c2 = key_char;
@@ -871,20 +865,23 @@ void dfox_node_handler::insertCurrent() {
             origPos[4] &= ~mask;
 #if DX_MIDDLE_PREFIX == 1
         need_count -= 9;
-        if (p + need_count == min && need_count)
+        diff = p + need_count;
+        if (diff == min && need_count) {
             need_count--;
+            diff--;
+        }
+        insBytesWithPtrs(triePos, need_count + (need_count ? 1 : 0)
+                + (diff == min ? 2 : (key[diff] ^ key_at[diff - keyPos]) > x07 ? 4 :
+                        (key[diff] == key_at[diff - keyPos] ? 7 : 2)));
         if (need_count) {
-            insAtWithPtrs(triePos, (need_count << 1) | x01, key + keyPos, need_count);
+            *triePos++ = (need_count << 1) | x01;
+            memcpy(triePos, key + keyPos, need_count);
             triePos += need_count;
-            triePos++;
             p += need_count;
             //dfox::count1 += need_count;
         }
 #else
-        need_count -= 10;
-        need_count /= 5;
-        if (need_count) {
-            need_count = 0;
+            need_count = (p == min ? 2 : 0);
             while (p < min) {
                 c1 = key[p];
                 c2 = key_at[p - keyPos];
@@ -894,7 +891,7 @@ void dfox_node_handler::insertCurrent() {
                 p++;
             }
             p = keyPos;
-        }
+            insAtWithPtrs(triePos, (const char *) buf, need_count);
 #endif
         while (p < min) {
             c1 = key[p];
@@ -911,21 +908,29 @@ void dfox_node_handler::insertCurrent() {
                     0 : (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1)) {
             case 2:
                 need_count -= 5;
-                triePos += insAtWithPtrs(triePos, (c1 & xF8) | x06, 2, need_count + 3,
-                        x01 << (c1 & x07), 0);
+                *triePos++ = (c1 & xF8) | x06;
+                *triePos++ = 2;
+                *triePos++ = need_count + 3;
+                *triePos++ = x01 << (c1 & x07);
+                *triePos++ = 0;
                 break;
 #endif
             case 0:
-                triePos += insAtWithPtrs(triePos, c1 & xF8, x01 << (c1 & x07),
-                        (c2 & xF8) | x04, x01 << (c2 & x07));
+                *triePos++ = c1 & xF8;
+                *triePos++ = x01 << (c1 & x07);
+                *triePos++ = (c2 & xF8) | x04;
+                *triePos++ = x01 << (c2 & x07);
                 break;
             case 1:
-                triePos += insAtWithPtrs(triePos, (c1 & xF8) | x04,
-                        (x01 << (c1 & x07)) | (x01 << (c2 & x07)));
+                *triePos++ = (c1 & xF8) | x04;
+                *triePos++ = (x01 << (c1 & x07)) | (x01 << (c2 & x07));
                 break;
             case 3:
-                triePos += insChildAndLeafAt(triePos, (c1 & xF8) | x06,
-                        x01 << (c1 & x07));
+                *triePos++ = (c1 & xF8) | x06;
+                *triePos++ = x02;
+                *triePos++ = x05;
+                *triePos++ = x01 << (c1 & x07);
+                *triePos++ = x01 << (c1 & x07);
                 break;
             }
             if (c1 != c2)
@@ -936,12 +941,13 @@ void dfox_node_handler::insertCurrent() {
         keyPos = p + 1;
         if (c1 == c2) {
             c2 = (p == key_len ? key_at[diff] : key[p]);
-            triePos += insAtWithPtrs(triePos, (c2 & xF8) | x04, (x01 << (c2 & x07)));
+            *triePos++ = (c2 & xF8) | x04;
+            *triePos++ = x01 << (c2 & x07);
             if (p == key_len)
                 keyPos--;
         }
         p = triePos - fromPos;
-        updateSkipLens(origPos - 2, origPos, p + (origPos[2] ? 0 : 0));
+        updateSkipLens(origPos - 2, origPos, p);
         origPos[2] += p;
         if (diff < key_at_len)
             diff++;
@@ -1058,6 +1064,15 @@ byte dfox_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte
     *ptr = b6;
     BPT_TRIE_LEN += 6;
     return 6;
+}
+
+void dfox_node_handler::insBytesWithPtrs(byte *ptr, int16_t len) {
+#if DX_9_BIT_PTR == 1
+    memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
+#else
+    memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
+#endif
+    BPT_TRIE_LEN += len;
 }
 
 byte dfox_node_handler::insChildAndLeafAt(byte *ptr, byte b1, byte b2) {

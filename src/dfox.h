@@ -45,6 +45,7 @@ private:
             byte b5);
     inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
             byte b5, byte b6);
+    inline void insBytesWithPtrs(byte *ptr, int16_t len);
     inline byte insChildAndLeafAt(byte *ptr, byte b1, byte b2);
     inline void append(byte b);
     void updateSkipLens(byte *loop_upto, byte *covering_upto, int diff);
