@@ -60,11 +60,11 @@ public:
         return util::getInt(BPT_FILLED_SIZE);
     }
 
-    inline void setKVLastPos(int16_t val) {
+    inline void setKVLastPos(uint16_t val) {
         util::setInt(BPT_LAST_DATA_PTR, val);
     }
 
-    inline int16_t getKVLastPos() {
+    inline uint16_t getKVLastPos() {
         return util::getInt(BPT_LAST_DATA_PTR);
     }
 
@@ -120,6 +120,20 @@ protected:
         *ptr = b4;
         BPT_TRIE_LEN += 4;
         return 4;
+    }
+
+    inline void insAt(byte *ptr, byte b, const char *s, byte len) {
+        memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN - ptr);
+        *ptr++ = b;
+        memcpy(ptr, s, len);
+        BPT_TRIE_LEN += len;
+        BPT_TRIE_LEN++;
+    }
+
+    inline void insAt(byte *ptr, const char *s, byte len) {
+        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN - ptr);
+        memcpy(ptr, s, len);
+        BPT_TRIE_LEN += len;
     }
 
     inline void setAt(byte pos, byte b) {

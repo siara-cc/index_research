@@ -41,11 +41,11 @@ public:
     void addData();
     byte *getKey(int16_t pos, int16_t *plen);
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    inline int16_t getPtr(int16_t pos);
-    inline void setPtr(int16_t pos, int16_t ptr);
-    inline void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
-    inline void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
-    void insPtr(int16_t pos, int16_t kvIdx);
+    inline uint16_t getPtr(int16_t pos);
+    inline void setPtr(int16_t pos, uint16_t ptr);
+    inline void insBit(uint32_t *ui32, int pos, uint16_t kv_pos);
+    inline void insBit(uint64_t *ui64, int pos, uint16_t kv_pos);
+    void insPtr(int16_t pos, uint16_t kvIdx);
     void traverseToLeaf(byte *node_paths[] = null);
     int16_t locate();
     void insertCurrent();

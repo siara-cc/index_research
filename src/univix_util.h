@@ -45,12 +45,13 @@ public:
     static uint64_t left_mask64[64];
     static uint64_t ryte_mask64[64];
     static uint64_t mask64[64];
-    static inline int16_t getInt(byte *pos) {
-//        return (int16_t *) pos; // fast endian-dependent
-        return ((*pos << 8) | *(pos + 1)); // slow endian independent
+    static inline uint16_t getInt(byte *pos) {
+//        return (uint16_t *) pos; // fast endian-dependent
+        uint16_t ret = ((*pos << 8) | *(pos + 1));
+        return ret; // slow endian independent
     }
 
-    static inline void setInt(byte *pos, int16_t val) {
+    static inline void setInt(byte *pos, uint16_t val) {
 //        *((int16_t *) pos) = val; // fast endian-dependent
         *pos++ = val >> 8; // slow endian independent
         *pos = val % 256;
@@ -135,15 +136,17 @@ public:
     __attribute__((assume_aligned(64)))
     __attribute__((malloc))
 #endif
-    static void *alignedAlloc(int16_t blockSize) {
+    static void *alignedAlloc(uint16_t blockSize) {
 #if defined(_MSC_VER)
         return _aligned_malloc (blockSize, 64);
-#elif defined(__BORLANDC__) || defined(__GNUC__)
+#elif defined(__APPLE__)
         void* aPtr;
         if (posix_memalign (&aPtr, 64, blockSize)) {
              aPtr = NULL;
         }
         return aPtr;
+#elif defined(__BORLANDC__) || defined(__GNUC__)
+        return aligned_alloc(64, blockSize);
 #else
         return malloc ((unsigned int)blockSize);
 #endif

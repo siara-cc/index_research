@@ -141,7 +141,7 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
     }
 }
 
-void basix_node_handler::insBit(uint32_t *ui32, int pos, int16_t kv_pos) {
+void basix_node_handler::insBit(uint32_t *ui32, int pos, uint16_t kv_pos) {
     uint32_t ryte_part = (*ui32) & util::ryte_mask32[pos];
     ryte_part >>= 1;
     if (kv_pos >= 256)
@@ -150,7 +150,7 @@ void basix_node_handler::insBit(uint32_t *ui32, int pos, int16_t kv_pos) {
 
 }
 
-void basix_node_handler::insBit(uint64_t *ui64, int pos, int16_t kv_pos) {
+void basix_node_handler::insBit(uint64_t *ui64, int pos, uint16_t kv_pos) {
     uint64_t ryte_part = (*ui64) & util::ryte_mask64[pos];
     ryte_part >>= 1;
     if (kv_pos >= 256)
@@ -159,7 +159,7 @@ void basix_node_handler::insBit(uint64_t *ui64, int pos, int16_t kv_pos) {
 
 }
 
-void basix_node_handler::insPtr(int16_t pos, int16_t kv_last_pos) {
+void basix_node_handler::insPtr(int16_t pos, uint16_t kv_last_pos) {
 #if BX_9_BIT_PTR == 1
     byte *kvIdx = buf + BLK_HDR_SIZE;
     kvIdx += pos;
@@ -196,7 +196,7 @@ void basix_node_handler::insPtr(int16_t pos, int16_t kv_last_pos) {
 }
 void basix_node_handler::addData() {
 
-    int16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
+    uint16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
     setKVLastPos(kv_last_pos);
     buf[kv_last_pos] = key_len & 0xFF;
     memcpy(buf + kv_last_pos + 1, key, key_len);
@@ -213,19 +213,19 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     new_block.isPut = true;
     if (!isLeaf())
         new_block.setLeaf(false);
-    int16_t kv_last_pos = getKVLastPos();
-    int16_t halfKVLen = BASIX_NODE_SIZE - kv_last_pos + 1;
+    uint16_t kv_last_pos = getKVLastPos();
+    uint16_t halfKVLen = BASIX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
 
     int16_t brk_idx = -1;
-    int16_t brk_kv_pos;
-    int16_t tot_len;
+    uint16_t brk_kv_pos;
+    uint16_t tot_len;
     brk_kv_pos = tot_len = 0;
     // Copy all data to new block in ascending order
     int16_t new_idx;
     for (new_idx = 0; new_idx <= filled_upto; new_idx++) {
-        int16_t src_idx = getPtr(new_idx);
-        int16_t kv_len = buf[src_idx];
+        uint16_t src_idx = getPtr(new_idx);
+        uint16_t kv_len = buf[src_idx];
         kv_len++;
         kv_len += buf[src_idx + kv_len];
         kv_len++;
@@ -237,7 +237,7 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             if (tot_len > halfKVLen || new_idx == (filled_upto / 2)) {
                 brk_idx = new_idx;
                 brk_kv_pos = kv_last_pos;
-                int16_t first_idx = getPtr(new_idx + 1);
+                uint16_t first_idx = getPtr(new_idx + 1);
                 if (isLeaf()) {
                     int len = 0;
                     while (buf[first_idx + len + 1] == buf[src_idx + len + 1])
@@ -253,7 +253,7 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     }
     //memset(buf + BLK_HDR_SIZE, '\0', BASIX_NODE_SIZE - BLK_HDR_SIZE);
     kv_last_pos = getKVLastPos();
-    int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
+    uint16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
     memcpy(buf + BASIX_NODE_SIZE - old_blk_new_len, new_block.buf + kv_last_pos,
             old_blk_new_len); // Copy back first half to old block
     //memset(new_block.buf + kv_last_pos, '\0', old_blk_new_len);
@@ -445,9 +445,9 @@ int16_t basix_node_handler::filledUpto() {
     return util::getInt(buf + 1);
 }
 
-int16_t basix_node_handler::getPtr(int16_t pos) {
+uint16_t basix_node_handler::getPtr(int16_t pos) {
 #if BX_9_BIT_PTR == 1
-    int16_t ptr = buf[BLK_HDR_SIZE + pos];
+    uint16_t ptr = buf[BLK_HDR_SIZE + pos];
 #if BX_INT64MAP == 1
     if (*bitmap & util::mask64[pos])
     ptr |= 256;
@@ -467,7 +467,7 @@ int16_t basix_node_handler::getPtr(int16_t pos) {
 #endif
 }
 
-void basix_node_handler::setPtr(int16_t pos, int16_t ptr) {
+void basix_node_handler::setPtr(int16_t pos, uint16_t ptr) {
 #if BX_9_BIT_PTR == 1
     buf[BLK_HDR_SIZE + pos] = ptr;
 #if BX_INT64MAP == 1
