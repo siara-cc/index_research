@@ -21,7 +21,8 @@ using namespace std;
 #define DQ_MAX_PTR_BITMAP_BYTES 0
 #define DQ_MAX_PTRS 240
 #endif
-#define DFQX_HDR_SIZE 6
+#define DFQX_HDR_SIZE 7
+#define DQ_MAX_KEY_LEN buf[6]
 //#define MID_KEY_LEN buf[DQ_MAX_PTR_BITMAP_BYTES+6]
 
 #define INSERT_AFTER 1
@@ -44,7 +45,9 @@ private:
     static uint16_t dbl_bit_count[256];
     //static byte first_bit_offset4[16];
     //static byte bit_count_16[16];
+    inline byte *skipChildren(byte *t, uint16_t& count);
     inline void append(byte b);
+    inline void insBytesWithPtrs(byte *ptr, int16_t len);
     inline void insAtWithPtrs(byte *ptr, const char *s, byte len);
     inline void insAtWithPtrs(byte *ptr, byte b, const char *s, byte len);
     inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2);
@@ -54,12 +57,13 @@ private:
             byte b5);
     inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
             byte b5, byte b6);
+    void updateSkipLens(byte *loop_upto, byte *covering_upto, int diff);
     byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child_leaf);
     void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void movePtrList(byte orig_trie_len);
     int deleteSegment(byte *t, byte *delete_start);
-    inline byte *skipChildren(byte *t, uint16_t& count);
+    //inline byte *skipChildren(byte *t, uint16_t count);
 public:
     int16_t pos, key_at_pos;
 #if DQ_INT64MAP == 1
@@ -69,24 +73,23 @@ public:
     uint32_t *bitmap2;
 #endif
     dfqx_node_handler(byte *m);
+    int16_t locate();
+    byte *getKey(int16_t pos, int16_t *plen);
+    inline char *getValueAt(int16_t *vlen);
+    inline byte *getChildPtr(byte *ptr);
+    void traverseToLeaf(byte *node_paths[] = null);
+    inline int16_t getPtr(int16_t pos);
     void initBuf();
     inline void initVars();
     void setBuf(byte *m);
     bool isFull(int16_t kv_lens);
     void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    inline int16_t getPtr(int16_t pos);
     inline void setPtr(int16_t pos, int16_t ptr);
     void insPtr(int16_t pos, int16_t kvIdx);
     void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
     void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
-    void traverseToLeaf(byte *node_paths[] = null);
-    int16_t locate();
-    void updateSkipLens(byte *loop_upto, byte *covering_upto, int diff);
     void insertCurrent();
-    byte *getKey(int16_t pos, int16_t *plen);
-    inline char *getValueAt(int16_t *vlen);
-    inline byte *getChildPtr(byte *ptr);
 };
 
 class dfqx: public bplus_tree {
