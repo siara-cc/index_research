@@ -15,13 +15,6 @@ using namespace std;
 
 #define DFOX_NODE_SIZE 1024
 
-#if DX_9_BIT_PTR == 1
-#define DX_MAX_PTR_BITMAP_BYTES 8
-#define DX_MAX_PTRS 63
-#else
-#define DX_MAX_PTR_BITMAP_BYTES 0
-#define DX_MAX_PTRS 240
-#endif
 #define DFOX_HDR_SIZE 7
 #define DX_MAX_KEY_LEN buf[6]
 //#define MID_KEY_LEN buf[DX_MAX_PTR_BITMAP_BYTES+6]
@@ -36,52 +29,31 @@ using namespace std;
 class dfox_node_handler : public trie_node_handler {
 private:
     inline byte *skipChildren(byte *t, int16_t count);
-    inline void insAtWithPtrs(byte *ptr, const char *s, byte len);
-    inline void insAtWithPtrs(byte *ptr, byte b, const char *s, byte len);
-    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2);
-    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3);
-    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4);
-    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
-            byte b5);
-    inline byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
-            byte b5, byte b6);
-    inline void insBytesWithPtrs(byte *ptr, int16_t len);
-    inline byte insChildAndLeafAt(byte *ptr, byte b1, byte b2);
-    inline void append(byte b);
     void updateSkipLens(byte *loop_upto, byte *covering_upto, int diff);
     byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf);
     void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void updatePrefix();
-    void movePtrList(byte orig_trie_len);
     int deleteSegment(byte *t, byte *delete_start);
 public:
-    int16_t pos, key_at_pos;
-#if DX_INT64MAP == 1
-    uint64_t *bitmap;
-#else
-    uint32_t *bitmap1;
-    uint32_t *bitmap2;
-#endif
+    byte *last_t;
     dfox_node_handler(byte *m);
     int16_t locate();
     int16_t locate(byte key_char, byte *t, byte trie_char);
-    byte *getKey(int16_t pos, int16_t *plen);
+    byte *getKey(byte *t, int16_t *plen);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
     void traverseToLeaf(byte *node_paths[] = null);
-    inline int16_t getPtr(int16_t pos);
+    inline int16_t getPtr(byte *t);
     void initBuf();
     inline void initVars();
     void setBuf(byte *m);
     bool isFull(int16_t kv_lens);
     void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    inline void setPtr(int16_t pos, int16_t ptr);
-    void insPtr(int16_t pos, int16_t kvIdx);
-    void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
-    void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
-    void insertCurrent();
+    inline void setPtr(byte *t, int16_t ptr);
+    byte *insertCurrent();
+    inline void insBytes(byte *ptr, int16_t len);
 };
 
 class dfox : public bplus_tree {
