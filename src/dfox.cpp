@@ -66,10 +66,11 @@ int16_t dfox_node_handler::locate() {
     byte *t = trie;
     byte trie_char = *t;
     keyPos = 1;
-    last_t = t + (*t & x02 ? 4 : 2);
+    last_t = 0;
     origPos = t++;
     do {
-        switch ((trie_char & x01 == x01) ? 3 : (key_char ^ trie_char) > x07 ? (key_char > trie_char ? 0 : 2) : 1) {
+        switch (((trie_char & x01) == x01) ? 3 :
+                (key_char ^ trie_char) > x07 ? (key_char > trie_char ? 0 : 2) : 1) {
         case 0:
             if (trie_char & x02) {
                 t += *t;
@@ -166,7 +167,7 @@ int16_t dfox_node_handler::locate() {
             }
             if (isPut) {
                 insertState = INSERT_CONVERT;
-                need_count = 6;
+                need_count = 8;
             }
             return -1;
 #endif
@@ -687,35 +688,53 @@ byte *dfox_node_handler::insertCurrent() {
         // 3 possible relationships between key_char and *triePos, 4 possible positions of triePos
         c = *triePos;
         cmp_rel = ((c ^ key_char) > x07 ? (c < key_char ? 0 : 1) : 2);
-        if (cmp_rel == 0)
-            insAt(last_t, (key_char & xF8) | 0x04, 1 << (key_char & x07));
+        if (cmp_rel == 0) {
+            insAt(last_t, (key_char & xF8) | 0x04, 1 << (key_char & x07), x00, x00);
+            ret = last_t + 2;
+        }
         if (diff == 1)
             triePos = origPos;
         b = (cmp_rel == 2 ? x04 : x00) | (cmp_rel == 1 ? x00 : x02);
         need_count = (*origPos >> 2) - diff;
         diff--;
         *triePos++ = ((cmp_rel == 0 ? c : key_char) & xF8) | b;
-        b = (cmp_rel == 1 ? (diff ? 6 : 5) : (diff ? 4 : 3));
-        if (diff)
+        b = (cmp_rel == 1 ? 6 : (cmp_rel == 2 ? (c < key_char ? 2 : 4) : 2));
+        if (diff) {
             *origPos = (diff << 2) | x01;
+            b++;
+        }
         if (need_count)
             b++;
         insBytes(triePos + (diff ? 0 : 1), b);
-        updateSkipLens(origPos, triePos, b + (cmp_rel == 0 ? 2 : 0));
+        updateSkipLens(origPos, triePos, b + (cmp_rel == 0 ? 4
+                : (cmp_rel == 2 && c < key_char ? 2 : 0)));
         if (cmp_rel == 1) {
             *triePos++ = 1 << (key_char & x07);
+            ret = triePos;
+            triePos += 2;
             *triePos++ = (c & xF8) | x06;
         }
-        triePos[1] = skipChildren(triePos + need_count + (need_count ? 5 : 4),
-                1 + (cmp_rel == 2 ? 1 : 0)) - triePos - 1;
+        last_t = skipChildren(triePos + (cmp_rel == 2 ? (c < key_char ? 3 : 5) : 3)
+                + need_count + (need_count ? 1 : 0), 1);
+        *triePos = last_t - triePos + (cmp_rel == 2 && c < key_char ? 2 : 0);
         triePos++;
         *triePos++ = 1 << (c & x07);
-        if (cmp_rel == 2)
+        if (cmp_rel == 2) {
             *triePos++ = 1 << (key_char & x07);
-        else
+            if (c >= key_char) {
+                ret = triePos;
+                triePos += 2;
+            }
+        } else
             *triePos++ = 0;
         if (need_count)
             *triePos = (need_count << 2) | x01;
+        if (cmp_rel == 0)
+            ret += b;
+        if (cmp_rel == 2 && c < key_char) {
+            insAt(last_t, x00, x00);
+            ret = last_t;
+        }
         break;
 #endif
     case INSERT_THREAD:
