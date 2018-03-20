@@ -13,7 +13,7 @@ using namespace std;
 #define DX_INT64MAP 1
 #define DX_9_BIT_PTR 0
 
-#define DFOX_NODE_SIZE 1024
+#define DFOX_NODE_SIZE 768
 
 #define DFOX_HDR_SIZE 7
 #define DX_MAX_KEY_LEN buf[6]
@@ -31,6 +31,7 @@ private:
     inline byte *skipChildren(byte *t, int16_t count);
     void updateSkipLens(byte *loop_upto, byte *covering_upto, int diff);
     byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf);
+    byte *nextPtr(byte *t);
     void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp);
     void updatePrefix();
