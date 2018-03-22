@@ -808,10 +808,26 @@ byte *dfox_node_handler::insertCurrent() {
                 + (diff == min ? 4 : (key[diff] ^ key_at[diff - keyPos]) > x07 ? 6 :
                         (key[diff] == key_at[diff - keyPos] ? 8 : 4));
         insBytes(triePos, diff);
+#else
+        need_count = (p == min ? 4 : 0);
+        while (p < min) {
+            c1 = key[p];
+            c2 = key_at[p - keyPos];
+            need_count += ((c1 ^ c2) > x07 ? 6 : (c1 == c2 ? (p + 1 == min ? 8 : 4) : 4));
+            if (c1 != c2)
+                break;
+            p++;
+        }
+        p = keyPos;
+        insBytes(triePos, need_count);
+        diff = need_count;
+        need_count += (p == min ? 0 : 2);
+#endif
         if (!ret)
             ret = triePos + diff - (p < min ? 0 : 2);
         if (!ptrPos)
             ptrPos = triePos + diff - (p < min ? 0 : 2);
+#if DX_MIDDLE_PREFIX == 1
         if (need_count) {
             *triePos++ = (need_count << 2) | x01;
             memcpy(triePos, key + keyPos, need_count);
@@ -819,19 +835,6 @@ byte *dfox_node_handler::insertCurrent() {
             p += need_count;
             //dfox::count1 += need_count;
         }
-#else
-            need_count = (p == min ? 4 : 0);
-            while (p < min) {
-                c1 = key[p];
-                c2 = key_at[p - keyPos];
-                need_count += ((c1 ^ c2) > x07 ? 6 : (c1 == c2 ? (p + 1 == min ? 8 : 4) : 4));
-                if (c1 != c2)
-                    break;
-                p++;
-            }
-            p = keyPos;
-            insAt(triePos, (const char *) buf, need_count);
-            diff = need_count;
 #endif
         while (p < min) {
             c1 = key[p];
