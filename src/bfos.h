@@ -12,7 +12,7 @@ using namespace std;
 #define BFOS_INT64MAP 1
 #define BFOS_9_BIT_PTR 0
 
-#define BFOS_NODE_SIZE 1024
+#define BFOS_NODE_SIZE 768
 
 #if BFOS_9_BIT_PTR == 1
 #define MAX_PTR_BITMAP_BYTES 8
@@ -65,6 +65,7 @@ private:
     int16_t deletePrefix(int16_t prefix_len);
 public:
     int16_t last_child_pos;
+    byte *last_t;
     bfos_node_handler(byte *m);
     void initBuf();
     inline void initVars();
