@@ -93,12 +93,12 @@ int16_t dfox_node_handler::locate() {
                 t++;
                 byte r_children = *t++;
                 byte r_leaves = *t++;
-                byte r_mask = ~(xFF << (key_char & x07));
-                t = skipChildren(t, BIT_COUNT(r_children & r_mask) + BIT_COUNT(r_leaves & r_mask));
-                r_mask++;
+                byte r_mask = x01 << (key_char & x07);
                 key_char = (r_leaves & r_mask ? x01 : x00)
                         | (r_children & r_mask ? x02 : x00)
                         | (keyPos == key_len ? x04 : x00);
+                r_mask--;
+                t = skipChildren(t, BIT_COUNT(r_children & r_mask) + BIT_COUNT(r_leaves & r_mask));
             } else {
                 byte r_leaves = *t++;
                 byte r_mask = ~(xFF << (key_char & x07));
@@ -475,6 +475,9 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
 
     {
+        int16_t last_key_len = keyPos + 1;
+        byte last_key[last_key_len + 1];
+        memcpy(last_key, first_key, last_key_len);
         deleteTrieLastHalf(keyPos, first_key, tp);
         new_block.keyPos = keyPos;
         t = new_block.trie + (brk_trie_pos - trie);
@@ -484,19 +487,20 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         //memcpy(first_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
         //first_key[keyPos+1+buf[src_idx]] = 0;
         //cout << first_key << endl;
-        new_block.key_at = new_block.getKey(t, &new_block.key_at_len);
-        keyPos++;
-        if (isLeaf())
-            *first_len_ptr = keyPos;
-        else {
+        if (isLeaf()) {
+            //*first_len_ptr = keyPos + 1;
+            *first_len_ptr = util::compare((const char *) first_key, keyPos + 1, (const char *) last_key, last_key_len);
+        } else {
+            new_block.key_at = new_block.getKey(t, &new_block.key_at_len);
+            keyPos++;
             if (new_block.key_at_len) {
                 memcpy(first_key + keyPos, new_block.key_at,
                         new_block.key_at_len);
                 *first_len_ptr = keyPos + new_block.key_at_len;
             } else
                 *first_len_ptr = keyPos;
+            keyPos--;
         }
-        keyPos--;
         new_block.deleteTrieFirstHalf(keyPos, first_key, tp);
     }
 
@@ -647,7 +651,7 @@ bool dfox_node_handler::isFull(int16_t kv_len) {
     if ((getKVLastPos() - kv_len - 2)
             < (DFOX_HDR_SIZE + BPT_TRIE_LEN + need_count))
         return true;
-    if (BPT_TRIE_LEN > (252 - need_count))
+    if (BPT_TRIE_LEN > (248 - need_count))
         return true;
     return false;
 }
