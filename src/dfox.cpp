@@ -488,7 +488,7 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         //first_key[keyPos+1+buf[src_idx]] = 0;
         //cout << first_key << endl;
         if (isLeaf()) {
-            //*first_len_ptr = keyPos + 1;
+            // *first_len_ptr = keyPos + 1;
             *first_len_ptr = util::compare((const char *) first_key, keyPos + 1, (const char *) last_key, last_key_len);
         } else {
             new_block.key_at = new_block.getKey(t, &new_block.key_at_len);
@@ -941,3 +941,88 @@ void dfox_node_handler::initVars() {
 }
 
 long dfox::count1, dfox::count2;
+/*byte dfox::split_buf[DFOX_NODE_SIZE];
+byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
+    int16_t orig_filled_size = filledSize();
+    byte *b = (byte *) util::alignedAlloc(DFOX_NODE_SIZE);
+    dfox_node_handler new_block(b);
+    new_block.initBuf();
+    new_block.isPut = true;
+    if (!isLeaf())
+        new_block.setLeaf(false);
+    dfox_node_handler old_block(dfox::split_buf);
+    old_block.initBuf();
+    old_block.isPut = true;
+    if (!isLeaf())
+        old_block.setLeaf(false);
+    dfox_node_handler *ins_block = &old_block;
+    int16_t kv_last_pos = getKVLastPos();
+    int16_t halfKVLen = DFOX_NODE_SIZE - kv_last_pos + 1;
+    halfKVLen /= 2;
+
+    int16_t brk_idx = 0;
+    int16_t tot_len = 0;
+    // (1) move all data to new_block in order
+    int16_t idx;
+    byte ins_key[64];
+    int16_t ins_key_len;
+    char ctr = x08;
+    byte tp[DX_MAX_KEY_LEN + 1];
+    byte *t = trie;
+    byte tc, child, leaf;
+    tc = child = leaf = 0;
+    keyPos = 0;
+    for (idx = 0; idx < orig_filled_size; idx++) {
+        t = nextKey(ins_key, tp, t, ctr, tc, child, leaf);
+        int16_t src_idx = getPtr(t);
+        t += 2;
+        int16_t kv_len = buf[src_idx];
+        ins_key_len = kv_len;
+        kv_len++;
+        memcpy(ins_key + keyPos + 1, buf + src_idx + 1, kv_len);
+        ins_block->value_len = buf[src_idx + kv_len];
+        kv_len++;
+        ins_block->value = (const char *) buf + src_idx + kv_len;
+        kv_len += ins_block->value_len;
+        tot_len += kv_len;
+        ins_key_len += keyPos + 1;
+        ins_block->key = (char *) ins_key;
+        ins_block->key_len = ins_key_len;
+        ins_key[ins_key_len] = 0;
+        if (idx && brk_idx >= 0)
+            ins_block->locate();
+        else {
+            ins_block->keyPos = 1;
+            ins_block->insertState = INSERT_EMPTY;
+        }
+        ins_block->addData();
+        if (brk_idx < 0) {
+            brk_idx = -brk_idx;
+            keyPos++;
+            if (isLeaf()) {
+                //*first_len_ptr = s.keyPos;
+                *first_len_ptr = util::compare((const char *) ins_key, keyPos,
+                        (const char *) first_key, *first_len_ptr);
+                memcpy(first_key, ins_key, keyPos);
+            } else {
+                *first_len_ptr = ins_key_len;
+                memcpy(first_key, ins_key, ins_key_len);
+            }
+            keyPos--;
+        }
+        kv_last_pos += kv_len;
+        if (brk_idx == 0) {
+            if (tot_len > halfKVLen || idx == (orig_filled_size / 2)) {
+                brk_idx = idx + 1;
+                brk_idx = -brk_idx;
+                ins_block = &new_block;
+                *first_len_ptr = keyPos + 1;
+                memcpy(first_key, ins_key, *first_len_ptr);
+            }
+        }
+    }
+    memcpy(buf, old_block.buf, DFOX_NODE_SIZE);
+
+    return new_block.buf;
+}
+*/

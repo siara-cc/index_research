@@ -64,8 +64,7 @@ public:
     uint32_t *bitmap2;
 #endif
     dfos_node_handler(byte *m);
-    int16_t locate();
-    int16_t locate(byte key_char, byte *t, byte trie_char);
+    inline int16_t locate();
     byte *getKey(int16_t pos, int16_t *plen);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
@@ -90,6 +89,7 @@ private:
             byte *node_paths[], int16_t level);
 public:
     static long count1, count2;
+    static byte split_buf[DFOS_NODE_SIZE];
     dfos();
     ~dfos();
     void put(const char *key, int16_t key_len, const char *value,

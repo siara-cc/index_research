@@ -39,8 +39,7 @@ private:
 public:
     byte *last_t;
     dfox_node_handler(byte *m);
-    int16_t locate();
-    int16_t locate(byte key_char, byte *t, byte trie_char);
+    inline int16_t locate();
     byte *getKey(byte *t, int16_t *plen);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
@@ -62,6 +61,7 @@ private:
     void recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             byte *node_paths[], int16_t level);
 public:
+    static byte split_buf[DFOX_NODE_SIZE];
     static long count1, count2;
     dfox();
     ~dfox();
