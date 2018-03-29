@@ -216,7 +216,9 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             brk_idx = -brk_idx;
             s.keyPos++;
             if (isLeaf()) {
-                *first_len_ptr = s.keyPos;
+                //*first_len_ptr = s.keyPos;
+                *first_len_ptr = util::compare((const char *) ins_key, s.keyPos,
+                        (const char *) first_key, *first_len_ptr);
                 memcpy(first_key, ins_key, s.keyPos);
             } else {
                 *first_len_ptr = ins_key_len;
@@ -230,6 +232,8 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                 brk_idx = idx + 1;
                 brk_idx = -brk_idx;
                 ins_block = &new_block;
+                *first_len_ptr = s.keyPos + 1;
+                memcpy(first_key, ins_key, *first_len_ptr);
             }
         }
     }
@@ -293,7 +297,7 @@ void bfos_node_handler::addData() {
 bool bfos_node_handler::isFull(int16_t kv_len) {
     if ((getKVLastPos() - kv_len - 2) < (BFOS_HDR_SIZE + BPT_TRIE_LEN + need_count))
         return true;
-    if (BPT_TRIE_LEN + need_count > 240)
+    if (BPT_TRIE_LEN + need_count > 248)
         return true;
     return false;
 }
@@ -532,20 +536,13 @@ int16_t bfos_node_handler::getLastPtrOfChild(byte *t) {
     return -1;
 }
 
-byte *bfos_node_handler::getLastPtr(byte *last_t, byte last_off) {
-    byte last_child, last_leaf, cnt;
-    byte trie_char = *last_t++;
-    last_child = (trie_char & x02 ? *last_t++ : 0);
-    last_leaf = *last_t++;
-    cnt = BIT_COUNT(last_child);
-    last_child &= ryte_mask[last_off];
-    last_leaf &= ryte_leaf_mask[last_off];
+byte *bfos_node_handler::getLastPtr() {
     if (last_child < util::first_bit_mask[last_leaf]) {
-        last_t += cnt;
+        last_t += (*last_t & x02 ? BIT_COUNT(last_t[1]) + 3 : 2);
         last_t += BIT_COUNT2(last_leaf);
         return buf + util::getInt(last_t - 2);
     }
-    last_t += BIT_COUNT(last_child);
+    last_t += (BIT_COUNT(last_child) + 3);
     last_t--;
     return buf + getLastPtrOfChild(last_t + *last_t);
 }
@@ -567,77 +564,66 @@ int16_t bfos_node_handler::locate() {
     byte key_char = *key;
     byte *t = trie;
     last_t = t;
-    byte last_off = 1;
+    last_leaf = last_child = 0;
     do {
-        byte trie_char, r_leaves, r_children;
+        byte trie_char;
         origPos = t;
         trie_char = *t++;
         switch ((key_char ^ trie_char) > x07 ?
                 (key_char > trie_char ? 0 : 2) : 1) {
         case 0:
             last_t = origPos;
-            last_off = 8;
             last_child_pos = 0;
-            r_children = (trie_char & x02 ? *t++ : 0);
-            r_leaves = *t++;
-            t += BIT_COUNT(r_children);
-            t += BIT_COUNT2(r_leaves);
+            last_child = (trie_char & x02 ? *t++ : 0);
+            last_leaf = *t++;
+            t += BIT_COUNT(last_child);
+            t += BIT_COUNT2(last_leaf);
             if (trie_char & x04) {
                 if (isPut) {
                     triePos = t;
                     insertState = INSERT_AFTER;
                     need_count = 5;
                 }
-                if (!isLeaf()) {
-                    if (r_children < util::first_bit_mask[r_leaves])
-                        last_t = buf + util::getInt(t - 2);
-                    else {
-                        t -= BIT_COUNT2(r_leaves);
-                        t--;
-                        last_t = buf + getLastPtrOfChild(t + *t);
-                    }
-                }
+                if (!isLeaf())
+                    last_t = getLastPtr();
                 return -1;
             }
             continue;
         case 1:
-            byte r_mask;
+            byte r_mask, r_leaves, r_children;
             last_child_pos = 0;
             r_children = (trie_char & x02 ? *t++ : 0);
             r_leaves = *t++;
             key_char &= x07;
             r_mask = x01 << key_char;
-            switch (r_leaves & r_mask ?
+            trie_char = r_leaves & r_mask ?
                     (r_children & r_mask ? (keyPos == key_len ? 3 : 4) : 2) :
-                    (r_children & r_mask ? (keyPos == key_len ? 0 : 1) : 0)) {
+                    (r_children & r_mask ? (keyPos == key_len ? 0 : 1) : 0);
+            r_mask--;
+            if (!isLeaf() && (((r_children | r_leaves) & r_mask) || trie_char == 4)) {
+                last_t = origPos;
+                last_child = r_children & r_mask;
+                last_leaf = r_leaves & (r_mask | (trie_char == 4 ? x01 << key_char : 0));
+            }
+            switch (trie_char) {
             case 0:
                 if (isPut) {
                     t += BIT_COUNT(r_children);
-                    t += BIT_COUNT2(r_leaves & ryte_mask[key_char]);
+                    t += BIT_COUNT2(r_leaves & r_mask);
                     triePos = t;
                     insertState = INSERT_LEAF;
                     need_count = 2;
                 }
-                if (!isLeaf()) {
-                    if ((r_children | r_leaves) & ryte_mask[key_char]) {
-                        last_t = origPos;
-                        last_off = key_char;
-                    }
-                    last_t = getLastPtr(last_t, last_off);
-                }
+                if (!isLeaf())
+                    last_t = getLastPtr();
                 return -1;
             case 1:
-                if (!isLeaf()) {
-                    if ((r_children | r_leaves) & ryte_mask[key_char]) {
-                        last_t = origPos;
-                        last_off = key_char;
-                    }
-                }
+            case 4:
                 break;
             case 2:
                 int16_t cmp;
                 t += BIT_COUNT(r_children);
-                t += BIT_COUNT2(r_leaves & ryte_mask[key_char]);
+                t += BIT_COUNT2(r_leaves & r_mask);
                 int16_t ptr;
                 ptr = util::getInt(t);
                 key_at = buf + ptr;
@@ -652,13 +638,8 @@ int16_t bfos_node_handler::locate() {
                 }
                 if (cmp < 0) {
                     cmp = -cmp;
-                    if (!isLeaf()) {
-                        if ((r_children | r_leaves) & ryte_mask[key_char]) {
-                            last_t = origPos;
-                            last_off = key_char;
-                        }
-                        last_t = getLastPtr(last_t, last_off);
-                    }
+                    if (!isLeaf())
+                        last_t = getLastPtr();
                 } else
                     last_t = key_at - 1;
                 if (isPut) {
@@ -668,23 +649,18 @@ int16_t bfos_node_handler::locate() {
                 return -1;
             case 3:
                 t += BIT_COUNT(r_children);
-                t += BIT_COUNT2(r_leaves & ryte_mask[key_char]);
+                t += BIT_COUNT2(r_leaves & r_mask);
                 last_t = key_at = buf + util::getInt(t);
                 return 1;
-            case 4:
-                if (!isLeaf()) {
-                    last_t = origPos;
-                    last_off = key_char + 9;
-                }
             }
-            t += BIT_COUNT(r_children & ryte_mask[key_char]);
+            t += BIT_COUNT(r_children & r_mask);
             last_child_pos = t - trie;
             t += *t;
             key_char = key[keyPos++];
             continue;
         case 2:
             if (!isLeaf())
-                last_t = getLastPtr(last_t, last_off);
+                last_t = getLastPtr();
             if (isPut) {
                 insertState = INSERT_BEFORE;
                 need_count = 5;
@@ -705,14 +681,8 @@ char *bfos_node_handler::getValueAt(int16_t *vlen) {
 void bfos_node_handler::initVars() {
 }
 
-byte bfos_node_handler::left_mask[9] = { 0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8,
-        0xFC, 0xFE, 0xFF };
-byte bfos_node_handler::left_incl_mask[8] = { 0x80, 0xC0, 0xE0, 0xF0, 0xF8,
-        0xFC, 0xFE, 0xFF };
 byte bfos_node_handler::ryte_mask[18] = { 0x00, 0x01, 0x03, 0x07, 0x0F, 0x1F,
         0x3F, 0x7F, 0xFF, 0x00, 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF };
-byte bfos_node_handler::ryte_incl_mask[8] = { 0x01, 0x03, 0x07, 0x0F, 0x1F,
-        0x3F, 0x7F, 0xFF };
 byte bfos_node_handler::ryte_leaf_mask[18] = { 0x00, 0x01, 0x03, 0x07, 0x0F,
         0x1F, 0x3F, 0x7F, 0xFF, 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF,
         0xFF };

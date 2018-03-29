@@ -48,24 +48,23 @@ public:
 
 class bfos_node_handler: public trie_node_handler {
 private:
-    static byte left_mask[9];
-    static byte left_incl_mask[8];
     static byte ryte_mask[18];
-    static byte ryte_incl_mask[8];
     static byte ryte_leaf_mask[18];
     inline void delAt(byte *ptr, int16_t count);
     inline byte insAt(byte *ptr, byte b);
     inline byte insAt(byte *ptr, byte b1, byte b2);
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4);
     int16_t nextPtr(bfos_iterator_status& s);
-    int16_t getLastPtrOfChild(byte *triePos);
-    inline byte *getLastPtr(byte *last_t, byte last_off);
+    int16_t getLastPtrOfChild(byte *t);
+    inline byte *getLastPtr();
     inline int16_t get9bitPtr(byte *t);
     void set9bitPtr(byte *t, int16_t p);
     int16_t deletePrefix(int16_t prefix_len);
 public:
     int16_t last_child_pos;
     byte *last_t;
+    byte last_child;
+    byte last_leaf;
     bfos_node_handler(byte *m);
     void initBuf();
     inline void initVars();
@@ -73,7 +72,7 @@ public:
     bool isFull(int16_t kv_lens);
     void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    int16_t locate();
+    inline int16_t locate();
     void traverseToLeaf(byte *node_paths[] = null);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
