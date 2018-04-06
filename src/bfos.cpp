@@ -5,11 +5,9 @@
 
 char *bfos::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     bfos_node_handler node(root_data);
-    byte *node_paths[7];
     node.key = key;
     node.key_len = key_len;
-    if (!node.isLeaf())
-        node.traverseToLeaf(node_paths);
+    node.traverseToLeaf();
     if (node.locate() == -1)
         return null;
     return node.getValueAt(pValueLen);
@@ -246,8 +244,8 @@ bfos::bfos() {
     root_data = (byte *) util::alignedAlloc(BFOS_NODE_SIZE);
     bfos_node_handler root(root_data);
     root.initBuf();
-    total_size = maxKeyCountLeaf = maxKeyCountNode = 0;
-    numLevels = blockCountLeaf = blockCountNode = 1;
+    total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
+    numLevels = blockCountLeaf = 1;
     maxThread = 9999;
 }
 
@@ -307,36 +305,6 @@ byte *bfos_node_handler::getChildPtr(byte *ptr) {
     return (byte *) util::bytesToPtr(ptr);
 }
 
-void bfos_node_handler::delAt(byte *ptr, int16_t count) {
-    BPT_TRIE_LEN -= count;
-    memmove(ptr, ptr + count, trie + BPT_TRIE_LEN - ptr);
-}
-
-byte bfos_node_handler::insAt(byte *ptr, byte b) {
-    memmove(ptr + 1, ptr, trie + BPT_TRIE_LEN - ptr);
-    *ptr = b;
-    BPT_TRIE_LEN++;
-    return 1;
-}
-
-byte bfos_node_handler::insAt(byte *ptr, byte b1, byte b2) {
-    memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN - ptr);
-    *ptr++ = b1;
-    *ptr = b2;
-    BPT_TRIE_LEN += 2;
-    return 2;
-}
-
-byte bfos_node_handler::insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
-    memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN - ptr);
-    *ptr++ = b1;
-    *ptr++ = b2;
-    *ptr++ = b3;
-    *ptr = b4;
-    BPT_TRIE_LEN += 4;
-    return 4;
-}
-
 void bfos_node_handler::updatePtrs(byte *upto, int diff) {
     byte *t = trie;
     byte tc = *t++;
@@ -346,6 +314,9 @@ void bfos_node_handler::updatePtrs(byte *upto, int diff) {
         while (count--) {
             if (t < upto && (t + *t) >= upto)
                 *t += diff;
+            // todo: avoid inside loops
+            if (insertState == INSERT_BEFORE && keyPos > 1 && (t + *t) == (origPos + 4))
+                *t -= 4;
             t++;
         }
         t += BIT_COUNT2(leaves);
@@ -365,6 +336,8 @@ int16_t bfos_node_handler::insertCurrent() {
         key_char = key[keyPos - 1];
         mask = x01 << (key_char & x07);
         *origPos &= xFB;
+        triePos = origPos + (*origPos & x02 ? BIT_COUNT(origPos[1])
+                + BIT_COUNT2(origPos[2]) + 3 : BIT_COUNT2(origPos[1]) + 2);
         updatePtrs(triePos, 4);
         insAt(triePos, ((key_char & xF8) | x04), mask, 0, 0);
         ret = triePos - trie + 2;
@@ -373,8 +346,6 @@ int16_t bfos_node_handler::insertCurrent() {
         key_char = key[keyPos - 1];
         mask = x01 << (key_char & x07);
         updatePtrs(origPos, 4);
-        if (keyPos > 1 && last_child_pos)
-            trie[last_child_pos] -= 4;
         insAt(origPos, (key_char & xF8), mask, 0, 0);
         ret = origPos - trie + 2;
         break;
@@ -382,6 +353,7 @@ int16_t bfos_node_handler::insertCurrent() {
         key_char = key[keyPos - 1];
         mask = x01 << (key_char & x07);
         leafPos = origPos + ((*origPos & x02) ? 2 : 1);
+        triePos = leafPos + BIT_COUNT(*origPos & x02 ? origPos[1]: 0) + BIT_COUNT2(*leafPos & (mask - 1)) + 1;
         *leafPos |= mask;
         updatePtrs(triePos, 2);
         insAt(triePos, x00, x00);
@@ -516,35 +488,28 @@ int16_t bfos_node_handler::insertCurrent() {
     return ret;
 }
 
-int16_t bfos_node_handler::getLastPtrOfChild(byte *t) {
-    do {
-        byte tc = *t++;
-        byte children = (tc & x02 ? *t++ : 0);
-        byte leaves = *t++;
-        t += BIT_COUNT(children);
-        if (tc & x04) {
-            if (util::first_bit_mask[leaves] <= children) {
-                t--;
-                t += *t;
-            } else {
-                t += BIT_COUNT2(leaves);
-                return util::getInt(t - 2);
-            }
-        } else
-            t += BIT_COUNT2(leaves);
-    } while (1);
-    return -1;
-}
-
 byte *bfos_node_handler::getLastPtr() {
-    if (last_child < util::first_bit_mask[last_leaf]) {
-        last_t += (*last_t & x02 ? BIT_COUNT(last_t[1]) + 3 : 2);
-        last_t += BIT_COUNT2(last_leaf);
-        return buf + util::getInt(last_t - 2);
-    }
-    last_t += (BIT_COUNT(last_child) + 3);
-    last_t--;
-    return buf + getLastPtrOfChild(last_t + *last_t);
+    do {
+        int rslt = (last_child < last_leaf && (last_leaf ^ last_child) > last_child ? 2 : 1);
+        switch (rslt) {
+        case 2:
+            last_t += (*last_t & x02 ? BIT_COUNT(last_t[1]) + 1 : 0);
+            last_t += BIT_COUNT2(last_leaf);
+            return buf + util::getInt(last_t);
+        case 1:
+            last_t += BIT_COUNT(last_child);
+            last_t += 2;
+            last_t = last_t + *last_t;
+            while (!(*last_t & x04)) {
+                last_t += (*last_t & x02 ? BIT_COUNT(last_t[1])
+                     + BIT_COUNT2(last_t[2]) + 3 : BIT_COUNT2(last_t[1]) + 2);
+            }
+            last_child = (*last_t & x02 ? last_t[1] : 0);
+            last_leaf = (*last_t & x02 ? last_t[2] : last_t[1]);
+            break;
+        }
+    } while (1);
+    return null;
 }
 
 void bfos_node_handler::traverseToLeaf(byte *node_paths[]) {
@@ -563,8 +528,6 @@ int16_t bfos_node_handler::locate() {
     keyPos = 1;
     byte key_char = *key;
     byte *t = trie;
-    last_t = t;
-    last_leaf = last_child = 0;
     do {
         byte trie_char;
         origPos = t;
@@ -573,14 +536,12 @@ int16_t bfos_node_handler::locate() {
                 (key_char > trie_char ? 0 : 2) : 1) {
         case 0:
             last_t = origPos;
-            last_child_pos = 0;
             last_child = (trie_char & x02 ? *t++ : 0);
             last_leaf = *t++;
             t += BIT_COUNT(last_child);
             t += BIT_COUNT2(last_leaf);
             if (trie_char & x04) {
                 if (isPut) {
-                    triePos = t;
                     insertState = INSERT_AFTER;
                     need_count = 5;
                 }
@@ -591,7 +552,6 @@ int16_t bfos_node_handler::locate() {
             continue;
         case 1:
             byte r_mask, r_leaves, r_children;
-            last_child_pos = 0;
             r_children = (trie_char & x02 ? *t++ : 0);
             r_leaves = *t++;
             key_char &= x07;
@@ -600,17 +560,14 @@ int16_t bfos_node_handler::locate() {
                     (r_children & r_mask ? (keyPos == key_len ? 3 : 4) : 2) :
                     (r_children & r_mask ? (keyPos == key_len ? 0 : 1) : 0);
             r_mask--;
-            if (!isLeaf() && (((r_children | r_leaves) & r_mask) || trie_char == 4)) {
+            if (!isLeaf() && (r_children | r_leaves) & r_mask) {
                 last_t = origPos;
                 last_child = r_children & r_mask;
-                last_leaf = r_leaves & (r_mask | (trie_char == 4 ? x01 << key_char : 0));
+                last_leaf = r_leaves & r_mask;
             }
             switch (trie_char) {
             case 0:
                 if (isPut) {
-                    t += BIT_COUNT(r_children);
-                    t += BIT_COUNT2(r_leaves & r_mask);
-                    triePos = t;
                     insertState = INSERT_LEAF;
                     need_count = 2;
                 }
@@ -618,7 +575,6 @@ int16_t bfos_node_handler::locate() {
                     last_t = getLastPtr();
                 return -1;
             case 1:
-            case 4:
                 break;
             case 2:
                 int16_t cmp;
@@ -647,6 +603,13 @@ int16_t bfos_node_handler::locate() {
                     need_count = (cmp * 4) + 10;
                 }
                 return -1;
+            case 4:
+                if (!isLeaf()) {
+                    last_t = origPos;
+                    last_child = r_children & r_mask;
+                    last_leaf = r_leaves & (r_mask | (x01 << key_char));
+                }
+                break;
             case 3:
                 t += BIT_COUNT(r_children);
                 t += BIT_COUNT2(r_leaves & r_mask);
@@ -654,17 +617,16 @@ int16_t bfos_node_handler::locate() {
                 return 1;
             }
             t += BIT_COUNT(r_children & r_mask);
-            last_child_pos = t - trie;
             t += *t;
             key_char = key[keyPos++];
             continue;
         case 2:
-            if (!isLeaf())
-                last_t = getLastPtr();
             if (isPut) {
                 insertState = INSERT_BEFORE;
                 need_count = 5;
             }
+            if (!isLeaf())
+                last_t = getLastPtr();
             return -1;
         }
     } while (1);

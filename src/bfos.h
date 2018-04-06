@@ -12,7 +12,7 @@ using namespace std;
 #define BFOS_INT64MAP 1
 #define BFOS_9_BIT_PTR 0
 
-#define BFOS_NODE_SIZE 768
+#define BFOS_NODE_SIZE 1024
 
 #if BFOS_9_BIT_PTR == 1
 #define MAX_PTR_BITMAP_BYTES 8
@@ -50,18 +50,12 @@ class bfos_node_handler: public trie_node_handler {
 private:
     static byte ryte_mask[18];
     static byte ryte_leaf_mask[18];
-    inline void delAt(byte *ptr, int16_t count);
-    inline byte insAt(byte *ptr, byte b);
-    inline byte insAt(byte *ptr, byte b1, byte b2);
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4);
     int16_t nextPtr(bfos_iterator_status& s);
-    int16_t getLastPtrOfChild(byte *t);
     inline byte *getLastPtr();
     inline int16_t get9bitPtr(byte *t);
     void set9bitPtr(byte *t, int16_t p);
     int16_t deletePrefix(int16_t prefix_len);
 public:
-    int16_t last_child_pos;
     byte *last_t;
     byte last_child;
     byte last_leaf;
