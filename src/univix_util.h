@@ -8,29 +8,14 @@
 #include <iostream>
 #endif
 #include <stdlib.h>
+#ifndef __APPLE__
+#include <malloc.h>
+#endif
 
 using namespace std;
 
 typedef unsigned char byte;
 #define null 0
-
-// Check windows
-#if _WIN32 || _WIN64
-   #if _WIN64
-     #define ENV64BIT
-  #else
-    #define ENV32BIT
-  #endif
-#endif
-
-// Check GCC
-#if __GNUC__
-  #if __x86_64__ || __ppc64__
-    #define ENV64BIT
-  #else
-    #define ENV32BIT
-  #endif
-#endif
 
 class util {
 public:
@@ -145,8 +130,8 @@ public:
              aPtr = NULL;
         }
         return aPtr;
-#elif defined(__BORLANDC__) || defined(__GNUC__)
-        return aligned_alloc(64, blockSize);
+#elif defined(__BORLANDC__) || defined(__GNUC__) || defined(__ANDROID__)
+        return memalign(64, blockSize);
 #else
         return malloc ((unsigned int)blockSize);
 #endif
@@ -265,7 +250,7 @@ public:
         //return x; //(x & 0x3f);
     }
 
-#ifndef _MSC_VER
+#if !defined(_MSC_VER) and !defined(__ANDROID__)
     static inline uint16_t popcnt(uint16_t a) {
     uint16_t b;
     __asm__ volatile ("POPCNT %1, %0;"
