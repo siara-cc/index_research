@@ -21,7 +21,8 @@ using namespace std;
 #define MAX_PTR_BITMAP_BYTES 0
 #define MAX_PTRS 240
 #endif
-#define BFOS_HDR_SIZE (MAX_PTR_BITMAP_BYTES+6)
+#define BFOS_HDR_SIZE (MAX_PTR_BITMAP_BYTES+7)
+#define BX_MAX_KEY_LEN buf[6]
 
 #define INSERT_AFTER 1
 #define INSERT_BEFORE 2
@@ -29,29 +30,10 @@ using namespace std;
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5
 
-#define BFOS_MAX_KEY_PREFIX_LEN 60
-
-class bfos_iterator_status {
-public:
-    byte *t;
-    int keyPos;
-    byte tc, children, leaves, orig_leaves, orig_children;
-    byte tp[BFOS_MAX_KEY_PREFIX_LEN];
-    byte offset_a[BFOS_MAX_KEY_PREFIX_LEN];
-    bfos_iterator_status(byte *trie) {
-        t = trie;
-        keyPos = 0;
-        offset_a[keyPos] = 0x08;
-        tc = children = leaves = orig_leaves = orig_children = 0;
-    }
-};
-
 class bfos_node_handler: public trie_node_handler {
 private:
-    static byte ryte_mask[18];
-    static byte ryte_leaf_mask[18];
-    int16_t nextPtr(bfos_iterator_status& s);
-    inline byte *getLastPtr();
+    byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr, byte& tc, byte& child, byte& leaf);
+    byte *getLastPtr();
     inline int16_t get9bitPtr(byte *t);
     void set9bitPtr(byte *t, int16_t p);
     int16_t deletePrefix(int16_t prefix_len);
