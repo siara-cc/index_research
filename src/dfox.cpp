@@ -1000,7 +1000,7 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             brk_idx = -brk_idx;
             keyPos++;
             if (isLeaf()) {
-                //*first_len_ptr = s.keyPos;
+                // *first_len_ptr = s.keyPos;
                 *first_len_ptr = util::compare((const char *) ins_key, keyPos,
                         (const char *) first_key, *first_len_ptr);
                 memcpy(first_key, ins_key, keyPos);

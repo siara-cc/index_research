@@ -13,7 +13,7 @@ using namespace std;
 #define DX_INT64MAP 1
 #define DX_9_BIT_PTR 0
 
-#define DFOX_NODE_SIZE 768
+#define DFOX_NODE_SIZE 1024
 
 #define DFOX_HDR_SIZE 7
 #define DX_MAX_KEY_LEN buf[6]
