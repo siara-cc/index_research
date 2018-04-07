@@ -44,7 +44,7 @@ using namespace std;
 //char *IMPORT_FILE = "/Users/arun/index_research/Release/w7.txt";
 char *IMPORT_FILE = null; //"/Users/arun/index_research/Release/dbpedia_labels.txt";
 //char *IMPORT_FILE = "/Users/arun/index_research/Release/domain_rank.csv";
-unsigned long NUM_ENTRIES = 100;
+unsigned long NUM_ENTRIES = 10000;
 int CHAR_SET = 2;
 int KEY_LEN = 8;
 int VALUE_LEN = 4;
@@ -283,8 +283,8 @@ int main2() {
     util::generateBitCounts();
     //rb_tree *dx = new rb_tree();
     //dfox *dx = new dfox();
-    dfqx *dx = new dfqx();
-    //bfos *dx = new bfos();
+    //dfqx *dx = new dfqx();
+    bfos *dx = new bfos();
     //bft *dx = new bft();
     //dft *dx = new dft();
     //basix *dx = new basix();
@@ -1212,23 +1212,6 @@ int main(int argc, char *argv[]) {
     if (argc > 4 && IMPORT_FILE == null)
         VALUE_LEN = atoi(argv[4]);
 
-#if defined(ENV64BIT)
-    if (sizeof(void*) != 8)
-    {
-        cout << "ENV64BIT: Error: pointer should be 8 bytes. Exiting." << endl;
-        exit(0);
-    }
-    cout << "Diagnostics: we are running in 64-bit mode." << endl;
-#elif defined (ENV32BIT)
-    if (sizeof(void*) != 4) {
-        cout << "ENV32BIT: Error: pointer should be 4 bytes. Exiting." << endl;
-        exit(0);
-    }
-    cout << "Diagnostics: we are running in 32-bit mode." << endl;
-#else
-#error "Must define either ENV32BIT or ENV64BIT".
-#endif
-
     util::generateBitCounts();
 
     unordered_map<string, string> m;
@@ -1333,8 +1316,8 @@ int main(int argc, char *argv[]) {
     //rb_tree *lx = new rb_tree();
     //bft *lx = new bft();
     //dft *lx = new dft();
-    //bfos *lx = new bfos();
-    dfqx *lx = new dfqx();
+    bfos *lx = new bfos();
+    //dfqx *lx = new dfqx();
     //dfox *lx = new dfox();
     //dfos *lx = new dfos();
     it1 = m.begin();
@@ -1352,11 +1335,11 @@ int main(int argc, char *argv[]) {
     ctr = 0;
     //linex *dx = new linex();
     //basix *dx = new basix();
-    //bft *dx = new bft();
+    bft *dx = new bft();
     //bfos *dx = new bfos();
     //dft *dx = new dft();
     //dfqx *dx = new dfqx();
-    dfox *dx = new dfox();
+    //dfox *dx = new dfox();
     //dfos *dx = new dfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();
