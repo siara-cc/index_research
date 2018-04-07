@@ -223,7 +223,7 @@ byte *rb_tree_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t brk_idx = -1;
     int16_t brk_kv_pos = 0;
     int16_t tot_len = 0;
-    int16_t stack[(int) log2(filled_upto) + 1];
+    int16_t stack[filled_upto]; //(int) log2(filled_upto) + 1];
     int16_t level = 0;
     int16_t node = getRoot();
     int16_t new_block_root1 = 0;
@@ -419,7 +419,7 @@ char *rb_tree_node_handler::getValueAt(int16_t *vlen) {
 
 int16_t rb_tree_node_handler::getFirst() {
     int16_t filled_upto = filledUpto();
-    int16_t stack[(int) log2(filled_upto) + 1];
+    int16_t stack[filled_upto]; //(int) log2(filled_upto) + 1];
     int16_t level = 0;
     int16_t node = getRoot();
     while (node) {
@@ -432,7 +432,7 @@ int16_t rb_tree_node_handler::getFirst() {
 
 byte *rb_tree_node_handler::getFirstKey(int16_t *plen) {
     int16_t filled_upto = filledUpto();
-    int16_t stack[(int) log2(filled_upto) + 1];
+    int16_t stack[filled_upto]; //(int) log2(filled_upto) + 1];
     int16_t level = 0;
     int16_t node = getRoot();
     while (node) {
