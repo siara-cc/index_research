@@ -58,7 +58,7 @@ public:
     void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
     int16_t locate();
-    void traverseToLeaf(byte *node_paths[] = null);
+    int16_t traverseToLeaf(byte *node_paths[] = null);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
     int16_t getFirstPtr();

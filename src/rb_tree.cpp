@@ -6,14 +6,12 @@ char *rb_tree::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     rb_tree_node_handler node(node_data);
     node.key = key;
     node.key_len = key_len;
-    if (!node.isLeaf())
-        node.traverseToLeaf();
-    if (node.locate() < 0)
+    if (node.traverseToLeaf() < 0)
         return null;
     return node.getValueAt(pValueLen);
 }
 
-void rb_tree_node_handler::traverseToLeaf(byte *node_paths[]) {
+int16_t rb_tree_node_handler::traverseToLeaf(byte *node_paths[]) {
     byte level;
     level = 1;
     if (isPut)
@@ -32,6 +30,7 @@ void rb_tree_node_handler::traverseToLeaf(byte *node_paths[]) {
         if (isPut)
             node_paths[level++] = buf;
     }
+    return locate();
 }
 
 void rb_tree::put(const char *key, int16_t key_len, const char *value,
@@ -48,9 +47,7 @@ void rb_tree::put(const char *key, int16_t key_len, const char *value,
         node.addData();
         total_size++;
     } else {
-        if (!node.isLeaf())
-            node.traverseToLeaf(node_paths);
-        node.locate();
+        node.traverseToLeaf(node_paths);
         recursiveUpdate(&node, node.pos, node_paths, numLevels - 1);
     }
 }

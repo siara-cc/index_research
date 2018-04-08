@@ -4,15 +4,13 @@ char *basix::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     basix_node_handler node(root_data);
     node.key = key;
     node.key_len = key_len;
-    if (!node.isLeaf())
-        node.traverseToLeaf();
-    if (node.locate() < 0)
+    if (node.traverseToLeaf() < 0)
         return null;
     char * ret = node.getValueAt(pValueLen);
     return ret;
 }
 
-void basix_node_handler::traverseToLeaf(byte *node_paths[]) {
+int16_t basix_node_handler::traverseToLeaf(byte *node_paths[]) {
     byte level;
     level = 1;
     if (isPut)
@@ -28,6 +26,7 @@ void basix_node_handler::traverseToLeaf(byte *node_paths[]) {
         if (isPut)
             node_paths[level++] = buf;
     }
+    return locate();
 }
 
 void basix::put(const char *key, int16_t key_len, const char *value,
@@ -44,9 +43,7 @@ void basix::put(const char *key, int16_t key_len, const char *value,
         node.addData();
         total_size++;
     } else {
-        if (!node.isLeaf())
-            node.traverseToLeaf(node_paths);
-        node.locate();
+        node.traverseToLeaf(node_paths);
         recursiveUpdate(&node, node.pos, node_paths, numLevels - 1);
     }
 }

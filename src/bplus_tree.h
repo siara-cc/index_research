@@ -71,7 +71,7 @@ public:
     virtual bool isFull(int16_t kv_len) = 0;
     virtual void addData() = 0;
     virtual char *getValueAt(int16_t *vlen) = 0;
-    virtual void traverseToLeaf(byte *node_paths[] = null) = 0;
+    virtual int16_t traverseToLeaf(byte *node_paths[] = null) = 0;
     virtual int16_t locate() = 0;
     virtual byte *split(byte *first_key, int16_t *first_len_ptr) = 0;
 };

@@ -33,7 +33,7 @@ using namespace std;
 class bfos_node_handler: public trie_node_handler {
 private:
     byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr, byte& tc, byte& child, byte& leaf);
-    byte *getLastPtr();
+    inline byte *getLastPtr();
     inline int16_t get9bitPtr(byte *t);
     void set9bitPtr(byte *t, int16_t p);
     int16_t deletePrefix(int16_t prefix_len);
@@ -49,7 +49,7 @@ public:
     void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
     inline int16_t locate();
-    void traverseToLeaf(byte *node_paths[] = null);
+    int16_t traverseToLeaf(byte *node_paths[] = null);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
     int16_t getFirstPtr();

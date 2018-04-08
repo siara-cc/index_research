@@ -4,7 +4,7 @@
 #define NEXT_LEVEL setBuf(getChildPtr(key_at)); \
     if (isPut) node_paths[level++] = buf; \
     if (isLeaf()) \
-        return; \
+        return locate(); \
     keyPos = BFT_PREFIX_LEN; \
     key_char = key[keyPos++]; \
     t = trie;
@@ -13,9 +13,7 @@ char *bft::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     bft_node_handler node(root_data);
     node.key = key;
     node.key_len = key_len;
-    if (!node.isLeaf())
-        node.traverseToLeaf();
-    if (node.locate() < 0)
+    if ((node.isLeaf() ? node.locate() : node.traverseToLeaf()) < 0)
         return null;
     return node.getValueAt(pValueLen);
 }
@@ -33,9 +31,10 @@ void bft::put(const char *key, int16_t key_len, const char *value,
         node.addData();
         total_size++;
     } else {
-        if (!node.isLeaf())
+        if (node.isLeaf())
+            node.locate();
+        else
             node.traverseToLeaf(node_paths);
-        node.locate();
         recursiveUpdate(&node, -1, node_paths, numLevels - 1);
     }
 }
@@ -587,7 +586,7 @@ byte *bft_node_handler::getLastPtr(byte *last_t) {
 #endif
 }
 
-void bft_node_handler::traverseToLeaf(byte *node_paths[]) {
+int16_t bft_node_handler::traverseToLeaf(byte *node_paths[]) {
     byte level;
     byte key_char = *key;
     byte *t, *last_t;

@@ -41,7 +41,7 @@ public:
     bool isFull(int16_t kv_lens);
     void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    void traverseToLeaf(byte *node_paths[] = null);
+    int16_t traverseToLeaf(byte *node_paths[] = null);
     int16_t locate();
     int16_t insertCurrent();
     inline byte insertUnit(byte *t, byte c1, byte s1, int16_t ptr1);

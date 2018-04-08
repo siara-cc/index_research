@@ -74,7 +74,7 @@ public:
     inline int16_t getPtr(int16_t pos);
     inline void setPtr(int16_t pos, int16_t ptr);
     bool isFull(int16_t kv_len);
-    void traverseToLeaf(byte *node_paths[] = null);
+    int16_t traverseToLeaf(byte *node_paths[] = null);
     int16_t locate();
     void addData();
     byte *getKey(int16_t pos, int16_t *plen);

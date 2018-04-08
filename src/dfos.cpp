@@ -7,14 +7,13 @@ char *dfos::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     dfos_node_handler node(root_data);
     node.key = key;
     node.key_len = key_len;
-    node.traverseToLeaf();
-    if (node.locate() < 0)
+    if (node.traverseToLeaf() < 0)
         return null;
     char * ret = node.getValueAt(pValueLen);
     return ret;
 }
 
-void dfos_node_handler::traverseToLeaf(byte *node_paths[]) {
+int16_t dfos_node_handler::traverseToLeaf(byte *node_paths[]) {
     byte level = 1;
     if (node_paths)
         *node_paths = buf;
@@ -29,6 +28,7 @@ void dfos_node_handler::traverseToLeaf(byte *node_paths[]) {
         if (node_paths)
             node_paths[level++] = buf;
     }
+    return locate();
 }
 
 #ifndef _MSC_VER
@@ -242,7 +242,6 @@ void dfos::put(const char *key, int16_t key_len, const char *value,
         total_size++;
     } else {
         node.traverseToLeaf(node_paths);
-        node.locate();
         recursiveUpdate(&node, -1, node_paths, numLevels - 1);
     }
 }

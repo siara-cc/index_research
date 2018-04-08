@@ -43,7 +43,7 @@ public:
     byte *getKey(byte *t, int16_t *plen);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
-    void traverseToLeaf(byte *node_paths[] = null);
+    int16_t traverseToLeaf(byte *node_paths[] = null);
     inline int16_t getPtr(byte *t);
     void initBuf();
     inline void initVars();

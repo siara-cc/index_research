@@ -7,9 +7,7 @@ char *dft::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     dft_node_handler node(root_data);
     node.key = key;
     node.key_len = key_len;
-    if (!node.isLeaf())
-        node.traverseToLeaf();
-    if (node.locate() < 0)
+    if ((node.isLeaf() ? node.locate() : node.traverseToLeaf()) < 0)
         return null;
     return node.getValueAt(pValueLen);
 }
@@ -27,9 +25,10 @@ void dft::put(const char *key, int16_t key_len, const char *value,
         node.addData();
         total_size++;
     } else {
-        if (!node.isLeaf())
+        if (node.isLeaf())
+            node.locate();
+        else
             node.traverseToLeaf(node_paths);
-        node.locate();
         recursiveUpdate(&node, -1, node_paths, numLevels - 1);
     }
 }
@@ -556,12 +555,12 @@ int16_t dft_node_handler::insertCurrent() {
 #define NEXT_LEVEL setBuf(getChildPtr(key_at)); \
     if (isPut) node_paths[level++] = buf; \
     if (isLeaf()) \
-        return; \
+        return locate(); \
     keyPos = DFT_PREFIX_LEN; \
     key_char = key[keyPos++]; \
     t = trie;
 
-void dft_node_handler::traverseToLeaf(byte *node_paths[]) {
+int16_t dft_node_handler::traverseToLeaf(byte *node_paths[]) {
     byte level = 1;
     byte *t = trie;
     if (isPut)

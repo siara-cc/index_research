@@ -33,7 +33,7 @@ public:
     void addData();
     byte *getKey(int16_t pos, int16_t *plen);
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    void traverseToLeaf(byte *node_paths[] = null);
+    int16_t traverseToLeaf(byte *node_paths[] = null);
     int16_t locate();
     void insertCurrent();
     inline char *getValueAt(int16_t *vlen);
