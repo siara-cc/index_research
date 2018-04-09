@@ -29,6 +29,7 @@ using namespace std;
 #define INSERT_LEAF 3
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5
+#define INSERT_THREAD1 6
 
 class bfos_node_handler: public trie_node_handler {
 private:
