@@ -547,12 +547,16 @@ int16_t bfos_node_handler::locate() {
     keyPos = 1;
     byte key_char = *key;
     byte *t = trie;
+    byte trie_char = *t;
+    origPos = t++;
     do {
-        byte trie_char;
-        origPos = t;
-        trie_char = *t++;
+#if BS_MIDDLE_PREFIX == 1
+        switch (trie_char & x01 ? 3 : (key_char ^ trie_char) > x07
+                ? (key_char > trie_char ? 0 : 2) : 1) {
+#else
         switch ((key_char ^ trie_char) > x07 ?
                 (key_char > trie_char ? 0 : 2) : 1) {
+#endif
         case 0:
             last_t = origPos;
             last_child = (trie_char & x02 ? *t++ : 0);
@@ -568,7 +572,7 @@ int16_t bfos_node_handler::locate() {
                 }
                 return -1;
             }
-            continue;
+            break;
         case 1:
             byte r_mask, r_leaves, r_children;
             r_children = (trie_char & x02 ? *t++ : 0);
@@ -617,7 +621,11 @@ int16_t bfos_node_handler::locate() {
                     last_t = key_at - 1;
                 if (isPut) {
                     insertState = INSERT_THREAD;
+#if BS_MIDDLE_PREFIX == 1
+                    need_count = cmp + 8;
+#else
                     need_count = (cmp * 4) + 10;
+#endif
                 }
                 return -1;
             case 3:
@@ -632,7 +640,7 @@ int16_t bfos_node_handler::locate() {
             t += BIT_COUNT(r_children & r_mask);
             t += *t;
             key_char = key[keyPos++];
-            continue;
+            break;
         case 2:
             if (!isLeaf())
                 last_t = getLastPtr();
@@ -641,7 +649,29 @@ int16_t bfos_node_handler::locate() {
                 need_count = 5;
             }
             return -1;
+#if BS_MIDDLE_PREFIX == 1
+        case 3:
+            byte pfx_len;
+            pfx_len = (trie_char >> 1);
+            while (pfx_len && key_char == *t && keyPos < key_len) {
+                key_char = key[keyPos++];
+                t++;
+                pfx_len--;
+            }
+            if (!pfx_len)
+                break;
+            triePos = t;
+            if (key_char > *t) {
+            }
+            if (isPut) {
+                insertState = INSERT_CONVERT;
+                need_count = 6;
+            }
+            return -1;
+#endif
         }
+        trie_char = *t;
+        origPos = t++;
     } while (1);
     return -1;
 }

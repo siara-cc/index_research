@@ -9,19 +9,12 @@
 
 using namespace std;
 
-#define BFOS_INT64MAP 1
-#define BFOS_9_BIT_PTR 0
+#define BS_MIDDLE_PREFIX 1
+#define MAX_PTR_BITMAP_BYTES 0
 
 #define BFOS_NODE_SIZE 1024
 
-#if BFOS_9_BIT_PTR == 1
-#define MAX_PTR_BITMAP_BYTES 8
-#define MAX_PTRS 63
-#else
-#define MAX_PTR_BITMAP_BYTES 0
-#define MAX_PTRS 240
-#endif
-#define BFOS_HDR_SIZE (MAX_PTR_BITMAP_BYTES+7)
+#define BFOS_HDR_SIZE 7
 #define BX_MAX_KEY_LEN buf[6]
 
 #define INSERT_AFTER 1
@@ -29,7 +22,7 @@ using namespace std;
 #define INSERT_LEAF 3
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5
-#define INSERT_THREAD1 6
+#define INSERT_CONVERT 6
 
 class bfos_node_handler: public trie_node_handler {
 private:
