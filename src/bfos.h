@@ -9,10 +9,10 @@
 
 using namespace std;
 
-#define BS_MIDDLE_PREFIX 1
+#define BS_MIDDLE_PREFIX 0
 #define MAX_PTR_BITMAP_BYTES 0
 
-#define BFOS_NODE_SIZE 1024
+#define BFOS_NODE_SIZE 768
 
 #define BFOS_HDR_SIZE 7
 #define BX_MAX_KEY_LEN buf[6]
@@ -28,9 +28,6 @@ class bfos_node_handler: public trie_node_handler {
 private:
     byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr, byte& tc, byte& child, byte& leaf);
     inline byte *getLastPtr();
-    inline int16_t get9bitPtr(byte *t);
-    void set9bitPtr(byte *t, int16_t p);
-    int16_t deletePrefix(int16_t prefix_len);
 public:
     byte *last_t;
     byte last_child;
@@ -46,7 +43,6 @@ public:
     int16_t traverseToLeaf(byte *node_paths[] = null);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
-    int16_t getFirstPtr();
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);
 };
