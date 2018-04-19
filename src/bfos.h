@@ -9,7 +9,7 @@
 
 using namespace std;
 
-#define BS_MIDDLE_PREFIX 0
+#define BS_MIDDLE_PREFIX 1
 #define MAX_PTR_BITMAP_BYTES 0
 
 #define BFOS_NODE_SIZE 768
@@ -28,6 +28,7 @@ class bfos_node_handler: public trie_node_handler {
 private:
     byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr, byte& tc, byte& child, byte& leaf);
     inline byte *getLastPtr();
+    void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
 public:
     byte *last_t;
     byte last_child;
