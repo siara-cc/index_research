@@ -136,6 +136,11 @@ protected:
         BPT_TRIE_LEN += len;
     }
 
+    void insBytes(byte *ptr, int16_t len) {
+        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN - ptr);
+        BPT_TRIE_LEN += len;
+    }
+
     inline void setAt(byte pos, byte b) {
         trie[pos] = b;
     }
@@ -158,6 +163,11 @@ protected:
     inline void appendPtr(int16_t p) {
         util::setInt(trie + BPT_TRIE_LEN, p);
         BPT_TRIE_LEN += 2;
+    }
+
+    void append(const char *s, int16_t need_count) {
+        memcpy(trie + BPT_TRIE_LEN, s, need_count);
+        BPT_TRIE_LEN += need_count;
     }
 
 public:
