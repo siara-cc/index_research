@@ -23,27 +23,28 @@ using namespace std;
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5
 #define INSERT_CONVERT 6
+#define INSERT_THREAD1 7
 
 class bfos_node_handler: public trie_node_handler {
 private:
     byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr, byte& tc, byte& child, byte& leaf);
     inline byte *getLastPtr();
-    void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
+    inline void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
 public:
     byte *last_t;
     byte last_child;
     byte last_leaf;
     bfos_node_handler(byte *m);
-    void initBuf();
-    inline void initVars();
-    void setBuf(byte *m);
-    bool isFull(int16_t kv_lens);
-    void addData();
-    byte *split(byte *first_key, int16_t *first_len_ptr);
     inline int16_t locate();
     int16_t traverseToLeaf(byte *node_paths[] = null);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
+    void setBuf(byte *m);
+    void initBuf();
+    inline void initVars();
+    bool isFull(int16_t kv_lens);
+    void addData();
+    byte *split(byte *first_key, int16_t *first_len_ptr);
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);
 };
