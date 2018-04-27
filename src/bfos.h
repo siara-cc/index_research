@@ -27,9 +27,10 @@ using namespace std;
 
 class bfos_node_handler: public trie_node_handler {
 private:
-    byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr, byte& tc, byte& child, byte& leaf);
     inline byte *getLastPtr();
     inline void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
+    byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr, byte& tc, byte& child, byte& leaf);
+    void consolidateInitialPrefix(byte *t);
 public:
     byte *last_t;
     byte last_child;
