@@ -29,8 +29,13 @@ class bfos_node_handler: public trie_node_handler {
 private:
     inline byte *getLastPtr();
     inline void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
-    byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr, byte& tc, byte& child, byte& leaf);
+    byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr,
+            byte& tc, byte& child, byte& leaf, int16_t brk_idx, byte *new_t);
     void consolidateInitialPrefix(byte *t);
+    void markTrieByte(int16_t brk_idx, byte *new_t, byte *t);
+    void deleteTrieParts(bfos_node_handler& new_block, byte *last_key, int16_t last_key_len,
+            byte *first_key, int16_t first_key_len);
+    void setPtrDiff(int16_t diff);
 public:
     byte *last_t;
     byte last_child;
