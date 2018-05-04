@@ -12,7 +12,7 @@ using namespace std;
 #define BS_MIDDLE_PREFIX 1
 #define MAX_PTR_BITMAP_BYTES 0
 
-#define BFOS_NODE_SIZE 768
+#define BFOS_NODE_SIZE 512
 
 #define BFOS_HDR_SIZE 7
 #define BX_MAX_KEY_LEN buf[6]
@@ -33,9 +33,14 @@ private:
             byte& tc, byte& child, byte& leaf, int16_t brk_idx, byte *new_t);
     void consolidateInitialPrefix(byte *t);
     void markTrieByte(int16_t brk_idx, byte *new_t, byte *t);
+    void markTrieByteLeaf(int16_t brk_idx, byte *new_t, byte *t);
+    void markTrieByteUp(int16_t brk_idx, byte *new_t, byte *t);
     void deleteTrieParts(bfos_node_handler& new_block, byte *last_key, int16_t last_key_len,
             byte *first_key, int16_t first_key_len);
     void setPtrDiff(int16_t diff);
+    int16_t deleteTrieSegment(byte *from, byte idx);
+    void updatePtrs(byte *upto, int diff);
+    void updatePtrsAfterDelete(byte *upto, int diff);
 public:
     byte *last_t;
     byte last_child;
@@ -52,7 +57,6 @@ public:
     void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
     int16_t insertCurrent();
-    void updatePtrs(byte *upto, int diff);
 };
 
 class bfos : public bplus_tree {
