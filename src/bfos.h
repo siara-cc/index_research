@@ -34,7 +34,7 @@ private:
     void consolidateInitialPrefix(byte *t);
     void markTrieByte(int16_t brk_idx, byte *new_t, byte *t);
     void markTrieByteLeaf(int16_t brk_idx, byte *new_t, byte *t);
-    void markTrieByteUp(int16_t brk_idx, byte *new_t, byte *t);
+    void markTrieByteUp(byte *new_t, byte *t);
     void deleteTrieParts(bfos_node_handler& new_block, byte *last_key, int16_t last_key_len,
             byte *first_key, int16_t first_key_len);
     void setPtrDiff(int16_t diff);

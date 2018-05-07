@@ -418,7 +418,7 @@ void bfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
 }
 
 void bfos_node_handler::markTrieByte(int16_t brk_idx, byte *new_t, byte *t) {
-    if (brk_idx == 0 || brk_idx < 0) {
+    if (brk_idx == 0) {
         if (new_t[t - trie] != 0)
             new_t[t - trie] = 1;
     } else {
@@ -429,8 +429,8 @@ void bfos_node_handler::markTrieByte(int16_t brk_idx, byte *new_t, byte *t) {
     }
 }
 
-void bfos_node_handler::markTrieByteUp(int16_t brk_idx, byte *new_t, byte *t) {
-    if (brk_idx > 0 && new_t[t - trie] < 2)
+void bfos_node_handler::markTrieByteUp(byte *new_t, byte *t) {
+    if (new_t[t - trie] < 2)
         new_t[t - trie] = 0;
 }
 
@@ -454,18 +454,25 @@ byte *bfos_node_handler::nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& 
                     keyPos--;
                     *t_ptr = trie + tp[keyPos];
                     tc = *(*t_ptr);
-                    markTrieByteUp(brk_idx, new_t, (*t_ptr)++);
+                    if (brk_idx > 0)
+                        markTrieByteUp(new_t, *t_ptr);
+                    (*t_ptr)++;
                 } while (tc & x01);
                 ctr = first_key[keyPos] & x07;
                 if (tc & x02) {
                     child = *(*t_ptr);
-                    markTrieByteUp(brk_idx, new_t, (*t_ptr)++);
-                    markTrieByteUp(brk_idx, new_t, (*t_ptr) + 1
-                            + BIT_COUNT(child & ((x01 << ctr) - 1)));
+                    if (brk_idx > 0) {
+                        markTrieByteUp(new_t, *t_ptr);
+                        markTrieByteUp(new_t, (*t_ptr) + 2
+                                + BIT_COUNT(child & ((x01 << ctr) - 1)));
+                    }
+                    (*t_ptr)++;
                 } else
                     child = 0;
                 leaf = *(*t_ptr);
-                markTrieByteUp(brk_idx, new_t, (*t_ptr)++);
+                if (brk_idx > 0)
+                    markTrieByteUp(new_t, *t_ptr);
+                (*t_ptr)++;
                 ctr++;
                 *t_ptr += BIT_COUNT(child);
             } else {
@@ -504,10 +511,10 @@ byte *bfos_node_handler::nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& 
             byte *ret = *t_ptr + BIT_COUNT2(leaf & (mask - 1));
             if (brk_idx < 0 && ((child | leaf) & (mask - 1))) {
                 byte *t = trie + tp[keyPos];
-                markTrieByteUp(brk_idx, new_t, t);
+                markTrieByteUp(new_t, t);
                 if (*t & x02)
-                    markTrieByteUp(brk_idx, new_t, ++t);
-                markTrieByteUp(brk_idx, new_t, ++t);
+                    markTrieByteUp(new_t, ++t);
+                markTrieByteUp(new_t, ++t);
             }
             if (child & mask)
                 ctr += 16;
@@ -571,7 +578,6 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         tot_len += kv_len;
         memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
         util::setInt(leaf_ptr, kv_last_pos);
-        util::setInt(new_block.trie + (leaf_ptr - trie), kv_last_pos);
         memcpy(first_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
         first_key[keyPos+1+buf[src_idx]] = 0;
         cout << first_key << endl;
@@ -674,7 +680,6 @@ void bfos_node_handler::updatePtrsAfterDelete(byte *upto, int diff) {
 int16_t bfos_node_handler::deleteTrieSegment(byte *from, byte trie_idx) {
     int16_t diff = trie + trie_idx - from;
     memmove(from, trie + trie_idx, BPT_TRIE_LEN - trie_idx);
-    diff = trie + trie_idx - from;
     BPT_TRIE_LEN -= diff;
     updatePtrsAfterDelete(from, -diff);
     return diff;
@@ -696,9 +701,9 @@ void bfos_node_handler::deleteTrieParts(bfos_node_handler& new_block,
                 new_trie_idx++;
             } else {
                 byte tc, offset;
-                tc = trie[old_trie_idx++];
+                tc = trie[old_trie_idx];
                 offset = last_key[idx] & x07;
-                trie[old_trie_idx] |= x04;
+                trie[old_trie_idx++] |= x04;
                 if (tc & x02) {
                     eq_skip_count = 1;
                     new_block.trie[new_trie_idx + 1] = trie[old_trie_idx];
@@ -711,7 +716,7 @@ void bfos_node_handler::deleteTrieParts(bfos_node_handler& new_block,
                 offset = first_key[idx] & x07;
                 if (tc & x02)
                     new_block.trie[new_trie_idx++] &= (xFF << offset);
-                new_block.trie[new_trie_idx] &= ((idx == first_key_len ? xFF : xFE) << offset);
+                new_block.trie[new_trie_idx++] &= ((idx == first_key_len ? xFF : xFE) << offset);
                 idx++;
             }
             continue;
