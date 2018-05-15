@@ -352,14 +352,14 @@ void bfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 //byte is_leaf = new_block.isLeaf();
                 //new_block.setLeaf(true);
                 idx = ~new_block.locate();
-                //new_block.addData();
+                new_block.addData();
                 //new_block.setLeaf(is_leaf);
             } else {
                 node->initVars();
                 //byte is_leaf = node->isLeaf();
                 //node->setLeaf(true);
                 idx = ~node->locate();
-                //node->addData();
+                node->addData();
                 //node->setLeaf(is_leaf);
             }
             if (root_data == node->buf) {
@@ -556,6 +556,7 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t idx;
     byte ctr = 9;
     byte last_key[BX_MAX_KEY_LEN + 1];
+    byte curr_key[BX_MAX_KEY_LEN + 1];
     byte last_key_len, first_key_len;
     byte tp[BX_MAX_KEY_LEN + 1];
     byte *t = trie;
@@ -568,7 +569,7 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     memset(new_block.trie, 3, BPT_TRIE_LEN);
     new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
     for (idx = 0; idx < orig_filled_size; idx++) {
-        byte *leaf_ptr = nextPtr(first_key, tp, t_ptr, ctr,
+        byte *leaf_ptr = nextPtr(curr_key, tp, t_ptr, ctr,
                 tc, child, leaf, brk_idx, new_block.trie);
         int16_t src_idx = util::getInt(leaf_ptr);
         int16_t kv_len = buf[src_idx];
@@ -578,9 +579,9 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         tot_len += kv_len;
         memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
         util::setInt(leaf_ptr, kv_last_pos);
-        memcpy(first_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
-        first_key[keyPos+1+buf[src_idx]] = 0;
-        cout << first_key << endl;
+        memcpy(curr_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
+        curr_key[keyPos+1+buf[src_idx]] = 0;
+        cout << curr_key << endl;
         markTrieByteLeaf(brk_idx, new_block.trie, leaf_ptr);
         markTrieByteLeaf(brk_idx, new_block.trie, leaf_ptr + 1);
         if (brk_idx < 0) {
@@ -589,14 +590,15 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             first_key_len = keyPos;
             if (isLeaf()) {
                 //*first_len_ptr = s.keyPos;
-                *first_len_ptr = util::compare((const char *) first_key, keyPos,
+                *first_len_ptr = util::compare((const char *) curr_key, keyPos,
                         (const char *) last_key, last_key_len);
+                memcpy(first_key, curr_key, *first_len_ptr);
             } else {
-                memcpy(first_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
+                memcpy(curr_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
                 *first_len_ptr = keyPos + 1 + buf[src_idx];
             }
-            first_key[*first_len_ptr] = 0;
-            cout << first_key << endl;
+            curr_key[keyPos] = 0;
+            cout << "Middle:" << curr_key << endl;
             keyPos--;
         }
         kv_last_pos += kv_len;
@@ -611,32 +613,34 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                 brk_idx = -brk_idx;
                 brk_kv_pos = kv_last_pos;
                 last_key_len = keyPos + 1;
-                memcpy(last_key, first_key, last_key_len);
+                memcpy(last_key, curr_key, last_key_len);
             }
         }
     }
-    nextPtr(first_key, tp, t_ptr, ctr, tc, child, leaf, brk_idx, new_block.trie);
+    nextPtr(curr_key, tp, t_ptr, ctr, tc, child, leaf, brk_idx, new_block.trie);
     deleteTrieParts(new_block, last_key, last_key_len - 1, first_key, first_key_len - 1);
-    kv_last_pos = getKVLastPos() + BFOS_NODE_SIZE - kv_last_pos;
+    /*kv_last_pos = getKVLastPos() + BFOS_NODE_SIZE - kv_last_pos;
     new_block.setKVLastPos(kv_last_pos);
     memmove(new_block.buf + kv_last_pos, new_block.buf + getKVLastPos(), BFOS_NODE_SIZE - kv_last_pos);
     int16_t diff = (kv_last_pos - getKVLastPos());
     brk_kv_pos += diff;
     new_block.setPtrDiff(diff);
     diff = BFOS_NODE_SIZE - brk_kv_pos;
-    setPtrDiff(diff);
+    setPtrDiff(diff);*/
+    new_block.setKVLastPos(getKVLastPos());
+    memcpy(buf + getKVLastPos(), new_block.buf + new_block.getKVLastPos(), BFOS_NODE_SIZE - getKVLastPos());
 
     {
-        int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
-        memcpy(buf + BFOS_NODE_SIZE - old_blk_new_len,
-                new_block.buf + kv_last_pos, old_blk_new_len); // Copy back first half to old block
-        setKVLastPos(BFOS_NODE_SIZE - old_blk_new_len);
+        //int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
+        //memcpy(buf + BFOS_NODE_SIZE - old_blk_new_len,
+        //        new_block.buf + kv_last_pos, old_blk_new_len); // Copy back first half to old block
+        //setKVLastPos(BFOS_NODE_SIZE - old_blk_new_len);
         setFilledSize(brk_idx);
     }
 
     {
         int16_t new_size = orig_filled_size - brk_idx;
-        new_block.setKVLastPos(brk_kv_pos);
+        //new_block.setKVLastPos(brk_kv_pos);
         new_block.setFilledSize(new_size);
     }
 
@@ -664,12 +668,8 @@ void bfos_node_handler::updatePtrsAfterDelete(byte *upto, int diff) {
         int count = (tc & x02 ? BIT_COUNT(*t++) : 0);
         byte leaves = *t++;
         while (count--) {
-            if (t < upto && (t + *t) >= upto) {
-                if ((t + *t) < (upto - diff))
-                    *t += (t + *t - upto);
-                else
-                    *t += diff;
-            }
+            if (t < upto && (t + *t) > upto)
+                *t += diff;
             t++;
         }
         t += BIT_COUNT2(leaves);
@@ -704,13 +704,12 @@ void bfos_node_handler::deleteTrieParts(bfos_node_handler& new_block,
                 tc = trie[old_trie_idx];
                 offset = last_key[idx] & x07;
                 trie[old_trie_idx++] |= x04;
+                new_block.trie[new_trie_idx + 1] = trie[old_trie_idx];
                 if (tc & x02) {
                     eq_skip_count = 1;
-                    new_block.trie[new_trie_idx + 1] = trie[old_trie_idx];
                     new_block.trie[new_trie_idx + 2] = trie[old_trie_idx + 1];
                     trie[old_trie_idx++] &= ~((idx == last_key_len ? xFF : xFE) << offset);
-                } else
-                    new_block.trie[new_trie_idx + 1] = trie[old_trie_idx];
+                }
                 trie[old_trie_idx++] &= ~(xFE << offset);
                 tc = new_block.trie[new_trie_idx++];
                 offset = first_key[idx] & x07;
