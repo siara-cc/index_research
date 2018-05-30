@@ -29,18 +29,12 @@ class bfos_node_handler: public trie_node_handler {
 private:
     inline byte *getLastPtr();
     inline void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
-    byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr,
-            byte& tc, byte& child, byte& leaf, int16_t brk_idx, byte *new_t);
-    void consolidateInitialPrefix(byte *t);
-    void markTrieByte(int16_t brk_idx, byte *new_t, byte *t);
-    void markTrieByteLeaf(int16_t brk_idx, byte *new_t, byte *t);
-    void markTrieByteUp(byte *new_t, byte *t);
-    void deleteTrieParts(bfos_node_handler& new_block, byte *last_key, int16_t last_key_len,
-            byte *first_key, int16_t first_key_len);
     void setPtrDiff(int16_t diff);
-    int16_t deleteTrieSegment(byte *from, byte idx);
-    void updatePtrs(byte *upto, int diff);
-    void updatePtrsAfterDelete(byte *upto, int diff);
+    byte copyKary(byte *t, byte *dest, int lvl, byte upto);
+    byte copyTrieFirstHalf(byte *tp, byte *first_key, int16_t first_key_len, byte *dest);
+    byte copyTrieLastHalf(byte *tp, byte *first_key, int16_t first_key_len, byte *dest);
+    byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr, byte& tc, byte& child, byte& leaf);
+    void consolidateInitialPrefix(byte *t);
 public:
     byte *last_t;
     byte last_child;
@@ -57,6 +51,7 @@ public:
     void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
     int16_t insertCurrent();
+    void updatePtrs(byte *upto, int diff);
 };
 
 class bfos : public bplus_tree {
@@ -74,3 +69,80 @@ public:
 };
 
 #endif
+/*
+byte bfos_node_handler::copyKary(byte *t, byte *dest) {
+    byte tc;
+    byte tot_len = 0;
+    do {
+        tc = *t;
+        byte len;
+        if (tc & x01) {
+            len = (tc >> 1) + 1;
+            memcpy(dest, t, len);
+            dest += len;
+            t += len;
+            tc = *t;
+        }
+        len = (tc & x02 ? 3 + BIT_COUNT(t[1]) + BIT_COUNT2(t[2]) :
+                2 + BIT_COUNT2(t[1]));
+        memcpy(dest, t, len);
+        tot_len += len;
+        t += len;
+    } while (!(tc & x04));
+    return tot_len;
+}
+
+byte bfos_node_handler::copyTrieFirstHalf(byte *tp, byte *first_key, int16_t first_key_len, byte *dest) {
+    byte *t = trie;
+    byte trie_len = 0;
+    for (int i = 0; i < first_key_len; i++) {
+        byte offset = first_key[i] & x07;
+        byte *t_end = trie + tp[i];
+        memcpy(dest, t, t_end - t);
+        byte orig_dest = dest;
+        dest += (t_end - t);
+        *dest++ = (*t_end | x04);
+        if (*t_end & x02) {
+            byte children = t_end[1] & ~((i == first_key_len ? xFF : xFE) << offset);
+            byte leaves = t_end[2] & ~(xFE << offset);
+            *dest++ = children;
+            *dest++ = leaves;
+            memcpy(dest, t_end + 3, BIT_COUNT(children));
+            dest += BIT_COUNT(children);
+            if (children)
+                t_end = (dest - 1);
+            memcpy(dest, t_end + 3 + BIT_COUNT(t_end[1]), BIT_COUNT2(leaves));
+            dest += BIT_COUNT2(leaves);
+            trie_len += (3 + BIT_COUNT(children) + BIT_COUNT2(leaves));
+        } else {
+            byte leaves = t_end[1] & ~(xFE << offset);
+            *dest++ = leaves;
+            memcpy(dest, t_end + 2, BIT_COUNT2(leaves));
+            dest += BIT_COUNT2(leaves);
+            trie_len += (2 + BIT_COUNT2(leaves));
+        }
+        while (t <= t_end) {
+            byte tc = *t++;
+            if (tc & x02) {
+                byte children = *t++;
+                t++;
+                for (int j = 0; j < BIT_COUNT(children) && t <= t_end; j++) {
+                    dest = copyChildTree(t + *t, orig_dest, dest);
+                }
+            }
+            t += BIT_COUNT2(*t);
+        }
+        t = t_end; // child of i
+    }
+    return trie_len;
+}
+
+byte *bfos_node_handler::copyChildTree(byte *t, byte *orig_dest, byte *dest) {
+    byte tp_ch[BX_MAX_KEY_LEN];
+    do {
+        byte len = copyKary(t + *t, dest);
+        orig_dest[t - trie] = dest - (orig_dest + (t - trie));
+    } while (1);
+}
+
+ */
