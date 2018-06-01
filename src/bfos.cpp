@@ -522,7 +522,8 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         tot_len += kv_len;
         memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
         util::setInt(leaf_ptr, kv_last_pos);
-        util::setInt(trie + (leaf_ptr - new_block.trie), kv_last_pos);
+        if (brk_idx == 0)
+            util::setInt(trie + (leaf_ptr - new_block.trie), kv_last_pos);
         memcpy(curr_key + new_block.keyPos + 1, buf + src_idx + 1, buf[src_idx]);
         curr_key[new_block.keyPos+1+buf[src_idx]] = 0;
         cout << curr_key << endl;
@@ -659,13 +660,8 @@ byte bfos_node_handler::copyTrieFirstHalf(byte *tp, byte *first_key, int16_t fir
         while (tc & x04) {
             lvl--;
             if (lvl < 0) {
-                if (tc & x04) {
-                    dest += last_len;
-                    return dest - new_trie;
-                } else {
-                    lvl++;
-                    break;
-                }
+                dest += last_len;
+                return dest - new_trie;
             }
             t = trie + tp_child[lvl];
             byte len = BIT_COUNT(t[1]);
@@ -691,7 +687,7 @@ byte bfos_node_handler::copyTrieFirstHalf(byte *tp, byte *first_key, int16_t fir
             }
         }
     } while (1);
-    return dest - new_trie;
+    return 0;
 }
 
 byte bfos_node_handler::copyTrieLastHalf(byte *tp, byte *first_key, int16_t first_key_len, byte *dest) {
@@ -764,7 +760,7 @@ byte bfos_node_handler::copyTrieLastHalf(byte *tp, byte *first_key, int16_t firs
             }
         }
     } while (1);
-    return dest - new_trie;
+    return 0;
 }
 
 void bfos_node_handler::setPtrDiff(int16_t diff) {
