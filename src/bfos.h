@@ -30,9 +30,8 @@ private:
     inline byte *getLastPtr();
     inline void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
     void setPtrDiff(int16_t diff);
-    byte copyKary(byte *t, byte *dest, int lvl, byte upto);
-    byte copyTrieFirstHalf(byte *tp, byte *first_key, int16_t first_key_len, byte *dest);
-    byte copyTrieLastHalf(byte *tp, byte *first_key, int16_t first_key_len, byte *dest);
+    byte copyKary(byte *t, byte *dest, byte *copied_len, int lvl, byte *tp, byte *key, int16_t key_len, byte whichHalf);
+    byte copyTrieHalf(byte *tp, byte *key, int16_t key_len, byte *dest, byte whichHalf);
     byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr, byte& tc, byte& child, byte& leaf);
     void consolidateInitialPrefix(byte *t);
 public:

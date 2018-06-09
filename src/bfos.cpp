@@ -600,7 +600,7 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 
 }
 
-byte copyKary(byte *t, byte *dest, byte *copied_len, int lvl, byte *tp,
+byte bfos_node_handler::copyKary(byte *t, byte *dest, byte *copied_len, int lvl, byte *tp,
         byte *key, int16_t key_len, byte whichHalf) {
     byte *orig_dest = dest;
     if (*t & x01) {
@@ -609,104 +609,113 @@ byte copyKary(byte *t, byte *dest, byte *copied_len, int lvl, byte *tp,
         dest += len;
         t += len;
     }
-    byte *limit = trie + trie_pos_limit;
+    byte *limit = trie + (lvl < key_len ? tp[lvl] : 0);
     byte tc;
+    byte is_limit = 0;
     do {
-        byte is_limit = (limit == t ? 1 : 0);
+        is_limit = (limit == t && is_limit == 0 ? 1 : 0);
         if (is_limit && whichHalf == 2)
             dest = orig_dest;
-        tc = *t++;
-        *dest++ = tc;
-        byte children = (tc & x02) ? *t++ : 0;
-        byte leaves = *t++;
-        byte offset = key[lvl] & x07;
-        if (limit == (t - 3)) {
+        tc = *t;
+        if (is_limit) {
+            *dest++ = tc;
+            byte offset = (lvl < key_len ? key[lvl] & x07 : x07);
+            t++;
+            byte children = (tc & x02) ? *t++ : 0;
+            byte orig_children = children;
+            byte leaves = *t++;
+            byte orig_leaves = leaves;
             if (whichHalf == 1) {
                 children &= ~((lvl == key_len ? xFF : xFE) << offset);
                 leaves &= ~(xFE << offset);
+                *dest++ = children;
+                *dest++ = leaves;
+                for (int i = 0; i < BIT_COUNT(children); i++)
+                    *dest++ = t + i + t[i] - trie;
+                t += BIT_COUNT(orig_children);
+                memcpy(dest, t, BIT_COUNT2(leaves));
+                t += BIT_COUNT(orig_leaves);
             } else {
-                byte mask = (xFF << offset);
-                children &= mask;
+                children &= (xFF << offset);
                 leaves &= ((lvl == key_len ? xFF : xFE) << offset);
+                *dest++ = children;
+                *dest++ = leaves;
+                for (int i = BIT_COUNT(orig_children - children); i < BIT_COUNT(orig_children); i++)
+                    *dest++ = t + i + t[i] - trie;
+                t += BIT_COUNT(orig_children);
+                memcpy(dest, t + BIT_COUNT2(orig_leaves - leaves), BIT_COUNT2(leaves));
+                t += BIT_COUNT(orig_leaves);
             }
+        } else {
+            byte len = (tc & x02) ? 3 + BIT_COUNT(t[1]) + BIT_COUNT2(t[2])
+                    : 2 + BIT_COUNT2(t[1]);
+            memcpy(dest, t, len);
+            t += len;
+            dest += len;
+            // replace child pointers to absolute
         }
-        *dest++ = children;
-        *dest++ = leaves;
-        // copy only specific children and leaves to dest
-        // replace child pointer with absolute trie position in dest
     } while (!(tc & x04));
-    return limit_unit_len;
+    *copied_len = dest - orig_dest;
+    return is_limit;
 }
 
 byte bfos_node_handler::copyTrieHalf(byte *tp, byte *key, int16_t key_len, byte *dest, byte whichHalf) {
     byte *t = trie;
     byte *new_trie = dest;
+    byte *d = dest;
     byte tp_child[BX_MAX_KEY_LEN];
     byte child_num[BX_MAX_KEY_LEN];
-    byte src_kary_start[BX_MAX_KEY_LEN];
-    byte dst_kary_start[BX_MAX_KEY_LEN];
     int lvl = 0;
-    src_kary_start[lvl] = 0;
-    dst_kary_start[lvl] = 0;
     byte last_len;
-    byte is_split = copyKary(t, dest, &last_len, lvl, (lvl < key_len ? tp[lvl] : 0),
-            (lvl < key_len ? key[lvl] : 0), whichHalf);
+    byte is_split = copyKary(t, dest, &last_len, lvl, tp, key, key_len, whichHalf);
+    d = dest;
+    dest += last_len;
     do {
-        byte tc = *t++;
+        byte tc = *d++;
         if (tc & x01) {
-            t += (tc >> 1);
-            tc = *t++;
+            dest += (tc >> 1);
+            tc = *d++;
         }
         if (tc & x02) {
-            byte len = BIT_COUNT(*t++);
+            byte len = BIT_COUNT(*d++);
             if (len) {
-                t++;
-                if (is_split) {
-                    len = new_trie[dst_kary_start[lvl] + (t - (trie + src_kary_start[lvl])) - 2];
-                } else {
-                    tp_child[lvl] = t - trie - 3;
-                    new_trie[dst_kary_start[lvl] + (t - (trie + src_kary_start[lvl]))] =
-                            dest + last_len - (new_trie + dst_kary_start[lvl] + (t - (trie + src_kary_start[lvl])));
-                    child_num[lvl++] = 0;
-                    t += *t;
-                    dest += last_len;
-                    src_kary_start[lvl] = t - trie;
-                    dst_kary_start[lvl] = dest - new_trie;
-                    is_split = copyKary(t, dest, &last_len, lvl, (lvl < key_len ? tp[lvl] : 0),
-                            (lvl < key_len ? key[lvl] : 0), whichHalf);
-                    continue;
-                }
+                d++;
+                tp_child[lvl] = d - new_trie - 3;
+                byte *child = trie + *d;
+                *d = dest - d;
+                child_num[lvl++] = 0;
+                dest = child;
+                is_split = copyKary(t, dest, &last_len, lvl, tp, key, key_len, whichHalf);
+                d = dest;
+                dest += last_len;
+                continue;
             } else
-                t += (BIT_COUNT2(*t) + 1);
+                t += (BIT_COUNT2(*d) + 1);
         } else
-            t += (BIT_COUNT2(*t) + 1);
+            t += (BIT_COUNT2(*d) + 1);
         while (tc & x04) {
             lvl--;
-            if (lvl < 0) {
-                dest += last_len;
+            if (lvl < 0)
                 return dest - new_trie;
-            }
-            t = trie + tp_child[lvl];
-            byte len = BIT_COUNT(t[1]);
+            d = new_trie + tp_child[lvl];
+            byte len = BIT_COUNT(d[1]);
             byte i = child_num[lvl];
             i++;
             if (i < len) {
-                t += (i + 3);
-                new_trie[dst_kary_start[lvl] + (t - (trie + src_kary_start[lvl]))] =
-                        dest + last_len - (new_trie + dst_kary_start[lvl] + (t - (trie + src_kary_start[lvl])));
+                d += (i + 3);
+                byte *child = trie + *d;
+                *d = dest - d;
                 child_num[lvl++] = i;
-                t += *t;
+                dest = child;
+                is_split = copyKary(t, dest, &last_len, lvl, tp, key, key_len, whichHalf);
+                d = dest;
                 dest += last_len;
-                src_kary_start[lvl] = t - trie;
-                dst_kary_start[lvl] = dest - new_trie;
-                is_split = copyKary(t, dest, &last_len, lvl, (lvl < key_len ? tp[lvl] : 0),
-                        (lvl < key_len ? key[lvl] : 0), whichHalf);
                 break;
             }
-            tc = *t;
+            tc = *d;
             if (!(tc & x04)) {
-                t += (tc & x02 ? 3 + BIT_COUNT(t[1]) + BIT_COUNT2(t[2]) :
-                        2 + BIT_COUNT2(t[1]));
+                d += (tc & x02 ? 3 + BIT_COUNT(d[1]) + BIT_COUNT2(d[2]) :
+                        2 + BIT_COUNT2(d[1]));
                 break;
             }
         }
