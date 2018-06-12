@@ -335,7 +335,7 @@ void bfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             }
             //    maxKeyCount += node->BPT_TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[64];
+            byte first_key[72];
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             bfos_node_handler new_block(b);
@@ -502,6 +502,7 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     byte ctr = 9;
     byte tp[BX_MAX_KEY_LEN + 1];
     byte tp_cpy[BX_MAX_KEY_LEN + 1];
+    int16_t tp_cpy_len = 0;
     byte *t = new_block.trie;
     byte **t_ptr = &t;
     byte tc, child, leaf;
@@ -530,17 +531,19 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         if (brk_idx < 0) {
             brk_idx = -brk_idx;
             new_block.keyPos++;
+            tp_cpy_len = new_block.keyPos;
             if (isLeaf()) {
                 //*first_len_ptr = s.keyPos;
                 *first_len_ptr = util::compare((const char *) curr_key, new_block.keyPos,
                         (const char *) first_key, *first_len_ptr);
+                memcpy(first_key, curr_key, tp_cpy_len);
             } else {
-                memcpy(curr_key + new_block.keyPos + 1, buf + src_idx + 1, buf[src_idx]);
-                *first_len_ptr = new_block.keyPos + 1 + buf[src_idx]; // ??????????????????????????
+                memcpy(curr_key + new_block.keyPos, buf + src_idx + 1, buf[src_idx]);
+                *first_len_ptr = new_block.keyPos + buf[src_idx];
+                memcpy(first_key, curr_key, *first_len_ptr);
             }
-            memcpy(first_key, curr_key, *first_len_ptr);
-            memcpy(tp_cpy, tp, new_block.keyPos);
-            curr_key[new_block.keyPos] = 0;
+            memcpy(tp_cpy, tp, tp_cpy_len);
+            //curr_key[new_block.keyPos] = 0;
             //cout << "Middle:" << curr_key << endl;
             new_block.keyPos--;
         }
@@ -557,12 +560,11 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                 brk_kv_pos = kv_last_pos;
                 *first_len_ptr = new_block.keyPos + 1;
                 memcpy(first_key, curr_key, *first_len_ptr);
-                memcpy(tp_cpy, tp, *first_len_ptr);
-                BPT_TRIE_LEN = new_block.copyTrieHalf(tp_cpy, first_key, *first_len_ptr, trie, 1);
+                BPT_TRIE_LEN = new_block.copyTrieHalf(tp, first_key, *first_len_ptr, trie, 1);
             }
         }
     }
-    new_block.BPT_TRIE_LEN = new_block.copyTrieHalf(tp_cpy, first_key, *first_len_ptr, trie + 256, 2);
+    new_block.BPT_TRIE_LEN = new_block.copyTrieHalf(tp_cpy, first_key, tp_cpy_len, trie + 256, 2);
     memcpy(new_block.trie, trie + 256, new_block.BPT_TRIE_LEN);
     kv_last_pos = getKVLastPos() + BFOS_NODE_SIZE - kv_last_pos;
     new_block.setKVLastPos(kv_last_pos);

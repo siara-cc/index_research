@@ -10,9 +10,8 @@
 using namespace std;
 
 #define BS_MIDDLE_PREFIX 1
-#define MAX_PTR_BITMAP_BYTES 0
 
-#define BFOS_NODE_SIZE 512
+#define BFOS_NODE_SIZE 768
 
 #define BFOS_HDR_SIZE 7
 #define BX_MAX_KEY_LEN buf[6]
