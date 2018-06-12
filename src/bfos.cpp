@@ -524,9 +524,9 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         util::setInt(leaf_ptr, kv_last_pos);
         if (brk_idx == 0)
             util::setInt(trie + (leaf_ptr - new_block.trie), kv_last_pos);
-        memcpy(curr_key + new_block.keyPos + 1, buf + src_idx + 1, buf[src_idx]);
-        curr_key[new_block.keyPos+1+buf[src_idx]] = 0;
-        cout << curr_key << endl;
+        //memcpy(curr_key + new_block.keyPos + 1, buf + src_idx + 1, buf[src_idx]);
+        //curr_key[new_block.keyPos+1+buf[src_idx]] = 0;
+        //cout << curr_key << endl;
         if (brk_idx < 0) {
             brk_idx = -brk_idx;
             new_block.keyPos++;
@@ -541,7 +541,7 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             memcpy(first_key, curr_key, *first_len_ptr);
             memcpy(tp_cpy, tp, new_block.keyPos);
             curr_key[new_block.keyPos] = 0;
-            cout << "Middle:" << curr_key << endl;
+            //cout << "Middle:" << curr_key << endl;
             new_block.keyPos--;
         }
         kv_last_pos += kv_len;
@@ -609,13 +609,14 @@ byte bfos_node_handler::copyKary(byte *t, byte *dest, int lvl, byte *tp,
         dest += len;
         t += len;
     }
+    byte *dest_after_prefix = dest;
     byte *limit = trie + (lvl < brk_key_len ? tp[lvl] : 0);
     byte tc;
     byte is_limit = 0;
     do {
         is_limit = (limit == t ? 1 : 0); // && is_limit == 0 ? 1 : 0);
         if (limit == t && whichHalf == 2)
-            dest = orig_dest;
+            dest = dest_after_prefix;
         tc = *t;
         if (is_limit) {
             *dest++ = tc;
