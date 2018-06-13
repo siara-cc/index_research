@@ -13,17 +13,14 @@ using namespace std;
 
 #define DFT_NODE_SIZE 512
 
-#define DFT_HDR_SIZE 7
-#define DFT_TRIE_LEN buf[5]
-#define DFT_PREFIX_LEN buf[6]
+#define DFT_HDR_SIZE 8
+#define DFT_MAX_PFX_LEN buf[7]
 
 #define INSERT_AFTER 1
 #define INSERT_BEFORE 2
 #define INSERT_LEAF 3
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5
-
-#define DFT_MAX_KEY_PREFIX_LEN 60
 
 class dft_node_handler : public trie_node_handler {
 private:

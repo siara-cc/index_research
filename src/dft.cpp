@@ -53,7 +53,7 @@ void dft::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             }
             //maxKeyCount += node->BPT_TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[DFT_MAX_KEY_PREFIX_LEN * 2];
+            byte first_key[node->BPT_MAX_KEY_LEN * 2];
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             dft_node_handler new_block(b);
@@ -128,6 +128,7 @@ byte *dft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     new_block.isPut = true;
     if (!isLeaf())
         new_block.setLeaf(false);
+    new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = DFT_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
@@ -142,10 +143,10 @@ byte *dft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     // (1) move all data to new_block in order
     int16_t idx = 0;
     keyPos = 0;
-    byte tp[DFT_MAX_KEY_PREFIX_LEN];
-    byte brk_tp_old[DFT_MAX_KEY_PREFIX_LEN];
-    byte brk_tp_new[DFT_MAX_KEY_PREFIX_LEN];
-    byte *t_end = trie + DFT_TRIE_LEN;
+    byte tp[DFT_MAX_PFX_LEN];
+    byte brk_tp_old[DFT_MAX_PFX_LEN];
+    byte brk_tp_new[DFT_MAX_PFX_LEN];
+    byte *t_end = trie + BPT_TRIE_LEN;
     for (byte *t = trie + 1; t < t_end; t += DFT_UNIT_SIZE) {
 #if DFT_UNIT_SIZE == 3
         int16_t src_idx = get9bitPtr(t);
@@ -174,9 +175,9 @@ byte *dft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             kv_last_pos += kv_len;
             if (brk_idx == 0) {
                 //if (tot_len > halfKVLen) {
-                //if (tot_len > halfKVLen || ((t-trie) > (DFT_TRIE_LEN * 2 / 3)) ) {
+                //if (tot_len > halfKVLen || ((t-trie) > (BPT_TRIE_LEN * 2 / 3)) ) {
                 if (tot_len > halfKVLen || idx == (orig_filled_size / 2)
-                            || ((t - trie) > (DFT_TRIE_LEN* 2 / 3)) ) {
+                            || ((t - trie) > (BPT_TRIE_LEN* 2 / 3)) ) {
                     brk_idx = -1;
                     brk_kv_pos = kv_last_pos;
                     brk_tp_old_pos = (child ? keyPos : keyPos + 1);
@@ -312,7 +313,8 @@ void dft_node_handler::initBuf() {
     setLeaf(1);
     setFilledSize(0);
     BPT_TRIE_LEN= 0;
-    DFT_PREFIX_LEN= 0;
+    BPT_MAX_KEY_LEN = 1;
+    DFT_MAX_PFX_LEN= 1;
     //MID_KEY_LEN = 0;
     keyPos = 1;
     insertState = INSERT_EMPTY;
@@ -352,17 +354,17 @@ void dft_node_handler::addData() {
 
 bool dft_node_handler::isFull(int16_t kv_len) {
 #if DFT_UNIT_SIZE == 3
-    if ((DFT_TRIE_LEN+ need_count) > 189) {
+    if ((BPT_TRIE_LEN+ need_count) > 189) {
         //if ((origPos - trie) <= (72 + need_count)) {
         return true;
         //}
     }
 #endif
             if ((getKVLastPos() - kv_len - 2)
-                    < (DFT_HDR_SIZE + DFT_TRIE_LEN + need_count)) {
+                    < (DFT_HDR_SIZE + BPT_TRIE_LEN + need_count)) {
                 return true;
             }
-            if (DFT_TRIE_LEN + need_count > 240) {
+            if (BPT_TRIE_LEN + need_count > 240) {
                 return true;
             }
             return false;
@@ -535,11 +537,18 @@ int16_t dft_node_handler::insertCurrent() {
         key_char = *key;
         append(key_char);
         append(x00);
-        ret = DFT_TRIE_LEN;
+        ret = BPT_TRIE_LEN;
         appendPtr(0);
         keyPos = 1;
         break;
     }
+
+    if (DFT_MAX_PFX_LEN < (isLeaf() ? keyPos : key_len))
+        DFT_MAX_PFX_LEN = (isLeaf() ? keyPos : key_len);
+
+    if (BPT_MAX_KEY_LEN < key_len)
+        BPT_MAX_KEY_LEN = key_len;
+
     return ret;
 }
 
@@ -556,7 +565,7 @@ int16_t dft_node_handler::insertCurrent() {
     if (isPut) node_paths[level++] = buf; \
     if (isLeaf()) \
         return locate(); \
-    keyPos = DFT_PREFIX_LEN; \
+    keyPos = 0; \
     key_char = key[keyPos++]; \
     t = trie;
 
@@ -565,7 +574,7 @@ int16_t dft_node_handler::traverseToLeaf(byte *node_paths[]) {
     byte *t = trie;
     if (isPut)
         *node_paths = buf;
-    keyPos = DFT_PREFIX_LEN;
+    keyPos = 0;
     byte key_char = key[keyPos++];
     do {
         while (key_char > *t) {
@@ -651,7 +660,7 @@ int16_t dft_node_handler::traverseToLeaf(byte *node_paths[]) {
 
 int16_t dft_node_handler::locate() {
     byte *t = trie;
-    keyPos = DFT_PREFIX_LEN;
+    keyPos = 0;
     byte key_char = key[keyPos++];
     do {
         origPos = t;
@@ -809,15 +818,15 @@ char *dft_node_handler::getValueAt(int16_t *vlen) {
 
 void dft_node_handler::appendPtr(int16_t p) {
 #if DFT_UNIT_SIZE == 3
-    trie[DFT_TRIE_LEN] = p;
+    trie[BPT_TRIE_LEN] = p;
     if (p & x100)
-    trie[DFT_TRIE_LEN - 1] |= x80;
+    trie[BPT_TRIE_LEN - 1] |= x80;
     else
-    trie[DFT_TRIE_LEN - 1] &= x7F;
-    DFT_TRIE_LEN++;
+    trie[BPT_TRIE_LEN - 1] &= x7F;
+    BPT_TRIE_LEN++;
 #else
-    util::setInt(trie + DFT_TRIE_LEN, p);
-    DFT_TRIE_LEN += 2;
+    util::setInt(trie + BPT_TRIE_LEN, p);
+    BPT_TRIE_LEN += 2;
 #endif
 }
 

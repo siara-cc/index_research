@@ -44,10 +44,6 @@ byte *dfqx_node_handler::skipChildren(byte *t, uint16_t& count) {
     return t;
 }
 
-#ifndef _MSC_VER
-__attribute__((aligned(32)))
-__attribute__((hot))
-#endif
 int16_t dfqx_node_handler::locate() {
     byte *t = trie;
     uint16_t to_skip = 0;
@@ -225,7 +221,7 @@ void dfqx::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             }
                 //maxKeyCount += node->BPT_TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[node->DQ_MAX_KEY_LEN + 1];
+            byte first_key[node->BPT_MAX_KEY_LEN];
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             dfqx_node_handler new_block(b);
@@ -340,7 +336,8 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         new_block.setLeaf(false);
     memcpy(new_block.trie, trie, BPT_TRIE_LEN);
     new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
-    new_block.DQ_MAX_KEY_LEN = DQ_MAX_KEY_LEN;
+    new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
+    new_block.DQ_MAX_PFX_LEN = DQ_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = DFQX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
@@ -350,7 +347,7 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t tot_len;
     brk_kv_pos = tot_len = 0;
     char ctr = 4;
-    byte tp[DQ_MAX_KEY_LEN + 1];
+    byte tp[DQ_MAX_PFX_LEN];
     byte *t = trie;
     byte tc, child_leaf;
     tc = child_leaf = 0;
@@ -553,7 +550,8 @@ void dfqx_node_handler::initBuf() {
     setLeaf(1);
     setFilledSize(0);
     BPT_TRIE_LEN = 0;
-    DQ_MAX_KEY_LEN = 1;
+    BPT_MAX_KEY_LEN = 1;
+    DQ_MAX_PFX_LEN = 1;
     //MID_KEY_LEN = 0;
     setKVLastPos(DFQX_NODE_SIZE);
     trie = buf + DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES;
@@ -928,8 +926,11 @@ void dfqx_node_handler::insertCurrent() {
         break;
     }
 
-    if (DQ_MAX_KEY_LEN < (isLeaf() ? keyPos : key_len))
-        DQ_MAX_KEY_LEN = (isLeaf() ? keyPos : key_len);
+    if (DQ_MAX_PFX_LEN < (isLeaf() ? keyPos : key_len))
+        DQ_MAX_PFX_LEN = (isLeaf() ? keyPos : key_len);
+
+    if (BPT_MAX_KEY_LEN < key_len)
+        BPT_MAX_KEY_LEN = key_len;
 
 }
 

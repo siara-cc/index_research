@@ -259,7 +259,7 @@ void dfox::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             }
                 //maxKeyCount += node->BPT_TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[node->DX_MAX_KEY_LEN + 1];
+            byte first_key[node->BPT_MAX_KEY_LEN];
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             dfox_node_handler new_block(b);
@@ -402,7 +402,8 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     new_block.isPut = true;
     if (!isLeaf())
         new_block.setLeaf(false);
-    new_block.DX_MAX_KEY_LEN = DX_MAX_KEY_LEN;
+    new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
+    new_block.DX_MAX_PFX_LEN = DX_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = DFOX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
@@ -413,7 +414,7 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t tot_len;
     brk_kv_pos = tot_len = 0;
     char ctr = x08;
-    byte tp[DX_MAX_KEY_LEN + 1];
+    byte tp[DX_MAX_PFX_LEN];
     byte *t = trie;
     byte tc, child, leaf;
     tc = child = leaf = 0;
@@ -617,7 +618,8 @@ void dfox_node_handler::initBuf() {
     setLeaf(1);
     setFilledSize(0);
     BPT_TRIE_LEN = 0;
-    DX_MAX_KEY_LEN = 1;
+    BPT_MAX_KEY_LEN = 1;
+    DX_MAX_PFX_LEN = 1;
     //MID_KEY_LEN = 0;
     setKVLastPos(DFOX_NODE_SIZE);
     trie = buf + DFOX_HDR_SIZE;
@@ -924,8 +926,11 @@ byte *dfox_node_handler::insertCurrent() {
         break;
     }
 
-    if (DX_MAX_KEY_LEN < (isLeaf() ? keyPos : key_len))
-        DX_MAX_KEY_LEN = (isLeaf() ? keyPos : key_len);
+    if (DX_MAX_PFX_LEN < (isLeaf() ? keyPos : key_len))
+        DX_MAX_PFX_LEN = (isLeaf() ? keyPos : key_len);
+
+    if (BPT_MAX_KEY_LEN < key_len)
+        BPT_MAX_KEY_LEN = key_len;
 
     return ret;
 

@@ -22,8 +22,8 @@ using namespace std;
 #define DS_MAX_PTR_BITMAP_BYTES 0
 #define DS_MAX_PTRS 240
 #endif
-#define DFOS_HDR_SIZE 7
-#define DS_MAX_KEY_LEN buf[6]
+#define DFOS_HDR_SIZE 8
+#define DS_MAX_PFX_LEN buf[7]
 //#define MID_KEY_LEN buf[DS_MAX_PTR_BITMAP_BYTES+6]
 
 #define INSERT_AFTER 1

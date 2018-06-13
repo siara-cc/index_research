@@ -68,7 +68,7 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
             }
             //    maxKeyCount += node->TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[72];
+            byte first_key[node->BPT_MAX_KEY_LEN];
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             basix_node_handler new_block(b);
@@ -200,6 +200,9 @@ void basix_node_handler::addData() {
     buf[kv_last_pos + key_len + 1] = value_len & 0xFF;
     memcpy(buf + kv_last_pos + key_len + 2, value, value_len);
     insPtr(pos, kv_last_pos);
+    if (BPT_MAX_KEY_LEN < key_len)
+        BPT_MAX_KEY_LEN = key_len;
+
 }
 
 byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
@@ -210,6 +213,7 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     new_block.isPut = true;
     if (!isLeaf())
         new_block.setLeaf(false);
+    new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
     uint16_t kv_last_pos = getKVLastPos();
     uint16_t halfKVLen = BASIX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
@@ -410,6 +414,7 @@ void basix_node_handler::initBuf() {
     setLeaf(1);
     setFilledUpto(-1);
     setKVLastPos(BASIX_NODE_SIZE);
+    BPT_MAX_KEY_LEN = 1;
 #if BX_9_BIT_PTR == 1
 #if BX_INT64MAP == 1
     bitmap = (uint64_t *) (buf + BITMAP_POS);

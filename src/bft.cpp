@@ -59,7 +59,7 @@ void bft::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             }
                 //maxKeyCount += node->BPT_TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[64];
+            byte first_key[node->BPT_MAX_KEY_LEN];
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             bft_node_handler new_block(b);
@@ -153,7 +153,7 @@ int16_t bft_node_handler::nextPtr(bft_iterator_status& s) {
             s.keyPos++;
             s.t += (s.is_child_pending * BFT_UNIT_SIZE);
         }
-    } while (1); // (s.t - trie) < BFT_TRIE_LEN);
+    } while (1); // (s.t - trie) < BPT_TRIE_LEN);
     return 0;
 }
 
@@ -165,11 +165,13 @@ byte *bft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     new_block.isPut = true;
     if (!isLeaf())
         new_block.setLeaf(0);
+    new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
     bft_node_handler old_block(bft::split_buf);
     old_block.initBuf();
     old_block.isPut = true;
     if (!isLeaf())
         old_block.setLeaf(0);
+    old_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
     bft_node_handler *ins_block = &old_block;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = BFT_NODE_SIZE - kv_last_pos + 1;
@@ -269,13 +271,13 @@ int16_t bft_node_handler::deletePrefix(int16_t prefix_len) {
         }
 #if BFT_UNIT_SIZE == 3
         t += (*t & x3F);
-        BFT_TRIE_LEN -= 3;
-        memmove(delete_start, delete_start + 3, BFT_TRIE_LEN);
+        BPT_TRIE_LEN -= 3;
+        memmove(delete_start, delete_start + 3, BPT_TRIE_LEN);
         t -= 3;
 #else
         t += (*t & x7F);
-        BFT_TRIE_LEN -= 4;
-        memmove(delete_start, delete_start + 4, BFT_TRIE_LEN);
+        BPT_TRIE_LEN -= 4;
+        memmove(delete_start, delete_start + 4, BPT_TRIE_LEN);
         t -= 4;
 #endif
     }
@@ -305,7 +307,8 @@ void bft_node_handler::initBuf() {
     //memset(buf, '\0', BFT_NODE_SIZE);
     setLeaf(1);
     setFilledSize(0);
-    BFT_TRIE_LEN = 0;
+    BPT_TRIE_LEN = 0;
+    BPT_MAX_KEY_LEN = 0;
     BFT_PREFIX_LEN = 0;
     keyPos = 1;
     insertState = INSERT_EMPTY;
@@ -345,17 +348,17 @@ void bft_node_handler::addData() {
 
 bool bft_node_handler::isFull(int16_t kv_len) {
 #if BFT_UNIT_SIZE == 3
-    if ((BFT_TRIE_LEN + need_count) > 189) {
+    if ((BPT_TRIE_LEN + need_count) > 189) {
         //if ((origPos - trie) <= (72 + need_count)) {
             return true;
         //}
     }
 #endif
     if ((getKVLastPos() - kv_len - 2)
-            < (BFT_HDR_SIZE + BFT_TRIE_LEN + need_count)) {
+            < (BFT_HDR_SIZE + BPT_TRIE_LEN + need_count)) {
         return true;
     }
-    if (BFT_TRIE_LEN + need_count > 240)
+    if (BPT_TRIE_LEN + need_count > 240)
         return true;
     return false;
 }
@@ -426,12 +429,12 @@ int16_t bft_node_handler::insertCurrent() {
         min = util::min16(key_len, keyPos + key_at_len);
         origPos++;
 #if BFT_UNIT_SIZE == 3
-        *origPos |= ((BFT_TRIE_LEN - (origPos - trie - 1)) / 3);
+        *origPos |= ((BPT_TRIE_LEN - (origPos - trie - 1)) / 3);
         ptr = *(origPos + 1);
         if (*origPos & x80)
             ptr |= x100;
 #else
-        *origPos |= ((BFT_TRIE_LEN - (origPos - trie - 1)) / 4);
+        *origPos |= ((BPT_TRIE_LEN - (origPos - trie - 1)) / 4);
         ptr = util::getInt(origPos + 1);
 #endif
         if (p < min) {
@@ -461,19 +464,19 @@ int16_t bft_node_handler::insertCurrent() {
                 append(c1);
                 append(x00);
                 if (swap) {
-                    pos = BFT_TRIE_LEN;
+                    pos = BPT_TRIE_LEN;
                     appendPtr(ptr);
                 } else {
-                    ret = BFT_TRIE_LEN;
+                    ret = BPT_TRIE_LEN;
                     appendPtr(0);
                 }
                 append(c2);
                 append(BFT_UNIT_SIZE == 3 ? x40 : x80);
                 if (swap) {
-                    ret = BFT_TRIE_LEN;
+                    ret = BPT_TRIE_LEN;
                     appendPtr(0);
                 } else {
-                    pos = BFT_TRIE_LEN;
+                    pos = BPT_TRIE_LEN;
                     appendPtr(ptr);
                 }
                 break;
@@ -486,10 +489,10 @@ int16_t bft_node_handler::insertCurrent() {
                 append(c1);
                 append(BFT_UNIT_SIZE == 3 ? x41 : x81);
                 if (p + 1 == key_len) {
-                    ret = BFT_TRIE_LEN;
+                    ret = BPT_TRIE_LEN;
                     appendPtr(0);
                 } else {
-                    pos = BFT_TRIE_LEN;
+                    pos = BPT_TRIE_LEN;
                     appendPtr(ptr);
                 }
                 break;
@@ -506,11 +509,11 @@ int16_t bft_node_handler::insertCurrent() {
             append(c2);
             append(BFT_UNIT_SIZE == 3 ? x40 : x80);
             if (p == key_len) {
-                pos = BFT_TRIE_LEN;
+                pos = BPT_TRIE_LEN;
                 appendPtr(ptr);
                 keyPos--;
             } else {
-                ret = BFT_TRIE_LEN;
+                ret = BPT_TRIE_LEN;
                 appendPtr(0);
             }
         }
@@ -534,11 +537,15 @@ int16_t bft_node_handler::insertCurrent() {
         key_char = *key;
         append(key_char);
         append(BFT_UNIT_SIZE == 3 ? x40 : x80);
-        ret = BFT_TRIE_LEN;
+        ret = BPT_TRIE_LEN;
         appendPtr(0);
         keyPos = 1;
         break;
     }
+
+    if (BPT_MAX_KEY_LEN < key_len)
+        BPT_MAX_KEY_LEN = key_len;
+
     return ret;
 }
 
@@ -769,15 +776,15 @@ char *bft_node_handler::getValueAt(int16_t *vlen) {
 
 void bft_node_handler::appendPtr(int16_t p) {
 #if BFT_UNIT_SIZE == 3
-    trie[BFT_TRIE_LEN] = p;
+    trie[BPT_TRIE_LEN] = p;
     if (p & x100)
-        trie[BFT_TRIE_LEN - 1] |= x80;
+        trie[BPT_TRIE_LEN - 1] |= x80;
     else
-        trie[BFT_TRIE_LEN - 1] &= x7F;
-    BFT_TRIE_LEN++;
+        trie[BPT_TRIE_LEN - 1] &= x7F;
+    BPT_TRIE_LEN++;
 #else
-    util::setInt(trie + BFT_TRIE_LEN, p);
-    BFT_TRIE_LEN += 2;
+    util::setInt(trie + BPT_TRIE_LEN, p);
+    BPT_TRIE_LEN += 2;
 #endif
 }
 

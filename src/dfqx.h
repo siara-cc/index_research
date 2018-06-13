@@ -21,8 +21,8 @@ using namespace std;
 #define DQ_MAX_PTR_BITMAP_BYTES 0
 #define DQ_MAX_PTRS 240
 #endif
-#define DFQX_HDR_SIZE 7
-#define DQ_MAX_KEY_LEN buf[6]
+#define DFQX_HDR_SIZE 8
+#define DQ_MAX_PFX_LEN buf[7]
 //#define MID_KEY_LEN buf[DQ_MAX_PTR_BITMAP_BYTES+6]
 
 #define INSERT_AFTER 1

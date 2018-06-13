@@ -13,9 +13,8 @@ using namespace std;
 
 #define BFT_NODE_SIZE 1024
 
-#define BFT_HDR_SIZE 7
-#define BFT_TRIE_LEN buf[5]
-#define BFT_PREFIX_LEN buf[6]
+#define BFT_HDR_SIZE 8
+#define BFT_PREFIX_LEN buf[7]
 
 #define INSERT_AFTER 1
 #define INSERT_BEFORE 2

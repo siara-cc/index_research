@@ -11,13 +11,13 @@ using namespace std;
 
 #define BX_INT64MAP 1
 #define BX_9_BIT_PTR 0
-#define BASIX_NODE_SIZE 1024
+#define BASIX_NODE_SIZE 768
 
 #if BX_9_BIT_PTR == 1
-#define BLK_HDR_SIZE 13
+#define BLK_HDR_SIZE 14
 #define BITMAP_POS 5
 #else
-#define BLK_HDR_SIZE 5
+#define BLK_HDR_SIZE 6
 #endif
 
 class basix_node_handler : public bplus_tree_node_handler {

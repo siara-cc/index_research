@@ -68,7 +68,7 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
             }
             //    maxKeyCount += node->TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[64];
+            byte first_key[node->BPT_MAX_KEY_LEN];
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             linex_node_handler new_block(b);
@@ -189,6 +189,10 @@ void linex_node_handler::addData() {
     memcpy(key_at, value, value_len);
     kv_last_pos += tot_len;
     setKVLastPos(kv_last_pos);
+
+    if (BPT_MAX_KEY_LEN < key_len)
+        BPT_MAX_KEY_LEN = key_len;
+
 }
 
 byte *linex_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
@@ -199,6 +203,7 @@ byte *linex_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     new_block.isPut = true;
     if (!isLeaf())
         new_block.setLeaf(false);
+    new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = kv_last_pos / 2;
 
@@ -372,6 +377,7 @@ void linex_node_handler::setBuf(byte *b) {
 
 void linex_node_handler::initBuf() {
     //memset(buf, '\0', LINEX_NODE_SIZE);
+    BPT_MAX_KEY_LEN = 1;
     setLeaf(1);
     setFilledSize(0);
     setKVLastPos(LX_BLK_HDR_SIZE);

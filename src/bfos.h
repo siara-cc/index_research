@@ -13,8 +13,8 @@ using namespace std;
 
 #define BFOS_NODE_SIZE 768
 
-#define BFOS_HDR_SIZE 7
-#define BX_MAX_KEY_LEN buf[6]
+#define BFOS_HDR_SIZE 8
+#define BX_MAX_PFX_LEN buf[7]
 
 #define INSERT_AFTER 1
 #define INSERT_BEFORE 2
@@ -57,7 +57,6 @@ private:
     void recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             byte *node_paths[], int16_t level);
 public:
-    static byte split_buf[BFOS_NODE_SIZE];
     static int count1, count2;
     bfos();
     ~bfos();

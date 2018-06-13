@@ -260,7 +260,8 @@ void bfos_node_handler::initBuf() {
     setLeaf(1);
     setFilledSize(0);
     BPT_TRIE_LEN = 0;
-    BX_MAX_KEY_LEN = 1;
+    BX_MAX_PFX_LEN = 1;
+    BPT_MAX_KEY_LEN = 1;
     keyPos = 1;
     insertState = INSERT_EMPTY;
     setKVLastPos(BFOS_NODE_SIZE);
@@ -335,7 +336,7 @@ void bfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             }
             //    maxKeyCount += node->BPT_TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[72];
+            byte first_key[node->BPT_MAX_KEY_LEN];
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             bfos_node_handler new_block(b);
@@ -489,7 +490,8 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     bfos_node_handler new_block(b);
     new_block.initBuf();
     new_block.isPut = true;
-    new_block.BX_MAX_KEY_LEN = BX_MAX_KEY_LEN;
+    new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
+    new_block.BX_MAX_PFX_LEN = BX_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = BFOS_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
@@ -498,10 +500,10 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     brk_idx = tot_len = brk_kv_pos = 0;
     // (1) move all data to new_block in order
     int16_t idx;
-    byte curr_key[BX_MAX_KEY_LEN + 1];
+    byte curr_key[BPT_MAX_KEY_LEN];
     byte ctr = 9;
-    byte tp[BX_MAX_KEY_LEN + 1];
-    byte tp_cpy[BX_MAX_KEY_LEN + 1];
+    byte tp[BX_MAX_PFX_LEN + 1];
+    byte tp_cpy[BX_MAX_PFX_LEN + 1];
     int16_t tp_cpy_len = 0;
     byte *t = new_block.trie;
     byte **t_ptr = &t;
@@ -673,8 +675,8 @@ byte bfos_node_handler::copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_le
     byte *d;
     byte *t = trie;
     byte *new_trie = dest;
-    byte tp_child[BX_MAX_KEY_LEN];
-    byte child_num[BX_MAX_KEY_LEN];
+    byte tp_child[BX_MAX_PFX_LEN];
+    byte child_num[BX_MAX_PFX_LEN];
     int lvl = 0;
     if (*t & x01) {
         byte len = (*t >> 1);
@@ -1074,8 +1076,11 @@ int16_t bfos_node_handler::insertCurrent() {
         break;
     }
 
-    if (BX_MAX_KEY_LEN < (isLeaf() ? keyPos : key_len))
-        BX_MAX_KEY_LEN = (isLeaf() ? keyPos : key_len);
+    if (BX_MAX_PFX_LEN < (isLeaf() ? keyPos : key_len))
+        BX_MAX_PFX_LEN = (isLeaf() ? keyPos : key_len);
+
+    if (BPT_MAX_KEY_LEN < key_len)
+        BPT_MAX_KEY_LEN = key_len;
 
     return ret;
 }
@@ -1083,5 +1088,4 @@ int16_t bfos_node_handler::insertCurrent() {
 void bfos_node_handler::initVars() {
 }
 
-byte bfos::split_buf[BFOS_NODE_SIZE];
 int bfos::count1, bfos::count2;

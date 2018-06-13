@@ -268,7 +268,7 @@ void dfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             }
                 //maxKeyCount += node->BPT_TRIE_LEN;
             //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[node->DS_MAX_KEY_LEN + 1];
+            byte first_key[node->BPT_MAX_KEY_LEN];
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             dfos_node_handler new_block(b);
@@ -399,7 +399,8 @@ byte *dfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         new_block.setLeaf(false);
     memcpy(new_block.trie, trie, BPT_TRIE_LEN);
     new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
-    new_block.DS_MAX_KEY_LEN = DS_MAX_KEY_LEN;
+    new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
+    new_block.DS_MAX_PFX_LEN = DS_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = DFOS_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
@@ -409,8 +410,8 @@ byte *dfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t tot_len;
     brk_kv_pos = tot_len = 0;
     char ctr = x08;
-    byte tp[DS_MAX_KEY_LEN + 1];
-    byte last_key[DS_MAX_KEY_LEN + 1];
+    byte tp[DS_MAX_PFX_LEN];
+    byte last_key[DS_MAX_PFX_LEN];
     int16_t last_key_len = 0;
     byte *t = trie;
     byte tc, child, leaf;
@@ -633,7 +634,8 @@ void dfos_node_handler::initBuf() {
     setLeaf(1);
     setFilledSize(0);
     BPT_TRIE_LEN = 0;
-    DS_MAX_KEY_LEN = 1;
+    BPT_MAX_KEY_LEN = 1;
+    DS_MAX_PFX_LEN = 1;
     //MID_KEY_LEN = 0;
     setKVLastPos(DFOS_NODE_SIZE);
     trie = buf + DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES;
@@ -972,8 +974,11 @@ void dfos_node_handler::insertCurrent() {
         break;
     }
 
-    if (DS_MAX_KEY_LEN <= (isLeaf() ? keyPos : key_len))
-        DS_MAX_KEY_LEN = (isLeaf() ? keyPos + 1 : key_len);
+    if (DS_MAX_PFX_LEN <= (isLeaf() ? keyPos : key_len))
+        DS_MAX_PFX_LEN = (isLeaf() ? keyPos + 1 : key_len);
+
+    if (BPT_MAX_KEY_LEN < key_len)
+        BPT_MAX_KEY_LEN = key_len;
 
 }
 

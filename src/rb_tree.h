@@ -11,11 +11,11 @@ using namespace std;
 #define RB_TREE_NODE_SIZE 512
 
 #if RB_TREE_NODE_SIZE == 512
-#define RB_TREE_HDR_SIZE 6
+#define RB_TREE_HDR_SIZE 7
 #define DATA_END_POS 2
 #define ROOT_NODE_POS 4
 #else
-#define RB_TREE_HDR_SIZE 7
+#define RB_TREE_HDR_SIZE 8
 #define DATA_END_POS 3
 #define ROOT_NODE_POS 5
 #endif

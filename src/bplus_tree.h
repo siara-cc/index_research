@@ -27,7 +27,8 @@ using namespace std;
 #define BPT_IS_LEAF_BYTE buf[0]
 #define BPT_FILLED_SIZE buf + 1
 #define BPT_LAST_DATA_PTR buf + 3
-#define BPT_TRIE_LEN buf[5]
+#define BPT_MAX_KEY_LEN buf[5]
+#define BPT_TRIE_LEN buf[6]
 
 class bplus_tree_node_handler {
 public:

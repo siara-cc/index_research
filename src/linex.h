@@ -10,9 +10,9 @@
 
 using namespace std;
 
-#define LINEX_NODE_SIZE 512
+#define LINEX_NODE_SIZE 768
 
-#define LX_BLK_HDR_SIZE 5
+#define LX_BLK_HDR_SIZE 6
 #define LX_PREFIX_CODING 1
 #define LX_DATA_AREA 0
 
