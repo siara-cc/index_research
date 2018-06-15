@@ -474,7 +474,9 @@ byte *bfos_node_handler::nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& 
         if (child & mask) {
             *t_ptr = trie + tp[keyPos] + 3;
             (*t_ptr) += BIT_COUNT(child & (mask - 1));
-            (*t_ptr) += **t_ptr;
+            byte child_offset = **t_ptr;
+            **t_ptr = (*t_ptr) - trie + child_offset;
+            (*t_ptr) += child_offset;
             keyPos++;
             ctr = 0x09;
             tc = 0;
@@ -613,62 +615,63 @@ byte bfos_node_handler::copyKary(byte *t, byte *dest, int lvl, byte *tp,
         dest += len;
         t += len;
     }
-    byte *dest_after_prefix = dest;
-    byte *limit = trie + (lvl < brk_key_len ? tp[lvl] : 0);
+    byte *start = t;
+    byte *limit = (lvl < brk_key_len ? trie + tp[lvl] : 0);
+    byte tot_len = 0;
     byte tc;
-    byte is_limit = 0;
     do {
-        is_limit = (limit == t ? 1 : 0); // && is_limit == 0 ? 1 : 0);
-        if (limit == t && whichHalf == 2)
-            dest = dest_after_prefix;
         tc = *t;
-        if (is_limit) {
-            *dest++ = tc;
-            byte offset = (lvl < brk_key_len ? brk_key[lvl] & x07 : x07);
-            t++;
-            byte children = (tc & x02) ? *t++ : 0;
-            byte orig_children = children;
-            byte leaves = *t++;
-            byte orig_leaves = leaves;
+        byte len = (tc & x02) ? 3 + BIT_COUNT(t[1]) + BIT_COUNT2(t[2])
+                : 2 + BIT_COUNT2(t[1]);
+        if (t == limit) {
             if (whichHalf == 1) {
-                children &= ~(((brk_key_len - lvl) == 1 ? xFF : xFE) << offset);
-                leaves &= ~(xFE << offset);
-                *(dest - 1) |= x04;
-                if (tc & x02)
-                    *dest++ = children;
-                *dest++ = leaves;
-                for (int i = 0; i < BIT_COUNT(children); i++)
-                    *dest++ = t + i + t[i] - trie;
-                t += BIT_COUNT(orig_children);
-                memcpy(dest, t, BIT_COUNT2(leaves));
-                dest += BIT_COUNT2(leaves);
+                limit = dest + tot_len;
+                tot_len += len;
                 break;
             } else {
-                children &= (xFF << offset);
-                leaves &= (((brk_key_len - lvl) == 1 ? xFF : xFE) << offset);
-                if (tc & x02)
-                    *dest++ = children;
-                *dest++ = leaves;
-                for (int i = BIT_COUNT(orig_children - children); i < BIT_COUNT(orig_children); i++)
-                    *dest++ = t + i + t[i] - trie;
-                t += BIT_COUNT(orig_children);
-                memcpy(dest, t + BIT_COUNT2(orig_leaves - leaves), BIT_COUNT2(leaves));
-                dest += BIT_COUNT2(leaves);
+                start = limit;
+                tot_len = 0;
+                limit = dest;
             }
-            t += BIT_COUNT2(orig_leaves);
-        } else {
-            byte len = (tc & x02) ? 3 + BIT_COUNT(t[1]) + BIT_COUNT2(t[2])
-                    : 2 + BIT_COUNT2(t[1]);
-            memcpy(dest, t, len);
-            if (tc & x02) {
-                for (int i = 0; i < BIT_COUNT(t[1]); i++)
-                    dest[i + 3] = t + i + 3 + t[i + 3] - trie;
-            }
-            t += len;
-            dest += len;
         }
+        tot_len += len;
+        t += len;
     } while (!(tc & x04));
-    return dest - orig_dest;
+    memcpy(dest, start, tot_len);
+    if (limit >= dest && limit <= (dest + tot_len)) {
+        byte offset = brk_key[lvl] & x07;
+        tc = *limit;
+        byte children = (tc & x02) ? limit[1] : 0;
+        byte orig_children = children;
+        byte leaves = limit[(tc & x02) ? 2 : 1];
+        byte orig_leaves = leaves;
+        if (whichHalf == 1) {
+            children &= ~(((brk_key_len - lvl) == 1 ? xFF : xFE) << offset);
+            leaves &= ~(xFE << offset);
+            *limit++ |= x04;
+            if (tc & x02)
+                *limit++ = children;
+            *limit++ = leaves;
+            memmove(limit + BIT_COUNT(children), limit + BIT_COUNT(orig_children),
+                    BIT_COUNT2(leaves));
+            orig_children = BIT_COUNT(orig_children - children);
+            orig_leaves = BIT_COUNT2(orig_leaves - leaves);
+        } else {
+            children &= (xFF << offset);
+            leaves &= (((brk_key_len - lvl) == 1 ? xFF : xFE) << offset);
+            limit++;
+            if (tc & x02)
+                *limit++ = children;
+            *limit++ = leaves;
+            orig_children = BIT_COUNT(orig_children - children);
+            memmove(limit, limit + orig_children, tot_len - 2 - orig_children);
+            limit +=  BIT_COUNT(children);
+            orig_leaves = BIT_COUNT2(orig_leaves - leaves);
+            memmove(limit, limit + orig_leaves, tot_len - 2 - orig_children - orig_leaves);
+        }
+        tot_len -= (orig_children + orig_leaves);
+    }
+    return tot_len + (dest - orig_dest);
 }
 
 byte bfos_node_handler::copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_len, byte *dest, byte whichHalf) {
