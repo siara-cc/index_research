@@ -458,7 +458,7 @@ byte *bfos_node_handler::nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& 
             child = (tc & x02 ? *(*t_ptr)++ : 0);
             leaf = *(*t_ptr)++;
             *t_ptr += BIT_COUNT(child);
-            ctr = 0; //util::first_bit_offset[child | leaf];
+            ctr = FIRST_BIT_OFFSET_FROM_RIGHT(child | leaf);
         }
         first_key[keyPos] = (tc & xF8) | ctr;
         byte mask = x01 << ctr;
@@ -466,8 +466,11 @@ byte *bfos_node_handler::nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& 
             byte *ret = *t_ptr + BIT_COUNT2(leaf & (mask - 1));
             if (child & mask)
                 ctr += 16;
-            else
+            else {
                 ctr++;
+                if (ctr < 8)
+                    ctr = FIRST_BIT_OFFSET_FROM_RIGHT((child | leaf) & (xFF << ctr));
+            }
             return ret;
         }
         only_leaf = 1;
@@ -482,6 +485,8 @@ byte *bfos_node_handler::nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& 
             tc = 0;
         }
         ctr++;
+        if (ctr < 8)
+            ctr = FIRST_BIT_OFFSET_FROM_RIGHT((child | leaf) & (xFF << ctr));
     } while (1); // (s.t - trie) < BPT_TRIE_LEN);
     return 0;
 }
@@ -502,10 +507,11 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     brk_idx = tot_len = brk_kv_pos = 0;
     // (1) move all data to new_block in order
     int16_t idx;
-    byte curr_key[BPT_MAX_KEY_LEN];
     byte ctr = 9;
-    byte tp[BX_MAX_PFX_LEN + 1];
-    byte tp_cpy[BX_MAX_PFX_LEN + 1];
+    byte alloc_size = BX_MAX_PFX_LEN + 1;
+    byte curr_key[alloc_size];
+    byte tp[alloc_size];
+    byte tp_cpy[alloc_size];
     int16_t tp_cpy_len = 0;
     byte *t = new_block.trie;
     byte **t_ptr = &t;
@@ -527,8 +533,6 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         tot_len += kv_len;
         memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
         util::setInt(leaf_ptr, kv_last_pos);
-        if (brk_idx == 0)
-            util::setInt(trie + (leaf_ptr - new_block.trie), kv_last_pos);
         //memcpy(curr_key + new_block.keyPos + 1, buf + src_idx + 1, buf[src_idx]);
         //curr_key[new_block.keyPos+1+buf[src_idx]] = 0;
         //cout << curr_key << endl;
@@ -542,9 +546,9 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                         (const char *) first_key, *first_len_ptr);
                 memcpy(first_key, curr_key, tp_cpy_len);
             } else {
-                memcpy(curr_key + new_block.keyPos, buf + src_idx + 1, buf[src_idx]);
+                memcpy(first_key, curr_key, new_block.keyPos);
+                memcpy(first_key + new_block.keyPos, buf + src_idx + 1, buf[src_idx]);
                 *first_len_ptr = new_block.keyPos + buf[src_idx];
-                memcpy(first_key, curr_key, *first_len_ptr);
             }
             memcpy(tp_cpy, tp, tp_cpy_len);
             //curr_key[new_block.keyPos] = 0;
@@ -568,30 +572,29 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             }
         }
     }
-    new_block.BPT_TRIE_LEN = new_block.copyTrieHalf(tp_cpy, first_key, tp_cpy_len, trie + 256, 2);
-    memcpy(new_block.trie, trie + 256, new_block.BPT_TRIE_LEN);
+    new_block.BPT_TRIE_LEN = new_block.copyTrieHalf(tp_cpy, first_key, tp_cpy_len, trie + BPT_TRIE_LEN, 2);
+    memcpy(new_block.trie, trie + BPT_TRIE_LEN, new_block.BPT_TRIE_LEN);
+
     kv_last_pos = getKVLastPos() + BFOS_NODE_SIZE - kv_last_pos;
-    new_block.setKVLastPos(kv_last_pos);
-    memmove(new_block.buf + kv_last_pos, new_block.buf + getKVLastPos(), BFOS_NODE_SIZE - kv_last_pos);
     int16_t diff = (kv_last_pos - getKVLastPos());
-    brk_kv_pos += diff;
-    new_block.setPtrDiff(diff);
-    diff = BFOS_NODE_SIZE - brk_kv_pos + diff;
-    setPtrDiff(diff);
+
+    {
+        memmove(new_block.buf + brk_kv_pos + diff, new_block.buf + brk_kv_pos,
+                BFOS_NODE_SIZE - brk_kv_pos - diff);
+        brk_kv_pos += diff;
+        new_block.setPtrDiff(diff);
+        new_block.setKVLastPos(brk_kv_pos);
+        new_block.setFilledSize(orig_filled_size - brk_idx);
+    }
 
     {
         int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
         memcpy(buf + BFOS_NODE_SIZE - old_blk_new_len,
-                new_block.buf + kv_last_pos, old_blk_new_len); // Copy back first half to old block
+                new_block.buf + kv_last_pos - diff, old_blk_new_len); // Copy back first half to old block
+        diff += (BFOS_NODE_SIZE - brk_kv_pos);
+        setPtrDiff(diff);
         setKVLastPos(BFOS_NODE_SIZE - old_blk_new_len);
         setFilledSize(brk_idx);
-    }
-
-    {
-        int16_t new_size = orig_filled_size - brk_idx;
-        new_block.setKVLastPos(brk_kv_pos);
-        new_block.setFilledSize(new_size);
-        //new_block.setFilledSize(orig_filled_size);
     }
 
     if (!isLeaf())
@@ -615,63 +618,58 @@ byte bfos_node_handler::copyKary(byte *t, byte *dest, int lvl, byte *tp,
         dest += len;
         t += len;
     }
-    byte *start = t;
-    byte *limit = (lvl < brk_key_len ? trie + tp[lvl] : 0);
-    byte tot_len = 0;
+    byte *dest_after_prefix = dest;
+    byte *limit = trie + (lvl < brk_key_len ? tp[lvl] : 0);
     byte tc;
+    byte is_limit = 0;
     do {
+        is_limit = (limit == t ? 1 : 0); // && is_limit == 0 ? 1 : 0);
+        if (limit == t && whichHalf == 2)
+            dest = dest_after_prefix;
         tc = *t;
-        byte len = (tc & x02) ? 3 + BIT_COUNT(t[1]) + BIT_COUNT2(t[2])
-                : 2 + BIT_COUNT2(t[1]);
-        if (t == limit) {
+        if (is_limit) {
+            *dest++ = tc;
+            byte offset = (lvl < brk_key_len ? brk_key[lvl] & x07 : x07);
+            t++;
+            byte children = (tc & x02) ? *t++ : 0;
+            byte orig_children = children;
+            byte leaves = *t++;
+            byte orig_leaves = leaves;
             if (whichHalf == 1) {
-                limit = dest + tot_len;
-                tot_len += len;
+                children &= ~(((brk_key_len - lvl) == 1 ? xFF : xFE) << offset);
+                leaves &= ~(xFE << offset);
+                *(dest - 1) |= x04;
+                if (tc & x02)
+                    *dest++ = children;
+                *dest++ = leaves;
+                for (int i = 0; i < BIT_COUNT(children); i++)
+                    *dest++ = t[i];
+                t += BIT_COUNT(orig_children);
+                memcpy(dest, t, BIT_COUNT2(leaves));
+                dest += BIT_COUNT2(leaves);
                 break;
             } else {
-                start = limit;
-                tot_len = 0;
-                limit = dest;
+                children &= (xFF << offset);
+                leaves &= (((brk_key_len - lvl) == 1 ? xFF : xFE) << offset);
+                if (tc & x02)
+                    *dest++ = children;
+                *dest++ = leaves;
+                for (int i = BIT_COUNT(orig_children - children); i < BIT_COUNT(orig_children); i++)
+                    *dest++ = t[i];
+                t += BIT_COUNT(orig_children);
+                memcpy(dest, t + BIT_COUNT2(orig_leaves - leaves), BIT_COUNT2(leaves));
+                dest += BIT_COUNT2(leaves);
             }
-        }
-        tot_len += len;
-        t += len;
-    } while (!(tc & x04));
-    memcpy(dest, start, tot_len);
-    if (limit >= dest && limit <= (dest + tot_len)) {
-        byte offset = brk_key[lvl] & x07;
-        tc = *limit;
-        byte children = (tc & x02) ? limit[1] : 0;
-        byte orig_children = children;
-        byte leaves = limit[(tc & x02) ? 2 : 1];
-        byte orig_leaves = leaves;
-        if (whichHalf == 1) {
-            children &= ~(((brk_key_len - lvl) == 1 ? xFF : xFE) << offset);
-            leaves &= ~(xFE << offset);
-            *limit++ |= x04;
-            if (tc & x02)
-                *limit++ = children;
-            *limit++ = leaves;
-            memmove(limit + BIT_COUNT(children), limit + BIT_COUNT(orig_children),
-                    BIT_COUNT2(leaves));
-            orig_children = BIT_COUNT(orig_children - children);
-            orig_leaves = BIT_COUNT2(orig_leaves - leaves);
+            t += BIT_COUNT2(orig_leaves);
         } else {
-            children &= (xFF << offset);
-            leaves &= (((brk_key_len - lvl) == 1 ? xFF : xFE) << offset);
-            limit++;
-            if (tc & x02)
-                *limit++ = children;
-            *limit++ = leaves;
-            orig_children = BIT_COUNT(orig_children - children);
-            memmove(limit, limit + orig_children, tot_len - 2 - orig_children);
-            limit +=  BIT_COUNT(children);
-            orig_leaves = BIT_COUNT2(orig_leaves - leaves);
-            memmove(limit, limit + orig_leaves, tot_len - 2 - orig_children - orig_leaves);
+            byte len = (tc & x02) ? 3 + BIT_COUNT(t[1]) + BIT_COUNT2(t[2])
+                    : 2 + BIT_COUNT2(t[1]);
+            memcpy(dest, t, len);
+            t += len;
+            dest += len;
         }
-        tot_len -= (orig_children + orig_leaves);
-    }
-    return tot_len + (dest - orig_dest);
+    } while (!(tc & x04));
+    return dest - orig_dest;
 }
 
 byte bfos_node_handler::copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_len, byte *dest, byte whichHalf) {

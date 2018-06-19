@@ -24,6 +24,8 @@ using namespace std;
 #define BIT_COUNT2(x) util::bit_count2x[x]
 #endif
 
+#define FIRST_BIT_OFFSET_FROM_RIGHT(x) BIT_COUNT(254 & ((x) ^ ((x) - 1)))
+
 #define BPT_IS_LEAF_BYTE buf[0]
 #define BPT_FILLED_SIZE buf + 1
 #define BPT_LAST_DATA_PTR buf + 3
