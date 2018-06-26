@@ -32,6 +32,12 @@ private:
     byte copyKary(byte *t, byte *dest, int lvl, byte *tp, byte *brk_key, int16_t brk_key_len, byte whichHalf);
     byte copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_len, byte *dest, byte whichHalf);
     void consolidateInitialPrefix(byte *t);
+    int16_t insertAfter();
+    int16_t insertBefore();
+    int16_t insertLeaf();
+    int16_t insertConvert();
+    int16_t insertThread();
+    int16_t insertEmpty();
 public:
     byte *last_t;
     byte last_child;

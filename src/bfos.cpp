@@ -23,12 +23,10 @@ byte *bfos_node_handler::getLastPtr() {
         int rslt = (last_child > last_leaf ? 2 : (last_leaf ^ last_child) > last_child ? 1 : 2);
         switch (rslt) {
         case 1:
-            last_t += (*last_t & x02 ? BIT_COUNT(last_t[1]) + 1 : 0);
-            last_t += BIT_COUNT2(last_leaf);
-            return buf + util::getInt(last_t);
+            return buf + util::getInt(last_t + (*last_t & x02 ? BIT_COUNT(last_t[1]) + 1 : 0)
+                    + BIT_COUNT2(last_leaf));
         case 2:
-            last_t += BIT_COUNT(last_child);
-            last_t += 2;
+            last_t += BIT_COUNT(last_child) + 2;
             last_t += *last_t;
             while (*last_t & x01) {
                 last_t += (*last_t >> 1);
@@ -78,7 +76,6 @@ int16_t bfos_node_handler::locate() {
     //}
     byte key_char = *key; //[keyPos++];
     keyPos = 1;
-    last_t = 0;
     do {
 #if BS_MIDDLE_PREFIX == 1
         switch (trie_char & x01 ? 3 : (key_char ^ trie_char) > x07
@@ -91,8 +88,7 @@ int16_t bfos_node_handler::locate() {
             last_t = origPos;
             last_child = (trie_char & x02 ? *t++ : 0);
             last_leaf = *t++;
-            t += BIT_COUNT(last_child);
-            t += BIT_COUNT2(last_leaf);
+            t += BIT_COUNT(last_child) + BIT_COUNT2(last_leaf);
             if (trie_char & x04) {
                 if (!isLeaf())
                     last_t = getLastPtr();
@@ -107,8 +103,8 @@ int16_t bfos_node_handler::locate() {
             byte r_mask, r_leaves, r_children;
             r_children = (trie_char & x02 ? *t++ : 0);
             r_leaves = *t++;
-            key_char &= x07;
-            r_mask = x01 << key_char;
+            //key_char &= x07;
+            r_mask = x01 << (key_char & x07);
             //trie_char = (r_leaves & r_mask ? x02 : x00) |
             //        ((r_children & r_mask) && keyPos != key_len ? x01 : x00);
             trie_char = r_leaves & r_mask ?
@@ -133,8 +129,7 @@ int16_t bfos_node_handler::locate() {
                 break;
             case 2:
                 int16_t cmp;
-                t += BIT_COUNT(r_children);
-                t += BIT_COUNT2(r_leaves & r_mask);
+                t += BIT_COUNT(r_children) + BIT_COUNT2(r_leaves & r_mask);
                 key_at = buf + util::getInt(t);
                 key_at_len = *key_at++;
                 cmp = util::compare(key + keyPos, key_len - keyPos,
@@ -162,8 +157,7 @@ int16_t bfos_node_handler::locate() {
                 if (!isLeaf()) {
                     last_t = origPos;
                     last_child = r_children & r_mask;
-                    last_leaf = r_leaves & r_mask;
-                    last_leaf |= (x01 << key_char);
+                    last_leaf = (r_leaves & r_mask) | (r_mask + 1);
                 }
                 break;
             }
@@ -349,7 +343,6 @@ void bfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 new_block.key_len = node->key_len;
                 new_block.value = node->value;
                 new_block.value_len = node->value_len;
-                new_block.keyPos = 0;
                 //byte is_leaf = new_block.isLeaf();
                 //new_block.setLeaf(true);
                 idx = ~new_block.locate();
@@ -427,11 +420,10 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
     new_block.BX_MAX_PFX_LEN = BX_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
-    int16_t halfKVLen = BFOS_NODE_SIZE - kv_last_pos + 1;
-    halfKVLen /= 2;
+    int16_t halfKVPos = kv_last_pos + (BFOS_NODE_SIZE - kv_last_pos) / 2;
 
-    int16_t brk_idx, tot_len, brk_kv_pos;
-    brk_idx = tot_len = brk_kv_pos = 0;
+    int16_t brk_idx, brk_kv_pos;
+    brk_idx = brk_kv_pos = 0;
     // (1) move all data to new_block in order
     int16_t idx = 0;
     byte alloc_size = BX_MAX_PFX_LEN + 1;
@@ -497,7 +489,6 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             kv_len++;
             kv_len += buf[src_idx + kv_len];
             kv_len++;
-            tot_len += kv_len;
             memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
             util::setInt(leaf_ptr, kv_last_pos);
             //memcpy(curr_key + new_block.keyPos + 1, buf + src_idx + 1, buf[src_idx]);
@@ -507,11 +498,6 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                 brk_idx = -brk_idx;
                 new_block.keyPos++;
                 tp_cpy_len = new_block.keyPos;
-                //for (int i = 0; i < new_block.keyPos; i++) {
-                //    byte tc = new_block.trie[tp[i]];
-                //    if (!(tc & x01))
-                //        curr_key[i] |= (tc & xF8);
-                //}
                 if (isLeaf()) {
                     //*first_len_ptr = s.keyPos;
                     *first_len_ptr = util::compare((const char *) curr_key, new_block.keyPos,
@@ -522,11 +508,6 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                     memcpy(first_key + new_block.keyPos, buf + src_idx + 1, buf[src_idx]);
                     *first_len_ptr = new_block.keyPos + buf[src_idx];
                 }
-                //for (int i = 0; i < new_block.keyPos; i++) {
-                //    byte tc = new_block.trie[tp[i]];
-                //    if (!(tc & x01))
-                //        curr_key[i] &= x07;
-                //}
                 memcpy(tp_cpy, tp, tp_cpy_len);
                 //curr_key[new_block.keyPos] = 0;
                 //cout << "Middle:" << curr_key << endl;
@@ -535,8 +516,8 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             kv_last_pos += kv_len;
             if (brk_idx == 0) {
                 //brk_key_len = nextKey(s);
-                //if (tot_len > halfKVLen) {
-                if (tot_len > halfKVLen || idx == (orig_filled_size / 2)) {
+                //if (kv_last_pos > halfKVLen) {
+                if (kv_last_pos > halfKVPos || idx == (orig_filled_size / 2)) {
                     //memcpy(first_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
                     //first_key[keyPos+1+buf[src_idx]] = 0;
                     //cout << first_key << ":";
@@ -545,11 +526,6 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                     brk_kv_pos = kv_last_pos;
                     *first_len_ptr = new_block.keyPos + 1;
                     memcpy(first_key, curr_key, *first_len_ptr);
-                    //for (int i = 0; i <= new_block.keyPos; i++) {
-                    //    byte tc = new_block.trie[tp[i]];
-                    //    if (!(tc & x01))
-                    //        first_key[i] |= (tc & xF8);
-                    //}
                     BPT_TRIE_LEN = new_block.copyTrieHalf(tp, first_key, *first_len_ptr, trie, 1);
                 }
             }
@@ -837,245 +813,277 @@ void bfos_node_handler::updatePtrs(byte *upto, int diff) {
     }
 }
 
-int16_t bfos_node_handler::insertCurrent() {
+int16_t bfos_node_handler::insertAfter() {
     byte key_char;
     byte mask;
-    byte *leafPos;
-    int16_t ret, ptr, pos;
+    key_char = key[keyPos - 1];
+    mask = x01 << (key_char & x07);
+    *origPos &= xFB;
+    triePos = origPos + (*origPos & x02 ? BIT_COUNT(origPos[1])
+            + BIT_COUNT2(origPos[2]) + 3 : BIT_COUNT2(origPos[1]) + 2);
+    updatePtrs(triePos, 4);
+    insAt(triePos, ((key_char & xF8) | x04), mask, 0, 0);
+    return triePos - trie + 2;
+}
+
+int16_t bfos_node_handler::insertBefore() {
+    byte key_char;
+    byte mask;
+    key_char = key[keyPos - 1];
+    mask = x01 << (key_char & x07);
+    updatePtrs(origPos, 4);
+    insAt(origPos, (key_char & xF8), mask, 0, 0);
+    return origPos - trie + 2;
+}
+
+int16_t bfos_node_handler::insertLeaf() {
+    byte key_char;
+    byte mask;
+    key_char = key[keyPos - 1];
+    mask = x01 << (key_char & x07);
+    triePos = origPos + ((*origPos & x02) ? 2 : 1);
+    *triePos |= mask;
+    triePos += (BIT_COUNT(*origPos & x02 ? origPos[1] : 0)
+            + BIT_COUNT2(*triePos & (mask - 1)) + 1);
+    updatePtrs(triePos, 2);
+    insAt(triePos, x00, x00);
+    return triePos - trie;
+}
+
+#if BS_MIDDLE_PREFIX == 1
+int16_t bfos_node_handler::insertConvert() {
+    byte key_char;
+    byte mask;
+    int16_t ret = 0;
+    key_char = key[keyPos - 1];
+    mask = x01 << (key_char & x07);
+    byte b, c;
+    char cmp_rel;
     int16_t diff;
+    diff = triePos - origPos;
+    // 3 possible relationships between key_char and *triePos, 4 possible positions of triePos
+    c = *triePos;
+    cmp_rel = ((c ^ key_char) > x07 ? (c < key_char ? 0 : 1) : 2);
+    if (diff == 1)
+        triePos = origPos;
+    b = (cmp_rel == 2 ? x04 : x00) | (cmp_rel == 1 ? x00 : x02);
+    need_count = (*origPos >> 1) - diff;
+    diff--;
+    *triePos++ = ((cmp_rel == 0 ? c : key_char) & xF8) | b;
+    b = (cmp_rel == 2 ? 4 : 6);
+    if (diff) {
+        b++;
+        *origPos = (diff << 1) | x01;
+    }
+    if (need_count)
+        b++;
+    insBytes(triePos, b);
+    updatePtrs(triePos, b);
+    *triePos++ = 1 << ((cmp_rel == 1 ? key_char : c) & x07);
+    switch (cmp_rel) {
+    case 0:
+        *triePos++ = 0;
+        *triePos++ = 5;
+        *triePos++ = (key_char & xF8) | 0x04;
+        *triePos++ = mask;
+        ret = triePos - trie;
+        triePos += 2;
+        break;
+    case 1:
+        ret = triePos - trie;
+        triePos += 2;
+        *triePos++ = (c & xF8) | x06;
+        *triePos++ = 1 << (c & x07);
+        *triePos++ = 0;
+        *triePos++ = 1;
+        break;
+    case 2:
+        *triePos++ = mask;
+        *triePos++ = 3;
+        ret = triePos - trie;
+        triePos += 2;
+        break;
+    }
+    if (need_count)
+        *triePos = (need_count << 1) | x01;
+    return ret;
+}
+#endif
+
+int16_t bfos_node_handler::insertThread() {
+    byte key_char;
+    byte mask;
+    int16_t p, min;
+    byte c1, c2;
+    byte *childPos;
+    int16_t diff;
+    int16_t ret, ptr, pos;
     ret = pos = 0;
+
+    key_char = key[keyPos - 1];
+    mask = x01 << (key_char & x07);
+    c1 = c2 = key_char;
+    childPos = origPos + 1;
+    if (*origPos & x02) {
+        triePos = childPos + 2
+            + BIT_COUNT(*childPos & (mask - 1));
+        insAt(triePos, (byte) (BPT_TRIE_LEN - (triePos - trie) + 1));
+        updatePtrs(triePos, 1);
+        *childPos |= mask;
+    } else {
+        *origPos |= x02;
+        insAt(childPos, mask, *childPos);
+        childPos[2] = (byte) (BPT_TRIE_LEN - (childPos + 2 - trie));
+        updatePtrs(childPos, 2);
+    }
+    p = keyPos;
+    min = util::min16(key_len, keyPos + key_at_len);
+    triePos = origPos + BIT_COUNT(*childPos) + 3
+            + BIT_COUNT2(origPos[2] & (mask - 1));
+    ptr = util::getInt(triePos);
+    if (p < min) {
+        origPos[2] &= ~mask;
+        delAt(triePos, 2);
+        updatePtrs(triePos, -2);
+    } else {
+        pos = triePos - trie;
+        ret = pos;
+    }
+#if BS_MIDDLE_PREFIX == 1
+    need_count -= 11;
+    if (p + need_count == min) {
+        if (need_count) {
+            need_count--;
+        }
+    }
+    if (need_count) {
+        append((need_count << 1) | x01);
+        append(key + keyPos, need_count);
+        p += need_count;
+        //dfox::count1 += need_count;
+    }
+#endif
+    while (p < min) {
+        bool isSwapped = false;
+        c1 = key[p];
+        c2 = key_at[p - keyPos];
+        if (c1 > c2) {
+            byte swap = c1;
+            c1 = c2;
+            c2 = swap;
+            isSwapped = true;
+        }
+#if BS_MIDDLE_PREFIX == 1
+        switch ((c1 ^ c2) > x07 ? 0 : (c1 == c2 ? 3 : 1)) {
+#else
+        switch ((c1 ^ c2) > x07 ?
+                0 : (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1)) {
+        case 2:
+            append((c1 & xF8) | x06);
+            append(x01 << (c1 & x07));
+            append(0);
+            append(1);
+            break;
+#endif
+        case 0:
+            append(c1 & xF8);
+            append(x01 << (c1 & x07));
+            ret = isSwapped ? ret : BPT_TRIE_LEN;
+            pos = isSwapped ? BPT_TRIE_LEN : pos;
+            appendPtr(isSwapped ? ptr : 0);
+            append((c2 & xF8) | x04);
+            append(x01 << (c2 & x07));
+            ret = isSwapped ? BPT_TRIE_LEN : ret;
+            pos = isSwapped ? pos : BPT_TRIE_LEN;
+            appendPtr(isSwapped ? 0 : ptr);
+            break;
+        case 1:
+            append((c1 & xF8) | x04);
+            append((x01 << (c1 & x07)) | (x01 << (c2 & x07)));
+            ret = isSwapped ? ret : BPT_TRIE_LEN;
+            pos = isSwapped ? BPT_TRIE_LEN : pos;
+            appendPtr(isSwapped ? ptr : 0);
+            ret = isSwapped ? BPT_TRIE_LEN : ret;
+            pos = isSwapped ? pos : BPT_TRIE_LEN;
+            appendPtr(isSwapped ? 0 : ptr);
+            break;
+        case 3:
+            append((c1 & xF8) | x06);
+            append(x01 << (c1 & x07));
+            append(x01 << (c1 & x07));
+            append(3);
+            ret = (p + 1 == key_len) ? BPT_TRIE_LEN : ret;
+            pos = (p + 1 == key_len) ? pos : BPT_TRIE_LEN;
+            appendPtr((p + 1 == key_len) ? 0 : ptr);
+            break;
+        }
+        if (c1 != c2)
+            break;
+        p++;
+    }
+    diff = p - keyPos;
+    keyPos = p + 1;
+    if (c1 == c2) {
+        c2 = (p == key_len ? key_at[diff] : key[p]);
+        append((c2 & xF8) | x04);
+        append(x01 << (c2 & x07));
+        ret = (p == key_len) ? ret : BPT_TRIE_LEN;
+        pos = (p == key_len) ? BPT_TRIE_LEN : pos;
+        appendPtr((p == key_len) ? ptr : 0);
+        if (p == key_len)
+            keyPos--;
+    }
+    if (diff < key_at_len)
+        diff++;
+    if (diff) {
+        p = ptr;
+        key_at_len -= diff;
+        p += diff;
+        if (key_at_len >= 0) {
+            buf[p] = key_at_len;
+            util::setInt(trie + pos, p);
+        }
+    }
+    return ret;
+}
+
+int16_t bfos_node_handler::insertEmpty() {
+    append((*key & xF8) | x04);
+    append(x01 << (*key & x07));
+    int16_t ret = BPT_TRIE_LEN;
+    append(0);
+    append(0);
+    return ret;
+}
+
+int16_t bfos_node_handler::insertCurrent() {
+    int16_t ret;
 
     switch (insertState) {
     case INSERT_AFTER:
-        key_char = key[keyPos - 1];
-        mask = x01 << (key_char & x07);
-        *origPos &= xFB;
-        triePos = origPos + (*origPos & x02 ? BIT_COUNT(origPos[1])
-                + BIT_COUNT2(origPos[2]) + 3 : BIT_COUNT2(origPos[1]) + 2);
-        updatePtrs(triePos, 4);
-        insAt(triePos, ((key_char & xF8) | x04), mask, 0, 0);
-        ret = triePos - trie + 2;
+        ret = insertAfter();
         break;
     case INSERT_BEFORE:
-        key_char = key[keyPos - 1];
-        mask = x01 << (key_char & x07);
-        updatePtrs(origPos, 4);
-        insAt(origPos, (key_char & xF8), mask, 0, 0);
-        ret = origPos - trie + 2;
+        ret = insertBefore();
         break;
     case INSERT_LEAF:
-        key_char = key[keyPos - 1];
-        mask = x01 << (key_char & x07);
-        leafPos = origPos + ((*origPos & x02) ? 2 : 1);
-        triePos = leafPos + BIT_COUNT(*origPos & x02 ? origPos[1] : 0) + BIT_COUNT2(*leafPos & (mask - 1)) + 1;
-        *leafPos |= mask;
-        updatePtrs(triePos, 2);
-        insAt(triePos, x00, x00);
-        ret = triePos - trie;
+        ret = insertLeaf();
         break;
 #if BS_MIDDLE_PREFIX == 1
     case INSERT_CONVERT:
-        byte b, c;
-        char cmp_rel;
-        key_char = key[keyPos - 1];
-        diff = triePos - origPos;
-        // 3 possible relationships between key_char and *triePos, 4 possible positions of triePos
-        c = *triePos;
-        cmp_rel = ((c ^ key_char) > x07 ? (c < key_char ? 0 : 1) : 2);
-        if (diff == 1)
-            triePos = origPos;
-        b = (cmp_rel == 2 ? x04 : x00) | (cmp_rel == 1 ? x00 : x02);
-        need_count = (*origPos >> 1) - diff;
-        diff--;
-        *triePos++ = ((cmp_rel == 0 ? c : key_char) & xF8) | b;
-        b = (cmp_rel == 2 ? 4 : 6);
-        if (diff) {
-            b++;
-            *origPos = (diff << 1) | x01;
-        }
-        if (need_count)
-            b++;
-        insBytes(triePos, b);
-        updatePtrs(triePos, b);
-        *triePos++ = 1 << ((cmp_rel == 1 ? key_char : c) & x07);
-        switch (cmp_rel) {
-        case 0:
-            *triePos++ = 0;
-            *triePos++ = 5;
-            *triePos++ = (key_char & xF8) | 0x04;
-            *triePos++ = 1 << (key_char & x07);
-            ret = triePos - trie;
-            triePos += 2;
-            break;
-        case 1:
-            ret = triePos - trie;
-            triePos += 2;
-            *triePos++ = (c & xF8) | x06;
-            *triePos++ = 1 << (c & x07);
-            *triePos++ = 0;
-            *triePos++ = 1;
-            break;
-        case 2:
-            *triePos++ = 1 << (key_char & x07);
-            *triePos++ = 3;
-            ret = triePos - trie;
-            triePos += 2;
-            break;
-        }
-        if (need_count)
-            *triePos = (need_count << 1) | x01;
+        ret = insertConvert();
         break;
 #endif
     case INSERT_THREAD:
-        int16_t p, min;
-        byte c1, c2;
-        byte *childPos;
-        key_char = key[keyPos - 1];
-        mask = x01 << (key_char & x07);
-        c1 = c2 = key_char;
-        childPos = origPos + 1;
-        if (*origPos & x02) {
-            triePos = childPos + 2
-                + BIT_COUNT(*childPos & (mask - 1));
-            insAt(triePos, (byte) (BPT_TRIE_LEN - (triePos - trie) + 1));
-            updatePtrs(triePos, 1);
-            *childPos |= mask;
-        } else {
-            *origPos |= x02;
-            insAt(childPos, mask);
-            triePos = childPos + 2;
-            insAt(triePos, (byte) (BPT_TRIE_LEN - (triePos - trie) + 1));
-            updatePtrs(childPos, 2);
-        }
-        p = keyPos;
-        min = util::min16(key_len, keyPos + key_at_len);
-        leafPos = origPos + ((*origPos & x02) ? 2 : 1);
-        triePos = leafPos + BIT_COUNT(*childPos) + 1;
-        triePos += BIT_COUNT2(*leafPos & (mask - 1));
-        ptr = util::getInt(triePos);
-        if (p < min) {
-            (*leafPos) &= ~mask;
-            delAt(triePos, 2);
-            updatePtrs(triePos, -2);
-        } else {
-            pos = triePos - trie;
-            ret = pos;
-        }
-#if BS_MIDDLE_PREFIX == 1
-        need_count -= 11;
-        diff = p + need_count;
-        if (diff == min) {
-            if (need_count) {
-                need_count--;
-                diff--;
-            }
-        }
-        diff = need_count + (need_count ? 1 : 0)
-                + (diff == min ? 4 : (key[diff] ^ key_at[diff - keyPos]) > x07 ? 6 :
-                        (key[diff] == key_at[diff - keyPos] ? 8 : 4));
-        if (need_count) {
-            append((need_count << 1) | x01);
-            append(key + keyPos, need_count);
-            p += need_count;
-            //dfox::count1 += need_count;
-        }
-#endif
-        while (p < min) {
-            bool isSwapped = false;
-            c1 = key[p];
-            c2 = key_at[p - keyPos];
-            if (c1 > c2) {
-                byte swap = c1;
-                c1 = c2;
-                c2 = swap;
-                isSwapped = true;
-            }
-#if DX_MIDDLE_PREFIX == 1
-            switch ((c1 ^ c2) > x07 ? 0 : (c1 == c2 ? 3 : 1)) {
-#else
-            switch ((c1 ^ c2) > x07 ?
-                    0 : (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1)) {
-            case 2:
-                append((c1 & xF8) | x06);
-                append(x01 << (c1 & x07));
-                append(0);
-                append(1);
-                break;
-#endif
-            case 0:
-                append(c1 & xF8);
-                append(x01 << (c1 & x07));
-                ret = isSwapped ? ret : BPT_TRIE_LEN;
-                pos = isSwapped ? BPT_TRIE_LEN : pos;
-                appendPtr(isSwapped ? ptr : 0);
-                append((c2 & xF8) | x04);
-                append(x01 << (c2 & x07));
-                ret = isSwapped ? BPT_TRIE_LEN : ret;
-                pos = isSwapped ? pos : BPT_TRIE_LEN;
-                appendPtr(isSwapped ? 0 : ptr);
-                break;
-            case 1:
-                append((c1 & xF8) | x04);
-                append((x01 << (c1 & x07)) | (x01 << (c2 & x07)));
-                ret = isSwapped ? ret : BPT_TRIE_LEN;
-                pos = isSwapped ? BPT_TRIE_LEN : pos;
-                appendPtr(isSwapped ? ptr : 0);
-                ret = isSwapped ? BPT_TRIE_LEN : ret;
-                pos = isSwapped ? pos : BPT_TRIE_LEN;
-                appendPtr(isSwapped ? 0 : ptr);
-                break;
-            case 3:
-                append((c1 & xF8) | x06);
-                append(x01 << (c1 & x07));
-                append(x01 << (c1 & x07));
-                append(3);
-                ret = (p + 1 == key_len) ? BPT_TRIE_LEN : ret;
-                pos = (p + 1 == key_len) ? pos : BPT_TRIE_LEN;
-                appendPtr((p + 1 == key_len) ? 0 : ptr);
-                break;
-            }
-            if (c1 != c2)
-                break;
-            p++;
-        }
-        diff = p - keyPos;
-        keyPos = p + 1;
-        if (c1 == c2) {
-            c2 = (p == key_len ? key_at[diff] : key[p]);
-            append((c2 & xF8) | x04);
-            append(x01 << (c2 & x07));
-            ret = (p == key_len) ? ret : BPT_TRIE_LEN;
-            pos = (p == key_len) ? BPT_TRIE_LEN : pos;
-            appendPtr((p == key_len) ? ptr : 0);
-            if (p == key_len)
-                keyPos--;
-        }
-        if (diff < key_at_len)
-            diff++;
-        if (diff) {
-            p = ptr;
-            key_at_len -= diff;
-            p += diff;
-            if (key_at_len >= 0) {
-                buf[p] = key_at_len;
-                util::setInt(trie + pos, p);
-            }
-        }
+        ret = insertThread();
         break;
     case INSERT_EMPTY:
-        key_char = *key;
-        mask = x01 << (key_char & x07);
-        append((key_char & xF8) | x04);
-        append(mask);
-        ret = BPT_TRIE_LEN;
-        append(0);
-        append(0);
-        keyPos = 1;
+        ret = insertEmpty();
         break;
     }
 
-    if (BX_MAX_PFX_LEN < (isLeaf() ? keyPos : key_len))
-        BX_MAX_PFX_LEN = (isLeaf() ? keyPos : key_len);
+    if (BX_MAX_PFX_LEN < keyPos)
+        BX_MAX_PFX_LEN = keyPos;
 
     if (BPT_MAX_KEY_LEN < key_len)
         BPT_MAX_KEY_LEN = key_len;
