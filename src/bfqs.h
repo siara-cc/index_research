@@ -9,7 +9,8 @@
 
 using namespace std;
 
-#define BIT_COUNT_LF_CH(x) (BIT_COUNT(x & xAA) + BIT_COUNT2(x & x55))
+#define BIT_COUNT_LF_CH(x) util::bit_count_lf_ch[x]
+//#define BIT_COUNT_LF_CH(x) (BIT_COUNT(x & xAA) + BIT_COUNT2(x & x55))
 
 #define BQ_MIDDLE_PREFIX 1
 

@@ -20,13 +20,13 @@ byte *bfqs_node_handler::getChildPtr(byte *ptr) {
 byte *bfqs_node_handler::getLastPtr() {
     //keyPos = 0;
     do {
-        int rslt = ((last_leaf_child & 0xAA) > (last_leaf_child & 0x55) ? 2 : 1);
+        int rslt = ((last_leaf_child & xAA) > (last_leaf_child & x55) ? 2 : 1);
         switch (rslt) {
         case 1:
-            return buf + util::getInt(last_t + 2 + BIT_COUNT_LF_CH(last_t[1] & xAA)
+            return buf + util::getInt(last_t + BIT_COUNT_LF_CH(last_t[1] & xAA)
                     + BIT_COUNT_LF_CH(last_leaf_child & x55));
         case 2:
-            last_t += BIT_COUNT_LF_CH(last_leaf_child & xAA) + 2;
+            last_t += BIT_COUNT_LF_CH(last_leaf_child & xAA) + 1;
             last_t += *last_t;
             while (*last_t & x01) {
                 last_t += (*last_t >> 1);
@@ -104,8 +104,12 @@ int16_t bfqs_node_handler::locate() {
                 last_t = origPos;
                 last_leaf_child = r_leaves_children & r_shft;
             }
-            switch ((r_leaves_children >> key_char) & x03) {
-            case 0: // c1l0k1 c0l0
+            trie_char = ((r_leaves_children >> key_char) & x03) | (keyPos == key_len ? 4 : 0);
+            //trie_char -= (trie_char < 4 ? 0 : (trie_char < 6 ? 4 : 6));
+            switch (trie_char) {
+            case 0:
+            case 4:
+            case 6:
                 if (isPut) {
                    insertState = INSERT_LEAF;
                    need_count = 2;
@@ -113,18 +117,11 @@ int16_t bfqs_node_handler::locate() {
                 if (!isLeaf())
                     last_t = getLastPtr();
                 return -1;
-            case 1: // c1l0k0
-                if (keyPos == key_len) {
-                    if (isPut) {
-                       insertState = INSERT_LEAF;
-                       need_count = 2;
-                    }
-                    if (!isLeaf())
-                        last_t = getLastPtr();
-                    return -1;
-                }
+            case 2:
                 break;
-            case 2: // c1l1k1 c0l1
+            case 1:
+            case 5:
+            case 7:
                 int16_t cmp;
                 t += BIT_COUNT_LF_CH(r_leaves_children & (r_shft | xAA));
                 key_at = buf + util::getInt(t);
@@ -150,7 +147,7 @@ int16_t bfqs_node_handler::locate() {
 #endif
                 }
                 return -1;
-            case 3: // c1l1k0
+            case 3:
                 if (!isLeaf()) {
                     last_t = origPos;
                     last_leaf_child = (r_leaves_children & r_shft) | (x01 << key_char);
@@ -444,9 +441,9 @@ byte *bfqs_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                 leaf_child = *t++;
                 ctr = curr_key[new_block.keyPos] & x03;
                 leaf_child &= (xFC << (ctr * 2));
-                ctr = leaf_child ? FIRST_BIT_OFFSET_FROM_RIGHT(leaf_child) >> 1 : 8;
+                ctr = leaf_child ? FIRST_BIT_OFFSET_FROM_RIGHT(leaf_child) >> 1 : 4;
             } else {
-                t += BIT_COUNT_LF_CH(leaf_child);
+                t += BIT_COUNT_LF_CH(*(t - 1));
                 ctr = 0x05;
                 break;
             }
@@ -468,8 +465,8 @@ byte *bfqs_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         }
         curr_key[new_block.keyPos] = (tc & xFC) | ctr;
         byte mask = x01 << (ctr * 2);
-        if (leaf & mask) {
-            byte *leaf_ptr = t + BIT_COUNT_CH_LF(leaf & ((mask - 1) | xAA));
+        if (leaf_child & mask) {
+            byte *leaf_ptr = t + BIT_COUNT_LF_CH(*(t - 1) & ((mask - 1) | xAA));
             int16_t src_idx = util::getInt(leaf_ptr);
             int16_t kv_len = buf[src_idx];
             kv_len++;
@@ -519,7 +516,8 @@ byte *bfqs_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             if (idx == orig_filled_size)
                 break;
         }
-        if (child & (x02 << (ctr * 2))) {
+        if (leaf_child & (x02 << (ctr * 2))) {
+            t += BIT_COUNT_LF_CH(*(t - 1) & xAA & (mask - 1));
             byte child_offset = *t;
             *t = t - new_block.trie + child_offset;
             t += child_offset;
@@ -528,7 +526,7 @@ byte *bfqs_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             continue;
         }
         leaf_child &= ~(x03 << (ctr * 2));
-        ctr = leaf_child ? FIRST_BIT_OFFSET_FROM_RIGHT(leaf_child) >> 1 : 8;
+        ctr = leaf_child ? FIRST_BIT_OFFSET_FROM_RIGHT(leaf_child) >> 1 : 4;
     } while (1);
     new_block.BPT_TRIE_LEN = new_block.copyTrieHalf(tp_cpy, first_key, tp_cpy_len, trie + BPT_TRIE_LEN, 2);
     memcpy(new_block.trie, trie + BPT_TRIE_LEN, new_block.BPT_TRIE_LEN);
@@ -586,33 +584,34 @@ byte bfqs_node_handler::copyKary(byte *t, byte *dest, int lvl, byte *tp,
             dest = dest_after_prefix;
         tc = *t;
         if (is_limit) {
-            *dest++ = tc;
+            *dest = tc;
             byte offset = (lvl < brk_key_len ? (brk_key[lvl] & x03) << 1 : x03);
             t++;
             byte leaves_children = *t++;
             byte orig_leaves_children = leaves_children;
             if (whichHalf == 1) {
                 leaves_children &= ~(((brk_key_len - lvl) == 1 ? xFE : xFC) << offset);
-                *(dest - 1) |= x02;
+                *dest++ |= x02;
                 *dest++ = leaves_children;
-                for (int i = 0; i < BIT_COUNT(leaves_children & xAA); i++)
+                for (int i = 0; i < BIT_COUNT_LF_CH(leaves_children & xAA); i++)
                     *dest++ = t[i];
-                t += BIT_COUNT(orig_leaves_children & xAA);
-                memcpy(dest, t, BIT_COUNT2(leaves_children & x55));
-                dest += BIT_COUNT2(leaves_children & x55);
+                t += BIT_COUNT_LF_CH(orig_leaves_children & xAA);
+                memcpy(dest, t, BIT_COUNT_LF_CH(leaves_children & x55));
+                dest += BIT_COUNT_LF_CH(leaves_children & x55);
                 break;
             } else {
                 leaves_children &= (((brk_key_len - lvl) == 1 ? xFF : xFE) << offset);
+                dest++;
                 *dest++ = leaves_children;
-                for (int i = BIT_COUNT(xAA & (orig_leaves_children - leaves_children));
-                        i < BIT_COUNT(xAA & orig_leaves_children); i++)
+                for (int i = BIT_COUNT_LF_CH(xAA & (orig_leaves_children - leaves_children));
+                        i < BIT_COUNT_LF_CH(xAA & orig_leaves_children); i++)
                     *dest++ = t[i];
-                t += BIT_COUNT(orig_leaves_children & xAA);
-                memcpy(dest, t + BIT_COUNT2(x55 & (orig_leaves_children - leaves_children)),
-                        BIT_COUNT2(x55 & leaves_children));
-                dest += BIT_COUNT2(x55 & leaves_children);
+                t += BIT_COUNT_LF_CH(orig_leaves_children & xAA);
+                memcpy(dest, t + BIT_COUNT_LF_CH(x55 & (orig_leaves_children - leaves_children)),
+                        BIT_COUNT_LF_CH(x55 & leaves_children));
+                dest += BIT_COUNT_LF_CH(x55 & leaves_children);
             }
-            t += BIT_COUNT2(orig_leaves_children & x55);
+            t += BIT_COUNT_LF_CH(orig_leaves_children & x55);
         } else {
             byte len = BIT_COUNT_LF_CH(t[1]) + 2;
             memcpy(dest, t, len);
@@ -644,8 +643,9 @@ byte bfqs_node_handler::copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_le
             d += (tc >> 1);
             tc = *d++;
         }
-        byte len = BIT_COUNT(xAA & *d++);
+        byte len = BIT_COUNT_LF_CH(xAA & *d);
         if (len) {
+            d++;
             tp_child[lvl] = d - new_trie - 2;
             byte *child = trie + *d;
             *d = dest - d;
@@ -671,7 +671,7 @@ byte bfqs_node_handler::copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_le
             if (lvl < 0)
                 return dest - new_trie;
             d = new_trie + tp_child[lvl];
-            byte len = BIT_COUNT(xAA & d[1]);
+            byte len = BIT_COUNT_LF_CH(xAA & d[1]);
             byte i = child_num[lvl];
             i++;
             if (i < len) {
@@ -711,9 +711,11 @@ void bfqs_node_handler::setPtrDiff(int16_t diff) {
         }
         byte leaves_count = BIT_COUNT_LF_CH(*t & x55);
         t += BIT_COUNT_LF_CH(*t & xAA);
-        for (int i = 0; i < leaves_count; i += 2)
-            util::setInt(t, util::getInt(t + i) + diff);
-        t += leaves_count;
+        t++;
+        for (int i = 0; i < leaves_count; i += 2) {
+            util::setInt(t, util::getInt(t) + diff);
+            t += 2;
+        }
     }
 }
 
@@ -736,7 +738,7 @@ void bfqs_node_handler::consolidateInitialPrefix(byte *t) {
             count += len;
             trie_len_diff++;
         } else {
-            *t2++ = (*t1 & xFC) + (t1[1] == x08 ? 1 : (t[1] == x20 ? 2 : 3));
+            *t2++ = (*t1 & xFC) + (BIT_COUNT(t1[1] - 1) >> 1);
             t1 += 3;
             count++;
             trie_len_diff += 2;
@@ -764,9 +766,10 @@ void bfqs_node_handler::updatePtrs(byte *upto, int diff) {
             tc = *t++;
             continue;
         }
-        int count = (tc & x02 ? BIT_COUNT(*t++) : 0);
-        byte leaves = *t++;
-        while (count--) {
+        int leaf_count = BIT_COUNT_LF_CH(*t & x55);
+        int child_count = BIT_COUNT_LF_CH(*t & xAA);
+        t++;
+        while (child_count--) {
             if (t < upto && (t + *t) >= upto)
                 *t += diff;
             // todo: avoid inside loops
@@ -774,7 +777,7 @@ void bfqs_node_handler::updatePtrs(byte *upto, int diff) {
                 *t -= 4;
             t++;
         }
-        t += BIT_COUNT2(leaves);
+        t += leaf_count;
         tc = *t++;
     }
 }
@@ -783,12 +786,11 @@ int16_t bfqs_node_handler::insertAfter() {
     byte key_char;
     byte mask;
     key_char = key[keyPos - 1];
-    mask = x01 << (key_char & x07);
-    *origPos &= xFB;
-    triePos = origPos + (*origPos & x02 ? BIT_COUNT(origPos[1])
-            + BIT_COUNT2(origPos[2]) + 3 : BIT_COUNT2(origPos[1]) + 2);
+    mask = x01 << ((key_char & x03) << 1);
+    *origPos &= xFC;
+    triePos = origPos + 2 + BIT_COUNT_LF_CH(origPos[1]);
     updatePtrs(triePos, 4);
-    insAt(triePos, ((key_char & xF8) | x04), mask, 0, 0);
+    insAt(triePos, ((key_char & xFC) | x02), mask, 0, 0);
     return triePos - trie + 2;
 }
 
@@ -796,9 +798,9 @@ int16_t bfqs_node_handler::insertBefore() {
     byte key_char;
     byte mask;
     key_char = key[keyPos - 1];
-    mask = x01 << (key_char & x07);
+    mask = x01 << ((key_char & x03) << 1);
     updatePtrs(origPos, 4);
-    insAt(origPos, (key_char & xF8), mask, 0, 0);
+    insAt(origPos, (key_char & xFC), mask, 0, 0);
     return origPos - trie + 2;
 }
 
@@ -806,11 +808,11 @@ int16_t bfqs_node_handler::insertLeaf() {
     byte key_char;
     byte mask;
     key_char = key[keyPos - 1];
-    mask = x01 << (key_char & x07);
-    triePos = origPos + ((*origPos & x02) ? 2 : 1);
-    *triePos |= mask;
-    triePos += (BIT_COUNT(*origPos & x02 ? origPos[1] : 0)
-            + BIT_COUNT2(*triePos & (mask - 1)) + 1);
+    mask = x01 << ((key_char & x03) << 1);
+    triePos = origPos + 1;
+    *triePos++ |= mask;
+    triePos += BIT_COUNT_LF_CH(origPos[1])
+            - BIT_COUNT_LF_CH(origPos[1] & (0x55 << ((key_char & x03) << 1)));
     updatePtrs(triePos, 2);
     insAt(triePos, x00, x00);
     return triePos - trie;
@@ -822,21 +824,21 @@ int16_t bfqs_node_handler::insertConvert() {
     byte mask;
     int16_t ret = 0;
     key_char = key[keyPos - 1];
-    mask = x01 << (key_char & x07);
+    mask = x01 << ((key_char & x03) << 1);
     byte b, c;
     char cmp_rel;
     int16_t diff;
     diff = triePos - origPos;
     // 3 possible relationships between key_char and *triePos, 4 possible positions of triePos
     c = *triePos;
-    cmp_rel = ((c ^ key_char) > x07 ? (c < key_char ? 0 : 1) : 2);
+    cmp_rel = ((c ^ key_char) > x03 ? (c < key_char ? 0 : 1) : 2);
     if (diff == 1)
         triePos = origPos;
-    b = (cmp_rel == 2 ? x04 : x00) | (cmp_rel == 1 ? x00 : x02);
+    b = (cmp_rel == 2 ? x02 : x00); // | (cmp_rel == 1 ? x00 : x02);
     need_count = (*origPos >> 1) - diff;
     diff--;
-    *triePos++ = ((cmp_rel == 0 ? c : key_char) & xF8) | b;
-    b = (cmp_rel == 2 ? 4 : 6);
+    *triePos++ = ((cmp_rel == 0 ? c : key_char) & xFC) | b;
+    b = (cmp_rel == 2 ? 3 : 5);
     if (diff) {
         b++;
         *origPos = (diff << 1) | x01;
@@ -845,26 +847,25 @@ int16_t bfqs_node_handler::insertConvert() {
         b++;
     insBytes(triePos, b);
     updatePtrs(triePos, b);
-    *triePos++ = 1 << ((cmp_rel == 1 ? key_char : c) & x07);
     switch (cmp_rel) {
     case 0:
-        *triePos++ = 0;
+        *triePos++ = x02 << ((c & x03) << 1);
         *triePos++ = 5;
-        *triePos++ = (key_char & xF8) | 0x04;
+        *triePos++ = (key_char & xFC) | 0x02;
         *triePos++ = mask;
         ret = triePos - trie;
         triePos += 2;
         break;
     case 1:
+        *triePos++ = mask;
         ret = triePos - trie;
         triePos += 2;
-        *triePos++ = (c & xF8) | x06;
-        *triePos++ = 1 << (c & x07);
-        *triePos++ = 0;
+        *triePos++ = (c & xFC) | x02;
+        *triePos++ = x02 << ((c & x03) << 1);
         *triePos++ = 1;
         break;
     case 2:
-        *triePos++ = mask;
+        *triePos++ = (x02 << ((c & x03) << 1)) | mask;
         *triePos++ = 3;
         ret = triePos - trie;
         triePos += 2;
@@ -881,34 +882,26 @@ int16_t bfqs_node_handler::insertThread() {
     byte mask;
     int16_t p, min;
     byte c1, c2;
-    byte *childPos;
     int16_t diff;
     int16_t ret, ptr, pos;
     ret = pos = 0;
 
     key_char = key[keyPos - 1];
-    mask = x01 << (key_char & x07);
+    mask = x01 << ((key_char & x03) << 1);
     c1 = c2 = key_char;
-    childPos = origPos + 1;
-    if (*origPos & x02) {
-        triePos = childPos + 2
-            + BIT_COUNT(*childPos & (mask - 1));
+    {
+        triePos = origPos + 2 + BIT_COUNT_LF_CH(origPos[1] & xAA & (mask - 1));
         insAt(triePos, (byte) (BPT_TRIE_LEN - (triePos - trie) + 1));
         updatePtrs(triePos, 1);
-        *childPos |= mask;
-    } else {
-        *origPos |= x02;
-        insAt(childPos, mask, *childPos);
-        childPos[2] = (byte) (BPT_TRIE_LEN - (childPos + 2 - trie));
-        updatePtrs(childPos, 2);
+        origPos[1] |= (mask << 1);
     }
     p = keyPos;
     min = util::min16(key_len, keyPos + key_at_len);
-    triePos = origPos + BIT_COUNT(*childPos) + 3
-            + BIT_COUNT2(origPos[2] & (mask - 1));
+    triePos = origPos + 2 + (BIT_COUNT_LF_CH(origPos[1])
+            - BIT_COUNT_LF_CH(origPos[1] & (0x55 << ((key_char & x03) << 1))));
     ptr = util::getInt(triePos);
     if (p < min) {
-        origPos[2] &= ~mask;
+        origPos[1] &= ~mask;
         delAt(triePos, 2);
         updatePtrs(triePos, -2);
     } else {
@@ -940,32 +933,31 @@ int16_t bfqs_node_handler::insertThread() {
             isSwapped = true;
         }
 #if BQ_MIDDLE_PREFIX == 1
-        switch ((c1 ^ c2) > x07 ? 0 : (c1 == c2 ? 3 : 1)) {
+        switch ((c1 ^ c2) > x03 ? 0 : (c1 == c2 ? 3 : 1)) {
 #else
-        switch ((c1 ^ c2) > x07 ?
+        switch ((c1 ^ c2) > x03 ?
                 0 : (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1)) {
         case 2:
-            append((c1 & xF8) | x06);
-            append(x01 << (c1 & x07));
-            append(0);
+            append((c1 & xFC) | x02);
+            append(x02 << ((c1 & x03) << 1));
             append(1);
             break;
 #endif
         case 0:
-            append(c1 & xF8);
-            append(x01 << (c1 & x07));
+            append(c1 & xFC);
+            append(x01 << ((c1 & x03) << 1));
             ret = isSwapped ? ret : BPT_TRIE_LEN;
             pos = isSwapped ? BPT_TRIE_LEN : pos;
             appendPtr(isSwapped ? ptr : 0);
-            append((c2 & xF8) | x04);
-            append(x01 << (c2 & x07));
+            append((c2 & xFC) | x02);
+            append(x01 << ((c2 & x03) << 1));
             ret = isSwapped ? BPT_TRIE_LEN : ret;
             pos = isSwapped ? pos : BPT_TRIE_LEN;
             appendPtr(isSwapped ? 0 : ptr);
             break;
         case 1:
-            append((c1 & xF8) | x04);
-            append((x01 << (c1 & x07)) | (x01 << (c2 & x07)));
+            append((c1 & xFC) | x02);
+            append((x01 << ((c1 & x03) << 1) | (x01 << ((c2 & x03) << 1))));
             ret = isSwapped ? ret : BPT_TRIE_LEN;
             pos = isSwapped ? BPT_TRIE_LEN : pos;
             appendPtr(isSwapped ? ptr : 0);
@@ -974,9 +966,8 @@ int16_t bfqs_node_handler::insertThread() {
             appendPtr(isSwapped ? 0 : ptr);
             break;
         case 3:
-            append((c1 & xF8) | x06);
-            append(x01 << (c1 & x07));
-            append(x01 << (c1 & x07));
+            append((c1 & xFC) | x02);
+            append(x03 << ((c1 & x03) << 1));
             append(3);
             ret = (p + 1 == key_len) ? BPT_TRIE_LEN : ret;
             pos = (p + 1 == key_len) ? pos : BPT_TRIE_LEN;
@@ -991,8 +982,8 @@ int16_t bfqs_node_handler::insertThread() {
     keyPos = p + 1;
     if (c1 == c2) {
         c2 = (p == key_len ? key_at[diff] : key[p]);
-        append((c2 & xF8) | x04);
-        append(x01 << (c2 & x07));
+        append((c2 & xFC) | x02);
+        append(x01 << ((c2 & x03) << 1));
         ret = (p == key_len) ? ret : BPT_TRIE_LEN;
         pos = (p == key_len) ? BPT_TRIE_LEN : pos;
         appendPtr((p == key_len) ? ptr : 0);
@@ -1014,9 +1005,10 @@ int16_t bfqs_node_handler::insertThread() {
 }
 
 int16_t bfqs_node_handler::insertEmpty() {
-    append((*key & xF8) | x04);
-    append(x01 << (*key & x07));
+    append((*key & xFC) | x02);
+    append(x01 << ((*key & x03) << 1));
     int16_t ret = BPT_TRIE_LEN;
+    keyPos = 1;
     append(0);
     append(0);
     return ret;
