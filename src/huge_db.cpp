@@ -15,6 +15,7 @@
 #include "dfqx.h"
 #include "bft.h"
 #include "dft.h"
+#include "bfqs.h"
 #include "bfos.h"
 #include "rb_tree.h"
 #ifdef _MSC_VER
@@ -44,7 +45,7 @@ using namespace std;
 //char *IMPORT_FILE = "/Users/arun/index_research/Release/w7.txt";
 char *IMPORT_FILE = null; //"/Users/arun/index_research/Release/dbpedia_labels.txt";
 //char *IMPORT_FILE = "/Users/arun/index_research/Release/domain_rank.csv";
-unsigned long NUM_ENTRIES = 40;
+unsigned long NUM_ENTRIES = 100;
 int CHAR_SET = 2;
 int KEY_LEN = 8;
 int VALUE_LEN = 4;
@@ -240,6 +241,19 @@ void print(bfos *bx, const char *key, int16_t key_len) {
     std::cout << "Key: " << key << ", Value:" << s << endl;
 }
 
+void print(bfqs *bx, const char *key, int16_t key_len) {
+    int16_t len;
+    char *value = bx->get(key, key_len, &len);
+    if (value == null || len == 0) {
+        std::cout << "Value for " << key << " is null" << endl;
+        return;
+    }
+    char s[100];
+    strncpy(s, value, len);
+    s[len] = 0;
+    std::cout << "Key: " << key << ", Value:" << s << endl;
+}
+
 void print(dfqx *dx, const char *key, int16_t key_len) {
     int16_t len;
     char *value = dx->get(key, key_len, &len);
@@ -284,7 +298,8 @@ int main2() {
     //rb_tree *dx = new rb_tree();
     //dfox *dx = new dfox();
     //dfqx *dx = new dfqx();
-    bfos *dx = new bfos();
+    //bfos *dx = new bfos();
+    bfqs *dx = new bfqs();
     //bft *dx = new bft();
     //dft *dx = new dft();
     //basix *dx = new basix();
@@ -1311,14 +1326,15 @@ int main(int argc, char *argv[]) {
 
     ctr = 0;
     //linex *lx = new linex();
-    //basix *lx = new basix();
+    basix *lx = new basix();
     //rb_tree *lx = new rb_tree();
     //bft *lx = new bft();
     //dft *lx = new dft();
     //bfos *lx = new bfos();
+    //bfqs *lx = new bfqs();
     //dfqx *lx = new dfqx();
     //dfox *lx = new dfox();
-    dfos *lx = new dfos();
+    //dfos *lx = new dfos();
     it1 = m.begin();
     start = getTimeVal();
     for (; it1 != m.end(); ++it1) {
@@ -1326,8 +1342,6 @@ int main(int argc, char *argv[]) {
         lx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
                 it1->second.length());
         ctr++;
-        if (ctr == 15471)
-            ctr += 0;
     }
     stop = getTimeVal();
     cout << "B+Tree insert time:" << timedifference(start, stop) << endl;
@@ -1338,6 +1352,7 @@ int main(int argc, char *argv[]) {
     //basix *dx = new basix();
     //bft *dx = new bft();
     //bfos *dx = new bfos();
+    //bfqs *dx = new bfqs();
     //dft *dx = new dft();
     //dfqx *dx = new dfqx();
     //dfox *dx = new dfox();
@@ -1382,8 +1397,7 @@ int main(int argc, char *argv[]) {
     }
     stop = getTimeVal();
     cout << "ART Get Time:" << timedifference(start, stop) << endl;
-    cout << "Null:" << null_ctr << endl;
-    cout << "Cmp:" << cmp << endl;
+    cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
     cout << "ART Size:" << art_size(&at) << endl;
     //getchar();
 
@@ -1417,8 +1431,7 @@ int main(int argc, char *argv[]) {
     }
     stop = getTimeVal();
     cout << "B+Tree Get Time:" << timedifference(start, stop) << endl;
-    cout << "Null:" << null_ctr << endl;
-    cout << "Cmp:" << cmp << endl;
+    cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
     lx->printMaxKeyCount(NUM_ENTRIES);
     lx->printNumLevels();
     //lx->printCounts();
@@ -1451,8 +1464,7 @@ int main(int argc, char *argv[]) {
         ctr++;
     }
     stop = getTimeVal();
-    cout << "Null:" << null_ctr << endl;
-    cout << "Cmp:" << cmp << endl;
+    cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
     cout << "DFox+Tree get time:" << timedifference(start, stop) << endl;
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();

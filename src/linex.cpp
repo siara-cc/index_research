@@ -10,13 +10,13 @@ char *linex::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     return ret;
 }
 
-int16_t linex_node_handler::traverseToLeaf(byte *node_paths[]) {
+int16_t linex_node_handler::traverseToLeaf(byte *node_paths[], bool isPut) {
     byte level;
     level = 1;
     if (isPut)
         *node_paths = buf;
     while (!isLeaf()) {
-        int16_t idx = locate();
+        int16_t idx = locate(isPut);
         if (idx < 0) {
             idx = ~idx;
             if (idx)
@@ -27,7 +27,7 @@ int16_t linex_node_handler::traverseToLeaf(byte *node_paths[]) {
         if (isPut)
             node_paths[level++] = buf;
     }
-    return locate();
+    return locate(isPut);
 }
 
 void linex::put(const char *key, int16_t key_len, const char *value,
@@ -38,12 +38,11 @@ void linex::put(const char *key, int16_t key_len, const char *value,
     node.key_len = key_len;
     node.value = value;
     node.value_len = value_len;
-    node.isPut = true;
     if (node.filledSize() == 0) {
         node.addData();
         total_size++;
     } else {
-        node.traverseToLeaf(node_paths);
+        node.traverseToLeaf(node_paths, true);
         recursiveUpdate(&node, -1, node_paths, numLevels - 1);
     }
 }
@@ -72,7 +71,6 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             linex_node_handler new_block(b);
-            new_block.isPut = true;
             int16_t cmp = util::compare((char *) first_key, first_len,
                     node->key, node->key_len);
             if (cmp <= 0) {
@@ -81,11 +79,11 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
                 new_block.key_len = node->key_len;
                 new_block.value = node->value;
                 new_block.value_len = node->value_len;
-                new_block.pos = ~new_block.locate();
+                new_block.pos = ~new_block.locate(true);
                 new_block.addData();
             } else {
                 node->initVars();
-                node->pos = ~node->locate();
+                node->pos = ~node->locate(true);
                 node->addData();
             }
             if (root_data == node->buf) {
@@ -93,7 +91,6 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
                 root_data = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
                 linex_node_handler root(root_data);
                 root.initBuf();
-                root.isPut = true;
                 root.setLeaf(0);
                 byte addr[9];
                 root.initVars();
@@ -107,7 +104,7 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
                 root.key_len = first_len;
                 root.value = (char *) addr;
                 root.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
-                root.pos = ~root.locate();
+                root.pos = ~root.locate(true);
                 root.addData();
                 numLevels++;
             } else {
@@ -116,12 +113,11 @@ void linex::recursiveUpdate(linex_node_handler *node, int16_t pos,
                 linex_node_handler parent(parent_data);
                 byte addr[9];
                 parent.initVars();
-                parent.isPut = true;
                 parent.key = (char *) first_key;
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
                 parent.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
-                parent.locate();
+                parent.locate(true);
                 recursiveUpdate(&parent, parent.pos, node_paths, prev_level);
             }
         } else {
@@ -200,7 +196,6 @@ byte *linex_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     byte *b = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
     linex_node_handler new_block(b);
     new_block.initBuf();
-    new_block.isPut = true;
     if (!isLeaf())
         new_block.setLeaf(false);
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
@@ -346,7 +341,7 @@ int16_t linex_node_handler::linearSearch() {
     return ~idx;
 }
 
-int16_t linex_node_handler::locate() {
+int16_t linex_node_handler::locate(bool isPut) {
     pos = linearSearch();
     return pos;
 }
@@ -366,7 +361,6 @@ linex::linex() {
 
 linex_node_handler::linex_node_handler(byte *b) {
     setBuf(b);
-    isPut = false;
 }
 
 void linex_node_handler::setBuf(byte *b) {
@@ -405,5 +399,18 @@ char *linex_node_handler::getValueAt(int16_t *vlen) {
     return (char *) key_at;
 }
 
+// unimplemented
 void linex_node_handler::initVars() {
+}
+int16_t linex_node_handler::traverseToLeafForPut(byte *node_paths[]) {
+    return 0;
+}
+int16_t linex_node_handler::traverseToLeafForGet() {
+    return 0;
+}
+int16_t linex_node_handler::locateForGet() {
+    return 0;
+}
+int16_t linex_node_handler::locateForPut() {
+    return 0;
 }

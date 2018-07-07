@@ -41,7 +41,6 @@ public:
     int16_t key_at_len;
     const char *value;
     int16_t value_len;
-    bool isPut;
     virtual ~bplus_tree_node_handler() {
     }
     virtual void setBuf(byte *m) = 0;
@@ -74,8 +73,16 @@ public:
     virtual bool isFull(int16_t kv_len) = 0;
     virtual void addData() = 0;
     virtual char *getValueAt(int16_t *vlen) = 0;
-    virtual int16_t traverseToLeaf(byte *node_paths[] = null) = 0;
-    virtual int16_t locate() = 0;
+
+    virtual int16_t traverseToLeafForGet() = 0;
+    virtual int16_t locateForGet() = 0;
+    virtual int16_t traverseToLeafForPut(byte *node_paths[] = null) = 0;
+    virtual int16_t locateForPut() = 0;
+    // Separate methods for Get And Put may be implemented if required
+    // Otherwise traverseToLeaf and located may be implemented
+    virtual int16_t traverseToLeaf(byte *node_paths[] = null, bool isPut = false) = 0;
+    virtual int16_t locate(bool isPut) = 0;
+
     virtual byte *split(byte *first_key, int16_t *first_len_ptr) = 0;
 };
 
@@ -189,11 +196,14 @@ public:
     static const byte x3F = 0x3F;
     static const byte x40 = 0x40;
     static const byte x41 = 0x41;
+    static const byte x55 = 0x55;
     static const byte x7F = 0x7F;
     static const byte x80 = 0x80;
     static const byte x81 = 0x81;
+    static const byte xAA = 0xAA;
     static const byte xBF = 0xBF;
     static const byte xC0 = 0xC0;
+    static const byte xF0 = 0xF0;
     static const byte xF8 = 0xF8;
     static const byte xFB = 0xFB;
     static const byte xFC = 0xFC;

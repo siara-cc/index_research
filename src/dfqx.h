@@ -12,7 +12,7 @@ using namespace std;
 #define DQ_INT64MAP 1
 #define DQ_9_BIT_PTR 0
 
-#define DFQX_NODE_SIZE 1024
+#define DFQX_NODE_SIZE 768
 
 #if DQ_9_BIT_PTR == 1
 #define DQ_MAX_PTR_BITMAP_BYTES 8
@@ -73,11 +73,15 @@ public:
     uint32_t *bitmap2;
 #endif
     dfqx_node_handler(byte *m);
-    int16_t locate();
+    inline int16_t locateForGet();
+    int16_t traverseToLeafForGet();
+    int16_t locateForPut();
+    int16_t traverseToLeafForPut(byte *node_paths[] = null);
+    int16_t traverseToLeaf(byte *node_paths[] = null, bool isPut = false);
+    inline int16_t locate(bool isPut);
     byte *getKey(int16_t pos, int16_t *plen);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
-    int16_t traverseToLeaf(byte *node_paths[] = null);
     inline int16_t getPtr(int16_t pos);
     void initBuf();
     inline void initVars();
@@ -104,7 +108,11 @@ public:
             int16_t value_len);
     char *get(const char *key, int16_t key_len, int16_t *pValueLen);
     static void printCounts() {
-        cout << "Count1:" << count1 << ", Count2:" << count2 << endl;
+        util::print("Count1:");
+        util::print(count1);
+        util::print(", Count2:");
+        util::print(count2);
+        util::endl();
     }
 };
 
