@@ -1,7 +1,8 @@
 #include "univix_util.h"
 
-int16_t util::bit_count[256];
-int16_t util::bit_count2x[256];
+byte util::bit_count[256];
+byte util::bit_count2x[256];
+byte util::bit_count_lf_ch[256];
 byte util::first_bit_mask[256];
 byte util::first_bit_offset[256];
 uint32_t util::left_mask32[32];

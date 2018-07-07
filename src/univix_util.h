@@ -8,7 +8,7 @@
 #include <iostream>
 #endif
 #include <stdlib.h>
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(ARDUINO)
 #include <malloc.h>
 #endif
 
@@ -19,8 +19,9 @@ typedef unsigned char byte;
 
 class util {
 public:
-    static int16_t bit_count[256];
-    static int16_t bit_count2x[256];
+    static byte bit_count[256];
+    static byte bit_count2x[256];
+    static byte bit_count_lf_ch[256];
     static byte first_bit_mask[256];
     static byte first_bit_offset[256];
 
@@ -122,7 +123,9 @@ public:
     __attribute__((malloc))
 #endif
     static void *alignedAlloc(uint16_t blockSize) {
-#if defined(_MSC_VER)
+#if defined(ARDUINO)
+        return malloc ((unsigned int)blockSize);
+#elif defined(_MSC_VER)
         return _aligned_malloc (blockSize, 64);
 #elif defined(__APPLE__)
         void* aPtr;
@@ -173,6 +176,7 @@ public:
         for (int16_t i = 0; i < 256; i++) {
             bit_count[i] = countSetBits(i);
             bit_count2x[i] = bit_count[i] << 1;
+            bit_count_lf_ch[i] = bit_count[i & 0xAA] + bit_count2x[i & 0x55];
             first_bit_mask[i] = firstBitMask(i);
             first_bit_offset[i] = firstBitOffset(i);
         }
