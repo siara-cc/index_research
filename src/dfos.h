@@ -35,6 +35,8 @@ using namespace std;
 
 class dfos_node_handler : public trie_node_handler {
 private:
+    static byte need_counts[10];
+    void decodeNeedCount();
     inline byte *skipChildren(byte *t, int16_t count);
     inline void insAtWithPtrs(byte *ptr, const char *s, byte len);
     inline void insAtWithPtrs(byte *ptr, byte b, const char *s, byte len);

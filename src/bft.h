@@ -40,6 +40,8 @@ public:
 
 class bft_node_handler : public trie_node_handler {
 private:
+    static byte need_counts[10];
+    void decodeNeedCount();
     int16_t nextPtr(bft_iterator_status& s);
     int16_t getLastPtrOfChild(byte *triePos);
     inline byte *getLastPtr(byte *last_t);

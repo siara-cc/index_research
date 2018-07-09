@@ -24,6 +24,8 @@ using namespace std;
 
 class dft_node_handler : public trie_node_handler {
 private:
+    static byte need_counts[10];
+    void decodeNeedCount();
     inline void append(byte b);
     void appendPtr(int16_t p);
     inline int16_t get9bitPtr(byte *t);

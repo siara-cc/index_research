@@ -22,10 +22,11 @@ using namespace std;
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5
 #define INSERT_CONVERT 6
-#define INSERT_THREAD1 7
 
 class bfos_node_handler: public trie_node_handler {
 private:
+    static byte need_counts[10];
+    void decodeNeedCount();
     inline byte *getLastPtr();
     inline void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
     void setPtrDiff(int16_t diff);

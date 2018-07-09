@@ -28,6 +28,8 @@ using namespace std;
 
 class dfox_node_handler : public trie_node_handler {
 private:
+    static byte need_counts[10];
+    void decodeNeedCount();
     inline byte *skipChildren(byte *t, int16_t count);
     void updateSkipLens(byte *loop_upto, byte *covering_upto, int diff);
     byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf);

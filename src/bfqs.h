@@ -29,6 +29,10 @@ using namespace std;
 
 class bfqs_node_handler: public trie_node_handler {
 private:
+    static byte need_counts[10];
+    void decodeNeedCount();
+    static byte switch_map[8];
+    static byte shift_mask[8];
     inline byte *getLastPtr();
     inline void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
     void setPtrDiff(int16_t diff);

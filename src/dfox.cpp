@@ -80,11 +80,8 @@ int16_t dfox_node_handler::locate() {
             }
             last_t = t - 2;
             if (trie_char & x04) {
-                if (isPut) {
                     triePos = t;
                     insertState = INSERT_AFTER;
-                    need_count = 4;
-                }
                 return -1;
             }
             break;
@@ -120,15 +117,13 @@ int16_t dfox_node_handler::locate() {
                     last_t = t;
                 else
                     cmp = -cmp;
-                if (isPut) {
                     triePos = t;
                     insertState = INSERT_THREAD;
 #if DX_MIDDLE_PREFIX == 1
-                    need_count = cmp + 10;
+                    need_count = cmp + 8;
 #else
                     need_count = (cmp * 4) + 6;
 #endif
-                }
                 return -1;
             case x02:
                 break;
@@ -143,11 +138,8 @@ int16_t dfox_node_handler::locate() {
             case x00:
             case x04:
             case x06:
-                if (isPut) {
                     triePos = t;
                     insertState = INSERT_LEAF;
-                    need_count = 2;
-                }
                 return -1;
             }
             key_char = key[keyPos++];
@@ -168,18 +160,12 @@ int16_t dfox_node_handler::locate() {
                 t = skipChildren(t + pfx_len, 1);
                 key_at = t;
             }
-            if (isPut) {
                 insertState = INSERT_CONVERT;
-                need_count = 8;
-            }
             return -1;
 #endif
         case 2:
-            if (isPut) {
                 triePos = origPos;
                 insertState = INSERT_BEFORE;
-                need_count = 4;
-            }
             return -1;
             break;
         }
@@ -210,7 +196,6 @@ char *dfox_node_handler::getValueAt(int16_t *vlen) {
 
 dfox_node_handler::dfox_node_handler(byte * m) {
     setBuf(m);
-    isPut = false;
 }
 
 int16_t dfox_node_handler::getPtr(byte *t) {
@@ -225,7 +210,6 @@ void dfox::put(const char *key, int16_t key_len, const char *value,
     node.key_len = key_len;
     node.value = value;
     node.value_len = value_len;
-    node.isPut = true;
     if (node.filledSize() == 0) {
         node.keyPos = 1;
         node.insertState = INSERT_EMPTY;
@@ -263,7 +247,6 @@ void dfox::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             dfox_node_handler new_block(b);
-            new_block.isPut = true;
             int16_t cmp = util::compare((char *) first_key, first_len,
                     node->key, node->key_len);
             if (cmp <= 0) {
@@ -285,7 +268,6 @@ void dfox::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 root_data = (byte *) util::alignedAlloc(DFOX_NODE_SIZE);
                 dfox_node_handler root(root_data);
                 root.initBuf();
-                root.isPut = true;
                 root.setLeaf(0);
                 byte addr[9];
                 root.initVars();
@@ -310,7 +292,6 @@ void dfox::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 dfox_node_handler parent(parent_data);
                 byte addr[9];
                 parent.initVars();
-                parent.isPut = true;
                 parent.key = (char *) first_key;
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
@@ -399,7 +380,6 @@ byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     byte *b = (byte *) util::alignedAlloc(DFOX_NODE_SIZE);
     dfox_node_handler new_block(b);
     new_block.initBuf();
-    new_block.isPut = true;
     if (!isLeaf())
         new_block.setLeaf(false);
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
@@ -649,10 +629,10 @@ void dfox_node_handler::addData() {
 }
 
 bool dfox_node_handler::isFull(int16_t kv_len) {
-    if ((getKVLastPos() - kv_len - 2)
-            < (DFOX_HDR_SIZE + BPT_TRIE_LEN + need_count))
+    decodeNeedCount();
+    if (getKVLastPos() < (DFOX_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 3))
         return true;
-    if (BPT_TRIE_LEN > (248 - need_count))
+    if (BPT_TRIE_LEN > (252 - need_count))
         return true;
     return false;
 }
@@ -801,7 +781,7 @@ byte *dfox_node_handler::insertCurrent() {
             triePos += 2;
         }
 #if DX_MIDDLE_PREFIX == 1
-        need_count -= 11;
+        need_count -= 9;
         diff = p + need_count;
         if (diff == min) {
             if (need_count) {
@@ -941,92 +921,13 @@ void dfox_node_handler::insBytes(byte *ptr, int16_t len) {
     BPT_TRIE_LEN += len;
 }
 
+void dfox_node_handler::decodeNeedCount() {
+    if (insertState != INSERT_THREAD)
+        need_count = need_counts[insertState];
+}
+byte dfox_node_handler::need_counts[10] = {0, 4, 4, 2, 4, 0, 7, 0, 0, 0};
+
 void dfox_node_handler::initVars() {
 }
 
 long dfox::count1, dfox::count2;
-/*byte dfox::split_buf[DFOX_NODE_SIZE];
-byte *dfox_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
-    int16_t orig_filled_size = filledSize();
-    byte *b = (byte *) util::alignedAlloc(DFOX_NODE_SIZE);
-    dfox_node_handler new_block(b);
-    new_block.initBuf();
-    new_block.isPut = true;
-    if (!isLeaf())
-        new_block.setLeaf(false);
-    dfox_node_handler old_block(dfox::split_buf);
-    old_block.initBuf();
-    old_block.isPut = true;
-    if (!isLeaf())
-        old_block.setLeaf(false);
-    dfox_node_handler *ins_block = &old_block;
-    int16_t kv_last_pos = getKVLastPos();
-    int16_t halfKVLen = DFOX_NODE_SIZE - kv_last_pos + 1;
-    halfKVLen /= 2;
-
-    int16_t brk_idx = 0;
-    int16_t tot_len = 0;
-    // (1) move all data to new_block in order
-    int16_t idx;
-    byte ins_key[64];
-    int16_t ins_key_len;
-    char ctr = x08;
-    byte tp[DX_MAX_KEY_LEN + 1];
-    byte *t = trie;
-    byte tc, child, leaf;
-    tc = child = leaf = 0;
-    keyPos = 0;
-    for (idx = 0; idx < orig_filled_size; idx++) {
-        t = nextKey(ins_key, tp, t, ctr, tc, child, leaf);
-        int16_t src_idx = getPtr(t);
-        t += 2;
-        int16_t kv_len = buf[src_idx];
-        ins_key_len = kv_len;
-        kv_len++;
-        memcpy(ins_key + keyPos + 1, buf + src_idx + 1, kv_len);
-        ins_block->value_len = buf[src_idx + kv_len];
-        kv_len++;
-        ins_block->value = (const char *) buf + src_idx + kv_len;
-        kv_len += ins_block->value_len;
-        tot_len += kv_len;
-        ins_key_len += keyPos + 1;
-        ins_block->key = (char *) ins_key;
-        ins_block->key_len = ins_key_len;
-        ins_key[ins_key_len] = 0;
-        if (idx && brk_idx >= 0)
-            ins_block->locate();
-        else {
-            ins_block->keyPos = 1;
-            ins_block->insertState = INSERT_EMPTY;
-        }
-        ins_block->addData();
-        if (brk_idx < 0) {
-            brk_idx = -brk_idx;
-            keyPos++;
-            if (isLeaf()) {
-                // *first_len_ptr = s.keyPos;
-                *first_len_ptr = util::compare((const char *) ins_key, keyPos,
-                        (const char *) first_key, *first_len_ptr);
-                memcpy(first_key, ins_key, keyPos);
-            } else {
-                *first_len_ptr = ins_key_len;
-                memcpy(first_key, ins_key, ins_key_len);
-            }
-            keyPos--;
-        }
-        kv_last_pos += kv_len;
-        if (brk_idx == 0) {
-            if (tot_len > halfKVLen || idx == (orig_filled_size / 2)) {
-                brk_idx = idx + 1;
-                brk_idx = -brk_idx;
-                ins_block = &new_block;
-                *first_len_ptr = keyPos + 1;
-                memcpy(first_key, ins_key, *first_len_ptr);
-            }
-        }
-    }
-    memcpy(buf, old_block.buf, DFOX_NODE_SIZE);
-
-    return new_block.buf;
-}
-*/

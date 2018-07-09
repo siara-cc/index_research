@@ -49,7 +49,7 @@ int16_t bfos_node_handler::traverseToLeaf(byte *node_paths[]) {
         if (node_paths)
             *node_paths++ = buf;
         locate();
-        setBuf(getChildPtr(last_t));
+        setBuf(getChildPtr(last_t - buf < getKVLastPos() ? getLastPtr() : last_t));
     }
     return locate();
 }
@@ -90,12 +90,9 @@ int16_t bfos_node_handler::locate() {
             last_leaf = *t++;
             t += BIT_COUNT(last_child) + BIT_COUNT2(last_leaf);
             if (trie_char & x04) {
-                if (!isLeaf())
-                    last_t = getLastPtr();
-                if (isPut) {
+                //if (!isLeaf())
+                //    last_t = getLastPtr();
                     insertState = INSERT_AFTER;
-                    need_count = 4;
-                }
                 return -1;
             }
             break;
@@ -118,12 +115,9 @@ int16_t bfos_node_handler::locate() {
             }
             switch (trie_char) {
             case 0:
-                if (isPut) {
                    insertState = INSERT_LEAF;
-                   need_count = 2;
-                }
-                if (!isLeaf())
-                    last_t = getLastPtr();
+                //if (!isLeaf())
+                //    last_t = getLastPtr();
                 return -1;
             case 1:
                 break;
@@ -140,18 +134,16 @@ int16_t bfos_node_handler::locate() {
                 }
                 if (cmp < 0) {
                     cmp = -cmp;
-                    if (!isLeaf())
-                        last_t = getLastPtr();
+                    //if (!isLeaf())
+                    //    last_t = getLastPtr();
                 } else
                     last_t = key_at - 1;
-                if (isPut) {
                     insertState = INSERT_THREAD;
 #if BS_MIDDLE_PREFIX == 1
-                    need_count = cmp + 10;
+                    need_count = cmp + 7;
 #else
                     need_count = (cmp * 4) + 10;
 #endif
-                }
                 return -1;
             case 3:
                 if (!isLeaf()) {
@@ -166,12 +158,9 @@ int16_t bfos_node_handler::locate() {
             key_char = key[keyPos++];
             break;
         case 2:
-            if (!isLeaf())
-                last_t = getLastPtr();
-            if (isPut) {
+            //if (!isLeaf())
+            //    last_t = getLastPtr();
                 insertState = INSERT_BEFORE;
-                need_count = 4;
-            }
             return -1;
 #if BS_MIDDLE_PREFIX == 1
         case 3:
@@ -187,12 +176,9 @@ int16_t bfos_node_handler::locate() {
             triePos = t;
             if (!isLeaf()) {
                 setPrefixLast(key_char, t, pfx_len);
-                last_t = getLastPtr();
+                //last_t = getLastPtr();
             }
-            if (isPut) {
                 insertState = INSERT_CONVERT;
-                need_count = 8;
-            }
             return -1;
 #endif
         }
@@ -212,14 +198,6 @@ void bfos_node_handler::setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) 
         last_t = t;
         last_child = (*t & x02 ? t[1] : 0);
         last_leaf = (*t & x02 ? t[2] : t[1]);
-    } else {
-        if (!last_t) {
-            last_t = t + pfx_rem_len;
-            last_child = (*t & x02 ? t[1] : 0);
-            last_child &= (last_child ^ (last_child - 1));
-            last_leaf = (*t & x02 ? t[2] : t[1]);
-            last_leaf &= (last_leaf ^ (last_leaf - 1));
-        }
     }
 }
 
@@ -245,7 +223,6 @@ bfos::~bfos() {
 
 bfos_node_handler::bfos_node_handler(byte * m) {
     setBuf(m);
-    isPut = false;
     insertState = INSERT_EMPTY;
 }
 
@@ -285,9 +262,10 @@ void bfos_node_handler::addData() {
 }
 
 bool bfos_node_handler::isFull(int16_t kv_len) {
-    if ((getKVLastPos() - kv_len - 2) < (BFOS_HDR_SIZE + BPT_TRIE_LEN + need_count))
+    decodeNeedCount();
+    if (getKVLastPos() < (BFOS_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 3))
         return true;
-    if (BPT_TRIE_LEN + need_count > 248)
+    if (BPT_TRIE_LEN > 252 - need_count)
         return true;
     return false;
 }
@@ -300,7 +278,6 @@ void bfos::put(const char *key, int16_t key_len, const char *value,
     node.key_len = key_len;
     node.value = value;
     node.value_len = value_len;
-    node.isPut = true;
     if (node.filledSize() == 0) {
         node.addData();
         total_size++;
@@ -334,7 +311,6 @@ void bfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             bfos_node_handler new_block(b);
-            new_block.isPut = true;
             int16_t cmp = util::compare((char *) first_key, first_len, node->key,
                     node->key_len);
             if (cmp <= 0) {
@@ -361,7 +337,6 @@ void bfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 root_data = (byte *) util::alignedAlloc(BFOS_NODE_SIZE);
                 bfos_node_handler root(root_data);
                 root.initBuf();
-                root.isPut = true;
                 root.setLeaf(false);
                 byte addr[8];
                 root.initVars();
@@ -389,7 +364,6 @@ void bfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 bfos_node_handler parent(parent_data);
                 byte addr[8];
                 parent.initVars();
-                parent.isPut = true;
                 parent.key = (const char *) first_key;
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
@@ -416,7 +390,6 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     byte *b = (byte *) util::alignedAlloc(BFOS_NODE_SIZE);
     bfos_node_handler new_block(b);
     new_block.initBuf();
-    new_block.isPut = true;
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
     new_block.BX_MAX_PFX_LEN = BX_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
@@ -950,7 +923,7 @@ int16_t bfos_node_handler::insertThread() {
         ret = pos;
     }
 #if BS_MIDDLE_PREFIX == 1
-    need_count -= 11;
+    need_count -= 8;
     if (p + need_count == min) {
         if (need_count) {
             need_count--;
@@ -1053,6 +1026,7 @@ int16_t bfos_node_handler::insertEmpty() {
     int16_t ret = BPT_TRIE_LEN;
     append(0);
     append(0);
+    keyPos = 1;
     return ret;
 }
 
@@ -1090,6 +1064,12 @@ int16_t bfos_node_handler::insertCurrent() {
 
     return ret;
 }
+
+void bfos_node_handler::decodeNeedCount() {
+    if (insertState != INSERT_THREAD)
+        need_count = need_counts[insertState];
+}
+byte bfos_node_handler::need_counts[10] = {0, 4, 4, 2, 4, 0, 7, 0, 0, 0};
 
 void bfos_node_handler::initVars() {
 }

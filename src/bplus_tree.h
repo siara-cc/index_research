@@ -41,7 +41,6 @@ public:
     int16_t key_at_len;
     const char *value;
     int16_t value_len;
-    bool isPut;
     virtual ~bplus_tree_node_handler() {
     }
     virtual void setBuf(byte *m) = 0;
@@ -81,6 +80,8 @@ public:
 
 class trie_node_handler: public bplus_tree_node_handler {
 protected:
+    static byte need_counts[10];
+    virtual void decodeNeedCount() = 0;
     inline void delAt(byte *ptr) {
         BPT_TRIE_LEN--;
         memmove(ptr, ptr + 1, trie + BPT_TRIE_LEN - ptr);
@@ -189,9 +190,11 @@ public:
     static const byte x3F = 0x3F;
     static const byte x40 = 0x40;
     static const byte x41 = 0x41;
+    static const byte x55 = 0x55;
     static const byte x7F = 0x7F;
     static const byte x80 = 0x80;
     static const byte x81 = 0x81;
+    static const byte xAA = 0xAA;
     static const byte xBF = 0xBF;
     static const byte xC0 = 0xC0;
     static const byte xF8 = 0xF8;

@@ -14,7 +14,6 @@ char *rb_tree::get(const char *key, int16_t key_len, int16_t *pValueLen) {
 int16_t rb_tree_node_handler::traverseToLeaf(byte *node_paths[]) {
     byte level;
     level = 1;
-    if (isPut)
         *node_paths = buf;
     while (!isLeaf()) {
         int16_t idx = locate();
@@ -27,7 +26,6 @@ int16_t rb_tree_node_handler::traverseToLeaf(byte *node_paths[]) {
             }
         }
         setBuf(getChildPtr(idx));
-        if (isPut)
             node_paths[level++] = buf;
     }
     return locate();
@@ -41,7 +39,6 @@ void rb_tree::put(const char *key, int16_t key_len, const char *value,
     node.key_len = key_len;
     node.value = value;
     node.value_len = value_len;
-    node.isPut = true;
     if (node.filledUpto() == -1) {
         node.pos = 0;
         node.addData();
@@ -76,7 +73,6 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             rb_tree_node_handler new_block(b);
-            new_block.isPut = true;
             int16_t cmp = util::compare((char *) first_key, first_len,
                     node->key, node->key_len);
             if (cmp <= 0) {
@@ -97,7 +93,6 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
                 root_data = (byte *) util::alignedAlloc(RB_TREE_NODE_SIZE);
                 rb_tree_node_handler root(root_data);
                 root.initBuf();
-                root.isPut = true;
                 root.setLeaf(0);
                 byte addr[9];
                 root.initVars();
@@ -121,7 +116,6 @@ void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
                 rb_tree_node_handler parent(parent_data);
                 byte addr[9];
                 parent.initVars();
-                parent.isPut = true;
                 parent.key = (char *) first_key;
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
@@ -347,7 +341,6 @@ rb_tree::rb_tree() {
 
 rb_tree_node_handler::rb_tree_node_handler(byte *b) {
     setBuf(b);
-    isPut = false;
 }
 
 void rb_tree_node_handler::setBuf(byte *b) {

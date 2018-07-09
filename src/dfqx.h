@@ -35,6 +35,8 @@ using namespace std;
 
 class dfqx_node_handler: public trie_node_handler {
 private:
+    static byte need_counts[10];
+    void decodeNeedCount();
     static byte left_mask[4];
     static byte left_incl_mask[4];
     static byte ryte_mask[4];
