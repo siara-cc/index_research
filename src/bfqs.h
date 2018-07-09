@@ -29,7 +29,6 @@ using namespace std;
 
 class bfqs_node_handler: public trie_node_handler {
 private:
-    static byte shft[4];
     inline byte *getLastPtr();
     inline void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
     void setPtrDiff(int16_t diff);
@@ -46,12 +45,8 @@ public:
     byte *last_t;
     byte last_leaf_child;
     bfqs_node_handler(byte *m);
-    inline int16_t locateForGet();
-    int16_t traverseToLeafForGet();
-    int16_t locateForPut();
-    int16_t traverseToLeafForPut(byte *node_paths[] = null);
-    int16_t traverseToLeaf(byte *node_paths[] = null, bool isPut = false);
-    inline int16_t locate(bool isPut);
+    inline int16_t locate();
+    int16_t traverseToLeaf(byte *node_paths[] = null);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
     void setBuf(byte *m);

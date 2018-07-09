@@ -33,12 +33,8 @@ public:
     void addData();
     byte *getKey(int16_t pos, int16_t *plen);
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    inline int16_t locateForGet();
-    int16_t traverseToLeafForGet();
-    int16_t locateForPut();
-    int16_t traverseToLeafForPut(byte *node_paths[] = null);
-    int16_t traverseToLeaf(byte *node_paths[] = null, bool isPut = false);
-    inline int16_t locate(bool isPut);
+    int16_t traverseToLeaf(byte *node_paths[] = null);
+    int16_t locate();
     void insertCurrent();
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);

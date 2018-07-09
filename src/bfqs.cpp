@@ -7,7 +7,7 @@ char *bfqs::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     bfqs_node_handler node(root_data);
     node.key = key;
     node.key_len = key_len;
-    if (node.traverseToLeafForGet() == -1)
+    if (node.traverseToLeaf() == -1)
         return null;
     return node.getValueAt(pValueLen);
 }
@@ -40,16 +40,18 @@ byte *bfqs_node_handler::getLastPtr() {
     return 0;
 }
 
-int16_t bfqs_node_handler::traverseToLeafForGet() {
+int16_t bfqs_node_handler::traverseToLeaf(byte *node_paths[]) {
     //keyPos = 0;
     while (!isLeaf()) {
-        locateForGet();
+        if (node_paths)
+            *node_paths++ = buf;
+        locate();
         setBuf(getChildPtr(last_t));
     }
-    return locateForGet();
+    return locate();
 }
 
-int16_t bfqs_node_handler::locateForGet() {
+int16_t bfqs_node_handler::locate() {
     byte *t = trie;
     byte trie_char = *t;
     origPos = t++;
@@ -86,6 +88,10 @@ int16_t bfqs_node_handler::locateForGet() {
             if (trie_char & x02) {
                 if (!isLeaf())
                     last_t = getLastPtr();
+                if (isPut) {
+                    insertState = INSERT_AFTER;
+                    need_count = 4;
+                }
                 return -1;
             }
             break;
@@ -104,6 +110,10 @@ int16_t bfqs_node_handler::locateForGet() {
             case 0:
             case 4:
             case 6:
+                if (isPut) {
+                   insertState = INSERT_LEAF;
+                   need_count = 2;
+                }
                 if (!isLeaf())
                     last_t = getLastPtr();
                 return -1;
@@ -128,6 +138,14 @@ int16_t bfqs_node_handler::locateForGet() {
                         last_t = getLastPtr();
                 } else
                     last_t = key_at - 1;
+                if (isPut) {
+                    insertState = INSERT_THREAD;
+#if BQ_MIDDLE_PREFIX == 1
+                    need_count = cmp + 10;
+#else
+                    need_count = (cmp * 4) + 10;
+#endif
+                }
                 return -1;
             case 3:
                 if (!isLeaf()) {
@@ -143,6 +161,10 @@ int16_t bfqs_node_handler::locateForGet() {
         case 2:
             if (!isLeaf())
                 last_t = getLastPtr();
+            if (isPut) {
+                insertState = INSERT_BEFORE;
+                need_count = 4;
+            }
             return -1;
 #if BQ_MIDDLE_PREFIX == 1
         case 3:
@@ -159,6 +181,10 @@ int16_t bfqs_node_handler::locateForGet() {
             if (!isLeaf()) {
                 setPrefixLast(key_char, t, pfx_len);
                 last_t = getLastPtr();
+            }
+            if (isPut) {
+                insertState = INSERT_CONVERT;
+                need_count = 8;
             }
             return -1;
 #endif
@@ -207,6 +233,7 @@ bfqs::~bfqs() {
 
 bfqs_node_handler::bfqs_node_handler(byte * m) {
     setBuf(m);
+    isPut = false;
     insertState = INSERT_EMPTY;
 }
 
@@ -246,9 +273,9 @@ void bfqs_node_handler::addData() {
 }
 
 bool bfqs_node_handler::isFull(int16_t kv_len) {
-    if (getKVLastPos() < (BFQS_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 3))
+    if ((getKVLastPos() - kv_len - 2) < (BFQS_HDR_SIZE + BPT_TRIE_LEN + need_count))
         return true;
-    if (BPT_TRIE_LEN > (254 - need_count))
+    if (BPT_TRIE_LEN + need_count > 248)
         return true;
     return false;
 }
@@ -261,158 +288,14 @@ void bfqs::put(const char *key, int16_t key_len, const char *value,
     node.key_len = key_len;
     node.value = value;
     node.value_len = value_len;
+    node.isPut = true;
     if (node.filledSize() == 0) {
         node.addData();
         total_size++;
     } else {
-        node.traverseToLeafForPut(node_paths);
+        node.traverseToLeaf(node_paths);
         recursiveUpdate(&node, -1, node_paths, numLevels - 1);
     }
-}
-
-int16_t bfqs_node_handler::traverseToLeafForPut(byte *node_paths[]) {
-    //keyPos = 0;
-    while (!isLeaf()) {
-        if (node_paths)
-            *node_paths++ = buf;
-        locateForPut();
-        setBuf(getChildPtr(last_t));
-    }
-    return locateForPut();
-}
-
-int16_t bfqs_node_handler::locateForPut() {
-    byte *t = trie;
-    byte trie_char = *t;
-    origPos = t++;
-    //if (keyPos) {
-    //    if (trie_char & x01) {
-    //        keyPos--;
-    //        byte pfx_len = trie_char >> 1;
-    //        if (keyPos < pfx_len) {
-    //            trie_char = ((pfx_len - keyPos) << 1) + 1;
-    //            t += keyPos;
-    //        } else {
-    //            keyPos = pfx_len;
-    //            t += pfx_len;
-    //            trie_char = *t;
-    //            origPos = t++;
-    //        }
-    //    } else
-    //        keyPos = 0;
-    //}
-    byte key_char = *key; //[keyPos++];
-    keyPos = 1;
-    do {
-#if BQ_MIDDLE_PREFIX == 1
-        switch (trie_char & x01 ? 3 : (key_char ^ trie_char) > x03
-                ? (key_char > trie_char ? 0 : 2) : 1) {
-#else
-        switch ((key_char ^ trie_char) > x03 ?
-                (key_char > trie_char ? 0 : 2) : 1) {
-#endif
-        case 0:
-            last_t = origPos;
-            last_leaf_child = *t++;
-            t += BIT_COUNT_LF_CH(last_leaf_child);
-            if (trie_char & x02) {
-                if (!isLeaf())
-                    last_t = getLastPtr();
-                insertState = INSERT_AFTER;
-                need_count = 4;
-                return -1;
-            }
-            break;
-        case 1:
-            byte r_shft, r_leaves_children;
-            r_leaves_children = *t++;
-            key_char = (key_char & x03) << 1;
-            r_shft = ~(xFF << key_char);
-            if (!isLeaf() && (r_leaves_children & r_shft)) {
-                last_t = origPos;
-                last_leaf_child = r_leaves_children & r_shft;
-            }
-            trie_char = ((r_leaves_children >> key_char) & x03) | (keyPos == key_len ? 4 : 0);
-            //trie_char -= (trie_char < 4 ? 0 : (trie_char < 6 ? 4 : 6));
-            switch (trie_char) {
-            case 0:
-            case 4:
-            case 6:
-                insertState = INSERT_LEAF;
-                need_count = 2;
-                if (!isLeaf())
-                    last_t = getLastPtr();
-                return -1;
-            case 2:
-                break;
-            case 1:
-            case 5:
-            case 7:
-                int16_t cmp;
-                t += BIT_COUNT_LF_CH(r_leaves_children & (r_shft | xAA));
-                key_at = buf + util::getInt(t);
-                key_at_len = *key_at++;
-                cmp = util::compare(key + keyPos, key_len - keyPos,
-                        (char *) key_at, key_at_len);
-                if (cmp == 0) {
-                    last_t = --key_at;
-                    return 1;
-                }
-                if (cmp < 0) {
-                    cmp = -cmp;
-                    if (!isLeaf())
-                        last_t = getLastPtr();
-                } else
-                    last_t = key_at - 1;
-                insertState = INSERT_THREAD;
-#if BQ_MIDDLE_PREFIX == 1
-                need_count = cmp + 7;
-#else
-                need_count = (cmp * 4) + 10;
-#endif
-                return -1;
-            case 3:
-                if (!isLeaf()) {
-                    last_t = origPos;
-                    last_leaf_child = (r_leaves_children & r_shft) | (x01 << key_char);
-                }
-                break;
-            }
-            t += BIT_COUNT_LF_CH(r_leaves_children & r_shft & xAA);
-            t += *t;
-            key_char = key[keyPos++];
-            break;
-        case 2:
-            if (!isLeaf())
-                last_t = getLastPtr();
-            insertState = INSERT_BEFORE;
-            need_count = 4;
-            return -1;
-#if BQ_MIDDLE_PREFIX == 1
-        case 3:
-            byte pfx_len;
-            pfx_len = (trie_char >> 1);
-            while (pfx_len && key_char == *t && keyPos < key_len) {
-                key_char = key[keyPos++];
-                t++;
-                pfx_len--;
-            }
-            if (!pfx_len)
-                break;
-            triePos = t;
-            if (!isLeaf()) {
-                setPrefixLast(key_char, t, pfx_len);
-                last_t = getLastPtr();
-            }
-            insertState = INSERT_CONVERT;
-            need_count = 6;
-            return -1;
-#endif
-        }
-        trie_char = *t;
-        origPos = t++;
-    } while (1);
-    return -1;
 }
 
 void bfqs::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
@@ -439,6 +322,7 @@ void bfqs::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             int16_t first_len;
             byte *b = node->split(first_key, &first_len);
             bfqs_node_handler new_block(b);
+            new_block.isPut = true;
             int16_t cmp = util::compare((char *) first_key, first_len, node->key,
                     node->key_len);
             if (cmp <= 0) {
@@ -449,14 +333,14 @@ void bfqs::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 new_block.value_len = node->value_len;
                 //byte is_leaf = new_block.isLeaf();
                 //new_block.setLeaf(true);
-                idx = ~new_block.locateForPut();
+                idx = ~new_block.locate();
                 new_block.addData();
                 //new_block.setLeaf(is_leaf);
             } else {
                 node->initVars();
                 //byte is_leaf = node->isLeaf();
                 //node->setLeaf(true);
-                idx = ~node->locateForPut();
+                idx = ~node->locate();
                 node->addData();
                 //node->setLeaf(is_leaf);
             }
@@ -465,6 +349,7 @@ void bfqs::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 root_data = (byte *) util::alignedAlloc(BFQS_NODE_SIZE);
                 bfqs_node_handler root(root_data);
                 root.initBuf();
+                root.isPut = true;
                 root.setLeaf(false);
                 byte addr[8];
                 root.initVars();
@@ -482,7 +367,7 @@ void bfqs::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 root.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
                 //root.keyPos = 0;
                 //root.setLeaf(true);
-                root.locateForPut();
+                root.locate();
                 //root.setLeaf(false);
                 root.addData();
                 numLevels++;
@@ -492,13 +377,14 @@ void bfqs::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
                 bfqs_node_handler parent(parent_data);
                 byte addr[8];
                 parent.initVars();
+                parent.isPut = true;
                 parent.key = (const char *) first_key;
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
                 parent.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
                 //parent.keyPos = 0;
                 //parent.setLeaf(true);
-                parent.locateForPut();
+                parent.locate();
                 //parent.setLeaf(false);
                 recursiveUpdate(&parent, -1, node_paths, prev_level);
             }
@@ -518,6 +404,7 @@ byte *bfqs_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     byte *b = (byte *) util::alignedAlloc(BFQS_NODE_SIZE);
     bfqs_node_handler new_block(b);
     new_block.initBuf();
+    new_block.isPut = true;
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
     new_block.BQ_MAX_PFX_LEN = BQ_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
@@ -1022,7 +909,7 @@ int16_t bfqs_node_handler::insertThread() {
         ret = pos;
     }
 #if BQ_MIDDLE_PREFIX == 1
-    need_count -= 8;
+    need_count -= 11;
     if (p + need_count == min) {
         if (need_count) {
             need_count--;
@@ -1162,14 +1049,7 @@ int16_t bfqs_node_handler::insertCurrent() {
     return ret;
 }
 
-// unimplemented
 void bfqs_node_handler::initVars() {
-}
-int16_t bfqs_node_handler::traverseToLeaf(byte *node_paths[], bool isPut) {
-    return 0;
-}
-int16_t bfqs_node_handler::locate(bool isPut) {
-    return 0;
 }
 
 int bfqs::count1, bfqs::count2;

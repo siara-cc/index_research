@@ -10,23 +10,19 @@ char *basix::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     return ret;
 }
 
-int16_t basix_node_handler::traverseToLeaf(byte *node_paths[], bool isPut) {
-    byte level;
-    level = 1;
-    if (isPut)
-        *node_paths = buf;
+int16_t basix_node_handler::traverseToLeaf(byte *node_paths[]) {
     while (!isLeaf()) {
-        int16_t idx = locate(isPut);
+        if (node_paths)
+            *node_paths++ = buf;
+        int16_t idx = locate();
         if (idx < 0) {
             idx++;
             idx = ~idx;
         }
         key_at = buf + getPtr(idx);
         setBuf(getChildPtr(key_at));
-        if (isPut)
-            node_paths[level++] = buf;
     }
-    return locate(isPut);
+    return locate();
 }
 
 void basix::put(const char *key, int16_t key_len, const char *value,
@@ -42,7 +38,7 @@ void basix::put(const char *key, int16_t key_len, const char *value,
         node.addData();
         total_size++;
     } else {
-        node.traverseToLeaf(node_paths, true);
+        node.traverseToLeaf(node_paths);
         recursiveUpdate(&node, node.pos, node_paths, numLevels - 1);
     }
 }
@@ -79,11 +75,11 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
                 new_block.key_len = node->key_len;
                 new_block.value = node->value;
                 new_block.value_len = node->value_len;
-                new_block.pos = ~new_block.locate(true);
+                new_block.pos = ~new_block.locate();
                 new_block.addData();
             } else {
                 node->initVars();
-                node->pos = ~node->locate(true);
+                node->pos = ~node->locate();
                 node->addData();
             }
             if (root_data == node->buf) {
@@ -105,7 +101,7 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
                 root.key_len = first_len;
                 root.value = (char *) addr;
                 root.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
-                root.pos = ~root.locate(true);
+                root.pos = ~root.locate();
                 root.addData();
                 numLevels++;
             } else {
@@ -118,7 +114,7 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
                 parent.key_len = first_len;
                 parent.value = (char *) addr;
                 parent.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
-                parent.locate(true);
+                parent.locate();
                 recursiveUpdate(&parent, parent.pos, node_paths, prev_level);
             }
         } else {
@@ -306,6 +302,9 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 //    return middle;
 //}
 
+#ifndef _MSC_VER
+__attribute__((hot))
+#endif
 int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
     int middle, first, filled_upto;
     int16_t cmp;
@@ -362,7 +361,11 @@ int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
 //    return (cmp == 0) ? n : ~(n+1);
 //}
 
-int16_t basix_node_handler::locate(bool isPut) {
+#ifndef _MSC_VER
+__attribute__((aligned(32)))
+__attribute__((hot))
+#endif
+int16_t basix_node_handler::locate() {
     pos = binarySearch(key, key_len);
     return pos;
 }
@@ -505,18 +508,5 @@ char *basix_node_handler::getValueAt(int16_t *vlen) {
     return (char *) key_at;
 }
 
-// unimplemented
 void basix_node_handler::initVars() {
-}
-int16_t basix_node_handler::traverseToLeafForPut(byte *node_paths[]) {
-    return 0;
-}
-int16_t basix_node_handler::traverseToLeafForGet() {
-    return 0;
-}
-int16_t basix_node_handler::locateForGet() {
-    return 0;
-}
-int16_t basix_node_handler::locateForPut() {
-    return 0;
 }

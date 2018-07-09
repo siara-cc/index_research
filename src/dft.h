@@ -9,9 +9,9 @@
 
 using namespace std;
 
-#define DFT_UNIT_SIZE 4
+#define DFT_UNIT_SIZE 3
 
-#define DFT_NODE_SIZE 768
+#define DFT_NODE_SIZE 512
 
 #define DFT_HDR_SIZE 8
 #define DFT_MAX_PFX_LEN buf[7]
@@ -38,12 +38,8 @@ public:
     bool isFull(int16_t kv_lens);
     void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    inline int16_t locateForGet();
-    int16_t traverseToLeafForGet();
-    int16_t locateForPut();
-    int16_t traverseToLeafForPut(byte *node_paths[] = null);
-    int16_t traverseToLeaf(byte *node_paths[] = null, bool isPut = false);
-    inline int16_t locate(bool isPut);
+    int16_t traverseToLeaf(byte *node_paths[] = null);
+    int16_t locate();
     int16_t insertCurrent();
     inline byte insertUnit(byte *t, byte c1, byte s1, int16_t ptr1);
     inline byte insert2Units(byte *t, byte c1, byte s1, int16_t ptr1, byte c2, byte s2, int16_t ptr2);

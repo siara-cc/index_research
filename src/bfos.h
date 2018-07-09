@@ -16,12 +16,13 @@ using namespace std;
 #define BFOS_HDR_SIZE 8
 #define BX_MAX_PFX_LEN buf[7]
 
-#define BS_INSERT_AFTER 4
-#define BS_INSERT_BEFORE 5
-#define BS_INSERT_LEAF 2
-#define BS_INSERT_EMPTY 0
-#define BS_INSERT_THREAD 10
-#define BS_INSERT_CONVERT 8
+#define INSERT_AFTER 1
+#define INSERT_BEFORE 2
+#define INSERT_LEAF 3
+#define INSERT_EMPTY 4
+#define INSERT_THREAD 5
+#define INSERT_CONVERT 6
+#define INSERT_THREAD1 7
 
 class bfos_node_handler: public trie_node_handler {
 private:
@@ -42,12 +43,8 @@ public:
     byte last_child;
     byte last_leaf;
     bfos_node_handler(byte *m);
-    inline int16_t locateForGet();
-    int16_t traverseToLeafForGet();
-    int16_t locateForPut();
-    int16_t traverseToLeafForPut(byte *node_paths[] = null);
-    int16_t traverseToLeaf(byte *node_paths[] = null, bool isPut = false);
-    inline int16_t locate(bool isPut);
+    inline int16_t locate();
+    int16_t traverseToLeaf(byte *node_paths[] = null);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
     void setBuf(byte *m);

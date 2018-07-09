@@ -46,12 +46,8 @@ public:
     inline void insBit(uint32_t *ui32, int pos, uint16_t kv_pos);
     inline void insBit(uint64_t *ui64, int pos, uint16_t kv_pos);
     void insPtr(int16_t pos, uint16_t kvIdx);
-    inline int16_t locateForGet();
-    int16_t traverseToLeafForGet();
-    int16_t locateForPut();
-    int16_t traverseToLeafForPut(byte *node_paths[] = null);
-    int16_t traverseToLeaf(byte *node_paths[] = null, bool isPut = false);
-    inline int16_t locate(bool isPut);
+    int16_t traverseToLeaf(byte *node_paths[] = null);
+    int16_t locate();
     void insertCurrent();
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
