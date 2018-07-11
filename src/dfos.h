@@ -10,10 +10,15 @@
 using namespace std;
 
 #define DS_MIDDLE_PREFIX 1
-#define DS_INT64MAP 1
-#define DS_9_BIT_PTR 0
 
-#define DFOS_NODE_SIZE 768
+#ifdef ARDUINO
+#define DS_INT64MAP 0
+#else
+#define DS_INT64MAP 1
+#endif
+#define DS_9_BIT_PTR 1
+
+#define DFOS_NODE_SIZE 512
 
 #if DS_9_BIT_PTR == 1
 #define DS_MAX_PTR_BITMAP_BYTES 8
@@ -98,7 +103,11 @@ public:
             int16_t value_len);
     char *get(const char *key, int16_t key_len, int16_t *pValueLen);
     static void printCounts() {
-        cout << "Count1:" << count1 << ", Count2:" << count2 << endl;
+        util::print("Count1:");
+        util::print(count1);
+        util::print(", Count2:");
+        util::print(count2);
+        util::print("\n");
     }
 };
 

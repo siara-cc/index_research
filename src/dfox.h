@@ -13,7 +13,7 @@ using namespace std;
 #define DX_INT64MAP 1
 #define DX_9_BIT_PTR 0
 
-#define DFOX_NODE_SIZE 768
+#define DFOX_NODE_SIZE 512
 
 #define DFOX_HDR_SIZE 8
 #define DX_MAX_PFX_LEN buf[7]
@@ -71,7 +71,11 @@ public:
             int16_t value_len);
     char *get(const char *key, int16_t key_len, int16_t *pValueLen);
     static void printCounts() {
-        cout << "Count1:" << count1 << ", Count2:" << count2 << endl;
+        util::print("Count1:");
+        util::print(count1);
+        util::print(", Count2:");
+        util::print(count2);
+        util::print("\n");
     }
 };
 

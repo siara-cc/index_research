@@ -1,7 +1,6 @@
 #include <math.h>
 #include <stdint.h>
 #include "dfox.h"
-#include "GenTree.h"
 
 char *dfox::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     dfox_node_handler node(root_data);
@@ -27,9 +26,6 @@ int16_t dfox_node_handler::traverseToLeaf(byte *node_paths[]) {
     return locate();
 }
 
-#ifndef _MSC_VER
-__attribute__((always_inline))
-#endif
 byte *dfox_node_handler::skipChildren(byte *t, int16_t count) {
     while (count) {
         byte tc = *t++;
@@ -57,10 +53,6 @@ byte *dfox_node_handler::skipChildren(byte *t, int16_t count) {
     return t;
 }
 
-#ifndef _MSC_VER
-__attribute__((aligned(32)))
-__attribute__((hot))
-#endif
 int16_t dfox_node_handler::locate() {
     byte key_char = *key;
     byte *t = trie;

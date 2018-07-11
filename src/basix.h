@@ -9,9 +9,13 @@
 
 using namespace std;
 
+#ifdef ARDUINO
+#define BX_INT64MAP 0
+#else
 #define BX_INT64MAP 1
-#define BX_9_BIT_PTR 0
-#define BASIX_NODE_SIZE 768
+#endif
+#define BX_9_BIT_PTR 1
+#define BASIX_NODE_SIZE 512
 
 #if BX_9_BIT_PTR == 1
 #define BLK_HDR_SIZE 14

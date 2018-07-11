@@ -1,7 +1,6 @@
 #include <math.h>
 #include <stdint.h>
 #include "bfqs.h"
-#include "GenTree.h"
 
 char *bfqs::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     bfqs_node_handler node(root_data);

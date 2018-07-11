@@ -3,6 +3,7 @@
 #include <stdint.h>
 #ifdef ARDUINO
 #include <HardwareSerial.h>
+#include <avr/pgmspace.h>
 #else
 #include <cstdio>
 #include <iostream>
@@ -17,20 +18,58 @@ using namespace std;
 typedef unsigned char byte;
 #define null 0
 
+#define USE_POP_CNT 0
+
+#if defined(ARDUINO)
+#define BIT_COUNT(x) pgm_read_byte_near(util::bit_count + (x))
+#define BIT_COUNT2(x) pgm_read_byte_near(util::bit_count2x + (x))
+#define LEFT_MASK32(x) pgm_read_dword_near(util::left_mask32 + (x))
+#define RYTE_MASK32(x) pgm_read_dword_near(util::ryte_mask32 + (x))
+#define MASK32(x) pgm_read_dword_near(util::mask32 + (x))
+#else
+#if USE_POP_CNT == 1
+//#define BIT_COUNT(x) __builtin_popcount(x)
+#define BIT_COUNT(x) util::bitcount(x)
+#define BIT_COUNT2(x) util::popcnt2(x)
+#else
+#define BIT_COUNT(x) util::bit_count[x]
+#define BIT_COUNT2(x) util::bit_count2x[x]
+#endif
+#define LEFT_MASK32(x) util::left_mask32[x]
+#define RYTE_MASK32(x) util::ryte_mask32[x]
+#define MASK32(x) util::mask32[x]
+#define LEFT_MASK64(x) util::left_mask64[x]
+#define RYTE_MASK64(x) util::ryte_mask64[x]
+#define MASK64(x) util::mask64[x]
+#endif
+
+#define FIRST_BIT_OFFSET_FROM_RIGHT(x) BIT_COUNT(254 & ((x) ^ ((x) - 1)))
+
 class util {
 public:
-    static byte bit_count[256];
-    static byte bit_count2x[256];
-    static byte bit_count_lf_ch[256];
-    static byte first_bit_mask[256];
-    static byte first_bit_offset[256];
+#if defined(ARDUINO)
+    static const byte bit_count[256] PROGMEM;
+    static const byte bit_count2x[256] PROGMEM;
+    static const byte bit_count_lf_ch[256] PROGMEM;
+    static const uint32_t left_mask32[32] PROGMEM;
+    static const uint32_t ryte_mask32[32] PROGMEM;
+    static const uint32_t mask32[32] PROGMEM;
+    static const uint64_t left_mask64[64] PROGMEM;
+    static const uint64_t ryte_mask64[64] PROGMEM;
+    static const uint64_t mask64[64] PROGMEM;
+#else
+    static const byte bit_count[256];
+    static const byte bit_count2x[256];
+    static const byte bit_count_lf_ch[256];
+    static const uint32_t left_mask32[32];
+    static const uint32_t ryte_mask32[32];
+    static const uint32_t mask32[32];
+    static const uint64_t left_mask64[64];
+    static const uint64_t ryte_mask64[64];
+    static const uint64_t mask64[64];
 
-    static uint32_t left_mask32[32];
-    static uint32_t ryte_mask32[32];
-    static uint32_t mask32[32];
-    static uint64_t left_mask64[64];
-    static uint64_t ryte_mask64[64];
-    static uint64_t mask64[64];
+#endif
+
     static inline uint16_t getInt(byte *pos) {
 //        return (uint16_t *) pos; // fast endian-dependent
         uint16_t ret = ((*pos << 8) | *(pos + 1));
@@ -164,6 +203,30 @@ public:
 #endif
     }
 
+    static void print(uint8_t l) {
+#if defined(ARDUINO)
+        Serial.print((int)l);
+#else
+        cout << (int) l;
+#endif
+    }
+
+    static void print(uint32_t l) {
+#if defined(ARDUINO)
+        Serial.print((unsigned long) l);
+#else
+        cout << l;
+#endif
+    }
+
+    static void print(uint64_t l) {
+#if defined(ARDUINO)
+        Serial.print((unsigned long) l);
+#else
+        cout << l;
+#endif
+    }
+
     static void endl() {
 #if defined(ARDUINO)
         Serial.print("\n");
@@ -173,37 +236,86 @@ public:
     }
 
     static void generateBitCounts() {
-        for (int16_t i = 0; i < 256; i++) {
-            bit_count[i] = countSetBits(i);
-            bit_count2x[i] = bit_count[i] << 1;
-            bit_count_lf_ch[i] = bit_count[i & 0xAA] + bit_count2x[i & 0x55];
-            first_bit_mask[i] = firstBitMask(i);
-            first_bit_offset[i] = firstBitOffset(i);
-        }
-        uint32_t ui32 = 1;
-        for (int i = 0; i < 32; i++) {
-            mask32[i] = (0x80000000 >> i);
-            if (i == 0) {
-                ryte_mask32[i] = 0xFFFFFFFF;
-                left_mask32[i] = 0;
-            } else {
-                ryte_mask32[i] = (ui32 << (32 - i));
-                ryte_mask32[i]--;
-                left_mask32[i] = ~(ryte_mask32[i]);
-            }
-        }
-        uint64_t ui64 = 1;
-        for (int i = 0; i < 64; i++) {
-            mask64[i] = (0x8000000000000000 >> i);
-            if (i == 0) {
-                ryte_mask64[i] = 0xFFFFFFFFFFFFFFFF;
-                left_mask64[i] = 0;
-            } else {
-                ryte_mask64[i] = (ui64 << (64 - i));
-                ryte_mask64[i]--;
-                left_mask64[i] = ~(ryte_mask64[i]);
-            }
-        }
+        //for (int16_t i = 0; i < 256; i++) {
+        //    bit_count[i] = countSetBits(i);
+        //    print(bit_count[i]);
+        //    print(", ");
+        //}
+        //endl();
+        //for (int16_t i = 0; i < 256; i++) {
+        //    bit_count2x[i] = bit_count[i] << 1;
+        //    print(bit_count2x[i]);
+        //    print(", ");
+        //}
+        //endl();
+        //for (int16_t i = 0; i < 256; i++) {
+        //    bit_count_lf_ch[i] = bit_count[i & 0xAA] + bit_count2x[i & 0x55];
+        //    print(bit_count_lf_ch[i]);
+        //    print(", ");
+        //}
+        //endl();
+        //uint32_t ui32;
+        //ui32 = 1;
+        //for (int i = 0; i < 32; i++) {
+        //    mask32[i] = (0x80000000 >> i);
+        //    print(mask32[i]);
+        //    print("L, ");
+        //}
+        //endl();
+        //ui32 = 1;
+        //for (int i = 0; i < 32; i++) {
+        //    if (i == 0) {
+        //        ryte_mask32[i] = 0xFFFFFFFF;
+        //    } else {
+        //        ryte_mask32[i] = (ui32 << (32 - i));
+        //        ryte_mask32[i]--;
+        //    }
+        //    print(ryte_mask32[i]);
+        //    print(", ");
+        //}
+        //endl();
+        //ui32 = 1;
+        //for (int i = 0; i < 32; i++) {
+        //    if (i == 0) {
+        //        left_mask32[i] = 0;
+        //    } else {
+        //        left_mask32[i] = ~(ryte_mask32[i]);
+        //    }
+        //    print(left_mask32[i]);
+        //    print(", ");
+        //}
+        //endl();
+        //uint64_t ui64;
+        //ui64 = 1;
+        //for (int i = 0; i < 64; i++) {
+        //    mask64[i] = (0x8000000000000000 >> i);
+        //    print(mask64[i]);
+        //    print(", ");
+        //}
+        //endl();
+        //ui64 = 1;
+        //for (int i = 0; i < 64; i++) {
+        //    if (i == 0) {
+        //        ryte_mask64[i] = 0xFFFFFFFFFFFFFFFF;
+        //    } else {
+        //        ryte_mask64[i] = (ui64 << (64 - i));
+        //        ryte_mask64[i]--;
+        //    }
+        //    print(ryte_mask64[i]);
+        //    print(", ");
+        //}
+        //endl();
+        //ui64 = 1;
+        //for (int i = 0; i < 64; i++) {
+        //    if (i == 0) {
+        //        left_mask64[i] = 0;
+        //    } else {
+        //        left_mask64[i] = ~(ryte_mask64[i]);
+        //    }
+        //    print(left_mask64[i]);
+        //    print(", ");
+        //}
+        //endl();
     }
 
     // Function to get no of set bits in binary

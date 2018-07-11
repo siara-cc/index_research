@@ -11,7 +11,7 @@ using namespace std;
 
 #define BS_MIDDLE_PREFIX 1
 
-#define BFOS_NODE_SIZE 768
+#define BFOS_NODE_SIZE 512
 
 #define BFOS_HDR_SIZE 8
 #define BX_MAX_PFX_LEN buf[7]

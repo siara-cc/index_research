@@ -1,7 +1,6 @@
 #include <math.h>
 #include <stdint.h>
 #include "dfqx.h"
-#include "GenTree.h"
 
 char *dfqx::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     dfqx_node_handler node(root_data);
@@ -31,9 +30,6 @@ int16_t dfqx_node_handler::traverseToLeaf(byte *node_paths[]) {
     return locate();
 }
 
-#ifndef _MSC_VER
-__attribute__((always_inline))
-#endif
 byte *dfqx_node_handler::skipChildren(byte *t, uint16_t& count) {
     while (count & xFF) {
         byte tc = *t++;
@@ -148,14 +144,14 @@ int16_t dfqx_node_handler::getPtr(int16_t pos) {
 #if DQ_9_BIT_PTR == 1
     int16_t ptr = trie[BPT_TRIE_LEN + pos];
 #if DQ_INT64MAP == 1
-    if (*bitmap & util::mask64[pos])
+    if (*bitmap & MASK64(pos))
         ptr |= 256;
 #else
     if (pos & 0xFFE0) {
-        if (*bitmap2 & util::mask32[pos - 32])
+        if (*bitmap2 & MASK32(pos - 32))
         ptr |= 256;
     } else {
-        if (*bitmap1 & util::mask32[pos])
+        if (*bitmap1 & MASK32(pos))
         ptr |= 256;
     }
 #endif
@@ -590,7 +586,7 @@ void dfqx_node_handler::insPtr(int16_t pos, int16_t kv_pos) {
         insBit(bitmap1, pos, kv_pos);
         *bitmap2 >>= 1;
         if (last_bit)
-        *bitmap2 |= *util::mask32;
+        *bitmap2 |= MASK32(0);
     }
 #endif
 #else
@@ -603,20 +599,22 @@ void dfqx_node_handler::insPtr(int16_t pos, int16_t kv_pos) {
 }
 
 void dfqx_node_handler::insBit(uint32_t *ui32, int pos, int16_t kv_pos) {
-    uint32_t ryte_part = (*ui32) & util::ryte_mask32[pos];
+    uint32_t ryte_part = (*ui32) & RYTE_MASK32(pos);
     ryte_part >>= 1;
     if (kv_pos >= 256)
-        ryte_part |= util::mask32[pos];
-    (*ui32) = (ryte_part | ((*ui32) & util::left_mask32[pos]));
+        ryte_part |= MASK32(pos);
+    (*ui32) = (ryte_part | ((*ui32) & LEFT_MASK32(pos)));
 }
 
+#if DQ_INT64MAP == 1
 void dfqx_node_handler::insBit(uint64_t *ui64, int pos, int16_t kv_pos) {
-    uint64_t ryte_part = (*ui64) & util::ryte_mask64[pos];
+    uint64_t ryte_part = (*ui64) & RYTE_MASK64(pos);
     ryte_part >>= 1;
     if (kv_pos >= 256)
-        ryte_part |= util::mask64[pos];
-    (*ui64) = (ryte_part | ((*ui64) & util::left_mask64[pos]));
+        ryte_part |= MASK64(pos);
+    (*ui64) = (ryte_part | ((*ui64) & LEFT_MASK64(pos)));
 }
+#endif
 
 bool dfqx_node_handler::isFull(int16_t kv_len) {
     decodeNeedCount();
@@ -641,21 +639,21 @@ void dfqx_node_handler::setPtr(int16_t pos, int16_t ptr) {
     *kvIdx = ptr;
 #if DQ_INT64MAP == 1
     if (ptr >= 256)
-        *bitmap |= util::mask64[pos];
+        *bitmap |= MASK64(pos);
     else
-        *bitmap &= ~util::mask64[pos];
+        *bitmap &= ~MASK64(pos);
 #else
     if (pos & 0xFFE0) {
         pos -= 32;
         if (ptr >= 256)
-        *bitmap2 |= util::mask32[pos];
+        *bitmap2 |= MASK32(pos);
         else
-        *bitmap2 &= ~util::mask32[pos];
+        *bitmap2 &= ~MASK32(pos);
     } else {
         if (ptr >= 256)
-        *bitmap1 |= util::mask32[pos];
+        *bitmap1 |= MASK32(pos);
         else
-        *bitmap1 &= ~util::mask32[pos];
+        *bitmap1 &= ~MASK32(pos);
     }
 #endif
 #else

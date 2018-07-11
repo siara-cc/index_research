@@ -1,7 +1,6 @@
 #include <math.h>
 #include <stdint.h>
 #include "bfos.h"
-#include "GenTree.h"
 
 char *bfos::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     bfos_node_handler node(root_data);
@@ -300,9 +299,11 @@ void bfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
             //cout << (int) node->BPT_TRIE_LEN << endl;
             if (node->isLeaf()) {
                 maxKeyCountLeaf += node->filledSize();
+                maxTrieLenLeaf += node->BPT_TRIE_LEN;
                 blockCountLeaf++;
             } else {
                 maxKeyCountNode += node->filledSize();
+                maxTrieLenNode += node->BPT_TRIE_LEN;
                 blockCountNode++;
             }
             //    maxKeyCount += node->BPT_TRIE_LEN;

@@ -131,22 +131,24 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
 }
 
 void basix_node_handler::insBit(uint32_t *ui32, int pos, uint16_t kv_pos) {
-    uint32_t ryte_part = (*ui32) & util::ryte_mask32[pos];
+    uint32_t ryte_part = (*ui32) & RYTE_MASK32(pos);
     ryte_part >>= 1;
     if (kv_pos >= 256)
-        ryte_part |= util::mask32[pos];
-    (*ui32) = (ryte_part | ((*ui32) & util::left_mask32[pos]));
+        ryte_part |= MASK32(pos);
+    (*ui32) = (ryte_part | ((*ui32) & LEFT_MASK32(pos)));
 
 }
 
+#if BX_INT64MAP == 1
 void basix_node_handler::insBit(uint64_t *ui64, int pos, uint16_t kv_pos) {
-    uint64_t ryte_part = (*ui64) & util::ryte_mask64[pos];
+    uint64_t ryte_part = (*ui64) & RYTE_MASK64(pos);
     ryte_part >>= 1;
     if (kv_pos >= 256)
-        ryte_part |= util::mask64[pos];
-    (*ui64) = (ryte_part | ((*ui64) & util::left_mask64[pos]));
+        ryte_part |= MASK64(pos);
+    (*ui64) = (ryte_part | ((*ui64) & LEFT_MASK64(pos)));
 
 }
+#endif
 
 void basix_node_handler::insPtr(int16_t pos, uint16_t kv_last_pos) {
 #if BX_9_BIT_PTR == 1
@@ -167,7 +169,7 @@ void basix_node_handler::insPtr(int16_t pos, uint16_t kv_last_pos) {
         insBit(bitmap1, pos, kv_last_pos);
         *bitmap2 >>= 1;
         if (last_bit)
-        *bitmap2 |= *util::mask32;
+        *bitmap2 |= MASK32(0);
     }
 #endif
 #else
@@ -302,9 +304,6 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 //    return middle;
 //}
 
-#ifndef _MSC_VER
-__attribute__((hot))
-#endif
 int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
     int middle, first, filled_upto;
     int16_t cmp;
@@ -361,10 +360,6 @@ int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
 //    return (cmp == 0) ? n : ~(n+1);
 //}
 
-#ifndef _MSC_VER
-__attribute__((aligned(32)))
-__attribute__((hot))
-#endif
 int16_t basix_node_handler::locate() {
     pos = binarySearch(key, key_len);
     return pos;
@@ -375,7 +370,7 @@ basix::~basix() {
 }
 
 basix::basix() {
-    util::generateBitCounts();
+    //util::generateBitCounts();
     root_data = (byte *) util::alignedAlloc(BASIX_NODE_SIZE);
     basix_node_handler root(root_data);
     root.initBuf();
@@ -424,7 +419,7 @@ bool basix_node_handler::isFull(int16_t kv_len) {
 #if BX_9_BIT_PTR == 0
     ptr_size <<= 1;
 #endif
-    if ((getKVLastPos() - kv_len - 2) <= (BLK_HDR_SIZE + ptr_size))
+    if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + kv_len + 2))
         return true;
 #if BX_9_BIT_PTR == 1
     if (filledUpto() > 62)
@@ -441,14 +436,14 @@ uint16_t basix_node_handler::getPtr(int16_t pos) {
 #if BX_9_BIT_PTR == 1
     uint16_t ptr = buf[BLK_HDR_SIZE + pos];
 #if BX_INT64MAP == 1
-    if (*bitmap & util::mask64[pos])
+    if (*bitmap & MASK64(pos))
     ptr |= 256;
 #else
     if (pos & 0xFFE0) {
-        if (*bitmap2 & util::mask32[pos - 32])
+        if (*bitmap2 & MASK32(pos - 32))
         ptr |= 256;
     } else {
-        if (*bitmap1 & util::mask32[pos])
+        if (*bitmap1 & MASK32(pos))
         ptr |= 256;
     }
 #endif
@@ -464,21 +459,21 @@ void basix_node_handler::setPtr(int16_t pos, uint16_t ptr) {
     buf[BLK_HDR_SIZE + pos] = ptr;
 #if BX_INT64MAP == 1
     if (ptr >= 256)
-    *bitmap |= util::mask64[pos];
+    *bitmap |= MASK64(pos);
     else
-    *bitmap &= ~util::mask64[pos];
+    *bitmap &= ~MASK64(pos);
 #else
     if (pos & 0xFFE0) {
         pos -= 32;
         if (ptr >= 256)
-        *bitmap2 |= util::mask32[pos];
+        *bitmap2 |= MASK32(pos);
         else
-        *bitmap2 &= ~util::mask32[pos];
+        *bitmap2 &= ~MASK32(pos);
     } else {
         if (ptr >= 256)
-        *bitmap1 |= util::mask32[pos];
+        *bitmap1 |= MASK32(pos);
         else
-        *bitmap1 &= ~util::mask32[pos];
+        *bitmap1 &= ~MASK32(pos);
     }
 #endif
 #else

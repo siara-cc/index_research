@@ -13,19 +13,6 @@
 
 using namespace std;
 
-#define USE_POP_CNT 0
-
-#if USE_POP_CNT == 1
-//#define BIT_COUNT(x) __builtin_popcount(x)
-#define BIT_COUNT(x) util::bitcount(x)
-#define BIT_COUNT2(x) util::popcnt2(x)
-#else
-#define BIT_COUNT(x) util::bit_count[x]
-#define BIT_COUNT2(x) util::bit_count2x[x]
-#endif
-
-#define FIRST_BIT_OFFSET_FROM_RIGHT(x) BIT_COUNT(254 & ((x) ^ ((x) - 1)))
-
 #define BPT_IS_LEAF_BYTE buf[0]
 #define BPT_FILLED_SIZE buf + 1
 #define BPT_LAST_DATA_PTR buf + 3

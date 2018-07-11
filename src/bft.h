@@ -11,7 +11,7 @@ using namespace std;
 
 #define BFT_UNIT_SIZE 4
 
-#define BFT_NODE_SIZE 1024
+#define BFT_NODE_SIZE 512
 
 #define BFT_HDR_SIZE 8
 #define BFT_PREFIX_LEN buf[7]

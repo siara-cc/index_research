@@ -1,7 +1,6 @@
 #include <math.h>
 #include <stdint.h>
 #include "dft.h"
-#include "GenTree.h"
 
 char *dft::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     dft_node_handler node(root_data);
@@ -349,16 +348,16 @@ void dft_node_handler::addData() {
 bool dft_node_handler::isFull(int16_t kv_len) {
     decodeNeedCount();
 #if DFT_UNIT_SIZE == 3
-    if ((BPT_TRIE_LEN+ need_count) > 189) {
+    if (BPT_TRIE_LEN > 186 - need_count) {
         //if ((origPos - trie) <= (72 + need_count)) {
         return true;
         //}
     }
 #endif
-            if (getKVLastPos() < (DFT_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 2)) {
+            if (getKVLastPos() < (DFT_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 4)) {
                 return true;
             }
-            if (BPT_TRIE_LEN + need_count > 248) {
+            if (BPT_TRIE_LEN + need_count > 240) {
                 return true;
             }
             return false;

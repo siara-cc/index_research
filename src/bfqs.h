@@ -1,6 +1,8 @@
 #ifndef bfqs_H
 #define bfqs_H
-#ifndef ARDUINO
+#ifdef ARDUINO
+#include <avr/pgmspace.h>
+#else
 #include <cstdio>
 #include <cstring>
 #include <iostream>
@@ -9,12 +11,16 @@
 
 using namespace std;
 
+#if defined(ARDUINO)
+#define BIT_COUNT_LF_CH(x) pgm_read_byte_near(util::bit_count_lf_ch + (x))
+#else
 #define BIT_COUNT_LF_CH(x) util::bit_count_lf_ch[x]
 //#define BIT_COUNT_LF_CH(x) (BIT_COUNT(x & xAA) + BIT_COUNT2(x & x55))
+#endif
 
 #define BQ_MIDDLE_PREFIX 1
 
-#define BFQS_NODE_SIZE 768
+#define BFQS_NODE_SIZE 512
 
 #define BFQS_HDR_SIZE 8
 #define BQ_MAX_PFX_LEN buf[7]
