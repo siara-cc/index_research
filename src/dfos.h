@@ -16,9 +16,9 @@ using namespace std;
 #else
 #define DS_INT64MAP 1
 #endif
-#define DS_9_BIT_PTR 1
+#define DS_9_BIT_PTR 0
 
-#define DFOS_NODE_SIZE 512
+#define DFOS_NODE_SIZE 1024
 
 #if DS_9_BIT_PTR == 1
 #define DS_MAX_PTR_BITMAP_BYTES 8

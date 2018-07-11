@@ -1,7 +1,11 @@
 #ifndef bfqs_H
 #define bfqs_H
 #ifdef ARDUINO
+#if (defined(__AVR__))
 #include <avr/pgmspace.h>
+#else
+#include <pgmspace.h>
+#endif
 #else
 #include <cstdio>
 #include <cstring>
