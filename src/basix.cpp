@@ -449,8 +449,7 @@ uint16_t basix_node_handler::getPtr(int16_t pos) {
 #endif
     return ptr;
 #else
-    byte *kvIdx = buf + BLK_HDR_SIZE + (pos << 1);
-    return util::getInt(kvIdx);
+    return util::getInt(buf + BLK_HDR_SIZE + (pos << 1));
 #endif
 }
 
@@ -484,9 +483,8 @@ void basix_node_handler::setPtr(int16_t pos, uint16_t ptr) {
 
 byte *basix_node_handler::getKey(int16_t pos, int16_t *plen) {
     byte *kvIdx = buf + getPtr(pos);
-    *plen = kvIdx[0];
-    kvIdx++;
-    return kvIdx;
+    *plen = *kvIdx;
+    return kvIdx + 1;
 }
 
 byte *basix_node_handler::getChildPtr(byte *ptr) {
@@ -499,8 +497,7 @@ char *basix_node_handler::getValueAt(int16_t *vlen) {
     key_at += *key_at;
     key_at++;
     *vlen = *key_at;
-    key_at++;
-    return (char *) key_at;
+    return (char *) key_at + 1;
 }
 
 void basix_node_handler::initVars() {

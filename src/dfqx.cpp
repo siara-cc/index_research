@@ -117,7 +117,7 @@ int16_t dfqx_node_handler::locate() {
     return -1; // dummy - will never reach here
 }
 
-byte *dfqx_node_handler::getKey(int16_t pos, int16_t *plen) {
+byte *dfqx_node_handler::getKey(int16_t pos, byte *plen) {
     byte *kvIdx = buf + getPtr(pos);
     *plen = kvIdx[0];
     kvIdx++;
@@ -924,7 +924,7 @@ void dfqx_node_handler::decodeNeedCount() {
     if (insertState != INSERT_THREAD)
         need_count = need_counts[insertState];
 }
-byte dfqx_node_handler::need_counts[10] = {0, 2, 2, 2, 2, 0, 0, 0, 0, 0};
+const byte dfqx_node_handler::need_counts[10] = {0, 2, 2, 2, 2, 0, 0, 0, 0, 0};
 
 void dfqx_node_handler::initVars() {
 }

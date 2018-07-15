@@ -123,6 +123,7 @@ byte *dft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     if (!isLeaf())
         new_block.setLeaf(false);
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
+    new_block.DFT_MAX_PFX_LEN = DFT_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = DFT_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
@@ -137,9 +138,9 @@ byte *dft_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     // (1) move all data to new_block in order
     int16_t idx = 0;
     keyPos = 0;
-    byte tp[DFT_MAX_PFX_LEN];
-    byte brk_tp_old[DFT_MAX_PFX_LEN];
-    byte brk_tp_new[DFT_MAX_PFX_LEN];
+    byte tp[DFT_MAX_PFX_LEN + 1];
+    byte brk_tp_old[DFT_MAX_PFX_LEN + 1];
+    byte brk_tp_new[DFT_MAX_PFX_LEN + 1];
     byte *t_end = trie + BPT_TRIE_LEN;
     for (byte *t = trie + 1; t < t_end; t += DFT_UNIT_SIZE) {
 #if DFT_UNIT_SIZE == 3
@@ -830,7 +831,7 @@ void dft_node_handler::decodeNeedCount() {
     if (insertState != INSERT_THREAD)
         need_count = need_counts[insertState];
 }
-byte dft_node_handler::need_counts[10] = {0, DFT_UNIT_SIZE, DFT_UNIT_SIZE, 0, DFT_UNIT_SIZE, 0, 0, 0, 0, 0};
+const byte dft_node_handler::need_counts[10] = {0, DFT_UNIT_SIZE, DFT_UNIT_SIZE, 0, DFT_UNIT_SIZE, 0, 0, 0, 0, 0};
 
 void dft_node_handler::initVars() {
 }

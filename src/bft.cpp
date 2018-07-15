@@ -348,7 +348,7 @@ bool bft_node_handler::isFull(int16_t kv_len) {
         //}
     }
 #endif
-    if (getKVLastPos() < (BFT_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 2)) {
+    if (getKVLastPos() < (BFT_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 3)) {
         return true;
     }
     if (BPT_TRIE_LEN > 248 - need_count)
@@ -785,7 +785,7 @@ void bft_node_handler::decodeNeedCount() {
     if (insertState != INSERT_THREAD)
         need_count = need_counts[insertState];
 }
-byte bft_node_handler::need_counts[10] = {0, BFT_UNIT_SIZE, BFT_UNIT_SIZE, 0, BFT_UNIT_SIZE, 0, 0, 0, 0, 0};
+const byte bft_node_handler::need_counts[10] = {0, BFT_UNIT_SIZE, BFT_UNIT_SIZE, 0, BFT_UNIT_SIZE, 0, 0, 0, 0, 0};
 
 void bft_node_handler::initVars() {
 }

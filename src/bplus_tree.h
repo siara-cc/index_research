@@ -23,9 +23,9 @@ class bplus_tree_node_handler {
 public:
     byte *buf;
     const char *key;
-    int16_t key_len;
+    byte key_len;
     byte *key_at;
-    int16_t key_at_len;
+    byte key_at_len;
     const char *value;
     int16_t value_len;
     virtual ~bplus_tree_node_handler() {
@@ -67,7 +67,7 @@ public:
 
 class trie_node_handler: public bplus_tree_node_handler {
 protected:
-    static byte need_counts[10];
+    const static byte need_counts[10];
     virtual void decodeNeedCount() = 0;
     inline void delAt(byte *ptr) {
         BPT_TRIE_LEN--;
@@ -196,7 +196,7 @@ public:
     byte *origPos;
     byte need_count;
     byte insertState;
-    int16_t keyPos;
+    byte keyPos;
     virtual ~trie_node_handler() {}
 };
 

@@ -167,7 +167,7 @@ int16_t dfox_node_handler::locate() {
     return -1;
 }
 
-byte *dfox_node_handler::getKey(byte *t, int16_t *plen) {
+byte *dfox_node_handler::getKey(byte *t, byte *plen) {
     byte *kvIdx = buf + getPtr(t);
     *plen = kvIdx[0];
     kvIdx++;
@@ -917,7 +917,7 @@ void dfox_node_handler::decodeNeedCount() {
     if (insertState != INSERT_THREAD)
         need_count = need_counts[insertState];
 }
-byte dfox_node_handler::need_counts[10] = {0, 4, 4, 2, 4, 0, 7, 0, 0, 0};
+const byte dfox_node_handler::need_counts[10] = {0, 4, 4, 2, 4, 0, 7, 0, 0, 0};
 
 void dfox_node_handler::initVars() {
 }

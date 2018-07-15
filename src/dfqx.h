@@ -14,9 +14,9 @@ using namespace std;
 #else
 #define DQ_INT64MAP 1
 #endif
-#define DQ_9_BIT_PTR 1
+#define DQ_9_BIT_PTR 0
 
-#define DFQX_NODE_SIZE 512
+#define DFQX_NODE_SIZE 768
 
 #if DQ_9_BIT_PTR == 1
 #define DQ_MAX_PTR_BITMAP_BYTES 8
@@ -39,7 +39,7 @@ using namespace std;
 
 class dfqx_node_handler: public trie_node_handler {
 private:
-    static byte need_counts[10];
+    const static byte need_counts[10];
     void decodeNeedCount();
     static byte left_mask[4];
     static byte left_incl_mask[4];
@@ -80,7 +80,7 @@ public:
 #endif
     dfqx_node_handler(byte *m);
     int16_t locate();
-    byte *getKey(int16_t pos, int16_t *plen);
+    byte *getKey(int16_t pos, byte *plen);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
     int16_t traverseToLeaf(byte *node_paths[] = null);

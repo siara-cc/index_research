@@ -25,7 +25,7 @@ using namespace std;
 
 class bfos_node_handler: public trie_node_handler {
 private:
-    static byte need_counts[10];
+    const static byte need_counts[10];
     void decodeNeedCount();
     inline byte *getLastPtr();
     inline void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);

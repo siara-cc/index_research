@@ -1039,11 +1039,11 @@ void bfqs_node_handler::decodeNeedCount() {
     if (insertState != INSERT_THREAD)
         need_count = need_counts[insertState];
 }
-byte bfqs_node_handler::need_counts[10] = {0, 4, 4, 2, 4, 0, 6, 0, 0, 0};
+const byte bfqs_node_handler::need_counts[10] = {0, 4, 4, 2, 4, 0, 6, 0, 0, 0};
 
 void bfqs_node_handler::initVars() {
 }
 
 int bfqs::count1, bfqs::count2;
-byte bfqs_node_handler::switch_map[8] = {0, 1, 2, 3, 0, 1, 0, 1};
-byte bfqs_node_handler::shift_mask[8] = {0, 0, 3, 3, 15, 15, x3F, x3F};
+const byte bfqs_node_handler::switch_map[8] = {0, 1, 2, 3, 0, 1, 0, 1};
+const byte bfqs_node_handler::shift_mask[8] = {0, 0, 3, 3, 15, 15, x3F, x3F};

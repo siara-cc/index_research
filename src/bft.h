@@ -9,7 +9,7 @@
 
 using namespace std;
 
-#define BFT_UNIT_SIZE 4
+#define BFT_UNIT_SIZE 3
 
 #define BFT_NODE_SIZE 512
 
@@ -40,7 +40,7 @@ public:
 
 class bft_node_handler : public trie_node_handler {
 private:
-    static byte need_counts[10];
+    const static byte need_counts[10];
     void decodeNeedCount();
     int16_t nextPtr(bft_iterator_status& s);
     int16_t getLastPtrOfChild(byte *triePos);

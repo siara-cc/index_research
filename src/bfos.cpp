@@ -726,32 +726,32 @@ void bfos_node_handler::setPtrDiff(int16_t diff) {
 
 void bfos_node_handler::consolidateInitialPrefix(byte *t) {
     t += BFOS_HDR_SIZE;
-    byte *t1 = t;
+    byte *t_reader = t;
     if (*t & x01) {
-        t1 += (*t >> 1);
-        t1++;
+        t_reader += (*t >> 1);
+        t_reader++;
     }
-    byte *t2 = t1 + (*t & x01 ? 0 : 1);
+    byte *t_writer = t_reader + (*t & x01 ? 0 : 1);
     byte count = 0;
     byte trie_len_diff = 0;
-    while ((*t1 & x01) || ((*t1 & x02) && (*t1 & x04) && BIT_COUNT(t1[1]) == 1
-            && BIT_COUNT(t1[2]) == 0 && t1[3] == 1)) {
-        if (*t1 & x01) {
-            byte len = *t1++ >> 1;
-            memcpy(t2, t1, len);
-            t2 += len;
-            t1 += len;
+    while ((*t_reader & x01) || ((*t_reader & x02) && (*t_reader & x04) && BIT_COUNT(t_reader[1]) == 1
+            && BIT_COUNT(t_reader[2]) == 0 && t_reader[3] == 1)) {
+        if (*t_reader & x01) {
+            byte len = *t_reader++ >> 1;
+            memcpy(t_writer, t_reader, len);
+            t_writer += len;
+            t_reader += len;
             count += len;
             trie_len_diff++;
         } else {
-            *t2++ = (*t1 & xF8) + BIT_COUNT(t1[1] - 1);
-            t1 += 4;
+            *t_writer++ = (*t_reader & xF8) + BIT_COUNT(t_reader[1] - 1);
+            t_reader += 4;
             count++;
             trie_len_diff += 3;
         }
     }
-    if (t1 > t2) {
-        memmove(t2, t1, BPT_TRIE_LEN - (t1 - t));
+    if (t_reader > t_writer) {
+        memmove(t_writer, t_reader, BPT_TRIE_LEN - (t_reader - t));
         if (*t & x01) {
             *t = (((*t >> 1) + count) << 1) + 1;
         } else {
@@ -1070,7 +1070,7 @@ void bfos_node_handler::decodeNeedCount() {
     if (insertState != INSERT_THREAD)
         need_count = need_counts[insertState];
 }
-byte bfos_node_handler::need_counts[10] = {0, 4, 4, 2, 4, 0, 7, 0, 0, 0};
+const byte bfos_node_handler::need_counts[10] = {0, 4, 4, 2, 4, 0, 7, 0, 0, 0};
 
 void bfos_node_handler::initVars() {
 }

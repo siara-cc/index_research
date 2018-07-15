@@ -13,7 +13,7 @@ using namespace std;
 #define DX_INT64MAP 1
 #define DX_9_BIT_PTR 0
 
-#define DFOX_NODE_SIZE 512
+#define DFOX_NODE_SIZE 768
 
 #define DFOX_HDR_SIZE 8
 #define DX_MAX_PFX_LEN buf[7]
@@ -28,7 +28,7 @@ using namespace std;
 
 class dfox_node_handler : public trie_node_handler {
 private:
-    static byte need_counts[10];
+    const static byte need_counts[10];
     void decodeNeedCount();
     inline byte *skipChildren(byte *t, int16_t count);
     void updateSkipLens(byte *loop_upto, byte *covering_upto, int diff);
@@ -42,7 +42,7 @@ public:
     byte *last_t;
     dfox_node_handler(byte *m);
     inline int16_t locate();
-    byte *getKey(byte *t, int16_t *plen);
+    byte *getKey(byte *t, byte *plen);
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
     int16_t traverseToLeaf(byte *node_paths[] = null);
