@@ -9,19 +9,12 @@
 
 using namespace std;
 
-#ifdef ARDUINO
-#define DQ_INT64MAP 0
-#else
-#define DQ_INT64MAP 1
-#endif
-#define DQ_9_BIT_PTR 0
-
-#define DFQX_NODE_SIZE 768
-
-#if DQ_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
+#define DFQX_NODE_SIZE 512
 #define DQ_MAX_PTR_BITMAP_BYTES 8
 #define DQ_MAX_PTRS 63
 #else
+#define DFQX_NODE_SIZE 768
 #define DQ_MAX_PTR_BITMAP_BYTES 0
 #define DQ_MAX_PTRS 240
 #endif
@@ -48,7 +41,11 @@ private:
     static byte ryte_incl_mask[4];
     static byte first_bit_offset[16];
     static byte bit_count[16];
-    static uint16_t dbl_bit_count[256];
+#if (defined(__AVR__))
+    const static PROGMEM uint16_t dbl_bit_count[256];
+#else
+    const static uint16_t dbl_bit_count[256];
+#endif
     //static byte first_bit_offset4[16];
     //static byte bit_count_16[16];
     inline byte *skipChildren(byte *t, uint16_t& count);
@@ -71,31 +68,18 @@ private:
     int deleteSegment(byte *t, byte *delete_start);
     //inline byte *skipChildren(byte *t, uint16_t count);
 public:
-    int16_t pos, key_at_pos;
-#if DQ_INT64MAP == 1
-    uint64_t *bitmap;
-#else
-    uint32_t *bitmap1;
-    uint32_t *bitmap2;
-#endif
+    byte pos, key_at_pos;
     dfqx_node_handler(byte *m);
     int16_t locate();
-    byte *getKey(int16_t pos, byte *plen);
-    inline char *getValueAt(int16_t *vlen);
-    inline byte *getChildPtr(byte *ptr);
     int16_t traverseToLeaf(byte *node_paths[] = null);
-    inline int16_t getPtr(int16_t pos);
     void initBuf();
     inline void initVars();
     void setBuf(byte *m);
     bool isFull(int16_t kv_lens);
     void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    inline void setPtr(int16_t pos, int16_t ptr);
-    void insPtr(int16_t pos, int16_t kvIdx);
-    void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
-    void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     void insertCurrent();
+    inline byte *getPtrPos();
 };
 
 class dfqx: public bplus_tree {

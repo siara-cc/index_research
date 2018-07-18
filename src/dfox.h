@@ -43,8 +43,6 @@ public:
     dfox_node_handler(byte *m);
     inline int16_t locate();
     byte *getKey(byte *t, byte *plen);
-    inline char *getValueAt(int16_t *vlen);
-    inline byte *getChildPtr(byte *ptr);
     int16_t traverseToLeaf(byte *node_paths[] = null);
     inline int16_t getPtr(byte *t);
     void initBuf();
@@ -56,6 +54,7 @@ public:
     inline void setPtr(byte *t, int16_t ptr);
     byte *insertCurrent();
     inline void insBytes(byte *ptr, int16_t len);
+    byte *getPtrPos();
 };
 
 class dfox : public bplus_tree {

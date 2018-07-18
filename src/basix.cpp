@@ -25,6 +25,90 @@ int16_t basix_node_handler::traverseToLeaf(byte *node_paths[]) {
     return locate();
 }
 
+//int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
+//    int middle, filled_size;
+//    filled_size = filledSize() - 1;
+//    middle = util::roots[filled_size];
+//    do {
+//        int16_t middle_key_len;
+//        char *middle_key = (char *) getKey(middle, &middle_key_len);
+//        int16_t cmp = util::compare(middle_key, middle_key_len, key, key_len);
+//        if (cmp < 0) {
+//            middle = util::ryte[middle];
+//            while (middle > filled_size)
+//                middle = util::left[middle];
+//        } else if (cmp > 0)
+//            middle = util::left[middle];
+//        else
+//            return middle;
+//    } while (middle >= 0);
+//    return middle;
+//}
+
+int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
+    int middle, first, filled_size;
+    int16_t cmp;
+    first = 0;
+    filled_size = filledSize();
+    while (first < filled_size) {
+        middle = (first + filled_size) >> 1;
+        key_at = getKey(middle, &key_at_len);
+        cmp = util::compare((char *) key_at, key_at_len, key, key_len);
+        if (cmp < 0)
+            first = middle + 1;
+        else if (cmp > 0)
+            filled_size = middle;
+        else
+            return middle;
+    }
+    return ~filled_size;
+}
+
+// branch ffree
+//int16_t basix_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {
+//    int middle, first, filled_size;
+//    int16_t cmp = 1;
+//    first = 0;
+//    filled_size = filledSize() + 1;
+//    while (cmp && first < filled_size) {
+//        middle = (first + filled_size) / 2;
+//        int16_t middle_key_len;
+//        char *middle_key = (char *) getKey(middle, &middle_key_len);
+//        cmp = util::compare(middle_key, middle_key_len, key, key_len);
+//        first = ((cmp < 0) ? middle + 1 : first);
+//        filled_size = ((cmp > 0) ? middle : filled_size);
+//    }
+//    return (first < filled_size) ? middle : ~filled_size;
+//}
+//int16_t basix_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {
+//    int16_t n;
+//    char cmp;
+//    int16_t *base = (int16_t *) (buf + BLK_HDR_SIZE);
+//    int16_t *new_base = base;
+//    n = filledSize() + 1;
+//    int16_t half;
+//    while (n > 1) {
+//        half = n / 2;
+//        char *middle_key = (char *) (buf + new_base[half]);
+//        int16_t middle_key_len = *middle_key;
+//        middle_key++;
+//        cmp = util::compare(middle_key, middle_key_len, key, key_len);
+//        new_base = ((cmp <= 0) ? &new_base[half] : new_base);
+//        n -= half;
+//    }
+//    n = (new_base - base);
+//    return (cmp == 0) ? n : ~(n+1);
+//}
+
+int16_t basix_node_handler::locate() {
+    pos = binarySearch(key, key_len);
+    return pos;
+}
+
+basix_node_handler::basix_node_handler(byte *b) {
+    setBuf(b);
+}
+
 void basix::put(const char *key, int16_t key_len, const char *value,
         int16_t value_len) {
     byte *node_paths[7];
@@ -33,7 +117,7 @@ void basix::put(const char *key, int16_t key_len, const char *value,
     node.key_len = key_len;
     node.value = value;
     node.value_len = value_len;
-    if (node.filledUpto() == -1) {
+    if (node.filledSize() == 0) {
         node.pos = 0;
         node.addData();
         total_size++;
@@ -130,77 +214,8 @@ void basix::recursiveUpdate(basix_node_handler *node, int16_t pos,
     }
 }
 
-void basix_node_handler::insBit(uint32_t *ui32, int pos, uint16_t kv_pos) {
-    uint32_t ryte_part = (*ui32) & RYTE_MASK32(pos);
-    ryte_part >>= 1;
-    if (kv_pos >= 256)
-        ryte_part |= MASK32(pos);
-    (*ui32) = (ryte_part | ((*ui32) & LEFT_MASK32(pos)));
-
-}
-
-#if BX_INT64MAP == 1
-void basix_node_handler::insBit(uint64_t *ui64, int pos, uint16_t kv_pos) {
-    uint64_t ryte_part = (*ui64) & RYTE_MASK64(pos);
-    ryte_part >>= 1;
-    if (kv_pos >= 256)
-        ryte_part |= MASK64(pos);
-    (*ui64) = (ryte_part | ((*ui64) & LEFT_MASK64(pos)));
-
-}
-#endif
-
-void basix_node_handler::insPtr(int16_t pos, uint16_t kv_last_pos) {
-#if BX_9_BIT_PTR == 1
-    byte *kvIdx = buf + BLK_HDR_SIZE;
-    kvIdx += pos;
-    int16_t filled_upto = filledUpto();
-    filled_upto++;
-    if (pos < filled_upto)
-    memmove(kvIdx + 1, kvIdx, filled_upto - pos);
-    kvIdx[0] = kv_last_pos;
-#if BX_INT64MAP == 1
-    insBit(bitmap, pos, kv_last_pos);
-#else
-    if (pos & 0xFFE0) {
-        insBit(bitmap2, pos - 32, kv_last_pos);
-    } else {
-        byte last_bit = (*bitmap1 & 0x01);
-        insBit(bitmap1, pos, kv_last_pos);
-        *bitmap2 >>= 1;
-        if (last_bit)
-        *bitmap2 |= MASK32(0);
-    }
-#endif
-#else
-    byte *kvIdx = buf + BLK_HDR_SIZE;
-    kvIdx += pos;
-    kvIdx += pos;
-    int16_t filled_upto = filledUpto();
-    filled_upto++;
-    if (pos < filled_upto)
-        memmove(kvIdx + 2, kvIdx, (filled_upto - pos) * 2);
-    util::setInt(kvIdx, kv_last_pos);
-#endif
-    util::setInt(buf + 1, filled_upto);
-
-}
-void basix_node_handler::addData() {
-
-    uint16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
-    setKVLastPos(kv_last_pos);
-    buf[kv_last_pos] = key_len & 0xFF;
-    memcpy(buf + kv_last_pos + 1, key, key_len);
-    buf[kv_last_pos + key_len + 1] = value_len & 0xFF;
-    memcpy(buf + kv_last_pos + key_len + 2, value, value_len);
-    insPtr(pos, kv_last_pos);
-    if (BPT_MAX_KEY_LEN < key_len)
-        BPT_MAX_KEY_LEN = key_len;
-
-}
-
 byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
-    int16_t filled_upto = filledUpto();
+    int16_t orig_filled_size = filledSize();
     byte *b = (byte *) util::alignedAlloc(BASIX_NODE_SIZE);
     basix_node_handler new_block(b);
     new_block.initBuf();
@@ -217,7 +232,7 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     brk_kv_pos = tot_len = 0;
     // Copy all data to new block in ascending order
     int16_t new_idx;
-    for (new_idx = 0; new_idx <= filled_upto; new_idx++) {
+    for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
         uint16_t src_idx = getPtr(new_idx);
         uint16_t kv_len = buf[src_idx];
         kv_len++;
@@ -228,8 +243,8 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         new_block.insPtr(new_idx, kv_last_pos);
         kv_last_pos += kv_len;
         if (brk_idx == -1) {
-            if (tot_len > halfKVLen || new_idx == (filled_upto / 2)) {
-                brk_idx = new_idx;
+            if (tot_len > halfKVLen || new_idx == (orig_filled_size / 2)) {
+                brk_idx = new_idx + 1;
                 brk_kv_pos = kv_last_pos;
                 uint16_t first_idx = getPtr(new_idx + 1);
                 if (isLeaf()) {
@@ -255,118 +270,40 @@ byte *basix_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
         setPtr(new_idx, new_block.getPtr(new_idx) + diff);
     } // Set index of copied first half in old block
-    setKVLastPos(getPtr(0));
-    int16_t new_size = filled_upto - brk_idx;
-    filled_upto = brk_idx;
-    brk_idx++;
-    // Move index of second half to first half in new block
-    byte *new_kv_idx = new_block.buf + BLK_HDR_SIZE;
-#if BX_9_BIT_PTR == 1
-    memcpy(new_kv_idx, new_kv_idx + new_idx, new_size);
-#if BX_INT64MAP == 1
-    (*new_block.bitmap) <<= brk_idx;
-#else
-    if (brk_idx & 0xFFE0)
-    *new_block.bitmap1 = *new_block.bitmap2 << (brk_idx - 32);
-    else {
-        *new_block.bitmap1 <<= brk_idx;
-        *new_block.bitmap1 |= (*new_block.bitmap2 >> (32 - brk_idx));
+
+    {
+        int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
+        memcpy(buf + BASIX_NODE_SIZE - old_blk_new_len,
+                new_block.buf + kv_last_pos, old_blk_new_len); // Copy back first half to old block
+        setKVLastPos(BASIX_NODE_SIZE - old_blk_new_len);
+        setFilledSize(brk_idx);
     }
-#endif
+
+    {
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
+        (*new_block.bitmap) <<= brk_idx;
 #else
-    memcpy(new_kv_idx, new_kv_idx + new_idx * 2, new_size * 2);
+        if (brk_idx & 0xFFE0)
+        *new_block.bitmap1 = *new_block.bitmap2 << (brk_idx - 32);
+        else {
+            *new_block.bitmap1 <<= brk_idx;
+            *new_block.bitmap1 |= (*new_block.bitmap2 >> (32 - brk_idx));
+        }
 #endif
-    //memset(new_kv_idx + new_size * 2, '\0', new_pos);
-    // Set KV Last pos for new block
-    new_block.setKVLastPos(new_block.getPtr(0));
-    setFilledUpto(filled_upto); // Set filled upto for old block
-    new_block.setFilledUpto(new_size - 1); // Set filled upto for new block
+#endif
+        int16_t new_size = orig_filled_size - brk_idx;
+        byte *block_ptrs = new_block.buf + BLK_HDR_SIZE;
+#if BPT_9_BIT_PTR == 1
+        memmove(block_ptrs, block_ptrs + brk_idx, new_size);
+#else
+        memmove(block_ptrs, block_ptrs + (brk_idx << 1), new_size << 1);
+#endif
+        new_block.setKVLastPos(brk_kv_pos);
+        new_block.setFilledSize(new_size);
+    }
+
     return b;
-}
-
-//int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
-//    int middle, filled_upto;
-//    filled_upto = filledUpto();
-//    middle = util::roots[filled_upto];
-//    do {
-//        int16_t middle_key_len;
-//        char *middle_key = (char *) getKey(middle, &middle_key_len);
-//        int16_t cmp = util::compare(middle_key, middle_key_len, key, key_len);
-//        if (cmp < 0) {
-//            middle = util::ryte[middle];
-//            while (middle > filled_upto)
-//                middle = util::left[middle];
-//        } else if (cmp > 0)
-//            middle = util::left[middle];
-//        else
-//            return middle;
-//    } while (middle >= 0);
-//    return middle;
-//}
-
-int16_t basix_node_handler::binarySearch(const char *key, int16_t key_len) {
-    int middle, first, filled_upto;
-    int16_t cmp;
-    first = 0;
-    filled_upto = filledUpto() + 1;
-    while (first < filled_upto) {
-        middle = (first + filled_upto) >> 1;
-        int16_t middle_key_len;
-        char *middle_key = (char *) getKey(middle, &middle_key_len);
-        cmp = util::compare(middle_key, middle_key_len, key, key_len);
-        if (cmp < 0)
-            first = middle + 1;
-        else if (cmp > 0)
-            filled_upto = middle;
-        else
-            return middle;
-    }
-    return ~filled_upto;
-}
-
-// branch ffree
-//int16_t basix_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {
-//    int middle, first, filled_upto;
-//    int16_t cmp = 1;
-//    first = 0;
-//    filled_upto = filledUpto() + 1;
-//    while (cmp && first < filled_upto) {
-//        middle = (first + filled_upto) / 2;
-//        int16_t middle_key_len;
-//        char *middle_key = (char *) getKey(middle, &middle_key_len);
-//        cmp = util::compare(middle_key, middle_key_len, key, key_len);
-//        first = ((cmp < 0) ? middle + 1 : first);
-//        filled_upto = ((cmp > 0) ? middle : filled_upto);
-//    }
-//    return (first < filled_upto) ? middle : ~filled_upto;
-//}
-//int16_t basix_node_handler::binarySearchLeaf(const char *key, int16_t key_len) {
-//    int16_t n;
-//    char cmp;
-//    int16_t *base = (int16_t *) (buf + BLK_HDR_SIZE);
-//    int16_t *new_base = base;
-//    n = filledUpto() + 1;
-//    int16_t half;
-//    while (n > 1) {
-//        half = n / 2;
-//        char *middle_key = (char *) (buf + new_base[half]);
-//        int16_t middle_key_len = *middle_key;
-//        middle_key++;
-//        cmp = util::compare(middle_key, middle_key_len, key, key_len);
-//        new_base = ((cmp <= 0) ? &new_base[half] : new_base);
-//        n -= half;
-//    }
-//    n = (new_base - base);
-//    return (cmp == 0) ? n : ~(n+1);
-//}
-
-int16_t basix_node_handler::locate() {
-    pos = binarySearch(key, key_len);
-    return pos;
-}
-
-basix::~basix() {
-    delete root_data;
 }
 
 basix::basix() {
@@ -378,30 +315,18 @@ basix::basix() {
     numLevels = blockCountLeaf = blockCountNode = 1;
 }
 
-basix_node_handler::basix_node_handler(byte *b) {
-    setBuf(b);
-}
-
-void basix_node_handler::setBuf(byte *b) {
-    buf = b;
-#if BX_9_BIT_PTR == 1
-#if BX_INT64MAP == 1
-    bitmap = (uint64_t *) (buf + BITMAP_POS);
-#else
-    bitmap1 = (uint32_t *) (buf + BITMAP_POS);
-    bitmap2 = bitmap1 + 1;
-#endif
-#endif
+basix::~basix() {
+    delete root_data;
 }
 
 void basix_node_handler::initBuf() {
     //memset(buf, '\0', BASIX_NODE_SIZE);
     setLeaf(1);
-    setFilledUpto(-1);
+    setFilledSize(0);
     setKVLastPos(BASIX_NODE_SIZE);
     BPT_MAX_KEY_LEN = 1;
-#if BX_9_BIT_PTR == 1
-#if BX_INT64MAP == 1
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
     bitmap = (uint64_t *) (buf + BITMAP_POS);
 #else
     bitmap1 = (uint32_t *) (buf + BITMAP_POS);
@@ -410,94 +335,48 @@ void basix_node_handler::initBuf() {
 #endif
 }
 
-void basix_node_handler::setFilledUpto(int16_t filledUpto) {
-    util::setInt(buf + 1, filledUpto);
+void basix_node_handler::setBuf(byte *b) {
+    buf = b;
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
+    bitmap = (uint64_t *) (buf + BITMAP_POS);
+#else
+    bitmap1 = (uint32_t *) (buf + BITMAP_POS);
+    bitmap2 = bitmap1 + 1;
+#endif
+#endif
+}
+
+void basix_node_handler::addData() {
+
+    uint16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
+    setKVLastPos(kv_last_pos);
+    buf[kv_last_pos] = key_len & 0xFF;
+    memcpy(buf + kv_last_pos + 1, key, key_len);
+    buf[kv_last_pos + key_len + 1] = value_len & 0xFF;
+    memcpy(buf + kv_last_pos + key_len + 2, value, value_len);
+    insPtr(pos, kv_last_pos);
+    if (BPT_MAX_KEY_LEN < key_len)
+        BPT_MAX_KEY_LEN = key_len;
+
 }
 
 bool basix_node_handler::isFull(int16_t kv_len) {
-    int16_t ptr_size = filledUpto() + 2;
-#if BX_9_BIT_PTR == 0
+    int16_t ptr_size = filledSize() + 2;
+#if BPT_9_BIT_PTR == 0
     ptr_size <<= 1;
 #endif
     if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + kv_len + 2))
         return true;
-#if BX_9_BIT_PTR == 1
-    if (filledUpto() > 62)
+#if BPT_9_BIT_PTR == 1
+    if (filledSize() > 62)
     return true;
 #endif
     return false;
 }
 
-int16_t basix_node_handler::filledUpto() {
-    return util::getInt(buf + 1);
-}
-
-uint16_t basix_node_handler::getPtr(int16_t pos) {
-#if BX_9_BIT_PTR == 1
-    uint16_t ptr = buf[BLK_HDR_SIZE + pos];
-#if BX_INT64MAP == 1
-    if (*bitmap & MASK64(pos))
-    ptr |= 256;
-#else
-    if (pos & 0xFFE0) {
-        if (*bitmap2 & MASK32(pos - 32))
-        ptr |= 256;
-    } else {
-        if (*bitmap1 & MASK32(pos))
-        ptr |= 256;
-    }
-#endif
-    return ptr;
-#else
-    return util::getInt(buf + BLK_HDR_SIZE + (pos << 1));
-#endif
-}
-
-void basix_node_handler::setPtr(int16_t pos, uint16_t ptr) {
-#if BX_9_BIT_PTR == 1
-    buf[BLK_HDR_SIZE + pos] = ptr;
-#if BX_INT64MAP == 1
-    if (ptr >= 256)
-    *bitmap |= MASK64(pos);
-    else
-    *bitmap &= ~MASK64(pos);
-#else
-    if (pos & 0xFFE0) {
-        pos -= 32;
-        if (ptr >= 256)
-        *bitmap2 |= MASK32(pos);
-        else
-        *bitmap2 &= ~MASK32(pos);
-    } else {
-        if (ptr >= 256)
-        *bitmap1 |= MASK32(pos);
-        else
-        *bitmap1 &= ~MASK32(pos);
-    }
-#endif
-#else
-    byte *kvIdx = buf + BLK_HDR_SIZE + (pos << 1);
-    return util::setInt(kvIdx, ptr);
-#endif
-}
-
-byte *basix_node_handler::getKey(int16_t pos, int16_t *plen) {
-    byte *kvIdx = buf + getPtr(pos);
-    *plen = *kvIdx;
-    return kvIdx + 1;
-}
-
-byte *basix_node_handler::getChildPtr(byte *ptr) {
-    ptr += (*ptr + 1);
-    return (byte *) util::bytesToPtr(ptr);
-}
-
-char *basix_node_handler::getValueAt(int16_t *vlen) {
-    key_at = buf + getPtr(pos);
-    key_at += *key_at;
-    key_at++;
-    *vlen = *key_at;
-    return (char *) key_at + 1;
+byte *basix_node_handler::getPtrPos() {
+    return buf + BLK_HDR_SIZE;
 }
 
 void basix_node_handler::initVars() {

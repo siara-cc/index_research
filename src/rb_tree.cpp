@@ -673,5 +673,9 @@ void rb_tree_node_handler::setColor(int16_t n, byte c) {
 #endif
 }
 
+byte *rb_tree_node_handler::getPtrPos() {
+    return NULL;
+}
+
 void rb_tree_node_handler::initVars() {
 }

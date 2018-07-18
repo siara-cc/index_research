@@ -351,14 +351,9 @@ bool bft_node_handler::isFull(int16_t kv_len) {
     if (getKVLastPos() < (BFT_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 3)) {
         return true;
     }
-    if (BPT_TRIE_LEN > 248 - need_count)
+    if (BPT_TRIE_LEN > 254 - need_count)
         return true;
     return false;
-}
-
-byte *bft_node_handler::getChildPtr(byte *ptr) {
-    ptr += (*ptr + 1);
-    return (byte *) util::bytesToPtr(ptr);
 }
 
 void bft_node_handler::updatePtrs(byte *upto, int diff) {
@@ -418,7 +413,6 @@ int16_t bft_node_handler::insertCurrent() {
         key_char = key[keyPos - 1];
         c1 = c2 = key_char;
         p = keyPos;
-        key_at++;
         min = util::min16(key_len, keyPos + key_at_len);
         origPos++;
 #if BFT_UNIT_SIZE == 3
@@ -714,9 +708,9 @@ int16_t bft_node_handler::locate() {
             case 2:
                 int16_t cmp;
                 key_at = buf + ptr;
-                key_at_len = *key_at;
+                key_at_len = *key_at++;
                 cmp = util::compare(key + keyPos, key_len - keyPos,
-                        (char *) key_at + 1, key_at_len);
+                        (char *) key_at, key_at_len);
                 if (cmp == 0)
                     return ptr;
                     insertState = INSERT_THREAD;
@@ -731,6 +725,7 @@ int16_t bft_node_handler::locate() {
                 break;
             case 3:
                 key_at = buf + ptr;
+                key_at_len = *key_at++;
                 return 1;
             }
             last_child_pos = t - trie;
@@ -744,13 +739,6 @@ int16_t bft_node_handler::locate() {
         }
     } while (1);
     return -1;
-}
-
-char *bft_node_handler::getValueAt(int16_t *vlen) {
-    key_at += *key_at;
-    key_at++;
-    *vlen = (int16_t) *key_at++;
-    return (char *) key_at;
 }
 
 void bft_node_handler::appendPtr(int16_t p) {
@@ -779,6 +767,10 @@ void bft_node_handler::set9bitPtr(byte *t, int16_t p) {
         *t |= x80;
     else
         *t &= x7F;
+}
+
+byte *bft_node_handler::getPtrPos() {
+    return NULL;
 }
 
 void bft_node_handler::decodeNeedCount() {

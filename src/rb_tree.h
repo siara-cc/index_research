@@ -86,6 +86,7 @@ public:
     void initVars();
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(int16_t pos);
+    byte *getPtrPos();
 };
 
 class rb_tree : public bplus_tree {

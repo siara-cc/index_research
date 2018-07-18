@@ -31,13 +31,13 @@ public:
     inline void setBuf(byte *m);
     bool isFull(int16_t kv_lens);
     void addData();
-    byte *getKey(int16_t pos, int16_t *plen);
     byte *split(byte *first_key, int16_t *first_len_ptr);
     int16_t traverseToLeaf(byte *node_paths[] = null);
     int16_t locate();
     void insertCurrent();
     inline char *getValueAt(int16_t *vlen);
     inline byte *getChildPtr(byte *ptr);
+    byte *getPtrPos();
 };
 
 class linex : public bplus_tree {

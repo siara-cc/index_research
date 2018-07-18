@@ -349,16 +349,16 @@ void dft_node_handler::addData() {
 bool dft_node_handler::isFull(int16_t kv_len) {
     decodeNeedCount();
 #if DFT_UNIT_SIZE == 3
-    if (BPT_TRIE_LEN > 186 - need_count) {
+    if (BPT_TRIE_LEN > 189 - need_count) {
         //if ((origPos - trie) <= (72 + need_count)) {
         return true;
         //}
     }
 #endif
-            if (getKVLastPos() < (DFT_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 4)) {
+            if (getKVLastPos() < (DFT_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 3)) {
                 return true;
             }
-            if (BPT_TRIE_LEN + need_count > 240) {
+            if (BPT_TRIE_LEN + need_count > 254) {
                 return true;
             }
             return false;
@@ -418,7 +418,6 @@ int16_t dft_node_handler::insertCurrent() {
         key_char = key[keyPos - 1];
         c1 = c2 = key_char;
         p = keyPos;
-        key_at++;
         min = util::min16(key_len, keyPos + key_at_len);
         origPos++;
 #if DFT_UNIT_SIZE == 3
@@ -537,8 +536,8 @@ int16_t dft_node_handler::insertCurrent() {
         break;
     }
 
-    if (DFT_MAX_PFX_LEN < (isLeaf() ? keyPos : key_len))
-        DFT_MAX_PFX_LEN = (isLeaf() ? keyPos : key_len);
+    if (DFT_MAX_PFX_LEN < keyPos)
+        DFT_MAX_PFX_LEN = keyPos;
 
     if (BPT_MAX_KEY_LEN < key_len)
         BPT_MAX_KEY_LEN = key_len;
@@ -714,9 +713,9 @@ int16_t dft_node_handler::locate() {
             case 2:
                 int16_t cmp;
                 key_at = buf + ptr;
-                key_at_len = *key_at;
+                key_at_len = *key_at++;
                 cmp = util::compare(key + keyPos, key_len - keyPos,
-                        (char *) key_at + 1, key_at_len);
+                        (char *) key_at, key_at_len);
                 if (cmp == 0)
                     return ptr;
                 if (cmp < 0)
@@ -729,6 +728,7 @@ int16_t dft_node_handler::locate() {
                 return -1;
             case 3:
                 key_at = buf + ptr;
+                key_at_len = *key_at++;
                 return ptr;
             }
             t += DFT_UNIT_SIZE;
@@ -787,18 +787,6 @@ void dft_node_handler::append(byte b) {
     trie[BPT_TRIE_LEN++] = b;
 }
 
-byte *dft_node_handler::getChildPtr(byte *ptr) {
-    ptr += (*ptr + 1);
-    return (byte *) util::bytesToPtr(ptr);
-}
-
-char *dft_node_handler::getValueAt(int16_t *vlen) {
-    key_at += *key_at;
-    key_at++;
-    *vlen = (int16_t) *key_at++;
-    return (char *) key_at;
-}
-
 void dft_node_handler::appendPtr(int16_t p) {
 #if DFT_UNIT_SIZE == 3
     trie[BPT_TRIE_LEN] = p;
@@ -825,6 +813,10 @@ void dft_node_handler::set9bitPtr(byte *t, int16_t p) {
         *t |= x80;
     else
         *t &= x7F;
+}
+
+byte *dft_node_handler::getPtrPos() {
+    return NULL;
 }
 
 void dft_node_handler::decodeNeedCount() {

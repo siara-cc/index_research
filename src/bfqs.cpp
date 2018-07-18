@@ -11,11 +11,6 @@ char *bfqs::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     return node.getValueAt(pValueLen);
 }
 
-byte *bfqs_node_handler::getChildPtr(byte *ptr) {
-    ptr += (*ptr + 1);
-    return (byte *) util::bytesToPtr(ptr);
-}
-
 byte *bfqs_node_handler::getLastPtr() {
     //keyPos = 0;
     while ((last_leaf_child & xAA) > (last_leaf_child & x55)) {
@@ -134,7 +129,7 @@ int16_t bfqs_node_handler::locate() {
                 cmp = util::compare(key + keyPos, key_len - keyPos,
                         (char *) key_at, key_at_len);
                 if (cmp == 0) {
-                    last_t = --key_at;
+                    last_t = key_at - 1;
                     return 1;
                 }
                 if (cmp < 0) {
@@ -200,13 +195,6 @@ void bfqs_node_handler::setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) 
         last_t = t;
         last_leaf_child = t[1];
     }
-}
-
-char *bfqs_node_handler::getValueAt(int16_t *vlen) {
-    key_at += *key_at;
-    key_at++;
-    *vlen = (int16_t) *key_at++;
-    return (char *) key_at;
 }
 
 bfqs::bfqs() {
@@ -1033,6 +1021,10 @@ int16_t bfqs_node_handler::insertCurrent() {
         BPT_MAX_KEY_LEN = key_len;
 
     return ret;
+}
+
+byte *bfqs_node_handler::getPtrPos() {
+    return trie + BPT_TRIE_LEN;
 }
 
 void bfqs_node_handler::decodeNeedCount() {

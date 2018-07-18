@@ -395,5 +395,9 @@ char *linex_node_handler::getValueAt(int16_t *vlen) {
     return (char *) key_at;
 }
 
+byte *linex_node_handler::getPtrPos() {
+    return NULL;
+}
+
 void linex_node_handler::initVars() {
 }

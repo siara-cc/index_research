@@ -46,8 +46,6 @@ public:
     bfos_node_handler(byte *m);
     inline int16_t locate();
     int16_t traverseToLeaf(byte *node_paths[] = null);
-    inline char *getValueAt(int16_t *vlen);
-    inline byte *getChildPtr(byte *ptr);
     void setBuf(byte *m);
     void initBuf();
     inline void initVars();
@@ -56,6 +54,7 @@ public:
     byte *split(byte *first_key, int16_t *first_len_ptr);
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);
+    byte *getPtrPos();
 };
 
 class bfos : public bplus_tree {

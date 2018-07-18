@@ -117,49 +117,8 @@ int16_t dfqx_node_handler::locate() {
     return -1; // dummy - will never reach here
 }
 
-byte *dfqx_node_handler::getKey(int16_t pos, byte *plen) {
-    byte *kvIdx = buf + getPtr(pos);
-    *plen = kvIdx[0];
-    kvIdx++;
-    return kvIdx;
-}
-
-byte *dfqx_node_handler::getChildPtr(byte *ptr) {
-    ptr += (*ptr + 1);
-    return (byte *) util::bytesToPtr(ptr);
-}
-
-char *dfqx_node_handler::getValueAt(int16_t *vlen) {
-    key_at += key_at_len;
-    *vlen = *key_at;
-    key_at++;
-    return (char *) key_at;
-}
-
 dfqx_node_handler::dfqx_node_handler(byte * m) {
     setBuf(m);
-}
-
-int16_t dfqx_node_handler::getPtr(int16_t pos) {
-#if DQ_9_BIT_PTR == 1
-    int16_t ptr = trie[BPT_TRIE_LEN + pos];
-#if DQ_INT64MAP == 1
-    if (*bitmap & MASK64(pos))
-        ptr |= 256;
-#else
-    if (pos & 0xFFE0) {
-        if (*bitmap2 & MASK32(pos - 32))
-        ptr |= 256;
-    } else {
-        if (*bitmap1 & MASK32(pos))
-        ptr |= 256;
-    }
-#endif
-    return ptr;
-#else
-    byte *kvIdx = trie + BPT_TRIE_LEN + (pos << 1);
-    return util::getInt(kvIdx);
-#endif
 }
 
 void dfqx::put(const char *key, int16_t key_len, const char *value,
@@ -326,7 +285,7 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t tot_len;
     brk_kv_pos = tot_len = 0;
     char ctr = 4;
-    byte tp[DQ_MAX_PFX_LEN];
+    byte tp[DQ_MAX_PFX_LEN + 1];
     byte *t = trie;
     byte tc, child_leaf;
     tc = child_leaf = 0;
@@ -381,7 +340,7 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         kv_last_pos++;
     }
     kv_last_pos = new_block.getKVLastPos();
-#if DQ_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memcpy(buf + DFQX_HDR_SIZE, new_block.buf + DFQX_HDR_SIZE, DQ_MAX_PTR_BITMAP_BYTES);
     memcpy(trie + BPT_TRIE_LEN, new_block.trie + new_block.BPT_TRIE_LEN, brk_idx);
 #else
@@ -414,8 +373,8 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     }
 
     {
-#if DQ_9_BIT_PTR == 1
-#if DQ_INT64MAP == 1
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
         (*new_block.bitmap) <<= brk_idx;
 #else
         if (brk_idx & 0xFFE0)
@@ -428,7 +387,7 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 #endif
         int16_t new_size = orig_filled_size - brk_idx;
         byte *block_ptrs = new_block.trie + new_block.BPT_TRIE_LEN;
-#if DQ_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
         memmove(block_ptrs, block_ptrs + brk_idx, new_size);
 #else
         memmove(block_ptrs, block_ptrs + (brk_idx << 1), new_size << 1);
@@ -441,7 +400,7 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 }
 
 void dfqx_node_handler::movePtrList(byte orig_trie_len) {
-#if DQ_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(trie + BPT_TRIE_LEN, trie + orig_trie_len, filledSize());
 #else
     memmove(trie + BPT_TRIE_LEN, trie + orig_trie_len, filledSize() << 1);
@@ -534,22 +493,26 @@ void dfqx_node_handler::initBuf() {
     //MID_KEY_LEN = 0;
     setKVLastPos(DFQX_NODE_SIZE);
     trie = buf + DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES;
-#if DQ_INT64MAP == 1
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
     bitmap = (uint64_t *) (buf + DFQX_HDR_SIZE);
 #else
     bitmap1 = (uint32_t *) (buf + DFQX_HDR_SIZE);
     bitmap2 = bitmap1 + 1;
+#endif
 #endif
 }
 
 void dfqx_node_handler::setBuf(byte *m) {
     buf = m;
     trie = buf + DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES;
-#if DQ_INT64MAP == 1
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
     bitmap = (uint64_t *) (buf + DFQX_HDR_SIZE);
 #else
     bitmap1 = (uint32_t *) (buf + DFQX_HDR_SIZE);
     bitmap2 = bitmap1 + 1;
+#endif
 #endif
 }
 
@@ -570,100 +533,25 @@ void dfqx_node_handler::addData() {
 
 }
 
-void dfqx_node_handler::insPtr(int16_t pos, int16_t kv_pos) {
-    int16_t filledSz = filledSize();
-#if DQ_9_BIT_PTR == 1
-    byte *kvIdx = trie + BPT_TRIE_LEN + pos;
-    memmove(kvIdx + 1, kvIdx, filledSz - pos);
-    *kvIdx = kv_pos;
-#if DQ_INT64MAP == 1
-    insBit(bitmap, pos, kv_pos);
-#else
-    if (pos & 0xFFE0) {
-        insBit(bitmap2, pos - 32, kv_pos);
-    } else {
-        byte last_bit = (*bitmap1 & 0x01);
-        insBit(bitmap1, pos, kv_pos);
-        *bitmap2 >>= 1;
-        if (last_bit)
-        *bitmap2 |= MASK32(0);
-    }
-#endif
-#else
-    byte *kvIdx = trie + BPT_TRIE_LEN + (pos << 1);
-    memmove(kvIdx + 2, kvIdx, (filledSz - pos) * 2);
-    util::setInt(kvIdx, kv_pos);
-#endif
-    setFilledSize(filledSz + 1);
-
-}
-
-void dfqx_node_handler::insBit(uint32_t *ui32, int pos, int16_t kv_pos) {
-    uint32_t ryte_part = (*ui32) & RYTE_MASK32(pos);
-    ryte_part >>= 1;
-    if (kv_pos >= 256)
-        ryte_part |= MASK32(pos);
-    (*ui32) = (ryte_part | ((*ui32) & LEFT_MASK32(pos)));
-}
-
-#if DQ_INT64MAP == 1
-void dfqx_node_handler::insBit(uint64_t *ui64, int pos, int16_t kv_pos) {
-    uint64_t ryte_part = (*ui64) & RYTE_MASK64(pos);
-    ryte_part >>= 1;
-    if (kv_pos >= 256)
-        ryte_part |= MASK64(pos);
-    (*ui64) = (ryte_part | ((*ui64) & LEFT_MASK64(pos)));
-}
-#endif
-
 bool dfqx_node_handler::isFull(int16_t kv_len) {
     decodeNeedCount();
     int16_t ptr_size = filledSize() + 1;
-#if DQ_9_BIT_PTR == 0
+#if BPT_9_BIT_PTR == 0
     ptr_size <<= 1;
 #endif
     if (getKVLastPos()
             < (DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES + BPT_TRIE_LEN
-                    + need_count + ptr_size + kv_len + 2))
+                    + need_count + ptr_size + kv_len + 3))
         return true;
     if (filledSize() > DQ_MAX_PTRS)
         return true;
-    if (BPT_TRIE_LEN > 248 - need_count)
+    if (BPT_TRIE_LEN > 254 - need_count)
         return true;
     return false;
 }
 
-void dfqx_node_handler::setPtr(int16_t pos, int16_t ptr) {
-#if DQ_9_BIT_PTR == 1
-    byte *kvIdx = trie + BPT_TRIE_LEN + pos;
-    *kvIdx = ptr;
-#if DQ_INT64MAP == 1
-    if (ptr >= 256)
-        *bitmap |= MASK64(pos);
-    else
-        *bitmap &= ~MASK64(pos);
-#else
-    if (pos & 0xFFE0) {
-        pos -= 32;
-        if (ptr >= 256)
-        *bitmap2 |= MASK32(pos);
-        else
-        *bitmap2 &= ~MASK32(pos);
-    } else {
-        if (ptr >= 256)
-        *bitmap1 |= MASK32(pos);
-        else
-        *bitmap1 &= ~MASK32(pos);
-    }
-#endif
-#else
-    byte *kvIdx = trie + BPT_TRIE_LEN + (pos << 1);
-    util::setInt(kvIdx, ptr);
-#endif
-}
-
 void dfqx_node_handler::insBytesWithPtrs(byte *ptr, int16_t len) {
-#if DQ_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -672,7 +560,7 @@ void dfqx_node_handler::insBytesWithPtrs(byte *ptr, int16_t len) {
 }
 
 void dfqx_node_handler::insAtWithPtrs(byte *ptr, const char *s, byte len) {
-#if DQ_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -682,7 +570,7 @@ void dfqx_node_handler::insAtWithPtrs(byte *ptr, const char *s, byte len) {
 }
 
 void dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b, const char *s, byte len) {
-#if DQ_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -694,7 +582,7 @@ void dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b, const char *s, byte len
 }
 
 byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2) {
-#if DQ_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -706,7 +594,7 @@ byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2) {
 }
 
 byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3) {
-#if DQ_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -719,7 +607,7 @@ byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3) {
 }
 
 byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
-#if DQ_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -734,7 +622,7 @@ byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte
 
 byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
         byte b5) {
-#if DQ_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -750,7 +638,7 @@ byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte
 
 byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
         byte b5, byte b6) {
-#if DQ_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -920,6 +808,10 @@ void dfqx_node_handler::append(byte b) {
     trie[BPT_TRIE_LEN++] = b;
 }
 
+byte *dfqx_node_handler::getPtrPos() {
+    return trie + BPT_TRIE_LEN;
+}
+
 void dfqx_node_handler::decodeNeedCount() {
     if (insertState != INSERT_THREAD)
         need_count = need_counts[insertState];
@@ -938,8 +830,13 @@ byte dfqx_node_handler::first_bit_offset[16] = { 0x04, 0x03, 0x02, 0x02, 0x01,
         0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 byte dfqx_node_handler::bit_count[16] = { 0x00, 0x01, 0x01, 0x02, 0x01,
         0x02, 0x02, 0x03, 0x01, 0x02, 0x02, 0x03, 0x02, 0x03, 0x03, 0x04 };
-uint16_t dfqx_node_handler::dbl_bit_count[256] = {
-      //0000   0001   0010   0011   0100   0101   0110   0111   1000   1001   1010   1011   1100   1101   1110   1111
+#if (defined(__AVR__))
+const PROGMEM uint16_t dfqx_node_handler::dbl_bit_count[256]
+#else
+const uint16_t dfqx_node_handler::dbl_bit_count[256]
+#endif
+  = {
+        //0000   0001   0010   0011   0100   0101   0110   0111   1000   1001   1010   1011   1100   1101   1110   1111
         0x000, 0x001, 0x001, 0x002, 0x001, 0x002, 0x002, 0x003, 0x001, 0x002, 0x002, 0x003, 0x002, 0x003, 0x003, 0x004, //0000
         0x100, 0x101, 0x101, 0x102, 0x101, 0x102, 0x102, 0x103, 0x101, 0x102, 0x102, 0x103, 0x102, 0x103, 0x103, 0x104, //0001
         0x100, 0x101, 0x101, 0x102, 0x101, 0x102, 0x102, 0x103, 0x101, 0x102, 0x102, 0x103, 0x102, 0x103, 0x103, 0x104, //0010
@@ -956,5 +853,5 @@ uint16_t dfqx_node_handler::dbl_bit_count[256] = {
         0x300, 0x301, 0x301, 0x302, 0x301, 0x302, 0x302, 0x303, 0x301, 0x302, 0x302, 0x303, 0x302, 0x303, 0x303, 0x304, //1101
         0x300, 0x301, 0x301, 0x302, 0x301, 0x302, 0x302, 0x303, 0x301, 0x302, 0x302, 0x303, 0x302, 0x303, 0x303, 0x304, //1110
         0x400, 0x401, 0x401, 0x402, 0x401, 0x402, 0x402, 0x403, 0x401, 0x402, 0x402, 0x403, 0x402, 0x403, 0x403, 0x404  //1111
-};
+    };
 long dfqx::count1, dfqx::count2;

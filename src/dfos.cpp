@@ -153,46 +153,8 @@ int16_t dfos_node_handler::locate() {
     return ~pos;
 }
 
-byte *dfos_node_handler::getKey(byte pos, byte *plen) {
-    byte *kvIdx = buf + getPtr(pos);
-    *plen = *kvIdx;
-    return kvIdx + 1;
-}
-
-byte *dfos_node_handler::getChildPtr(byte *ptr) {
-    ptr += (*ptr + 1);
-    return (byte *) util::bytesToPtr(ptr);
-}
-
-char *dfos_node_handler::getValueAt(int16_t *vlen) {
-    key_at += key_at_len;
-    *vlen = *key_at;
-    return (char *) key_at + 1;
-}
-
 dfos_node_handler::dfos_node_handler(byte * m) {
     setBuf(m);
-}
-
-int16_t dfos_node_handler::getPtr(byte pos) {
-#if DS_9_BIT_PTR == 1
-    int16_t ptr = trie[BPT_TRIE_LEN + pos];
-#if DS_INT64MAP == 1
-    if (*bitmap & MASK64(pos))
-    ptr |= 256;
-#else
-    if (pos & 0xFFE0) {
-        if (*bitmap2 & MASK32(pos - 32))
-        ptr |= 256;
-    } else {
-        if (*bitmap1 & MASK32(pos))
-        ptr |= 256;
-    }
-#endif
-    return ptr;
-#else
-    return util::getInt(trie + BPT_TRIE_LEN + (pos << 1));
-#endif
 }
 
 void dfos::put(const char *key, int16_t key_len, const char *value,
@@ -436,7 +398,7 @@ byte *dfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     }
     kv_last_pos = new_block.getKVLastPos();
 
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memcpy(buf + DFOS_HDR_SIZE, new_block.buf + DFOS_HDR_SIZE, DS_MAX_PTR_BITMAP_BYTES);
     memcpy(trie + BPT_TRIE_LEN, new_block.trie + new_block.BPT_TRIE_LEN, brk_idx);
 #else
@@ -470,8 +432,8 @@ byte *dfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     }
 
     {
-#if DS_9_BIT_PTR == 1
-#if DS_INT64MAP == 1
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
         (*new_block.bitmap) <<= brk_idx;
 #else
         if (brk_idx & 0xFFE0)
@@ -484,7 +446,7 @@ byte *dfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 #endif
         int16_t new_size = orig_filled_size - brk_idx;
         byte *block_ptrs = new_block.trie + new_block.BPT_TRIE_LEN;
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
         memmove(block_ptrs, block_ptrs + brk_idx, new_size);
 #else
         memmove(block_ptrs, block_ptrs + (brk_idx << 1), new_size << 1);
@@ -501,7 +463,7 @@ byte *dfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 }
 
 void dfos_node_handler::movePtrList(byte orig_trie_len) {
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(trie + BPT_TRIE_LEN, trie + orig_trie_len, filledSize());
 #else
     memmove(trie + BPT_TRIE_LEN, trie + orig_trie_len, filledSize() << 1);
@@ -643,22 +605,26 @@ void dfos_node_handler::initBuf() {
     //MID_KEY_LEN = 0;
     setKVLastPos(DFOS_NODE_SIZE);
     trie = buf + DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES;
-#if DS_INT64MAP == 1
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
     bitmap = (uint64_t *) (buf + DFOS_HDR_SIZE);
 #else
     bitmap1 = (uint32_t *) (buf + DFOS_HDR_SIZE);
     bitmap2 = bitmap1 + 1;
+#endif
 #endif
 }
 
 void dfos_node_handler::setBuf(byte *m) {
     buf = m;
     trie = buf + DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES;
-#if DS_INT64MAP == 1
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
     bitmap = (uint64_t *) (buf + DFOS_HDR_SIZE);
 #else
     bitmap1 = (uint32_t *) (buf + DFOS_HDR_SIZE);
     bitmap2 = bitmap1 + 1;
+#endif
 #endif
 }
 
@@ -679,56 +645,10 @@ void dfos_node_handler::addData() {
 
 }
 
-void dfos_node_handler::insPtr(int16_t pos, int16_t kv_pos) {
-    int16_t filledSz = filledSize();
-#if DS_9_BIT_PTR == 1
-    byte *kvIdx = trie + BPT_TRIE_LEN + pos;
-    memmove(kvIdx + 1, kvIdx, filledSz - pos);
-    *kvIdx = kv_pos;
-#if DS_INT64MAP == 1
-    insBit(bitmap, pos, kv_pos);
-#else
-    if (pos & 0xFFE0) {
-        insBit(bitmap2, pos - 32, kv_pos);
-    } else {
-        byte last_bit = (*bitmap1 & 0x01);
-        insBit(bitmap1, pos, kv_pos);
-        *bitmap2 >>= 1;
-        if (last_bit)
-        *bitmap2 |= MASK32(0);
-    }
-#endif
-#else
-    byte *kvIdx = trie + BPT_TRIE_LEN + (pos << 1);
-    memmove(kvIdx + 2, kvIdx, (filledSz - pos) * 2);
-    util::setInt(kvIdx, kv_pos);
-#endif
-    setFilledSize(filledSz + 1);
-
-}
-
-void dfos_node_handler::insBit(uint32_t *ui32, int pos, int16_t kv_pos) {
-    uint32_t ryte_part = (*ui32) & RYTE_MASK32(pos);
-    ryte_part >>= 1;
-    if (kv_pos >= 256)
-        ryte_part |= MASK32(pos);
-    (*ui32) = (ryte_part | ((*ui32) & LEFT_MASK32(pos)));
-}
-
-#if DS_INT64MAP == 1
-void dfos_node_handler::insBit(uint64_t *ui64, int pos, int16_t kv_pos) {
-    uint64_t ryte_part = (*ui64) & RYTE_MASK64(pos);
-    ryte_part >>= 1;
-    if (kv_pos >= 256)
-        ryte_part |= MASK64(pos);
-    (*ui64) = (ryte_part | ((*ui64) & LEFT_MASK64(pos)));
-}
-#endif
-
 bool dfos_node_handler::isFull(int16_t kv_len) {
     decodeNeedCount();
     int16_t ptr_size = filledSize() + 1;
-#if DS_9_BIT_PTR == 0
+#if BPT_9_BIT_PTR == 0
     ptr_size <<= 1;
 #endif
     if (getKVLastPos()
@@ -740,35 +660,6 @@ bool dfos_node_handler::isFull(int16_t kv_len) {
     if (BPT_TRIE_LEN > (254 - need_count))
         return true;
     return false;
-}
-
-void dfos_node_handler::setPtr(int16_t pos, int16_t ptr) {
-#if DS_9_BIT_PTR == 1
-    byte *kvIdx = trie + BPT_TRIE_LEN + pos;
-    *kvIdx = ptr;
-#if DS_INT64MAP == 1
-    if (ptr >= 256)
-    *bitmap |= MASK64(pos);
-    else
-    *bitmap &= ~MASK64(pos);
-#else
-    if (pos & 0xFFE0) {
-        pos -= 32;
-        if (ptr >= 256)
-        *bitmap2 |= MASK32(pos);
-        else
-        *bitmap2 &= ~MASK32(pos);
-    } else {
-        if (ptr >= 256)
-        *bitmap1 |= MASK32(pos);
-        else
-        *bitmap1 &= ~MASK32(pos);
-    }
-#endif
-#else
-    byte *kvIdx = trie + BPT_TRIE_LEN + (pos << 1);
-    util::setInt(kvIdx, ptr);
-#endif
 }
 
 void dfos_node_handler::updateSkipLens(byte *loop_upto, byte *covering_upto, int diff) {
@@ -991,7 +882,7 @@ void dfos_node_handler::insertCurrent() {
 }
 
 void dfos_node_handler::insAtWithPtrs(byte *ptr, const char *s, byte len) {
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -1001,7 +892,7 @@ void dfos_node_handler::insAtWithPtrs(byte *ptr, const char *s, byte len) {
 }
 
 void dfos_node_handler::insAtWithPtrs(byte *ptr, byte b, const char *s, byte len) {
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -1013,7 +904,7 @@ void dfos_node_handler::insAtWithPtrs(byte *ptr, byte b, const char *s, byte len
 }
 
 byte dfos_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2) {
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -1025,7 +916,7 @@ byte dfos_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2) {
 }
 
 byte dfos_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3) {
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -1038,7 +929,7 @@ byte dfos_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3) {
 }
 
 byte dfos_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -1053,7 +944,7 @@ byte dfos_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte
 
 byte dfos_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
         byte b5) {
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -1069,7 +960,7 @@ byte dfos_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte
 
 byte dfos_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
         byte b5, byte b6) {
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -1085,7 +976,7 @@ byte dfos_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte
 }
 
 void dfos_node_handler::insBytesWithPtrs(byte *ptr, int16_t len) {
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -1094,7 +985,7 @@ void dfos_node_handler::insBytesWithPtrs(byte *ptr, int16_t len) {
 }
 
 byte dfos_node_handler::insChildAndLeafAt(byte *ptr, byte b1, byte b2) {
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
     memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
     memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
@@ -1110,6 +1001,10 @@ byte dfos_node_handler::insChildAndLeafAt(byte *ptr, byte b1, byte b2) {
 
 void dfos_node_handler::append(byte b) {
     trie[BPT_TRIE_LEN++] = b;
+}
+
+byte *dfos_node_handler::getPtrPos() {
+    return trie + BPT_TRIE_LEN;
 }
 
 void dfos_node_handler::decodeNeedCount() {

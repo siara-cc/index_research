@@ -19,6 +19,13 @@ using namespace std;
 #define BPT_MAX_KEY_LEN buf[5]
 #define BPT_TRIE_LEN buf[6]
 
+#ifdef ARDUINO
+#define BPT_INT64MAP 0
+#else
+#define BPT_INT64MAP 1
+#endif
+#define BPT_9_BIT_PTR 0
+
 class bplus_tree_node_handler {
 public:
     byte *buf;
@@ -28,6 +35,14 @@ public:
     byte key_at_len;
     const char *value;
     int16_t value_len;
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
+    uint64_t *bitmap;
+#else
+    uint32_t *bitmap1;
+    uint32_t *bitmap2;
+#endif
+#endif
     virtual ~bplus_tree_node_handler() {
     }
     virtual void setBuf(byte *m) = 0;
@@ -57,18 +72,133 @@ public:
         return util::getInt(BPT_LAST_DATA_PTR);
     }
 
+    byte *getKey(int16_t pos, byte *plen) {
+        byte *kvIdx = buf + getPtr(pos);
+        *plen = *kvIdx;
+        return kvIdx + 1;
+    }
+
+    byte *getChildPtr(byte *ptr) {
+        ptr += (*ptr + 1);
+        return (byte *) util::bytesToPtr(ptr);
+    }
+
+    char *getValueAt(int16_t *vlen) {
+        key_at += key_at_len;
+        *vlen = *key_at;
+        return (char *) key_at + 1;
+    }
+
+    uint16_t getPtr(int16_t pos) {
+#if BPT_9_BIT_PTR == 1
+        uint16_t ptr = *(getPtrPos() + pos);
+#if BPT_INT64MAP == 1
+        if (*bitmap & MASK64(pos))
+        ptr |= 256;
+#else
+        if (pos & 0xFFE0) {
+            if (*bitmap2 & MASK32(pos - 32))
+            ptr |= 256;
+        } else {
+            if (*bitmap1 & MASK32(pos))
+            ptr |= 256;
+        }
+#endif
+        return ptr;
+#else
+        return util::getInt(getPtrPos() + (pos << 1));
+#endif
+    }
+
+    void insPtr(int16_t pos, uint16_t kv_pos) {
+        int16_t filledSz = filledSize();
+#if BPT_9_BIT_PTR == 1
+        byte *kvIdx = getPtrPos() + pos;
+        memmove(kvIdx + 1, kvIdx, filledSz - pos);
+        *kvIdx = kv_pos;
+#if BPT_INT64MAP == 1
+        insBit(bitmap, pos, kv_pos);
+#else
+        if (pos & 0xFFE0) {
+            insBit(bitmap2, pos - 32, kv_pos);
+        } else {
+            byte last_bit = (*bitmap1 & 0x01);
+            insBit(bitmap1, pos, kv_pos);
+            *bitmap2 >>= 1;
+            if (last_bit)
+            *bitmap2 |= MASK32(0);
+        }
+#endif
+#else
+        byte *kvIdx = getPtrPos() + (pos << 1);
+        memmove(kvIdx + 2, kvIdx, (filledSz - pos) * 2);
+        util::setInt(kvIdx, kv_pos);
+#endif
+        setFilledSize(filledSz + 1);
+
+    }
+
+    void setPtr(int16_t pos, uint16_t ptr) {
+#if BPT_9_BIT_PTR == 1
+        *(getPtrPos() + pos) = ptr;
+#if BPT_INT64MAP == 1
+        if (ptr >= 256)
+        *bitmap |= MASK64(pos);
+        else
+        *bitmap &= ~MASK64(pos);
+#else
+        if (pos & 0xFFE0) {
+            pos -= 32;
+            if (ptr >= 256)
+            *bitmap2 |= MASK32(pos);
+            else
+            *bitmap2 &= ~MASK32(pos);
+        } else {
+            if (ptr >= 256)
+            *bitmap1 |= MASK32(pos);
+            else
+            *bitmap1 &= ~MASK32(pos);
+        }
+#endif
+#else
+        byte *kvIdx = getPtrPos() + (pos << 1);
+        return util::setInt(kvIdx, ptr);
+#endif
+    }
+
+    void insBit(uint32_t *ui32, int pos, uint16_t kv_pos) {
+        uint32_t ryte_part = (*ui32) & RYTE_MASK32(pos);
+        ryte_part >>= 1;
+        if (kv_pos >= 256)
+            ryte_part |= MASK32(pos);
+        (*ui32) = (ryte_part | ((*ui32) & LEFT_MASK32(pos)));
+
+    }
+
+#if BPT_INT64MAP == 1
+    void insBit(uint64_t *ui64, int pos, uint16_t kv_pos) {
+        uint64_t ryte_part = (*ui64) & RYTE_MASK64(pos);
+        ryte_part >>= 1;
+        if (kv_pos >= 256)
+            ryte_part |= MASK64(pos);
+        (*ui64) = (ryte_part | ((*ui64) & LEFT_MASK64(pos)));
+
+    }
+#endif
+
     virtual bool isFull(int16_t kv_len) = 0;
     virtual void addData() = 0;
-    virtual char *getValueAt(int16_t *vlen) = 0;
     virtual int16_t traverseToLeaf(byte *node_paths[] = null) = 0;
     virtual int16_t locate() = 0;
     virtual byte *split(byte *first_key, int16_t *first_len_ptr) = 0;
+    virtual byte *getPtrPos() = 0;
 };
 
 class trie_node_handler: public bplus_tree_node_handler {
 protected:
     const static byte need_counts[10];
     virtual void decodeNeedCount() = 0;
+
     inline void delAt(byte *ptr) {
         BPT_TRIE_LEN--;
         memmove(ptr, ptr + 1, trie + BPT_TRIE_LEN - ptr);

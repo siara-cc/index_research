@@ -11,11 +11,6 @@ char *bfos::get(const char *key, int16_t key_len, int16_t *pValueLen) {
     return node.getValueAt(pValueLen);
 }
 
-byte *bfos_node_handler::getChildPtr(byte *ptr) {
-    ptr += (*ptr + 1);
-    return (byte *) util::bytesToPtr(ptr);
-}
-
 byte *bfos_node_handler::getLastPtr() {
     //keyPos = 0;
     do {
@@ -128,7 +123,7 @@ int16_t bfos_node_handler::locate() {
                 cmp = util::compare(key + keyPos, key_len - keyPos,
                         (char *) key_at, key_at_len);
                 if (cmp == 0) {
-                    last_t = --key_at;
+                    last_t = key_at - 1;
                     return 1;
                 }
                 if (cmp < 0) {
@@ -198,13 +193,6 @@ void bfos_node_handler::setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) 
         last_child = (*t & x02 ? t[1] : 0);
         last_leaf = (*t & x02 ? t[2] : t[1]);
     }
-}
-
-char *bfos_node_handler::getValueAt(int16_t *vlen) {
-    key_at += *key_at;
-    key_at++;
-    *vlen = (int16_t) *key_at++;
-    return (char *) key_at;
 }
 
 bfos::bfos() {
@@ -1064,6 +1052,10 @@ int16_t bfos_node_handler::insertCurrent() {
         BPT_MAX_KEY_LEN = key_len;
 
     return ret;
+}
+
+byte *bfos_node_handler::getPtrPos() {
+    return trie + BPT_TRIE_LEN;
 }
 
 void bfos_node_handler::decodeNeedCount() {

@@ -174,18 +174,6 @@ byte *dfox_node_handler::getKey(byte *t, byte *plen) {
     return kvIdx;
 }
 
-byte *dfox_node_handler::getChildPtr(byte *ptr) {
-    ptr += (*ptr + 1);
-    return (byte *) util::bytesToPtr(ptr);
-}
-
-char *dfox_node_handler::getValueAt(int16_t *vlen) {
-    key_at += key_at_len;
-    *vlen = *key_at;
-    key_at++;
-    return (char *) key_at;
-}
-
 dfox_node_handler::dfox_node_handler(byte * m) {
     setBuf(m);
 }
@@ -911,6 +899,10 @@ byte *dfox_node_handler::insertCurrent() {
 void dfox_node_handler::insBytes(byte *ptr, int16_t len) {
     memmove(ptr + len, ptr, trie + BPT_TRIE_LEN - ptr);
     BPT_TRIE_LEN += len;
+}
+
+byte *dfox_node_handler::getPtrPos() {
+    return NULL;
 }
 
 void dfox_node_handler::decodeNeedCount() {

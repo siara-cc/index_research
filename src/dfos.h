@@ -11,19 +11,12 @@ using namespace std;
 
 #define DS_MIDDLE_PREFIX 1
 
-#ifdef ARDUINO
-#define DS_INT64MAP 0
-#else
-#define DS_INT64MAP 1
-#endif
-#define DS_9_BIT_PTR 0
-
-#define DFOS_NODE_SIZE 768
-
-#if DS_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
+#define DFOS_NODE_SIZE 512
 #define DS_MAX_PTR_BITMAP_BYTES 8
 #define DS_MAX_PTRS 63
 #else
+#define DFOS_NODE_SIZE 768
 #define DS_MAX_PTR_BITMAP_BYTES 0
 #define DS_MAX_PTRS 240
 #endif
@@ -65,30 +58,17 @@ private:
     int deleteSegment(byte *t, byte *delete_start);
 public:
     byte pos, key_at_pos;
-#if DS_INT64MAP == 1
-    uint64_t *bitmap;
-#else
-    uint32_t *bitmap1;
-    uint32_t *bitmap2;
-#endif
     dfos_node_handler(byte *m);
     inline int16_t locate();
-    byte *getKey(byte pos, byte *plen);
-    inline char *getValueAt(int16_t *vlen);
-    inline byte *getChildPtr(byte *ptr);
     int16_t traverseToLeaf(byte *node_paths[] = null);
-    inline int16_t getPtr(byte pos);
     void initBuf();
     inline void initVars();
     void setBuf(byte *m);
     bool isFull(int16_t kv_lens);
     void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    inline void setPtr(int16_t pos, int16_t ptr);
-    void insPtr(int16_t pos, int16_t kvIdx);
-    void insBit(uint32_t *ui32, int pos, int16_t kv_pos);
-    void insBit(uint64_t *ui64, int pos, int16_t kv_pos);
     void insertCurrent();
+    inline byte *getPtrPos();
 };
 
 class dfos : public bplus_tree {

@@ -9,7 +9,7 @@
 
 using namespace std;
 
-#define DFT_UNIT_SIZE 3
+#define DFT_UNIT_SIZE 4
 
 #define DFT_NODE_SIZE 512
 
@@ -45,9 +45,8 @@ public:
     int16_t insertCurrent();
     inline byte insertUnit(byte *t, byte c1, byte s1, int16_t ptr1);
     inline byte insert2Units(byte *t, byte c1, byte s1, int16_t ptr1, byte c2, byte s2, int16_t ptr2);
-    inline char *getValueAt(int16_t *vlen);
-    inline byte *getChildPtr(byte *ptr);
     void updatePtrs(byte *upto, int diff);
+    byte *getPtrPos();
 };
 
 class dft : public bplus_tree {
