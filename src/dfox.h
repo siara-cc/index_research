@@ -5,13 +5,11 @@
 #include <cstring>
 #include <iostream>
 #endif
-#include "bplus_tree.h"
+#include "bplus_tree_handler.h"
 
 using namespace std;
 
 #define DX_MIDDLE_PREFIX 1
-#define DX_INT64MAP 1
-#define DX_9_BIT_PTR 0
 
 #define DFOX_NODE_SIZE 768
 
@@ -19,14 +17,7 @@ using namespace std;
 #define DX_MAX_PFX_LEN buf[7]
 //#define MID_KEY_LEN buf[DX_MAX_PTR_BITMAP_BYTES+6]
 
-#define INSERT_AFTER 1
-#define INSERT_BEFORE 2
-#define INSERT_LEAF 3
-#define INSERT_EMPTY 4
-#define INSERT_THREAD 5
-#define INSERT_CONVERT 6
-
-class dfox_node_handler : public trie_node_handler {
+class dfox : public bpt_trie_handler {
 private:
     const static byte need_counts[10];
     void decodeNeedCount();
@@ -40,42 +31,16 @@ private:
     int deleteSegment(byte *t, byte *delete_start);
 public:
     byte *last_t;
-    dfox_node_handler(byte *m);
-    inline int16_t locate();
-    byte *getKey(byte *t, byte *plen);
-    int16_t traverseToLeaf(byte *node_paths[] = null);
-    inline int16_t getPtr(byte *t);
-    void initBuf();
-    inline void initVars();
-    void setBuf(byte *m);
     bool isFull(int16_t kv_lens);
-    void addData();
+    inline int16_t searchCurrentBlock();
+    void addData(int16_t idx);
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    inline void setPtr(byte *t, int16_t ptr);
+    void setPtr(byte *t, int16_t ptr);
     byte *insertCurrent();
     inline void insBytes(byte *ptr, int16_t len);
-    byte *getPtrPos();
-};
-
-class dfox : public bplus_tree {
-private:
-    void recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
-            byte *node_paths[], int16_t level);
-public:
-    static byte split_buf[DFOX_NODE_SIZE];
-    static long count1, count2;
-    dfox();
-    ~dfox();
-    void put(const char *key, int16_t key_len, const char *value,
-            int16_t value_len);
-    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
-    static void printCounts() {
-        util::print("Count1:");
-        util::print(count1);
-        util::print(", Count2:");
-        util::print(count2);
-        util::print("\n");
-    }
+    inline byte *getChildPtrPos(int16_t idx);
+    inline byte *getPtrPos();
+    inline int getHeaderSize();
 };
 
 #endif

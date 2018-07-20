@@ -5,7 +5,7 @@
 #include <cstring>
 #include <iostream>
 #endif
-#include "bplus_tree.h"
+#include "bplus_tree_handler.h"
 
 using namespace std;
 
@@ -22,15 +22,9 @@ using namespace std;
 #define DQ_MAX_PFX_LEN buf[7]
 //#define MID_KEY_LEN buf[DQ_MAX_PTR_BITMAP_BYTES+6]
 
-#define INSERT_AFTER 1
-#define INSERT_BEFORE 2
-#define INSERT_LEAF 3
-#define INSERT_EMPTY 4
-#define INSERT_THREAD 5
-
 #define DFQX_MAX_KEY_PREFIX_LEN 60
 
-class dfqx_node_handler: public trie_node_handler {
+class dfqx: public bpt_trie_handler {
 private:
     const static byte need_counts[10];
     void decodeNeedCount();
@@ -69,37 +63,14 @@ private:
     //inline byte *skipChildren(byte *t, uint16_t count);
 public:
     byte pos, key_at_pos;
-    dfqx_node_handler(byte *m);
-    int16_t locate();
-    int16_t traverseToLeaf(byte *node_paths[] = null);
-    void initBuf();
-    inline void initVars();
-    void setBuf(byte *m);
+    inline int16_t searchCurrentBlock();
+    void addData(int16_t idx);
     bool isFull(int16_t kv_lens);
-    void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
     void insertCurrent();
+    inline byte *getChildPtrPos(int16_t idx);
     inline byte *getPtrPos();
-};
-
-class dfqx: public bplus_tree {
-private:
-    void recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
-            byte *node_paths[], int16_t level);
-public:
-    static long count1, count2;
-    dfqx();
-    ~dfqx();
-    void put(const char *key, int16_t key_len, const char *value,
-            int16_t value_len);
-    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
-    static void printCounts() {
-        util::print("Count1:");
-        util::print(count1);
-        util::print(", Count2:");
-        util::print(count2);
-        util::print("\n");
-    }
+    inline int getHeaderSize();
 };
 
 #endif

@@ -5,7 +5,7 @@
 #include <cstring>
 #include <iostream>
 #endif
-#include "bplus_tree.h"
+#include "bplus_tree_handler.h"
 
 using namespace std;
 
@@ -16,14 +16,7 @@ using namespace std;
 #define BFOS_HDR_SIZE 8
 #define BX_MAX_PFX_LEN buf[7]
 
-#define INSERT_AFTER 1
-#define INSERT_BEFORE 2
-#define INSERT_LEAF 3
-#define INSERT_EMPTY 4
-#define INSERT_THREAD 5
-#define INSERT_CONVERT 6
-
-class bfos_node_handler: public trie_node_handler {
+class bfos_node_handler: public bpt_trie_handler {
 private:
     const static byte need_counts[10];
     void decodeNeedCount();
@@ -43,31 +36,22 @@ public:
     byte *last_t;
     byte last_child;
     byte last_leaf;
-    bfos_node_handler(byte *m);
-    inline int16_t locate();
-    int16_t traverseToLeaf(byte *node_paths[] = null);
-    void setBuf(byte *m);
-    void initBuf();
-    inline void initVars();
     bool isFull(int16_t kv_lens);
-    void addData();
+    inline int16_t searchCurrentBlock();
+    void addData(int16_t idx);
     byte *split(byte *first_key, int16_t *first_len_ptr);
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);
-    byte *getPtrPos();
+    inline byte *getChildPtrPos(int16_t idx);
+    inline byte *getPtrPos();
+    inline int getHeaderSize();
 };
 
-class bfos : public bplus_tree {
-private:
-    void recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
-            byte *node_paths[], int16_t level);
+class bfos : public bplus_tree_handler {
 public:
     static int count1, count2;
     bfos();
     ~bfos();
-    void put(const char *key, int16_t key_len, const char *value,
-            int16_t value_len);
-    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
 };
 
 #endif

@@ -5,7 +5,7 @@
 #include <cstring>
 #include <iostream>
 #endif
-#include "bplus_tree.h"
+#include "bplus_tree_handler.h"
 
 using namespace std;
 
@@ -15,12 +15,6 @@ using namespace std;
 
 #define BFT_HDR_SIZE 8
 #define BFT_PREFIX_LEN buf[7]
-
-#define INSERT_AFTER 1
-#define INSERT_BEFORE 2
-#define INSERT_LEAF 3
-#define INSERT_EMPTY 4
-#define INSERT_THREAD 5
 
 #define BFT_MAX_KEY_PREFIX_LEN 60
 
@@ -38,7 +32,7 @@ public:
     }
 };
 
-class bft_node_handler : public trie_node_handler {
+class bft_node_handler : public bpt_trie_handler {
 private:
     const static byte need_counts[10];
     void decodeNeedCount();
@@ -51,33 +45,24 @@ private:
     void appendPtr(int16_t p);
 public:
     int16_t last_child_pos;
-    bft_node_handler(byte *m);
-    void initBuf();
-    inline void initVars();
-    void setBuf(byte *m);
     bool isFull(int16_t kv_lens);
-    void addData();
+    inline int16_t searchCurrentBlock();
+    void addData(int16_t idx);
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    int16_t locate();
-    int16_t traverseToLeaf(byte *node_paths[] = null);
     int16_t getFirstPtr();
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);
-    byte *getPtrPos();
+    inline byte *getChildPtrPos(int16_t idx);
+    inline byte *getPtrPos();
+    inline int getHeaderSize();
 };
 
-class bft : public bplus_tree {
-private:
-    void recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
-            byte *node_paths[], int16_t level);
+class bft : public bplus_tree_handler {
 public:
     static byte split_buf[BFT_NODE_SIZE];
     static int count1, count2;
     bft();
     ~bft();
-    void put(const char *key, int16_t key_len, const char *value,
-            int16_t value_len);
-    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
 };
 
 #endif

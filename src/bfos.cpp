@@ -2,22 +2,13 @@
 #include <stdint.h>
 #include "bfos.h"
 
-char *bfos::get(const char *key, int16_t key_len, int16_t *pValueLen) {
-    bfos_node_handler node(root_data);
-    node.key = key;
-    node.key_len = key_len;
-    if (node.traverseToLeaf() == -1)
-        return null;
-    return node.getValueAt(pValueLen);
-}
-
-byte *bfos_node_handler::getLastPtr() {
+byte *bfos::getLastPtr() {
     //keyPos = 0;
     do {
         int rslt = (last_child > last_leaf ? 2 : (last_leaf ^ last_child) > last_child ? 1 : 2);
         switch (rslt) {
         case 1:
-            return buf + util::getInt(last_t + (*last_t & x02 ? BIT_COUNT(last_t[1]) + 1 : 0)
+            return current_block + util::getInt(last_t + (*last_t & x02 ? BIT_COUNT(last_t[1]) + 1 : 0)
                     + BIT_COUNT2(last_leaf));
         case 2:
             last_t += BIT_COUNT(last_child) + 2;
@@ -37,18 +28,15 @@ byte *bfos_node_handler::getLastPtr() {
     return 0;
 }
 
-int16_t bfos_node_handler::traverseToLeaf(byte *node_paths[]) {
-    //keyPos = 0;
-    while (!isLeaf()) {
-        if (node_paths)
-            *node_paths++ = buf;
-        locate();
-        setBuf(getChildPtr(last_t - buf < getKVLastPos() ? getLastPtr() : last_t));
-    }
-    return locate();
+int bfos::getHeaderSize() {
+    return BFOS_HDR_SIZE;
 }
 
-int16_t bfos_node_handler::locate() {
+byte *bfos::getChildPtrPos(int16_t idx) {
+    return last_t - current_block < getKVLastPos() ? getLastPtr() : last_t;
+}
+
+int16_t bfos::searchCurrentBlock() {
     byte *t = trie;
     byte trie_char = *t;
     origPos = t++;
@@ -118,7 +106,7 @@ int16_t bfos_node_handler::locate() {
             case 2:
                 int16_t cmp;
                 t += BIT_COUNT(r_children) + BIT_COUNT2(r_leaves & r_mask);
-                key_at = buf + util::getInt(t);
+                key_at = current_block + util::getInt(t);
                 key_at_len = *key_at++;
                 cmp = util::compare(key + keyPos, key_len - keyPos,
                         (char *) key_at, key_at_len);
@@ -182,7 +170,7 @@ int16_t bfos_node_handler::locate() {
     return -1;
 }
 
-void bfos_node_handler::setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) {
+void bfos::setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) {
     if (key_char > *t) {
         t += pfx_rem_len;
         while (!(*t & x04)) {
@@ -195,43 +183,7 @@ void bfos_node_handler::setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) 
     }
 }
 
-bfos::bfos() {
-    root_data = (byte *) util::alignedAlloc(BFOS_NODE_SIZE);
-    bfos_node_handler root(root_data);
-    root.initBuf();
-    total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
-    numLevels = blockCountLeaf = 1;
-    maxThread = 9999;
-}
-
-bfos::~bfos() {
-    delete root_data;
-}
-
-bfos_node_handler::bfos_node_handler(byte * m) {
-    setBuf(m);
-    insertState = INSERT_EMPTY;
-}
-
-void bfos_node_handler::initBuf() {
-    //memset(buf, '\0', BFOS_NODE_SIZE);
-    setLeaf(1);
-    setFilledSize(0);
-    BPT_TRIE_LEN = 0;
-    BX_MAX_PFX_LEN = 1;
-    BPT_MAX_KEY_LEN = 1;
-    keyPos = 1;
-    insertState = INSERT_EMPTY;
-    setKVLastPos(BFOS_NODE_SIZE);
-    trie = buf + BFOS_HDR_SIZE;
-}
-
-void bfos_node_handler::setBuf(byte *m) {
-    buf = m;
-    trie = buf + BFOS_HDR_SIZE;
-}
-
-void bfos_node_handler::addData() {
+void bfos::addData(int16_t idx) {
 
     int16_t ptr = insertCurrent();
 
@@ -239,16 +191,16 @@ void bfos_node_handler::addData() {
     int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
     setKVLastPos(kv_last_pos);
     util::setInt(trie + ptr, kv_last_pos);
-    buf[kv_last_pos] = key_left;
+    current_block[kv_last_pos] = key_left;
     if (key_left)
-        memcpy(buf + kv_last_pos + 1, key + keyPos, key_left);
-    buf[kv_last_pos + key_left + 1] = value_len;
-    memcpy(buf + kv_last_pos + key_left + 2, value, value_len);
+        memcpy(current_block + kv_last_pos + 1, key + keyPos, key_left);
+    current_block[kv_last_pos + key_left + 1] = value_len;
+    memcpy(current_block + kv_last_pos + key_left + 2, value, value_len);
     setFilledSize(filledSize() + 1);
 
 }
 
-bool bfos_node_handler::isFull(int16_t kv_len) {
+bool bfos::isFull(int16_t kv_len) {
     decodeNeedCount();
     if (getKVLastPos() < (BFOS_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 3))
         return true;
@@ -257,127 +209,10 @@ bool bfos_node_handler::isFull(int16_t kv_len) {
     return false;
 }
 
-void bfos::put(const char *key, int16_t key_len, const char *value,
-        int16_t value_len) {
-    byte *node_paths[7];
-    bfos_node_handler node(root_data);
-    node.key = key;
-    node.key_len = key_len;
-    node.value = value;
-    node.value_len = value_len;
-    if (node.filledSize() == 0) {
-        node.addData();
-        total_size++;
-    } else {
-        node.traverseToLeaf(node_paths);
-        recursiveUpdate(&node, -1, node_paths, numLevels - 1);
-    }
-}
-
-void bfos::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
-        byte *node_paths[], int16_t level) {
-    int16_t idx = pos; // lastSearchPos[level];
-    if (idx < 0) {
-        idx = ~idx;
-        if (node->isFull(node->key_len + node->value_len)) {
-            //std::cout << "Full\n" << std::endl;
-            //if (maxKeyCount < block->filledSize())
-            //    maxKeyCount = block->filledSize();
-            //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->BPT_TRIE_LEN);
-            //cout << (int) node->BPT_TRIE_LEN << endl;
-            if (node->isLeaf()) {
-                maxKeyCountLeaf += node->filledSize();
-                maxTrieLenLeaf += node->BPT_TRIE_LEN;
-                blockCountLeaf++;
-            } else {
-                maxKeyCountNode += node->filledSize();
-                maxTrieLenNode += node->BPT_TRIE_LEN;
-                blockCountNode++;
-            }
-            //    maxKeyCount += node->BPT_TRIE_LEN;
-            //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[node->BPT_MAX_KEY_LEN];
-            int16_t first_len;
-            byte *b = node->split(first_key, &first_len);
-            bfos_node_handler new_block(b);
-            int16_t cmp = util::compare((char *) first_key, first_len, node->key,
-                    node->key_len);
-            if (cmp <= 0) {
-                new_block.initVars();
-                new_block.key = node->key;
-                new_block.key_len = node->key_len;
-                new_block.value = node->value;
-                new_block.value_len = node->value_len;
-                //byte is_leaf = new_block.isLeaf();
-                //new_block.setLeaf(true);
-                idx = ~new_block.locate();
-                new_block.addData();
-                //new_block.setLeaf(is_leaf);
-            } else {
-                node->initVars();
-                //byte is_leaf = node->isLeaf();
-                //node->setLeaf(true);
-                idx = ~node->locate();
-                node->addData();
-                //node->setLeaf(is_leaf);
-            }
-            if (root_data == node->buf) {
-                blockCountNode++;
-                root_data = (byte *) util::alignedAlloc(BFOS_NODE_SIZE);
-                bfos_node_handler root(root_data);
-                root.initBuf();
-                root.setLeaf(false);
-                byte addr[8];
-                root.initVars();
-                root.key = "";
-                root.key_len = 1;
-                root.value = (char *) addr;
-                root.value_len = util::ptrToBytes((unsigned long) node->buf, addr);
-                root.keyPos = 1;
-                root.insertState = INSERT_EMPTY;
-                root.addData();
-                root.initVars();
-                root.key = (const char *) first_key;
-                root.key_len = first_len;
-                root.value = (char *) addr;
-                root.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
-                //root.keyPos = 0;
-                //root.setLeaf(true);
-                root.locate();
-                //root.setLeaf(false);
-                root.addData();
-                numLevels++;
-            } else {
-                int16_t prev_level = level - 1;
-                byte *parent_data = node_paths[prev_level];
-                bfos_node_handler parent(parent_data);
-                byte addr[8];
-                parent.initVars();
-                parent.key = (const char *) first_key;
-                parent.key_len = first_len;
-                parent.value = (char *) addr;
-                parent.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
-                //parent.keyPos = 0;
-                //parent.setLeaf(true);
-                parent.locate();
-                //parent.setLeaf(false);
-                recursiveUpdate(&parent, -1, node_paths, prev_level);
-            }
-        } else
-            node->addData();
-    } else {
-        //if (node->isLeaf) {
-        //    int16_t vIdx = idx + mSizeBy2;
-        //    returnValue = (V) arr[vIdx];
-        //    arr[vIdx] = value;
-        //}
-    }
-}
-
-byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
+byte *bfos::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t orig_filled_size = filledSize();
     byte *b = (byte *) util::alignedAlloc(BFOS_NODE_SIZE);
-    bfos_node_handler new_block(b);
+    bfos new_block(b);
     new_block.initBuf();
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
     new_block.BX_MAX_PFX_LEN = BX_MAX_PFX_LEN;
@@ -447,14 +282,14 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         if (leaf & mask) {
             byte *leaf_ptr = t + BIT_COUNT2(leaf & (mask - 1));
             int16_t src_idx = util::getInt(leaf_ptr);
-            int16_t kv_len = buf[src_idx];
+            int16_t kv_len = current_block[src_idx];
             kv_len++;
-            kv_len += buf[src_idx + kv_len];
+            kv_len += current_block[src_idx + kv_len];
             kv_len++;
-            memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
+            memcpy(new_block.current_block + kv_last_pos, current_block + src_idx, kv_len);
             util::setInt(leaf_ptr, kv_last_pos);
-            //memcpy(curr_key + new_block.keyPos + 1, buf + src_idx + 1, buf[src_idx]);
-            //curr_key[new_block.keyPos+1+buf[src_idx]] = 0;
+            //memcpy(curr_key + new_block.keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
+            //curr_key[new_block.keyPos+1+current_block[src_idx]] = 0;
             //cout << curr_key << endl;
             if (brk_idx < 0) {
                 brk_idx = -brk_idx;
@@ -467,8 +302,8 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                     memcpy(first_key, curr_key, tp_cpy_len);
                 } else {
                     memcpy(first_key, curr_key, new_block.keyPos);
-                    memcpy(first_key + new_block.keyPos, buf + src_idx + 1, buf[src_idx]);
-                    *first_len_ptr = new_block.keyPos + buf[src_idx];
+                    memcpy(first_key + new_block.keyPos, current_block + src_idx + 1, current_block[src_idx]);
+                    *first_len_ptr = new_block.keyPos + current_block[src_idx];
                 }
                 memcpy(tp_cpy, tp, tp_cpy_len);
                 //curr_key[new_block.keyPos] = 0;
@@ -480,8 +315,8 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                 //brk_key_len = nextKey(s);
                 //if (kv_last_pos > halfKVLen) {
                 if (kv_last_pos > halfKVPos || idx == (orig_filled_size / 2)) {
-                    //memcpy(first_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
-                    //first_key[keyPos+1+buf[src_idx]] = 0;
+                    //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
+                    //first_key[keyPos+1+current_block[src_idx]] = 0;
                     //cout << first_key << ":";
                     brk_idx = idx + 1;
                     brk_idx = -brk_idx;
@@ -514,7 +349,7 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t diff = (kv_last_pos - getKVLastPos());
 
     {
-        memmove(new_block.buf + brk_kv_pos + diff, new_block.buf + brk_kv_pos,
+        memmove(new_block.current_block + brk_kv_pos + diff, new_block.current_block + brk_kv_pos,
                 BFOS_NODE_SIZE - brk_kv_pos - diff);
         brk_kv_pos += diff;
         new_block.setPtrDiff(diff);
@@ -524,8 +359,8 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 
     {
         int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
-        memcpy(buf + BFOS_NODE_SIZE - old_blk_new_len,
-                new_block.buf + kv_last_pos - diff, old_blk_new_len); // Copy back first half to old block
+        memcpy(current_block + BFOS_NODE_SIZE - old_blk_new_len,
+                new_block.current_block + kv_last_pos - diff, old_blk_new_len); // Copy back first half to old block
         diff += (BFOS_NODE_SIZE - brk_kv_pos);
         setPtrDiff(diff);
         setKVLastPos(BFOS_NODE_SIZE - old_blk_new_len);
@@ -535,16 +370,16 @@ byte *bfos_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     if (!isLeaf())
         new_block.setLeaf(false);
 
-    consolidateInitialPrefix(buf);
-    new_block.consolidateInitialPrefix(new_block.buf);
+    consolidateInitialPrefix(current_block);
+    new_block.consolidateInitialPrefix(new_block.current_block);
 
     //keyPos = 0;
 
-    return new_block.buf;
+    return new_block.current_block;
 
 }
 
-byte bfos_node_handler::copyKary(byte *t, byte *dest, int lvl, byte *tp,
+byte bfos::copyKary(byte *t, byte *dest, int lvl, byte *tp,
         byte *brk_key, int16_t brk_key_len, byte whichHalf) {
     byte *orig_dest = dest;
     if (*t & x01) {
@@ -607,7 +442,7 @@ byte bfos_node_handler::copyKary(byte *t, byte *dest, int lvl, byte *tp,
     return dest - orig_dest;
 }
 
-byte bfos_node_handler::copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_len, byte *dest, byte whichHalf) {
+byte bfos::copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_len, byte *dest, byte whichHalf) {
     byte *d;
     byte *t = trie;
     byte *new_trie = dest;
@@ -689,7 +524,7 @@ byte bfos_node_handler::copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_le
     return 0;
 }
 
-void bfos_node_handler::setPtrDiff(int16_t diff) {
+void bfos::setPtrDiff(int16_t diff) {
     byte *t = trie;
     byte *t_end = trie + BPT_TRIE_LEN;
     while (t < t_end) {
@@ -712,7 +547,7 @@ void bfos_node_handler::setPtrDiff(int16_t diff) {
     }
 }
 
-void bfos_node_handler::consolidateInitialPrefix(byte *t) {
+void bfos::consolidateInitialPrefix(byte *t) {
     t += BFOS_HDR_SIZE;
     byte *t_reader = t;
     if (*t & x01) {
@@ -751,7 +586,7 @@ void bfos_node_handler::consolidateInitialPrefix(byte *t) {
     }
 }
 
-void bfos_node_handler::updatePtrs(byte *upto, int diff) {
+void bfos::updatePtrs(byte *upto, int diff) {
     byte *t = trie;
     byte tc = *t++;
     while (t <= upto) {
@@ -775,7 +610,7 @@ void bfos_node_handler::updatePtrs(byte *upto, int diff) {
     }
 }
 
-int16_t bfos_node_handler::insertAfter() {
+int16_t bfos::insertAfter() {
     byte key_char;
     byte mask;
     key_char = key[keyPos - 1];
@@ -788,7 +623,7 @@ int16_t bfos_node_handler::insertAfter() {
     return triePos - trie + 2;
 }
 
-int16_t bfos_node_handler::insertBefore() {
+int16_t bfos::insertBefore() {
     byte key_char;
     byte mask;
     key_char = key[keyPos - 1];
@@ -798,7 +633,7 @@ int16_t bfos_node_handler::insertBefore() {
     return origPos - trie + 2;
 }
 
-int16_t bfos_node_handler::insertLeaf() {
+int16_t bfos::insertLeaf() {
     byte key_char;
     byte mask;
     key_char = key[keyPos - 1];
@@ -813,7 +648,7 @@ int16_t bfos_node_handler::insertLeaf() {
 }
 
 #if BS_MIDDLE_PREFIX == 1
-int16_t bfos_node_handler::insertConvert() {
+int16_t bfos::insertConvert() {
     byte key_char;
     byte mask;
     int16_t ret = 0;
@@ -872,7 +707,7 @@ int16_t bfos_node_handler::insertConvert() {
 }
 #endif
 
-int16_t bfos_node_handler::insertThread() {
+int16_t bfos::insertThread() {
     byte key_char;
     byte mask;
     int16_t p, min;
@@ -1002,14 +837,14 @@ int16_t bfos_node_handler::insertThread() {
         key_at_len -= diff;
         p += diff;
         if (key_at_len >= 0) {
-            buf[p] = key_at_len;
+            current_block[p] = key_at_len;
             util::setInt(trie + pos, p);
         }
     }
     return ret;
 }
 
-int16_t bfos_node_handler::insertEmpty() {
+int16_t bfos::insertEmpty() {
     append((*key & xF8) | x04);
     append(x01 << (*key & x07));
     int16_t ret = BPT_TRIE_LEN;
@@ -1019,7 +854,7 @@ int16_t bfos_node_handler::insertEmpty() {
     return ret;
 }
 
-int16_t bfos_node_handler::insertCurrent() {
+int16_t bfos::insertCurrent() {
     int16_t ret;
 
     switch (insertState) {
@@ -1054,17 +889,12 @@ int16_t bfos_node_handler::insertCurrent() {
     return ret;
 }
 
-byte *bfos_node_handler::getPtrPos() {
+byte *bfos::getPtrPos() {
     return trie + BPT_TRIE_LEN;
 }
 
-void bfos_node_handler::decodeNeedCount() {
+void bfos::decodeNeedCount() {
     if (insertState != INSERT_THREAD)
         need_count = need_counts[insertState];
 }
-const byte bfos_node_handler::need_counts[10] = {0, 4, 4, 2, 4, 0, 7, 0, 0, 0};
-
-void bfos_node_handler::initVars() {
-}
-
-int bfos::count1, bfos::count2;
+const byte bfos::need_counts[10] = {0, 4, 4, 2, 4, 0, 7, 0, 0, 0};

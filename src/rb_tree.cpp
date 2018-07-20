@@ -1,142 +1,11 @@
 #include "rb_tree.h"
 #include <math.h>
 
-char *rb_tree::get(const char *key, int16_t key_len, int16_t *pValueLen) {
-    byte *node_data = root_data;
-    rb_tree_node_handler node(node_data);
-    node.key = key;
-    node.key_len = key_len;
-    if (node.traverseToLeaf() < 0)
-        return null;
-    return node.getValueAt(pValueLen);
+int rb_tree::getHeaderSize() {
+    return RB_TREE_HDR_SIZE;
 }
 
-int16_t rb_tree_node_handler::traverseToLeaf(byte *node_paths[]) {
-    byte level;
-    level = 1;
-        *node_paths = buf;
-    while (!isLeaf()) {
-        int16_t idx = locate();
-        if (idx < 0) {
-            idx = ~idx;
-            if (last_direction == 'l') {
-                int16_t p = getPrevious(idx);
-                if (p)
-                    idx = p;
-            }
-        }
-        setBuf(getChildPtr(idx));
-            node_paths[level++] = buf;
-    }
-    return locate();
-}
-
-void rb_tree::put(const char *key, int16_t key_len, const char *value,
-        int16_t value_len) {
-    byte *node_paths[7];
-    rb_tree_node_handler node(root_data);
-    node.key = key;
-    node.key_len = key_len;
-    node.value = value;
-    node.value_len = value_len;
-    if (node.filledUpto() == -1) {
-        node.pos = 0;
-        node.addData();
-        total_size++;
-    } else {
-        node.traverseToLeaf(node_paths);
-        recursiveUpdate(&node, node.pos, node_paths, numLevels - 1);
-    }
-}
-
-void rb_tree::recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
-        byte *node_paths[], int16_t level) {
-    int16_t idx = pos;
-    if (idx < 0) {
-        idx = ~idx;
-        if (node->isFull(node->key_len + node->value_len)) {
-            //std::cout << "Full\n" << std::endl;
-            //if (maxKeyCount < block->filledSize())
-            //    maxKeyCount = block->filledSize();
-            //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
-            //cout << (int) node->TRIE_LEN << endl;
-            if (node->isLeaf()) {
-                maxKeyCountLeaf += node->filledSize();
-                blockCountLeaf++;
-            } else {
-                maxKeyCountNode += node->filledSize();
-                blockCountNode++;
-            }
-            //    maxKeyCount += node->TRIE_LEN;
-            //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[64];
-            int16_t first_len;
-            byte *b = node->split(first_key, &first_len);
-            rb_tree_node_handler new_block(b);
-            int16_t cmp = util::compare((char *) first_key, first_len,
-                    node->key, node->key_len);
-            if (cmp <= 0) {
-                new_block.initVars();
-                new_block.key = node->key;
-                new_block.key_len = node->key_len;
-                new_block.value = node->value;
-                new_block.value_len = node->value_len;
-                new_block.pos = ~new_block.locate();
-                new_block.addData();
-            } else {
-                node->initVars();
-                node->pos = ~node->locate();
-                node->addData();
-            }
-            if (root_data == node->buf) {
-                blockCountNode++;
-                root_data = (byte *) util::alignedAlloc(RB_TREE_NODE_SIZE);
-                rb_tree_node_handler root(root_data);
-                root.initBuf();
-                root.setLeaf(0);
-                byte addr[9];
-                root.initVars();
-                root.key = "";
-                root.key_len = 1;
-                root.value = (char *) addr;
-                root.value_len = util::ptrToBytes((unsigned long) node->buf, addr);
-                root.pos = -1;
-                root.addData();
-                root.initVars();
-                root.key = (char *) first_key;
-                root.key_len = first_len;
-                root.value = (char *) addr;
-                root.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
-                root.pos = -1; //~root.locate();
-                root.addData();
-                numLevels++;
-            } else {
-                int16_t prev_level = level - 1;
-                byte *parent_data = node_paths[prev_level];
-                rb_tree_node_handler parent(parent_data);
-                byte addr[9];
-                parent.initVars();
-                parent.key = (char *) first_key;
-                parent.key_len = first_len;
-                parent.value = (char *) addr;
-                parent.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
-                parent.pos = parent.locate();
-                recursiveUpdate(&parent, parent.pos, node_paths, prev_level);
-            }
-        } else {
-            node->pos = idx;
-            node->addData();
-        }
-    } else {
-        //if (node->isLeaf) {
-        //    int16_t vIdx = idx + mSizeBy2;
-        //    returnValue = (V) arr[vIdx];
-        //    arr[vIdx] = value;
-        //}
-    }
-}
-
-void rb_tree_node_handler::addData() {
+void rb_tree::addData(int16_t idx) {
 
     //idx = -1; // !!!!!
 
@@ -144,20 +13,20 @@ void rb_tree_node_handler::addData() {
     filled_upto++;
     setFilledUpto(filled_upto);
 
-    int16_t inserted_node = util::getInt(buf + DATA_END_POS);
+    int16_t inserted_node = util::getInt(current_block + DATA_END_POS);
     int16_t n = inserted_node;
-    buf[n] = RB_RED;
-    memset(buf + n + 1, 0, 6);
+    current_block[n] = RB_RED;
+    memset(current_block + n + 1, 0, 6);
     n += KEY_LEN_POS;
-    buf[n] = key_len;
+    current_block[n] = key_len;
     n++;
-    memcpy(buf + n, key, key_len);
+    memcpy(current_block + n, key, key_len);
     n += key_len;
-    buf[n] = value_len;
+    current_block[n] = value_len;
     n++;
-    memcpy(buf + n, value, value_len);
+    memcpy(current_block + n, value, value_len);
     n += value_len;
-    util::setInt(buf + DATA_END_POS, n);
+    util::setInt(current_block + DATA_END_POS, n);
 
     if (getRoot() == 0) {
         setRoot(inserted_node);
@@ -199,14 +68,14 @@ void rb_tree_node_handler::addData() {
 
 }
 
-byte *rb_tree_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
+byte *rb_tree::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t filled_upto = filledUpto();
-    rb_tree_node_handler new_block(
+    rb_tree new_block(
             (byte *) util::alignedAlloc(RB_TREE_NODE_SIZE));
     new_block.initBuf();
     if (!isLeaf())
         new_block.setLeaf(false);
-    int16_t data_end_pos = util::getInt(buf + DATA_END_POS);
+    int16_t data_end_pos = util::getInt(current_block + DATA_END_POS);
     int16_t halfKVLen = data_end_pos;
     halfKVLen /= 2;
 
@@ -223,15 +92,15 @@ byte *rb_tree_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
             node = stack[--level];
             int16_t src_idx = node;
             src_idx += KEY_LEN_POS;
-            int16_t key_len = buf[src_idx];
+            int16_t key_len = current_block[src_idx];
             src_idx++;
-            new_block.key = (char *) buf + src_idx;
+            new_block.key = (char *) current_block + src_idx;
             new_block.key_len = key_len;
             src_idx += key_len;
             key_len++;
-            int16_t value_len = buf[src_idx];
+            int16_t value_len = current_block[src_idx];
             src_idx++;
-            new_block.value = (char *) buf + src_idx;
+            new_block.value = (char *) current_block + src_idx;
             new_block.value_len = value_len;
             value_len++;
             int16_t kv_len = key_len;
@@ -259,10 +128,10 @@ byte *rb_tree_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     }
     new_block.setFilledUpto(brk_idx);
     new_block.setDataEndPos(brk_kv_pos);
-    memcpy(buf, new_block.buf, RB_TREE_NODE_SIZE);
+    memcpy(current_block, new_block.current_block, RB_TREE_NODE_SIZE);
 
     int16_t new_blk_new_len = data_end_pos - brk_kv_pos;
-    memcpy(new_block.buf + RB_TREE_HDR_SIZE, buf + brk_kv_pos, new_blk_new_len);
+    memcpy(new_block.current_block + RB_TREE_HDR_SIZE, current_block + brk_kv_pos, new_blk_new_len);
     int16_t n = filled_upto - brk_idx - 1;
     new_block.setFilledUpto(n);
     int16_t pos = RB_TREE_HDR_SIZE;
@@ -278,9 +147,9 @@ byte *rb_tree_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         if (ptr)
             new_block.setParent(pos, ptr - brk_kv_pos);
         pos += KEY_LEN_POS;
-        pos += new_block.buf[pos];
+        pos += new_block.current_block[pos];
         pos++;
-        pos += new_block.buf[pos];
+        pos += new_block.current_block[pos];
         pos++;
     }
     new_block.setRoot(getRoot() - brk_kv_pos);
@@ -289,18 +158,18 @@ byte *rb_tree_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     //byte *nb_first_key = new_block.getFirstKey(first_len_ptr);
     //memcpy(first_key, nb_first_key, *first_len_ptr);
 
-    return new_block.buf;
+    return new_block.current_block;
 }
 
-int16_t rb_tree_node_handler::getDataEndPos() {
-    return util::getInt(buf + DATA_END_POS);
+int16_t rb_tree::getDataEndPos() {
+    return util::getInt(current_block + DATA_END_POS);
 }
 
-void rb_tree_node_handler::setDataEndPos(int16_t pos) {
-    util::setInt(buf + DATA_END_POS, pos);
+void rb_tree::setDataEndPos(int16_t pos) {
+    util::setInt(current_block + DATA_END_POS, pos);
 }
 
-int16_t rb_tree_node_handler::binarySearch(const char *key, int16_t key_len) {
+int16_t rb_tree::binarySearch(const char *key, int16_t key_len) {
     register int middle;
     register int new_middle = getRoot();
     do {
@@ -321,33 +190,17 @@ int16_t rb_tree_node_handler::binarySearch(const char *key, int16_t key_len) {
     return ~middle;
 }
 
-int16_t rb_tree_node_handler::locate() {
+int16_t rb_tree::searchCurrentNode() {
     pos = binarySearch(key, key_len);
     return pos;
 }
 
-rb_tree::~rb_tree() {
-    delete root_data;
-}
-
 rb_tree::rb_tree() {
     GenTree::generateLists();
-    root_data = (byte *) util::alignedAlloc(RB_TREE_NODE_SIZE);
-    root = new rb_tree_node_handler(root_data);
-    root->initBuf();
-    total_size = maxKeyCountLeaf = maxKeyCountNode = 0;
-    numLevels = blockCountLeaf = blockCountNode = 1;
+    super();
 }
 
-rb_tree_node_handler::rb_tree_node_handler(byte *b) {
-    setBuf(b);
-}
-
-void rb_tree_node_handler::setBuf(byte *b) {
-    buf = b;
-}
-
-void rb_tree_node_handler::initBuf() {
+void rb_tree::initBuf() {
     //memset(buf, '\0', RB_TREE_NODE_SIZE);
     setLeaf(1);
     setFilledUpto(-1);
@@ -355,7 +208,7 @@ void rb_tree_node_handler::initBuf() {
     setDataEndPos(RB_TREE_HDR_SIZE);
 }
 
-void rb_tree_node_handler::setFilledUpto(int16_t filledSize) {
+void rb_tree::setFilledUpto(int16_t filledSize) {
 #if RB_TREE_NODE_SIZE == 512
     *(BPT_FILLED_SIZE) = filledSize;
 #else
@@ -363,7 +216,7 @@ void rb_tree_node_handler::setFilledUpto(int16_t filledSize) {
 #endif
 }
 
-int16_t rb_tree_node_handler::filledUpto() {
+int16_t rb_tree::filledUpto() {
 #if RB_TREE_NODE_SIZE == 512
     if (*(BPT_FILLED_SIZE) == 0xFF)
         return -1;
@@ -373,17 +226,17 @@ int16_t rb_tree_node_handler::filledUpto() {
 #endif
 }
 
-bool rb_tree_node_handler::isFull(int16_t kv_len) {
+bool rb_tree::isFull(int16_t kv_len) {
     kv_len += 9; // 3 int16_t pointer, 1 byte key len, 1 byte value len, 1 flag
-    int16_t spaceLeft = RB_TREE_NODE_SIZE - util::getInt(buf + DATA_END_POS);
+    int16_t spaceLeft = RB_TREE_NODE_SIZE - util::getInt(current_block + DATA_END_POS);
     spaceLeft -= RB_TREE_HDR_SIZE;
     if (spaceLeft <= kv_len)
         return true;
     return false;
 }
 
-byte *rb_tree_node_handler::getChildPtr(int16_t pos) {
-    byte *kvIdx = buf + pos + KEY_LEN_POS;
+byte *rb_tree::getChildPtr(int16_t pos) {
+    byte *kvIdx = current_block + pos + KEY_LEN_POS;
     kvIdx += kvIdx[0];
     kvIdx += 2;
     unsigned long addr_num = util::bytesToPtr(kvIdx);
@@ -391,15 +244,15 @@ byte *rb_tree_node_handler::getChildPtr(int16_t pos) {
     return ret;
 }
 
-byte *rb_tree_node_handler::getKey(int16_t pos, int16_t *plen) {
-    byte *kvIdx = buf + pos + KEY_LEN_POS;
+byte *rb_tree::getKey(int16_t pos, int16_t *plen) {
+    byte *kvIdx = current_block + pos + KEY_LEN_POS;
     *plen = kvIdx[0];
     kvIdx++;
     return kvIdx;
 }
 
-char *rb_tree_node_handler::getValueAt(int16_t *vlen) {
-    key_at = buf + pos + KEY_LEN_POS;
+char *rb_tree::getValueAt(int16_t *vlen) {
+    key_at = current_block + pos + KEY_LEN_POS;
     key_at += *key_at;
     key_at++;
     *vlen = *key_at;
@@ -407,7 +260,7 @@ char *rb_tree_node_handler::getValueAt(int16_t *vlen) {
     return (char *) key_at;
 }
 
-int16_t rb_tree_node_handler::getFirst() {
+int16_t rb_tree::getFirst() {
     int16_t filled_upto = filledUpto();
     int16_t stack[filled_upto]; //(int) log2(filled_upto) + 1];
     int16_t level = 0;
@@ -420,7 +273,7 @@ int16_t rb_tree_node_handler::getFirst() {
     return stack[--level];
 }
 
-byte *rb_tree_node_handler::getFirstKey(int16_t *plen) {
+byte *rb_tree::getFirstKey(int16_t *plen) {
     int16_t filled_upto = filledUpto();
     int16_t stack[filled_upto]; //(int) log2(filled_upto) + 1];
     int16_t level = 0;
@@ -430,13 +283,13 @@ byte *rb_tree_node_handler::getFirstKey(int16_t *plen) {
         node = getLeft(node);
     }
     //assert(level > 0);
-    byte *kvIdx = buf + stack[--level] + KEY_LEN_POS;
+    byte *kvIdx = current_block + stack[--level] + KEY_LEN_POS;
     *plen = kvIdx[0];
     kvIdx++;
     return kvIdx;
 }
 
-int16_t rb_tree_node_handler::getNext(int16_t n) {
+int16_t rb_tree::getNext(int16_t n) {
     int16_t r = getRight(n);
     if (r) {
         int16_t l;
@@ -455,7 +308,7 @@ int16_t rb_tree_node_handler::getNext(int16_t n) {
     return p;
 }
 
-int16_t rb_tree_node_handler::getPrevious(int16_t n) {
+int16_t rb_tree::getPrevious(int16_t n) {
     int16_t l = getLeft(n);
     if (l) {
         int16_t r;
@@ -474,7 +327,7 @@ int16_t rb_tree_node_handler::getPrevious(int16_t n) {
     return p;
 }
 
-void rb_tree_node_handler::rotateLeft(int16_t n) {
+void rb_tree::rotateLeft(int16_t n) {
     int16_t r = getRight(n);
     replaceNode(n, r);
     setRight(n, getLeft(r));
@@ -485,7 +338,7 @@ void rb_tree_node_handler::rotateLeft(int16_t n) {
     setParent(n, r);
 }
 
-void rb_tree_node_handler::rotateRight(int16_t n) {
+void rb_tree::rotateRight(int16_t n) {
     int16_t l = getLeft(n);
     replaceNode(n, l);
     setLeft(n, getRight(l));
@@ -496,7 +349,7 @@ void rb_tree_node_handler::rotateRight(int16_t n) {
     setParent(n, l);
 }
 
-void rb_tree_node_handler::replaceNode(int16_t oldn, int16_t newn) {
+void rb_tree::replaceNode(int16_t oldn, int16_t newn) {
     if (getParent(oldn) == 0) {
         setRoot(newn);
     } else {
@@ -510,21 +363,21 @@ void rb_tree_node_handler::replaceNode(int16_t oldn, int16_t newn) {
     }
 }
 
-void rb_tree_node_handler::insertCase1(int16_t n) {
+void rb_tree::insertCase1(int16_t n) {
     if (getParent(n) == 0)
         setColor(n, RB_BLACK);
     else
         insertCase2(n);
 }
 
-void rb_tree_node_handler::insertCase2(int16_t n) {
+void rb_tree::insertCase2(int16_t n) {
     if (getColor(getParent(n)) == RB_BLACK)
         return;
     else
         insertCase3(n);
 }
 
-void rb_tree_node_handler::insertCase3(int16_t n) {
+void rb_tree::insertCase3(int16_t n) {
     int16_t u = getUncle(n);
     if (u && getColor(u) == RB_RED) {
         setColor(getParent(n), RB_BLACK);
@@ -536,7 +389,7 @@ void rb_tree_node_handler::insertCase3(int16_t n) {
     }
 }
 
-void rb_tree_node_handler::insertCase4(int16_t n) {
+void rb_tree::insertCase4(int16_t n) {
     if (n == getRight(getParent(n))
             && getParent(n) == getLeft(getGrandParent(n))) {
         rotateLeft(getParent(n));
@@ -549,7 +402,7 @@ void rb_tree_node_handler::insertCase4(int16_t n) {
     insertCase5(n);
 }
 
-void rb_tree_node_handler::insertCase5(int16_t n) {
+void rb_tree::insertCase5(int16_t n) {
     setColor(getParent(n), RB_BLACK);
     setColor(getGrandParent(n), RB_RED);
     if (n == getLeft(getParent(n))
@@ -563,31 +416,31 @@ void rb_tree_node_handler::insertCase5(int16_t n) {
     }
 }
 
-int16_t rb_tree_node_handler::getLeft(int16_t n) {
+int16_t rb_tree::getLeft(int16_t n) {
 #if RB_TREE_NODE_SIZE == 512
-    return buf[n + LEFT_PTR_POS] + ((buf[n + RBT_BITMAP_POS] & 0x02) << 7);
+    return current_block[n + LEFT_PTR_POS] + ((current_block[n + RBT_BITMAP_POS] & 0x02) << 7);
 #else
-    return util::getInt(buf + n + LEFT_PTR_POS);
+    return util::getInt(current_block + n + LEFT_PTR_POS);
 #endif
 }
 
-int16_t rb_tree_node_handler::getRight(int16_t n) {
+int16_t rb_tree::getRight(int16_t n) {
 #if RB_TREE_NODE_SIZE == 512
-    return buf[n + RYTE_PTR_POS] + ((buf[n + RBT_BITMAP_POS] & 0x04) << 6);
+    return current_block[n + RYTE_PTR_POS] + ((current_block[n + RBT_BITMAP_POS] & 0x04) << 6);
 #else
-    return util::getInt(buf + n + RYTE_PTR_POS);
+    return util::getInt(current_block + n + RYTE_PTR_POS);
 #endif
 }
 
-int16_t rb_tree_node_handler::getParent(int16_t n) {
+int16_t rb_tree::getParent(int16_t n) {
 #if RB_TREE_NODE_SIZE == 512
-    return buf[n + PARENT_PTR_POS] + ((buf[n + RBT_BITMAP_POS] & 0x08) << 5);
+    return current_block[n + PARENT_PTR_POS] + ((current_block[n + RBT_BITMAP_POS] & 0x08) << 5);
 #else
-    return util::getInt(buf + n + PARENT_PTR_POS);
+    return util::getInt(current_block + n + PARENT_PTR_POS);
 #endif
 }
 
-int16_t rb_tree_node_handler::getSibling(int16_t n) {
+int16_t rb_tree::getSibling(int16_t n) {
     //assert(n != 0);
     //assert(getParent(n) != 0);
     if (n == getLeft(getParent(n)))
@@ -596,86 +449,83 @@ int16_t rb_tree_node_handler::getSibling(int16_t n) {
         return getLeft(getParent(n));
 }
 
-int16_t rb_tree_node_handler::getUncle(int16_t n) {
+int16_t rb_tree::getUncle(int16_t n) {
     //assert(n != NULL);
     //assert(getParent(n) != 0);
     //assert(getParent(getParent(n)) != 0);
     return getSibling(getParent(n));
 }
 
-int16_t rb_tree_node_handler::getGrandParent(int16_t n) {
+int16_t rb_tree::getGrandParent(int16_t n) {
     //assert(n != NULL);
     //assert(getParent(n) != 0);
     //assert(getParent(getParent(n)) != 0);
     return getParent(getParent(n));
 }
 
-int16_t rb_tree_node_handler::getRoot() {
-    return util::getInt(buf + ROOT_NODE_POS);
+int16_t rb_tree::getRoot() {
+    return util::getInt(current_block + ROOT_NODE_POS);
 }
 
-int16_t rb_tree_node_handler::getColor(int16_t n) {
+int16_t rb_tree::getColor(int16_t n) {
 #if RB_TREE_NODE_SIZE == 512
-    return buf[n + RBT_BITMAP_POS] & 0x01;
+    return current_block[n + RBT_BITMAP_POS] & 0x01;
 #else
-    return buf[n];
+    return current_block[n];
 #endif
 }
 
-void rb_tree_node_handler::setLeft(int16_t n, int16_t l) {
+void rb_tree::setLeft(int16_t n, int16_t l) {
 #if RB_TREE_NODE_SIZE == 512
-    buf[n + LEFT_PTR_POS] = l;
+    current_block[n + LEFT_PTR_POS] = l;
     if (l >= 256)
-        buf[n + RBT_BITMAP_POS] |= 0x02;
+        current_block[n + RBT_BITMAP_POS] |= 0x02;
     else
-        buf[n + RBT_BITMAP_POS] &= ~0x02;
+        current_block[n + RBT_BITMAP_POS] &= ~0x02;
 #else
-    util::setInt(buf + n + LEFT_PTR_POS, l);
+    util::setInt(current_block + n + LEFT_PTR_POS, l);
 #endif
 }
 
-void rb_tree_node_handler::setRight(int16_t n, int16_t r) {
+void rb_tree::setRight(int16_t n, int16_t r) {
 #if RB_TREE_NODE_SIZE == 512
-    buf[n + RYTE_PTR_POS] = r;
+    current_block[n + RYTE_PTR_POS] = r;
     if (r >= 256)
-        buf[n + RBT_BITMAP_POS] |= 0x04;
+        current_block[n + RBT_BITMAP_POS] |= 0x04;
     else
-        buf[n + RBT_BITMAP_POS] &= ~0x04;
+        current_block[n + RBT_BITMAP_POS] &= ~0x04;
 #else
-    util::setInt(buf + n + RYTE_PTR_POS, r);
+    util::setInt(current_block + n + RYTE_PTR_POS, r);
 #endif
 }
 
-void rb_tree_node_handler::setParent(int16_t n, int16_t p) {
+void rb_tree::setParent(int16_t n, int16_t p) {
 #if RB_TREE_NODE_SIZE == 512
-    buf[n + PARENT_PTR_POS] = p;
+    current_block[n + PARENT_PTR_POS] = p;
     if (p >= 256)
-        buf[n + RBT_BITMAP_POS] |= 0x08;
+        current_block[n + RBT_BITMAP_POS] |= 0x08;
     else
-        buf[n + RBT_BITMAP_POS] &= ~0x08;
+        current_block[n + RBT_BITMAP_POS] &= ~0x08;
 #else
-    util::setInt(buf + n + PARENT_PTR_POS, p);
+    util::setInt(current_block + n + PARENT_PTR_POS, p);
 #endif
 }
 
-void rb_tree_node_handler::setRoot(int16_t n) {
-    util::setInt(buf + ROOT_NODE_POS, n);
+void rb_tree::setRoot(int16_t n) {
+    util::setInt(current_block + ROOT_NODE_POS, n);
 }
 
-void rb_tree_node_handler::setColor(int16_t n, byte c) {
+void rb_tree::setColor(int16_t n, byte c) {
 #if RB_TREE_NODE_SIZE == 512
     if (c)
-        buf[n + RBT_BITMAP_POS] |= 0x01;
+        current_block[n + RBT_BITMAP_POS] |= 0x01;
     else
-        buf[n + RBT_BITMAP_POS] &= ~0x01;
+        current_block[n + RBT_BITMAP_POS] &= ~0x01;
 #else
-    buf[n] = c;
+    current_block[n] = c;
 #endif
 }
 
-byte *rb_tree_node_handler::getPtrPos() {
+byte *rb_tree::getPtrPos() {
     return NULL;
-}
-
-void rb_tree_node_handler::initVars() {
 }

@@ -5,7 +5,7 @@
 #include <cstring>
 #include <iostream>
 #endif
-#include "bplus_tree.h"
+#include "bplus_tree_handler.h"
 
 using namespace std;
 
@@ -18,35 +18,17 @@ using namespace std;
 #define BLK_HDR_SIZE 6
 #endif
 
-class basix_node_handler : public bplus_tree_node_handler {
+class basix : public bplus_tree_handler {
 private:
     inline int16_t binarySearch(const char *key, int16_t key_len);
 public:
     int16_t pos;
-    basix_node_handler(byte *m);
-    void initBuf();
-    void initVars();
-    inline void setBuf(byte *m);
     bool isFull(int16_t kv_lens);
-    void addData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
-    int16_t traverseToLeaf(byte *node_paths[] = null);
-    int16_t locate();
+    inline int16_t searchCurrentBlock();
+    void addData(int16_t idx);
     void insertCurrent();
+    inline byte *getChildPtrPos(int16_t idx);
     inline byte *getPtrPos();
+    inline int getHeaderSize();
 };
-
-class basix : public bplus_tree {
-private:
-    void recursiveUpdate(basix_node_handler *node, int16_t pos,
-            byte *node_paths[], int16_t level);
-public:
-    static int count1, count2;
-    basix();
-    ~basix();
-    void put(const char *key, int16_t key_len, const char *value,
-            int16_t value_len);
-    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
-};
-
-#endif

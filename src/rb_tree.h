@@ -4,7 +4,7 @@
 #include <cstring>
 #include <iostream>
 #include "GenTree.h"
-#include "bplus_tree.h"
+#include "bplus_tree_handler.h"
 
 using namespace std;
 
@@ -37,7 +37,7 @@ using namespace std;
 #define KEY_LEN_POS 7
 #endif
 
-class rb_tree_node_handler : public bplus_tree_node_handler {
+class rb_tree : public bplus_tree_handler {
 private:
     int16_t binarySearch(const char *key, int16_t key_len);
     inline int16_t getLeft(int16_t n);
@@ -64,7 +64,7 @@ private:
 public:
     int16_t pos;
     byte last_direction;
-    rb_tree_node_handler(byte *m);
+    rb_tree_node_handler *root;
     inline void setBuf(byte *m);
     inline void initBuf();
     inline int16_t getDataEndPos();
@@ -84,24 +84,9 @@ public:
     int16_t getPrevious(int16_t n);
     byte *split(byte *first_key, int16_t *first_len_ptr);
     void initVars();
-    inline char *getValueAt(int16_t *vlen);
-    inline byte *getChildPtr(int16_t pos);
-    byte *getPtrPos();
+    inline byte *getChildPtrPos(int16_t idx);
+    inline byte *getPtrPos();
+    inline int getHeaderSize();
 };
-
-class rb_tree : public bplus_tree {
-private:
-    void recursiveUpdate(rb_tree_node_handler *node, int16_t pos,
-            byte *node_paths[], int16_t level);
-public:
-    rb_tree_node_handler *root;
-    static int count1, count2;
-    rb_tree();
-    ~rb_tree();
-    void put(const char *key, int16_t key_len, const char *value,
-            int16_t value_len);
-    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
-};
-
 
 #endif

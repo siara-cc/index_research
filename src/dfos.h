@@ -5,7 +5,7 @@
 #include <cstring>
 #include <iostream>
 #endif
-#include "bplus_tree.h"
+#include "bplus_tree_handler.h"
 
 using namespace std;
 
@@ -24,14 +24,7 @@ using namespace std;
 #define DS_MAX_PFX_LEN buf[7]
 //#define MID_KEY_LEN buf[DS_MAX_PTR_BITMAP_BYTES+6]
 
-#define INSERT_AFTER 1
-#define INSERT_BEFORE 2
-#define INSERT_LEAF 3
-#define INSERT_EMPTY 4
-#define INSERT_THREAD 5
-#define INSERT_CONVERT 6
-
-class dfos_node_handler : public trie_node_handler {
+class dfos_node_handler : public bpt_trie_handler {
 private:
     const static byte need_counts[10];
     const static byte switch_map[8];
@@ -58,31 +51,22 @@ private:
     int deleteSegment(byte *t, byte *delete_start);
 public:
     byte pos, key_at_pos;
-    dfos_node_handler(byte *m);
-    inline int16_t locate();
-    int16_t traverseToLeaf(byte *node_paths[] = null);
-    void initBuf();
-    inline void initVars();
-    void setBuf(byte *m);
     bool isFull(int16_t kv_lens);
-    void addData();
+    inline int16_t searchCurrentBlock();
+    void addData(int16_t idx);
     byte *split(byte *first_key, int16_t *first_len_ptr);
     void insertCurrent();
+    inline byte *getChildPtrPos(int16_t idx);
     inline byte *getPtrPos();
+    inline int getHeaderSize();
 };
 
-class dfos : public bplus_tree {
-private:
-    void recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
-            byte *node_paths[], int16_t level);
+class dfos : public bplus_tree_handler {
 public:
     static long count1, count2;
     static byte split_buf[DFOS_NODE_SIZE];
     dfos();
     ~dfos();
-    void put(const char *key, int16_t key_len, const char *value,
-            int16_t value_len);
-    char *get(const char *key, int16_t key_len, int16_t *pValueLen);
     static void printCounts() {
         util::print("Count1:");
         util::print(count1);

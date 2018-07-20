@@ -2,35 +2,7 @@
 #include <stdint.h>
 #include "dfqx.h"
 
-char *dfqx::get(const char *key, int16_t key_len, int16_t *pValueLen) {
-    dfqx_node_handler node(root_data);
-    node.key = key;
-    node.key_len = key_len;
-    if (node.traverseToLeaf() < 0)
-        return null;
-    char * ret = node.getValueAt(pValueLen);
-    return ret;
-}
-
-int16_t dfqx_node_handler::traverseToLeaf(byte *node_paths[]) {
-    byte level = 1;
-    if (node_paths)
-        *node_paths = buf;
-    while (!isLeaf()) {
-        int16_t idx = locate();
-        if (idx < 0) {
-            idx++;
-            idx = ~idx;
-        }
-        key_at = buf + getPtr(idx);
-        setBuf(getChildPtr(key_at));
-        if (node_paths)
-            node_paths[level++] = buf;
-    }
-    return locate();
-}
-
-byte *dfqx_node_handler::skipChildren(byte *t, uint16_t& count) {
+byte *dfqx::skipChildren(byte *t, uint16_t& count) {
     while (count & xFF) {
         byte tc = *t++;
         count -= tc & x01;
@@ -40,7 +12,7 @@ byte *dfqx_node_handler::skipChildren(byte *t, uint16_t& count) {
     return t;
 }
 
-int16_t dfqx_node_handler::locate() {
+int16_t dfqx::searchCurrentNode() {
     byte *t = trie;
     uint16_t to_skip = 0;
     byte key_char = *key;
@@ -117,120 +89,7 @@ int16_t dfqx_node_handler::locate() {
     return -1; // dummy - will never reach here
 }
 
-dfqx_node_handler::dfqx_node_handler(byte * m) {
-    setBuf(m);
-}
-
-void dfqx::put(const char *key, int16_t key_len, const char *value,
-        int16_t value_len) {
-    byte *node_paths[10];
-    dfqx_node_handler node(root_data);
-    node.key = key;
-    node.key_len = key_len;
-    node.value = value;
-    node.value_len = value_len;
-    if (node.filledSize() == 0) {
-        node.pos = 0;
-        node.keyPos = 1;
-        node.insertState = INSERT_EMPTY;
-        node.addData();
-        total_size++;
-    } else {
-        node.traverseToLeaf(node_paths);
-        recursiveUpdate(&node, -1, node_paths, numLevels - 1);
-    }
-}
-
-void dfqx::recursiveUpdate(bplus_tree_node_handler *node, int16_t pos,
-        byte *node_paths[], int16_t level) {
-    //int16_t idx = pos; // lastSearchPos[level];
-    if (pos < 0) {
-        pos = ~pos;
-        if (node->isFull(node->key_len + node->value_len)) {
-            //std::cout << "Full\n" << std::endl;
-            //if (maxKeyCount < block->filledSize())
-            //    maxKeyCount = block->filledSize();
-            //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->TRIE_LEN);
-            //cout << (int) node->TRIE_LEN << endl;
-            if (node->isLeaf()) {
-                maxKeyCountLeaf += node->filledSize();
-                maxTrieLenLeaf += node->BPT_TRIE_LEN;
-                blockCountLeaf++;
-            } else {
-                maxKeyCountNode += node->filledSize();
-                maxTrieLenNode += node->BPT_TRIE_LEN;
-                blockCountNode++;
-            }
-                //maxKeyCount += node->BPT_TRIE_LEN;
-            //maxKeyCount += node->PREFIX_LEN;
-            byte first_key[node->BPT_MAX_KEY_LEN];
-            int16_t first_len;
-            byte *b = node->split(first_key, &first_len);
-            dfqx_node_handler new_block(b);
-            int16_t cmp = util::compare((char *) first_key, first_len,
-                    node->key, node->key_len);
-            if (cmp <= 0) {
-                new_block.initVars();
-                new_block.key = node->key;
-                new_block.key_len = node->key_len;
-                new_block.value = node->value;
-                new_block.value_len = node->value_len;
-                pos = ~new_block.locate();
-                new_block.addData();
-            } else {
-                node->initVars();
-                pos = ~node->locate();
-                node->addData();
-            }
-            if (root_data == node->buf) {
-                blockCountNode++;
-                root_data = (byte *) util::alignedAlloc(DFQX_NODE_SIZE);
-                dfqx_node_handler root(root_data);
-                root.initBuf();
-                root.setLeaf(0);
-                byte addr[9];
-                root.initVars();
-                root.key = "";
-                root.key_len = 1;
-                root.value = (char *) addr;
-                root.value_len = util::ptrToBytes((unsigned long) node->buf, addr);
-                root.pos = 0;
-                root.keyPos = 1;
-                root.insertState = INSERT_EMPTY;
-                root.addData();
-                root.initVars();
-                root.key = (char *) first_key;
-                root.key_len = first_len;
-                root.value = (char *) addr;
-                root.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
-                root.locate();
-                root.addData();
-                numLevels++;
-            } else {
-                int16_t prev_level = level - 1;
-                byte *parent_data = node_paths[prev_level];
-                dfqx_node_handler parent(parent_data);
-                byte addr[9];
-                parent.initVars();
-                parent.key = (char *) first_key;
-                parent.key_len = first_len;
-                parent.value = (char *) addr;
-                parent.value_len = util::ptrToBytes((unsigned long) new_block.buf, addr);
-                parent.locate();
-                recursiveUpdate(&parent, -1, node_paths, prev_level);
-            }
-        } else
-            node->addData();
-    } else {
-        //if (node->isLeaf) {
-        //    int16_t vIdx = idx + mSizeBy2;
-        //    returnValue = (V) arr[vIdx];
-        //    arr[vIdx] = value;
-        //}
-    }
-}
-
-byte *dfqx_node_handler::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child_leaf) {
+byte *dfqx::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child_leaf) {
     do {
         while (ctr > x03) {
             if (tc & x01) {
@@ -265,10 +124,10 @@ byte *dfqx_node_handler::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, 
     return t;
 }
 
-byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
+byte *dfqx::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t orig_filled_size = filledSize();
     byte *b = (byte *) util::alignedAlloc(DFQX_NODE_SIZE);
-    dfqx_node_handler new_block(b);
+    dfqx new_block(b);
     new_block.initBuf();
     if (!isLeaf())
         new_block.setLeaf(false);
@@ -296,22 +155,22 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t idx;
     for (idx = 0; idx < orig_filled_size; idx++) {
         int16_t src_idx = getPtr(idx);
-        int16_t kv_len = buf[src_idx];
+        int16_t kv_len = current_block[src_idx];
         kv_len++;
-        kv_len += buf[src_idx + kv_len];
+        kv_len += current_block[src_idx + kv_len];
         kv_len++;
         tot_len += kv_len;
-        memcpy(new_block.buf + kv_last_pos, buf + src_idx, kv_len);
+        memcpy(new_block.current_block + kv_last_pos, current_block + src_idx, kv_len);
         kv_last_pos += kv_len;
         if (brk_idx == -1) {
             t = nextKey(first_key, tp, t, ctr, tc, child_leaf);
             //if (tot_len > halfKVLen) {
-            //memcpy(first_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
-            //first_key[keyPos+1+buf[src_idx]] = 0;
+            //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
+            //first_key[keyPos+1+current_block[src_idx]] = 0;
             //cout << first_key << endl;
             if (tot_len > halfKVLen || idx == (orig_filled_size / 2)) {
-                //memcpy(first_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
-                //first_key[keyPos+1+buf[src_idx]] = 0;
+                //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
+                //first_key[keyPos+1+current_block[src_idx]] = 0;
                 //cout << first_key << ":";
                 brk_idx = idx + 1;
                 brk_kv_pos = kv_last_pos;
@@ -321,27 +180,27 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
                 t = new_block.nextKey(first_key, tp, t, ctr, tc, child_leaf);
                 keyPos = new_block.keyPos;
                 //src_idx = getPtr(idx + 1);
-                //memcpy(first_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
-                //first_key[keyPos+1+buf[src_idx]] = 0;
+                //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
+                //first_key[keyPos+1+current_block[src_idx]] = 0;
                 //cout << first_key << endl;
             }
         }
     }
     kv_last_pos = getKVLastPos() + DFQX_NODE_SIZE - kv_last_pos;
     new_block.setKVLastPos(kv_last_pos);
-    memmove(new_block.buf + kv_last_pos, new_block.buf + getKVLastPos(), DFQX_NODE_SIZE - kv_last_pos);
+    memmove(new_block.current_block + kv_last_pos, new_block.current_block + getKVLastPos(), DFQX_NODE_SIZE - kv_last_pos);
     brk_kv_pos += (kv_last_pos - getKVLastPos());
     int16_t diff = DFQX_NODE_SIZE - brk_kv_pos;
     for (idx = 0; idx < orig_filled_size; idx++) {
         new_block.insPtr(idx, kv_last_pos + (idx < brk_idx ? diff : 0));
-        kv_last_pos += new_block.buf[kv_last_pos];
+        kv_last_pos += new_block.current_block[kv_last_pos];
         kv_last_pos++;
-        kv_last_pos += new_block.buf[kv_last_pos];
+        kv_last_pos += new_block.current_block[kv_last_pos];
         kv_last_pos++;
     }
     kv_last_pos = new_block.getKVLastPos();
 #if BPT_9_BIT_PTR == 1
-    memcpy(buf + DFQX_HDR_SIZE, new_block.buf + DFQX_HDR_SIZE, DQ_MAX_PTR_BITMAP_BYTES);
+    memcpy(current_block + DFQX_HDR_SIZE, new_block.current_block + DFQX_HDR_SIZE, DQ_MAX_PTR_BITMAP_BYTES);
     memcpy(trie + BPT_TRIE_LEN, new_block.trie + new_block.BPT_TRIE_LEN, brk_idx);
 #else
     memcpy(trie + BPT_TRIE_LEN, new_block.trie + new_block.BPT_TRIE_LEN, (brk_idx << 1));
@@ -366,8 +225,8 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
 
     {
         int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
-        memcpy(buf + DFQX_NODE_SIZE - old_blk_new_len,
-                new_block.buf + kv_last_pos, old_blk_new_len); // Copy back first half to old block
+        memcpy(current_block + DFQX_NODE_SIZE - old_blk_new_len,
+                new_block.current_block + kv_last_pos, old_blk_new_len); // Copy back first half to old block
         setKVLastPos(DFQX_NODE_SIZE - old_blk_new_len);
         setFilledSize(brk_idx);
     }
@@ -396,10 +255,10 @@ byte *dfqx_node_handler::split(byte *first_key, int16_t *first_len_ptr) {
         new_block.setFilledSize(new_size);
     }
 
-    return new_block.buf;
+    return new_block.current_block;
 }
 
-void dfqx_node_handler::movePtrList(byte orig_trie_len) {
+void dfqx::movePtrList(byte orig_trie_len) {
 #if BPT_9_BIT_PTR == 1
     memmove(trie + BPT_TRIE_LEN, trie + orig_trie_len, filledSize());
 #else
@@ -407,7 +266,7 @@ void dfqx_node_handler::movePtrList(byte orig_trie_len) {
 #endif
 }
 
-void dfqx_node_handler::deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
+void dfqx::deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
     byte orig_trie_len = BPT_TRIE_LEN;
     for (int idx = brk_key_len; idx >= 0; idx--) {
         byte *t = trie + tp[idx];
@@ -434,7 +293,7 @@ void dfqx_node_handler::deleteTrieLastHalf(int16_t brk_key_len, byte *first_key,
     movePtrList(orig_trie_len);
 }
 
-int dfqx_node_handler::deleteSegment(byte *delete_end, byte *delete_start) {
+int dfqx::deleteSegment(byte *delete_end, byte *delete_start) {
     int count = delete_end - delete_start;
     if (count) {
         BPT_TRIE_LEN -= count;
@@ -443,7 +302,7 @@ int dfqx_node_handler::deleteSegment(byte *delete_end, byte *delete_start) {
     return count;
 }
 
-void dfqx_node_handler::deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
+void dfqx::deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
     byte orig_trie_len = BPT_TRIE_LEN;
     for (int idx = brk_key_len; idx >= 0; idx--) {
         byte *t = trie + tp[idx];
@@ -470,7 +329,7 @@ void dfqx_node_handler::deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key
 
 dfqx::dfqx() {
     root_data = (byte *) util::alignedAlloc(DFQX_NODE_SIZE);
-    dfqx_node_handler root(root_data);
+    dfqx root(root_data);
     root.initBuf();
     total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
     maxTrieLenLeaf = maxTrieLenNode = 0;
@@ -479,61 +338,24 @@ dfqx::dfqx() {
     count1 = 0;
 }
 
-dfqx::~dfqx() {
-    delete root_data;
-}
-
-void dfqx_node_handler::initBuf() {
-    //memset(buf, '\0', DFQX_NODE_SIZE);
-    setLeaf(1);
-    setFilledSize(0);
-    BPT_TRIE_LEN = 0;
-    BPT_MAX_KEY_LEN = 1;
-    DQ_MAX_PFX_LEN = 1;
-    //MID_KEY_LEN = 0;
-    setKVLastPos(DFQX_NODE_SIZE);
-    trie = buf + DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES;
-#if BPT_9_BIT_PTR == 1
-#if BPT_INT64MAP == 1
-    bitmap = (uint64_t *) (buf + DFQX_HDR_SIZE);
-#else
-    bitmap1 = (uint32_t *) (buf + DFQX_HDR_SIZE);
-    bitmap2 = bitmap1 + 1;
-#endif
-#endif
-}
-
-void dfqx_node_handler::setBuf(byte *m) {
-    buf = m;
-    trie = buf + DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES;
-#if BPT_9_BIT_PTR == 1
-#if BPT_INT64MAP == 1
-    bitmap = (uint64_t *) (buf + DFQX_HDR_SIZE);
-#else
-    bitmap1 = (uint32_t *) (buf + DFQX_HDR_SIZE);
-    bitmap2 = bitmap1 + 1;
-#endif
-#endif
-}
-
-void dfqx_node_handler::addData() {
+void dfqx::addData(int16_t idx) {
 
     insertCurrent();
 
     int16_t key_left = key_len - keyPos;
     int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
     setKVLastPos(kv_last_pos);
-    buf[kv_last_pos] = key_left;
+    current_block[kv_last_pos] = key_left;
     if (key_left)
-        memcpy(buf + kv_last_pos + 1, key + keyPos, key_left);
-    buf[kv_last_pos + key_left + 1] = value_len;
-    memcpy(buf + kv_last_pos + key_left + 2, value, value_len);
+        memcpy(current_block + kv_last_pos + 1, key + keyPos, key_left);
+    current_block[kv_last_pos + key_left + 1] = value_len;
+    memcpy(current_block + kv_last_pos + key_left + 2, value, value_len);
 
     insPtr(pos, kv_last_pos);
 
 }
 
-bool dfqx_node_handler::isFull(int16_t kv_len) {
+bool dfqx::isFull(int16_t kv_len) {
     decodeNeedCount();
     int16_t ptr_size = filledSize() + 1;
 #if BPT_9_BIT_PTR == 0
@@ -550,7 +372,7 @@ bool dfqx_node_handler::isFull(int16_t kv_len) {
     return false;
 }
 
-void dfqx_node_handler::insBytesWithPtrs(byte *ptr, int16_t len) {
+void dfqx::insBytesWithPtrs(byte *ptr, int16_t len) {
 #if BPT_9_BIT_PTR == 1
     memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
@@ -559,7 +381,7 @@ void dfqx_node_handler::insBytesWithPtrs(byte *ptr, int16_t len) {
     BPT_TRIE_LEN += len;
 }
 
-void dfqx_node_handler::insAtWithPtrs(byte *ptr, const char *s, byte len) {
+void dfqx::insAtWithPtrs(byte *ptr, const char *s, byte len) {
 #if BPT_9_BIT_PTR == 1
     memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
@@ -569,7 +391,7 @@ void dfqx_node_handler::insAtWithPtrs(byte *ptr, const char *s, byte len) {
     BPT_TRIE_LEN += len;
 }
 
-void dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b, const char *s, byte len) {
+void dfqx::insAtWithPtrs(byte *ptr, byte b, const char *s, byte len) {
 #if BPT_9_BIT_PTR == 1
     memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
@@ -581,7 +403,7 @@ void dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b, const char *s, byte len
     BPT_TRIE_LEN++;
 }
 
-byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2) {
+byte dfqx::insAtWithPtrs(byte *ptr, byte b1, byte b2) {
 #if BPT_9_BIT_PTR == 1
     memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
@@ -593,7 +415,7 @@ byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2) {
     return 2;
 }
 
-byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3) {
+byte dfqx::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3) {
 #if BPT_9_BIT_PTR == 1
     memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
@@ -606,7 +428,7 @@ byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3) {
     return 3;
 }
 
-byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
+byte dfqx::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
 #if BPT_9_BIT_PTR == 1
     memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
 #else
@@ -620,7 +442,7 @@ byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte
     return 4;
 }
 
-byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
+byte dfqx::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
         byte b5) {
 #if BPT_9_BIT_PTR == 1
     memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
@@ -636,7 +458,7 @@ byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte
     return 5;
 }
 
-byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
+byte dfqx::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
         byte b5, byte b6) {
 #if BPT_9_BIT_PTR == 1
     memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
@@ -653,7 +475,7 @@ byte dfqx_node_handler::insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte
     return 6;
 }
 
-void dfqx_node_handler::updateSkipLens(byte *loop_upto, byte *covering_upto, int diff) {
+void dfqx::updateSkipLens(byte *loop_upto, byte *covering_upto, int diff) {
     byte *t = trie;
     byte tc = *t++;
     loop_upto++;
@@ -672,7 +494,7 @@ void dfqx_node_handler::updateSkipLens(byte *loop_upto, byte *covering_upto, int
     }
 }
 
-void dfqx_node_handler::insertCurrent() {
+void dfqx::insertCurrent() {
     byte key_char;
     byte mask;
 
@@ -785,7 +607,7 @@ void dfqx_node_handler::insertCurrent() {
             key_at_len -= diff;
             p += diff;
             if (key_at_len >= 0) {
-                buf[p] = key_at_len;
+                current_block[p] = key_at_len;
                 setPtr(key_at_pos, p);
             }
         }
@@ -804,36 +626,33 @@ void dfqx_node_handler::insertCurrent() {
 
 }
 
-void dfqx_node_handler::append(byte b) {
+void dfqx::append(byte b) {
     trie[BPT_TRIE_LEN++] = b;
 }
 
-byte *dfqx_node_handler::getPtrPos() {
+byte *dfqx::getPtrPos() {
     return trie + BPT_TRIE_LEN;
 }
 
-void dfqx_node_handler::decodeNeedCount() {
+void dfqx::decodeNeedCount() {
     if (insertState != INSERT_THREAD)
         need_count = need_counts[insertState];
 }
-const byte dfqx_node_handler::need_counts[10] = {0, 2, 2, 2, 2, 0, 0, 0, 0, 0};
+const byte dfqx::need_counts[10] = {0, 2, 2, 2, 2, 0, 0, 0, 0, 0};
 
-void dfqx_node_handler::initVars() {
-}
-
-byte dfqx_node_handler::left_mask[4] = { 0x07, 0x03, 0x01, 0x00 };
-byte dfqx_node_handler::left_incl_mask[4] = { 0x0F, 0x07, 0x03, 0x01 };
-byte dfqx_node_handler::ryte_mask[4] = { 0x00, 0x08, 0x0C, 0x0E };
-byte dfqx_node_handler::dbl_ryte_mask[4] = { 0x00, 0x88, 0xCC, 0xEE };
-byte dfqx_node_handler::ryte_incl_mask[4] = { 0x08, 0x0C, 0x0E, 0x0F };
-byte dfqx_node_handler::first_bit_offset[16] = { 0x04, 0x03, 0x02, 0x02, 0x01,
+byte dfqx::left_mask[4] = { 0x07, 0x03, 0x01, 0x00 };
+byte dfqx::left_incl_mask[4] = { 0x0F, 0x07, 0x03, 0x01 };
+byte dfqx::ryte_mask[4] = { 0x00, 0x08, 0x0C, 0x0E };
+byte dfqx::dbl_ryte_mask[4] = { 0x00, 0x88, 0xCC, 0xEE };
+byte dfqx::ryte_incl_mask[4] = { 0x08, 0x0C, 0x0E, 0x0F };
+byte dfqx::first_bit_offset[16] = { 0x04, 0x03, 0x02, 0x02, 0x01,
         0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-byte dfqx_node_handler::bit_count[16] = { 0x00, 0x01, 0x01, 0x02, 0x01,
+byte dfqx::bit_count[16] = { 0x00, 0x01, 0x01, 0x02, 0x01,
         0x02, 0x02, 0x03, 0x01, 0x02, 0x02, 0x03, 0x02, 0x03, 0x03, 0x04 };
 #if (defined(__AVR__))
-const PROGMEM uint16_t dfqx_node_handler::dbl_bit_count[256]
+const PROGMEM uint16_t dfqx::dbl_bit_count[256]
 #else
-const uint16_t dfqx_node_handler::dbl_bit_count[256]
+const uint16_t dfqx::dbl_bit_count[256]
 #endif
   = {
         //0000   0001   0010   0011   0100   0101   0110   0111   1000   1001   1010   1011   1100   1101   1110   1111
@@ -854,4 +673,3 @@ const uint16_t dfqx_node_handler::dbl_bit_count[256]
         0x300, 0x301, 0x301, 0x302, 0x301, 0x302, 0x302, 0x303, 0x301, 0x302, 0x302, 0x303, 0x302, 0x303, 0x303, 0x304, //1110
         0x400, 0x401, 0x401, 0x402, 0x401, 0x402, 0x402, 0x403, 0x401, 0x402, 0x402, 0x403, 0x402, 0x403, 0x403, 0x404  //1111
     };
-long dfqx::count1, dfqx::count2;
