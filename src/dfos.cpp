@@ -32,7 +32,7 @@ byte *dfos::skipChildren(byte *t, byte count) {
     return t;
 }
 
-int16_t dfos::searchCurrentNode() {
+int16_t dfos::searchCurrentBlock() {
     byte key_char = *key;
     byte *t = trie;
     byte trie_char = *t;
@@ -192,15 +192,17 @@ byte *dfos::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byt
 
 byte *dfos::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t orig_filled_size = filledSize();
+    const uint16_t DFOS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
     byte *b = (byte *) util::alignedAlloc(DFOS_NODE_SIZE);
-    dfos new_block(b);
-    new_block.initBuf();
+    dfos new_block;
+    new_block.setCurrentBlock(b);
+    new_block.initCurrentBlock();
     if (!isLeaf())
         new_block.setLeaf(false);
     memcpy(new_block.trie, trie, BPT_TRIE_LEN);
     new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
-    new_block.DS_MAX_PFX_LEN = DS_MAX_PFX_LEN;
+    new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = DFOS_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
@@ -210,8 +212,8 @@ byte *dfos::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t tot_len;
     brk_kv_pos = tot_len = 0;
     char ctr = x08;
-    byte tp[DS_MAX_PFX_LEN + 1];
-    byte last_key[DS_MAX_PFX_LEN + 1];
+    byte tp[BPT_MAX_PFX_LEN + 1];
+    byte last_key[BPT_MAX_PFX_LEN + 1];
     int16_t last_key_len = 0;
     byte *t = trie;
     byte tc, child, leaf;
@@ -453,6 +455,10 @@ void dfos::consolidateInitialPrefix(byte *t) {
     }
 }
 
+void dfos::addFirstData() {
+    addData(0);
+}
+
 void dfos::addData(int16_t idx) {
 
     insertCurrent();
@@ -470,7 +476,7 @@ void dfos::addData(int16_t idx) {
 
 }
 
-bool dfos::isFull(int16_t kv_len) {
+bool dfos::isFull() {
     decodeNeedCount();
     int16_t ptr_size = filledSize() + 1;
 #if BPT_9_BIT_PTR == 0
@@ -478,7 +484,7 @@ bool dfos::isFull(int16_t kv_len) {
 #endif
     if (getKVLastPos()
             < (DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + BPT_TRIE_LEN
-                    + need_count + ptr_size + kv_len + 3))
+                    + need_count + ptr_size + key_len + value_len + 3))
         return true;
     if (filledSize() > DS_MAX_PTRS)
         return true;
@@ -609,7 +615,7 @@ void dfos::insertCurrent() {
             memcpy(triePos, key + keyPos, need_count);
             triePos += need_count;
             p += need_count;
-            //dfos::count1 += need_count;
+            //count1 += need_count;
         }
 #else
             need_count = (p == min ? 2 : 0);
@@ -698,8 +704,8 @@ void dfos::insertCurrent() {
         break;
     }
 
-    if (DS_MAX_PFX_LEN <= (isLeaf() ? keyPos : key_len))
-        DS_MAX_PFX_LEN = (isLeaf() ? keyPos + 1 : key_len);
+    if (BPT_MAX_PFX_LEN <= (isLeaf() ? keyPos : key_len))
+        BPT_MAX_PFX_LEN = (isLeaf() ? keyPos + 1 : key_len);
 
     if (BPT_MAX_KEY_LEN < key_len)
         BPT_MAX_KEY_LEN = key_len;

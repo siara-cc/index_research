@@ -9,12 +9,9 @@
 
 using namespace std;
 
-#define BFT_UNIT_SIZE 4
-
-#define BFT_NODE_SIZE 512
+#define BFT_UNIT_SIZE 3
 
 #define BFT_HDR_SIZE 8
-#define BFT_PREFIX_LEN buf[7]
 
 #define BFT_MAX_KEY_PREFIX_LEN 60
 
@@ -32,8 +29,9 @@ public:
     }
 };
 
-class bft_node_handler : public bpt_trie_handler {
+class bft : public bpt_trie_handler {
 private:
+    byte *split_buf;
     const static byte need_counts[10];
     void decodeNeedCount();
     int16_t nextPtr(bft_iterator_status& s);
@@ -45,9 +43,18 @@ private:
     void appendPtr(int16_t p);
 public:
     int16_t last_child_pos;
-    bool isFull(int16_t kv_lens);
+    bft(int16_t leaf_block_sz = 512, int16_t parent_block_sz = 512) :
+        bpt_trie_handler(leaf_block_sz, parent_block_sz) {
+        split_buf = (byte *) util::alignedAlloc(leaf_block_size > parent_block_size ?
+                leaf_block_size : parent_block_size);
+    }
+    ~bft() {
+        delete split_buf;
+    }
+    bool isFull();
     inline int16_t searchCurrentBlock();
     void addData(int16_t idx);
+    void addFirstData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
     int16_t getFirstPtr();
     int16_t insertCurrent();
@@ -55,14 +62,6 @@ public:
     inline byte *getChildPtrPos(int16_t idx);
     inline byte *getPtrPos();
     inline int getHeaderSize();
-};
-
-class bft : public bplus_tree_handler {
-public:
-    static byte split_buf[BFT_NODE_SIZE];
-    static int count1, count2;
-    bft();
-    ~bft();
 };
 
 #endif

@@ -24,12 +24,10 @@ using namespace std;
 
 #define BQ_MIDDLE_PREFIX 1
 
-#define BFQS_NODE_SIZE 768
-
 #define BFQS_HDR_SIZE 8
 #define BQ_MAX_PFX_LEN buf[7]
 
-class bfqs_node_handler: public bpt_trie_handler {
+class bfqs: public bpt_trie_handler {
 private:
     const static byte need_counts[10];
     void decodeNeedCount();
@@ -52,20 +50,14 @@ public:
     byte last_leaf_child;
     inline int16_t searchCurrentBlock();
     void addData(int16_t idx);
-    bool isFull(int16_t kv_lens);
+    void addFirstData();
+    bool isFull();
     byte *split(byte *first_key, int16_t *first_len_ptr);
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);
     inline byte *getChildPtrPos(int16_t idx);
     inline byte *getPtrPos();
     inline int getHeaderSize();
-};
-
-class bfqs : public bplus_tree_handler {
-public:
-    static int count1, count2;
-    bfqs();
-    ~bfqs();
 };
 
 #endif

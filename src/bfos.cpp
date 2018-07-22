@@ -183,6 +183,10 @@ void bfos::setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) {
     }
 }
 
+void bfos::addFirstData() {
+    addData(0);
+}
+
 void bfos::addData(int16_t idx) {
 
     int16_t ptr = insertCurrent();
@@ -200,9 +204,10 @@ void bfos::addData(int16_t idx) {
 
 }
 
-bool bfos::isFull(int16_t kv_len) {
+bool bfos::isFull() {
     decodeNeedCount();
-    if (getKVLastPos() < (BFOS_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 3))
+    if (getKVLastPos() < (BFOS_HDR_SIZE + BPT_TRIE_LEN
+            + need_count + key_len + value_len + 3))
         return true;
     if (BPT_TRIE_LEN > 252 - need_count)
         return true;
@@ -211,11 +216,13 @@ bool bfos::isFull(int16_t kv_len) {
 
 byte *bfos::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t orig_filled_size = filledSize();
+    const uint16_t BFOS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
     byte *b = (byte *) util::alignedAlloc(BFOS_NODE_SIZE);
-    bfos new_block(b);
-    new_block.initBuf();
+    bfos new_block;
+    new_block.setCurrentBlock(b);
+    new_block.initCurrentBlock();
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
-    new_block.BX_MAX_PFX_LEN = BX_MAX_PFX_LEN;
+    new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVPos = kv_last_pos + (BFOS_NODE_SIZE - kv_last_pos) / 2;
 
@@ -223,7 +230,7 @@ byte *bfos::split(byte *first_key, int16_t *first_len_ptr) {
     brk_idx = brk_kv_pos = 0;
     // (1) move all data to new_block in order
     int16_t idx = 0;
-    byte alloc_size = BX_MAX_PFX_LEN + 1;
+    byte alloc_size = BPT_MAX_PFX_LEN + 1;
     byte curr_key[alloc_size];
     byte tp[alloc_size];
     byte tp_cpy[alloc_size];
@@ -446,8 +453,8 @@ byte bfos::copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_len, byte *dest
     byte *d;
     byte *t = trie;
     byte *new_trie = dest;
-    byte tp_child[BX_MAX_PFX_LEN];
-    byte child_num[BX_MAX_PFX_LEN];
+    byte tp_child[BPT_MAX_PFX_LEN];
+    byte child_num[BPT_MAX_PFX_LEN];
     int lvl = 0;
     if (*t & x01) {
         byte len = (*t >> 1);
@@ -757,7 +764,7 @@ int16_t bfos::insertThread() {
         append((need_count << 1) | x01);
         append(key + keyPos, need_count);
         p += need_count;
-        //dfox::count1 += need_count;
+        //count1 += need_count;
     }
 #endif
     while (p < min) {
@@ -880,8 +887,8 @@ int16_t bfos::insertCurrent() {
         break;
     }
 
-    if (BX_MAX_PFX_LEN < keyPos)
-        BX_MAX_PFX_LEN = keyPos;
+    if (BPT_MAX_PFX_LEN < keyPos)
+        BPT_MAX_PFX_LEN = keyPos;
 
     if (BPT_MAX_KEY_LEN < key_len)
         BPT_MAX_KEY_LEN = key_len;

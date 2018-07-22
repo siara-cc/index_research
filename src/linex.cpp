@@ -13,6 +13,10 @@ int linex::getHeaderSize() {
     return LX_BLK_HDR_SIZE;
 }
 
+void linex::addFirstData() {
+    addData(0);
+}
+
 void linex::addData(int16_t idx) {
     int16_t prev_plen = 0;
     int16_t filled_size = filledSize();
@@ -73,9 +77,11 @@ void linex::addData(int16_t idx) {
 
 byte *linex::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t filled_size = filledSize();
+    const uint16_t LINEX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
     byte *b = (byte *) util::alignedAlloc(LINEX_NODE_SIZE);
-    linex new_block(b);
-    new_block.initBuf();
+    linex new_block;
+    new_block.setCurrentBlock(b);
+    new_block.initCurrentBlock();
     if (!isLeaf())
         new_block.setLeaf(false);
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
@@ -221,13 +227,14 @@ int16_t linex::linearSearch() {
     return ~idx;
 }
 
-int16_t linex::searchCurrentNode() {
+int16_t linex::searchCurrentBlock() {
     pos = linearSearch();
     return pos;
 }
 
-bool linex::isFull(int16_t kv_len) {
-    if ((getKVLastPos() + kv_len + 3) >= LINEX_NODE_SIZE)
+bool linex::isFull() {
+    uint16_t LINEX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
+    if ((getKVLastPos() + key_len + value_len + 3) >= LINEX_NODE_SIZE)
         return true;
     return false;
 }

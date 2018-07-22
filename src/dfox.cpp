@@ -7,7 +7,7 @@ int dfox::getHeaderSize() {
 }
 
 byte *dfox::getChildPtrPos(int16_t idx) {
-    return last_t - current_block < getKVLastPos() ? getLastPtr() : last_t;
+    return current_block + getPtr(last_t);
 }
 
 byte *dfox::skipChildren(byte *t, int16_t count) {
@@ -151,6 +151,17 @@ int16_t dfox::searchCurrentBlock() {
     return -1;
 }
 
+int16_t dfox::getPtr(byte *t) {
+    return ((*t >> 2) << 8) + t[1];
+}
+
+byte *dfox::getKey(byte *t, byte *plen) {
+    byte *kvIdx = current_block + getPtr(t);
+    *plen = kvIdx[0];
+    kvIdx++;
+    return kvIdx;
+}
+
 byte *dfox::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf) {
     do {
         while (ctr > x07) {
@@ -218,13 +229,15 @@ byte *dfox::nextPtr(byte *t) {
 
 byte *dfox::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t orig_filled_size = filledSize();
+    const uint16_t DFOX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
     byte *b = (byte *) util::alignedAlloc(DFOX_NODE_SIZE);
-    dfox new_block(b);
-    new_block.initBuf();
+    dfox new_block;
+    new_block.setCurrentBlock(b);
+    new_block.initCurrentBlock();
     if (!isLeaf())
         new_block.setLeaf(false);
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
-    new_block.DX_MAX_PFX_LEN = DX_MAX_PFX_LEN;
+    new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = DFOX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
@@ -235,7 +248,7 @@ byte *dfox::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t tot_len;
     brk_kv_pos = tot_len = 0;
     char ctr = x08;
-    byte tp[DX_MAX_PFX_LEN];
+    byte tp[BPT_MAX_PFX_LEN + 1];
     byte *t = trie;
     byte tc, child, leaf;
     tc = child = leaf = 0;
@@ -419,6 +432,10 @@ void dfox::deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
     deleteSegment(trie + tp[0], trie);
 }
 
+void dfox::addFirstData() {
+    addData(0);
+}
+
 void dfox::addData(int16_t idx) {
 
     byte *ptr = insertCurrent();
@@ -437,9 +454,10 @@ void dfox::addData(int16_t idx) {
 
 }
 
-bool dfox::isFull(int16_t kv_len) {
+bool dfox::isFull() {
     decodeNeedCount();
-    if (getKVLastPos() < (DFOX_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 3))
+    if (getKVLastPos() < (DFOX_HDR_SIZE + BPT_TRIE_LEN +
+            need_count + key_len + value_len + 3))
         return true;
     if (BPT_TRIE_LEN > (252 - need_count))
         return true;
@@ -627,7 +645,7 @@ byte *dfox::insertCurrent() {
             memcpy(triePos, key + keyPos, need_count);
             triePos += need_count;
             p += need_count;
-            //dfox::count1 += need_count;
+            //count1 += need_count;
         }
 #endif
         while (p < min) {
@@ -715,8 +733,8 @@ byte *dfox::insertCurrent() {
         break;
     }
 
-    if (DX_MAX_PFX_LEN < (isLeaf() ? keyPos : key_len))
-        DX_MAX_PFX_LEN = (isLeaf() ? keyPos : key_len);
+    if (BPT_MAX_PFX_LEN < (isLeaf() ? keyPos : key_len))
+        BPT_MAX_PFX_LEN = (isLeaf() ? keyPos : key_len);
 
     if (BPT_MAX_KEY_LEN < key_len)
         BPT_MAX_KEY_LEN = key_len;

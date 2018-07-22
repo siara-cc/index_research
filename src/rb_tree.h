@@ -8,8 +8,6 @@
 
 using namespace std;
 
-#define RB_TREE_NODE_SIZE 512
-
 #if RB_TREE_NODE_SIZE == 512
 #define RB_TREE_HDR_SIZE 7
 #define DATA_END_POS 2
@@ -64,19 +62,18 @@ private:
 public:
     int16_t pos;
     byte last_direction;
-    rb_tree_node_handler *root;
-    inline void setBuf(byte *m);
-    inline void initBuf();
+    rb_tree();
     inline int16_t getDataEndPos();
     inline void setDataEndPos(int16_t pos);
     int16_t filledUpto();
     void setFilledUpto(int16_t filledUpto);
     inline int16_t getPtr(int16_t pos);
     inline void setPtr(int16_t pos, int16_t ptr);
-    bool isFull(int16_t kv_len);
+    bool isFull();
     int16_t traverseToLeaf(byte *node_paths[] = null);
-    int16_t locate();
-    void addData();
+    int16_t searchCurrentBlock();
+    void addData(int16_t idx);
+    void addFirstData();
     byte *getKey(int16_t pos, int16_t *plen);
     byte *getFirstKey(int16_t *plen);
     int16_t getFirst();
@@ -85,8 +82,12 @@ public:
     byte *split(byte *first_key, int16_t *first_len_ptr);
     void initVars();
     inline byte *getChildPtrPos(int16_t idx);
+    inline char *getValueAt(int16_t *vlen);
+    using bplus_tree_handler::getChildPtr;
+    inline byte *getChildPtr(int16_t pos);
     inline byte *getPtrPos();
     inline int getHeaderSize();
+    void initBuf();
 };
 
 #endif

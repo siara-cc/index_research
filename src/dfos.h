@@ -12,11 +12,9 @@ using namespace std;
 #define DS_MIDDLE_PREFIX 1
 
 #if BPT_9_BIT_PTR == 1
-#define DFOS_NODE_SIZE 512
 #define DS_MAX_PTR_BITMAP_BYTES 8
 #define DS_MAX_PTRS 63
 #else
-#define DFOS_NODE_SIZE 768
 #define DS_MAX_PTR_BITMAP_BYTES 0
 #define DS_MAX_PTRS 240
 #endif
@@ -24,7 +22,7 @@ using namespace std;
 #define DS_MAX_PFX_LEN buf[7]
 //#define MID_KEY_LEN buf[DS_MAX_PTR_BITMAP_BYTES+6]
 
-class dfos_node_handler : public bpt_trie_handler {
+class dfos : public bpt_trie_handler {
 private:
     const static byte need_counts[10];
     const static byte switch_map[8];
@@ -51,29 +49,15 @@ private:
     int deleteSegment(byte *t, byte *delete_start);
 public:
     byte pos, key_at_pos;
-    bool isFull(int16_t kv_lens);
+    bool isFull();
     inline int16_t searchCurrentBlock();
     void addData(int16_t idx);
+    void addFirstData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
     void insertCurrent();
     inline byte *getChildPtrPos(int16_t idx);
     inline byte *getPtrPos();
     inline int getHeaderSize();
-};
-
-class dfos : public bplus_tree_handler {
-public:
-    static long count1, count2;
-    static byte split_buf[DFOS_NODE_SIZE];
-    dfos();
-    ~dfos();
-    static void printCounts() {
-        util::print("Count1:");
-        util::print(count1);
-        util::print(", Count2:");
-        util::print(count2);
-        util::print("\n");
-    }
 };
 
 #endif

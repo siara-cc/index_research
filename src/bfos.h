@@ -11,12 +11,10 @@ using namespace std;
 
 #define BS_MIDDLE_PREFIX 1
 
-#define BFOS_NODE_SIZE 768
-
 #define BFOS_HDR_SIZE 8
 #define BX_MAX_PFX_LEN buf[7]
 
-class bfos_node_handler: public bpt_trie_handler {
+class bfos : public bpt_trie_handler {
 private:
     const static byte need_counts[10];
     void decodeNeedCount();
@@ -36,22 +34,16 @@ public:
     byte *last_t;
     byte last_child;
     byte last_leaf;
-    bool isFull(int16_t kv_lens);
+    bool isFull();
     inline int16_t searchCurrentBlock();
     void addData(int16_t idx);
+    void addFirstData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
     int16_t insertCurrent();
     void updatePtrs(byte *upto, int diff);
     inline byte *getChildPtrPos(int16_t idx);
     inline byte *getPtrPos();
     inline int getHeaderSize();
-};
-
-class bfos : public bplus_tree_handler {
-public:
-    static int count1, count2;
-    bfos();
-    ~bfos();
 };
 
 #endif

@@ -11,10 +11,7 @@ using namespace std;
 
 #define DX_MIDDLE_PREFIX 1
 
-#define DFOX_NODE_SIZE 768
-
 #define DFOX_HDR_SIZE 8
-#define DX_MAX_PFX_LEN buf[7]
 //#define MID_KEY_LEN buf[DX_MAX_PTR_BITMAP_BYTES+6]
 
 class dfox : public bpt_trie_handler {
@@ -31,9 +28,13 @@ private:
     int deleteSegment(byte *t, byte *delete_start);
 public:
     byte *last_t;
-    bool isFull(int16_t kv_lens);
+    bool isFull();
     inline int16_t searchCurrentBlock();
+    byte *getKey(byte *t, byte *plen);
+    using bplus_tree_handler::getPtr;
+    int16_t getPtr(byte *t);
     void addData(int16_t idx);
+    void addFirstData();
     byte *split(byte *first_key, int16_t *first_len_ptr);
     void setPtr(byte *t, int16_t ptr);
     byte *insertCurrent();

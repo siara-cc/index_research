@@ -10,8 +10,6 @@
 
 using namespace std;
 
-#define LINEX_NODE_SIZE 768
-
 #define LX_BLK_HDR_SIZE 6
 #define LX_PREFIX_CODING 1
 #define LX_DATA_AREA 0
@@ -27,7 +25,8 @@ public:
     int16_t prev_prefix_len;
     inline int16_t searchCurrentBlock();
     void addData(int16_t idx);
-    bool isFull(int16_t kv_lens);
+    void addFirstData();
+    bool isFull();
     byte *split(byte *first_key, int16_t *first_len_ptr);
     int16_t traverseToLeaf(byte *node_paths[] = null);
     void insertCurrent();

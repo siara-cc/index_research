@@ -2,15 +2,15 @@
 #include <stdint.h>
 #include "bfqs.h"
 
-byte *bfqx::getChildPtrPos(int16_t idx) {
+byte *bfqs::getChildPtrPos(int16_t idx) {
     return last_t - current_block < getKVLastPos() ? getLastPtr() : last_t;
 }
 
-int bfqx::getHeaderSize() {
+int bfqs::getHeaderSize() {
     return BFQS_HDR_SIZE;
 }
 
-byte *bfqx::getLastPtr() {
+byte *bfqs::getLastPtr() {
     //keyPos = 0;
     while ((last_leaf_child & xAA) > (last_leaf_child & x55)) {
             last_t += BIT_COUNT_LF_CH(last_leaf_child & xAA) + 1;
@@ -23,13 +23,13 @@ byte *bfqx::getLastPtr() {
                 last_t += BIT_COUNT_LF_CH(last_t[1]) + 2;
             last_leaf_child = last_t[1];
     }
-    return currentSearchNode + util::getInt(last_t +
+    return current_block + util::getInt(last_t +
             BIT_COUNT_LF_CH((last_t[1] & xAA) | (last_leaf_child & x55)));
 //    do {
 //        int rslt = ((last_leaf_child & xAA) > (last_leaf_child & x55) ? 2 : 1);
 //        switch (rslt) {
 //        case 1:
-//            return currentSearchNode + util::getInt(last_t +
+//            return current_block + util::getInt(last_t +
 //                    BIT_COUNT_LF_CH((last_t[1] & xAA) | (last_leaf_child & x55)));
 //        case 2:
 //            last_t += BIT_COUNT_LF_CH(last_leaf_child & xAA) + 1;
@@ -46,18 +46,7 @@ byte *bfqx::getLastPtr() {
     return 0;
 }
 
-int16_t bfqx::traverseToLeaf(byte *node_paths[]) {
-    //keyPos = 0;
-    while (!isLeaf()) {
-        if (node_paths)
-            *node_paths++ = current_block;
-        locate();
-        setBuf(getChildPtr(last_t - current_block < getKVLastPos() ? getLastPtr() : last_t));
-    }
-    return locate();
-}
-
-int16_t bfqx::searchCurrentNode() {
+int16_t bfqs::searchCurrentBlock() {
     byte *t = trie;
     byte trie_char = *t;
     origPos = t++;
@@ -123,7 +112,7 @@ int16_t bfqx::searchCurrentNode() {
             //case 7:
                 int16_t cmp;
                 t += BIT_COUNT_LF_CH(r_leaves_children & (r_shft | xAA));
-                key_at = currentSearchNode + util::getInt(t);
+                key_at = current_block + util::getInt(t);
                 key_at_len = *key_at++;
                 cmp = util::compare(key + keyPos, key_len - keyPos,
                         (char *) key_at, key_at_len);
@@ -186,7 +175,7 @@ int16_t bfqx::searchCurrentNode() {
     return -1;
 }
 
-void bfqx::setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) {
+void bfqs::setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) {
     if (key_char > *t) {
         t += pfx_rem_len;
         while (!(*t & x02))
@@ -196,7 +185,11 @@ void bfqx::setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) {
     }
 }
 
-void bfqx::addData(int16_t idx) {
+void bfqs::addFirstData() {
+    addData(0);
+}
+
+void bfqs::addData(int16_t idx) {
 
     int16_t ptr = insertCurrent();
 
@@ -206,29 +199,32 @@ void bfqx::addData(int16_t idx) {
     util::setInt(trie + ptr, kv_last_pos);
     current_block[kv_last_pos] = key_left;
     if (key_left)
-        memcpy(currentSearchNode + kv_last_pos + 1, key + keyPos, key_left);
+        memcpy(current_block + kv_last_pos + 1, key + keyPos, key_left);
     current_block[kv_last_pos + key_left + 1] = value_len;
-    memcpy(currentSearchNode + kv_last_pos + key_left + 2, value, value_len);
+    memcpy(current_block + kv_last_pos + key_left + 2, value, value_len);
     setFilledSize(filledSize() + 1);
 
 }
 
-bool bfqx::isFull(int16_t kv_len) {
+bool bfqs::isFull() {
     decodeNeedCount();
-    if (getKVLastPos() < (BFQS_HDR_SIZE + BPT_TRIE_LEN + need_count + kv_len + 3))
+    if (getKVLastPos() < (BFQS_HDR_SIZE + BPT_TRIE_LEN +
+            need_count + key_len + value_len + 3))
         return true;
     if (BPT_TRIE_LEN > 254 - need_count)
         return true;
     return false;
 }
 
-byte *bfqx::split(byte *first_key, int16_t *first_len_ptr) {
+byte *bfqs::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t orig_filled_size = filledSize();
+    const uint16_t BFQS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
     byte *b = (byte *) util::alignedAlloc(BFQS_NODE_SIZE);
-    bfqs new_block(b);
-    new_block.initBuf();
+    bfqs new_block;
+    new_block.setCurrentBlock(b);
+    new_block.initCurrentBlock();
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
-    new_block.BQ_MAX_PFX_LEN = BQ_MAX_PFX_LEN;
+    new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVPos = kv_last_pos + (BFQS_NODE_SIZE - kv_last_pos) / 2;
 
@@ -236,7 +232,7 @@ byte *bfqx::split(byte *first_key, int16_t *first_len_ptr) {
     brk_idx = brk_kv_pos = 0;
     // (1) move all data to new_block in order
     int16_t idx = 0;
-    byte alloc_size = BQ_MAX_PFX_LEN + 1;
+    byte alloc_size = BPT_MAX_PFX_LEN + 1;
     byte curr_key[alloc_size];
     byte tp[alloc_size];
     byte tp_cpy[alloc_size];
@@ -294,9 +290,9 @@ byte *bfqx::split(byte *first_key, int16_t *first_len_ptr) {
             kv_len++;
             kv_len += current_block[src_idx + kv_len];
             kv_len++;
-            memcpy(new_block.currentSearchNode + kv_last_pos, currentSearchNode + src_idx, kv_len);
+            memcpy(new_block.current_block + kv_last_pos, current_block + src_idx, kv_len);
             util::setInt(leaf_ptr, kv_last_pos);
-            //memcpy(curr_key + new_block.keyPos + 1, currentSearchNode + src_idx + 1, current_block[src_idx]);
+            //memcpy(curr_key + new_block.keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
             //curr_key[new_block.keyPos+1+current_block[src_idx]] = 0;
             //cout << curr_key << endl;
             if (brk_idx < 0) {
@@ -310,7 +306,7 @@ byte *bfqx::split(byte *first_key, int16_t *first_len_ptr) {
                     memcpy(first_key, curr_key, tp_cpy_len);
                 } else {
                     memcpy(first_key, curr_key, new_block.keyPos);
-                    memcpy(first_key + new_block.keyPos, currentSearchNode + src_idx + 1, current_block[src_idx]);
+                    memcpy(first_key + new_block.keyPos, current_block + src_idx + 1, current_block[src_idx]);
                     *first_len_ptr = new_block.keyPos + current_block[src_idx];
                 }
                 memcpy(tp_cpy, tp, tp_cpy_len);
@@ -323,7 +319,7 @@ byte *bfqx::split(byte *first_key, int16_t *first_len_ptr) {
                 //brk_key_len = nextKey(s);
                 //if (kv_last_pos > halfKVLen) {
                 if (kv_last_pos > halfKVPos || idx == (orig_filled_size / 2)) {
-                    //memcpy(first_key + keyPos + 1, currentSearchNode + src_idx + 1, current_block[src_idx]);
+                    //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
                     //first_key[keyPos+1+current_block[src_idx]] = 0;
                     //cout << first_key << ":";
                     brk_idx = idx + 1;
@@ -357,7 +353,7 @@ byte *bfqx::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t diff = (kv_last_pos - getKVLastPos());
 
     {
-        memmove(new_block.currentSearchNode + brk_kv_pos + diff, new_block.currentSearchNode + brk_kv_pos,
+        memmove(new_block.current_block + brk_kv_pos + diff, new_block.current_block + brk_kv_pos,
                 BFQS_NODE_SIZE - brk_kv_pos - diff);
         brk_kv_pos += diff;
         new_block.setPtrDiff(diff);
@@ -367,8 +363,8 @@ byte *bfqx::split(byte *first_key, int16_t *first_len_ptr) {
 
     {
         int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
-        memcpy(currentSearchNode + BFQS_NODE_SIZE - old_blk_new_len, // Copy back first half to old block
-                new_block.currentSearchNode + kv_last_pos - diff, old_blk_new_len);
+        memcpy(current_block + BFQS_NODE_SIZE - old_blk_new_len, // Copy back first half to old block
+                new_block.current_block + kv_last_pos - diff, old_blk_new_len);
         diff += (BFQS_NODE_SIZE - brk_kv_pos);
         setPtrDiff(diff);
         setKVLastPos(BFQS_NODE_SIZE - old_blk_new_len);
@@ -387,7 +383,7 @@ byte *bfqx::split(byte *first_key, int16_t *first_len_ptr) {
 
 }
 
-byte bfqx::copyKary(byte *t, byte *dest, int lvl, byte *tp,
+byte bfqs::copyKary(byte *t, byte *dest, int lvl, byte *tp,
         byte *brk_key, int16_t brk_key_len, byte whichHalf) {
     byte *orig_dest = dest;
     if (*t & x01) {
@@ -444,12 +440,12 @@ byte bfqx::copyKary(byte *t, byte *dest, int lvl, byte *tp,
     return dest - orig_dest;
 }
 
-byte bfqx::copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_len, byte *dest, byte whichHalf) {
+byte bfqs::copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_len, byte *dest, byte whichHalf) {
     byte *d;
     byte *t = trie;
     byte *new_trie = dest;
-    byte tp_child[BQ_MAX_PFX_LEN];
-    byte child_num[BQ_MAX_PFX_LEN];
+    byte tp_child[BPT_MAX_PFX_LEN];
+    byte child_num[BPT_MAX_PFX_LEN];
     int lvl = 0;
     if (*t & x01) {
         byte len = (*t >> 1);
@@ -522,7 +518,7 @@ byte bfqx::copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_len, byte *dest
     return 0;
 }
 
-void bfqx::setPtrDiff(int16_t diff) {
+void bfqs::setPtrDiff(int16_t diff) {
     byte *t = trie;
     byte *t_end = trie + BPT_TRIE_LEN;
     while (t < t_end) {
@@ -541,7 +537,7 @@ void bfqx::setPtrDiff(int16_t diff) {
     }
 }
 
-void bfqx::consolidateInitialPrefix(byte *t) {
+void bfqs::consolidateInitialPrefix(byte *t) {
     t += BFQS_HDR_SIZE;
     byte *t1 = t;
     if (*t & x01) {
@@ -579,7 +575,7 @@ void bfqx::consolidateInitialPrefix(byte *t) {
     }
 }
 
-void bfqx::updatePtrs(byte *upto, int diff) {
+void bfqs::updatePtrs(byte *upto, int diff) {
     byte *t = trie;
     byte tc = *t++;
     while (t <= upto) {
@@ -604,7 +600,7 @@ void bfqx::updatePtrs(byte *upto, int diff) {
     }
 }
 
-int16_t bfqx::insertAfter() {
+int16_t bfqs::insertAfter() {
     byte key_char;
     byte mask;
     key_char = key[keyPos - 1];
@@ -616,7 +612,7 @@ int16_t bfqx::insertAfter() {
     return triePos - trie + 2;
 }
 
-int16_t bfqx::insertBefore() {
+int16_t bfqs::insertBefore() {
     byte key_char;
     byte mask;
     key_char = key[keyPos - 1];
@@ -626,7 +622,7 @@ int16_t bfqx::insertBefore() {
     return origPos - trie + 2;
 }
 
-int16_t bfqx::insertLeaf() {
+int16_t bfqs::insertLeaf() {
     byte key_char;
     byte mask;
     key_char = key[keyPos - 1];
@@ -641,7 +637,7 @@ int16_t bfqx::insertLeaf() {
 }
 
 #if BQ_MIDDLE_PREFIX == 1
-int16_t bfqx::insertConvert() {
+int16_t bfqs::insertConvert() {
     byte key_char;
     byte mask;
     int16_t ret = 0;
@@ -699,7 +695,7 @@ int16_t bfqx::insertConvert() {
 }
 #endif
 
-int16_t bfqx::insertThread() {
+int16_t bfqs::insertThread() {
     byte key_char;
     byte mask;
     int16_t p, min;
@@ -741,7 +737,7 @@ int16_t bfqx::insertThread() {
         append((need_count << 1) | x01);
         append(key + keyPos, need_count);
         p += need_count;
-        //dfox::count1 += need_count;
+        //count1 += need_count;
     }
 #endif
     while (p < min) {
@@ -826,7 +822,7 @@ int16_t bfqx::insertThread() {
     return ret;
 }
 
-int16_t bfqx::insertEmpty() {
+int16_t bfqs::insertEmpty() {
     append((*key & xFC) | x02);
     append(x01 << ((*key & x03) << 1));
     int16_t ret = BPT_TRIE_LEN;
@@ -836,7 +832,7 @@ int16_t bfqx::insertEmpty() {
     return ret;
 }
 
-int16_t bfqx::insertCurrent() {
+int16_t bfqs::insertCurrent() {
     int16_t ret;
 
     switch (insertState) {
@@ -862,8 +858,8 @@ int16_t bfqx::insertCurrent() {
         break;
     }
 
-    if (BQ_MAX_PFX_LEN < keyPos)
-        BQ_MAX_PFX_LEN = keyPos;
+    if (BPT_MAX_PFX_LEN < keyPos)
+        BPT_MAX_PFX_LEN = keyPos;
 
     if (BPT_MAX_KEY_LEN < key_len)
         BPT_MAX_KEY_LEN = key_len;
@@ -871,15 +867,15 @@ int16_t bfqx::insertCurrent() {
     return ret;
 }
 
-byte *bfqx::getPtrPos() {
+byte *bfqs::getPtrPos() {
     return trie + BPT_TRIE_LEN;
 }
 
-void bfqx::decodeNeedCount() {
+void bfqs::decodeNeedCount() {
     if (insertState != INSERT_THREAD)
         need_count = need_counts[insertState];
 }
-const byte bfqx::need_counts[10] = {0, 4, 4, 2, 4, 0, 6, 0, 0, 0};
+const byte bfqs::need_counts[10] = {0, 4, 4, 2, 4, 0, 6, 0, 0, 0};
 
-const byte bfqx::switch_map[8] = {0, 1, 2, 3, 0, 1, 0, 1};
-const byte bfqx::shift_mask[8] = {0, 0, 3, 3, 15, 15, x3F, x3F};
+const byte bfqs::switch_map[8] = {0, 1, 2, 3, 0, 1, 0, 1};
+const byte bfqs::shift_mask[8] = {0, 0, 3, 3, 15, 15, x3F, x3F};

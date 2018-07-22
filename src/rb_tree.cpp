@@ -5,6 +5,10 @@ int rb_tree::getHeaderSize() {
     return RB_TREE_HDR_SIZE;
 }
 
+void rb_tree::addFirstData() {
+    addData(0);
+}
+
 void rb_tree::addData(int16_t idx) {
 
     //idx = -1; // !!!!!
@@ -70,9 +74,11 @@ void rb_tree::addData(int16_t idx) {
 
 byte *rb_tree::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t filled_upto = filledUpto();
-    rb_tree new_block(
-            (byte *) util::alignedAlloc(RB_TREE_NODE_SIZE));
-    new_block.initBuf();
+    const uint16_t RB_TREE_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
+    byte *b = (byte *) util::alignedAlloc(RB_TREE_NODE_SIZE);
+    rb_tree new_block;
+    new_block.setCurrentBlock(b);
+    new_block.initCurrentBlock();
     if (!isLeaf())
         new_block.setLeaf(false);
     int16_t data_end_pos = util::getInt(current_block + DATA_END_POS);
@@ -112,7 +118,7 @@ byte *rb_tree::split(byte *first_key, int16_t *first_len_ptr) {
                 memcpy(first_key, new_block.key, new_block.key_len);
                 *first_len_ptr = new_block.key_len;
             }
-            new_block.addData();
+            new_block.addData(0);
             if (tot_len > halfKVLen && brk_idx == -1) {
                 brk_idx = new_idx;
                 brk_kv_pos = RB_TREE_HDR_SIZE + tot_len;
@@ -190,14 +196,14 @@ int16_t rb_tree::binarySearch(const char *key, int16_t key_len) {
     return ~middle;
 }
 
-int16_t rb_tree::searchCurrentNode() {
+int16_t rb_tree::searchCurrentBlock() {
     pos = binarySearch(key, key_len);
     return pos;
 }
 
 rb_tree::rb_tree() {
     GenTree::generateLists();
-    super();
+    initBuf();
 }
 
 void rb_tree::initBuf() {
@@ -226,8 +232,9 @@ int16_t rb_tree::filledUpto() {
 #endif
 }
 
-bool rb_tree::isFull(int16_t kv_len) {
-    kv_len += 9; // 3 int16_t pointer, 1 byte key len, 1 byte value len, 1 flag
+bool rb_tree::isFull() {
+    int16_t kv_len = key_len + value_len + 9; // 3 int16_t pointer, 1 byte key len, 1 byte value len, 1 flag
+    uint16_t RB_TREE_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
     int16_t spaceLeft = RB_TREE_NODE_SIZE - util::getInt(current_block + DATA_END_POS);
     spaceLeft -= RB_TREE_HDR_SIZE;
     if (spaceLeft <= kv_len)
@@ -524,6 +531,18 @@ void rb_tree::setColor(int16_t n, byte c) {
 #else
     current_block[n] = c;
 #endif
+}
+
+byte *rb_tree::getChildPtrPos(int16_t idx) {
+    if (idx < 0) {
+        idx = ~idx;
+        if (last_direction == 'l') {
+            int16_t p = getPrevious(idx);
+            if (p)
+                idx = p;
+        }
+    }
+    return current_block + pos + KEY_LEN_POS;
 }
 
 byte *rb_tree::getPtrPos() {

@@ -10,19 +10,14 @@
 using namespace std;
 
 #if BPT_9_BIT_PTR == 1
-#define DFQX_NODE_SIZE 512
 #define DQ_MAX_PTR_BITMAP_BYTES 8
 #define DQ_MAX_PTRS 63
 #else
-#define DFQX_NODE_SIZE 768
 #define DQ_MAX_PTR_BITMAP_BYTES 0
 #define DQ_MAX_PTRS 240
 #endif
 #define DFQX_HDR_SIZE 8
-#define DQ_MAX_PFX_LEN buf[7]
 //#define MID_KEY_LEN buf[DQ_MAX_PTR_BITMAP_BYTES+6]
-
-#define DFQX_MAX_KEY_PREFIX_LEN 60
 
 class dfqx: public bpt_trie_handler {
 private:
@@ -65,7 +60,8 @@ public:
     byte pos, key_at_pos;
     inline int16_t searchCurrentBlock();
     void addData(int16_t idx);
-    bool isFull(int16_t kv_lens);
+    void addFirstData();
+    bool isFull();
     byte *split(byte *first_key, int16_t *first_len_ptr);
     void insertCurrent();
     inline byte *getChildPtrPos(int16_t idx);

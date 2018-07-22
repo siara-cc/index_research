@@ -2,6 +2,10 @@
 #include <stdint.h>
 #include "dfqx.h"
 
+int dfqx::getHeaderSize() {
+    return DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES;
+}
+
 byte *dfqx::skipChildren(byte *t, uint16_t& count) {
     while (count & xFF) {
         byte tc = *t++;
@@ -12,7 +16,15 @@ byte *dfqx::skipChildren(byte *t, uint16_t& count) {
     return t;
 }
 
-int16_t dfqx::searchCurrentNode() {
+byte *dfqx::getChildPtrPos(int16_t idx) {
+    if (idx < 0) {
+        idx++;
+        idx = ~idx;
+    }
+    return current_block + getPtr(idx);
+}
+
+int16_t dfqx::searchCurrentBlock() {
     byte *t = trie;
     uint16_t to_skip = 0;
     byte key_char = *key;
@@ -126,15 +138,17 @@ byte *dfqx::nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byt
 
 byte *dfqx::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t orig_filled_size = filledSize();
+    const uint16_t DFQX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
     byte *b = (byte *) util::alignedAlloc(DFQX_NODE_SIZE);
-    dfqx new_block(b);
-    new_block.initBuf();
+    dfqx new_block;
+    new_block.setCurrentBlock(b);
+    new_block.initCurrentBlock();
     if (!isLeaf())
         new_block.setLeaf(false);
     memcpy(new_block.trie, trie, BPT_TRIE_LEN);
     new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
-    new_block.DQ_MAX_PFX_LEN = DQ_MAX_PFX_LEN;
+    new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = DFQX_NODE_SIZE - kv_last_pos + 1;
     halfKVLen /= 2;
@@ -144,7 +158,7 @@ byte *dfqx::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t tot_len;
     brk_kv_pos = tot_len = 0;
     char ctr = 4;
-    byte tp[DQ_MAX_PFX_LEN + 1];
+    byte tp[BPT_MAX_PFX_LEN + 1];
     byte *t = trie;
     byte tc, child_leaf;
     tc = child_leaf = 0;
@@ -327,15 +341,8 @@ void dfqx::deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
     movePtrList(orig_trie_len);
 }
 
-dfqx::dfqx() {
-    root_data = (byte *) util::alignedAlloc(DFQX_NODE_SIZE);
-    dfqx root(root_data);
-    root.initBuf();
-    total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
-    maxTrieLenLeaf = maxTrieLenNode = 0;
-    numLevels = blockCountLeaf = 1;
-    maxThread = 9999;
-    count1 = 0;
+void dfqx::addFirstData() {
+    addData(0);
 }
 
 void dfqx::addData(int16_t idx) {
@@ -351,11 +358,11 @@ void dfqx::addData(int16_t idx) {
     current_block[kv_last_pos + key_left + 1] = value_len;
     memcpy(current_block + kv_last_pos + key_left + 2, value, value_len);
 
-    insPtr(pos, kv_last_pos);
+    insPtr(idx, kv_last_pos);
 
 }
 
-bool dfqx::isFull(int16_t kv_len) {
+bool dfqx::isFull() {
     decodeNeedCount();
     int16_t ptr_size = filledSize() + 1;
 #if BPT_9_BIT_PTR == 0
@@ -363,7 +370,7 @@ bool dfqx::isFull(int16_t kv_len) {
 #endif
     if (getKVLastPos()
             < (DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES + BPT_TRIE_LEN
-                    + need_count + ptr_size + kv_len + 3))
+                    + need_count + ptr_size + key_len + value_len + 3))
         return true;
     if (filledSize() > DQ_MAX_PTRS)
         return true;
@@ -618,8 +625,8 @@ void dfqx::insertCurrent() {
         break;
     }
 
-    if (DQ_MAX_PFX_LEN < (isLeaf() ? keyPos : key_len))
-        DQ_MAX_PFX_LEN = (isLeaf() ? keyPos : key_len);
+    if (BPT_MAX_PFX_LEN < (isLeaf() ? keyPos : key_len))
+        BPT_MAX_PFX_LEN = (isLeaf() ? keyPos : key_len);
 
     if (BPT_MAX_KEY_LEN < key_len)
         BPT_MAX_KEY_LEN = key_len;

@@ -86,16 +86,18 @@ int16_t basix::binarySearch(const char *key, int16_t key_len) {
 //    return (cmp == 0) ? n : ~(n+1);
 //}
 
-int16_t basix::locate() {
+int16_t basix::searchCurrentBlock() {
     pos = binarySearch(key, key_len);
     return pos;
 }
 
 byte *basix::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t orig_filled_size = filledSize();
+    const uint16_t BASIX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
     byte *b = (byte *) util::alignedAlloc(BASIX_NODE_SIZE);
-    basix new_block(b);
-    new_block.initBuf();
+    basix new_block;
+    new_block.setCurrentBlock(b);
+    new_block.initCurrentBlock();
     if (!isLeaf())
         new_block.setLeaf(false);
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
@@ -183,6 +185,10 @@ byte *basix::split(byte *first_key, int16_t *first_len_ptr) {
     return b;
 }
 
+void basix::addFirstData() {
+    addData(0);
+}
+
 void basix::addData(int16_t idx) {
 
     uint16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
@@ -191,18 +197,18 @@ void basix::addData(int16_t idx) {
     memcpy(current_block + kv_last_pos + 1, key, key_len);
     current_block[kv_last_pos + key_len + 1] = value_len & 0xFF;
     memcpy(current_block + kv_last_pos + key_len + 2, value, value_len);
-    insPtr(pos, kv_last_pos);
+    insPtr(idx, kv_last_pos);
     if (BPT_MAX_KEY_LEN < key_len)
         BPT_MAX_KEY_LEN = key_len;
 
 }
 
-bool basix::isFull(int16_t kv_len) {
+bool basix::isFull() {
     int16_t ptr_size = filledSize() + 2;
 #if BPT_9_BIT_PTR == 0
     ptr_size <<= 1;
 #endif
-    if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + kv_len + 2))
+    if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
         return true;
 #if BPT_9_BIT_PTR == 1
     if (filledSize() > 62)
