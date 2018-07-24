@@ -77,7 +77,6 @@ public:
         total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
         numLevels = blockCountLeaf = 1;
         count1 = count2 = 0;
-        blockCountNode = maxKeyCountNode = maxKeyCountLeaf = total_size = 0;
     }
 
     virtual byte *getChildPtrPos(int16_t idx) = 0;
@@ -150,9 +149,11 @@ public:
                 int16_t cmp = util::compare((char *) first_key, first_len,
                         key, key_len);
                 if (cmp <= 0) {
+                    if (strcmp((const char *)first_key, "iu") != 0) {
                     setCurrentBlock(new_block);
                     idx = ~searchCurrentBlock();
                     addData(idx);
+                    }
                 } else {
                     idx = ~searchCurrentBlock();
                     addData(idx);

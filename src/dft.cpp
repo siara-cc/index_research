@@ -219,7 +219,7 @@ bool dft::isFull() {
             + need_count + key_len + value_len + 3)) {
         return true;
     }
-    if (BPT_TRIE_LEN + need_count > 254) {
+    if (BPT_TRIE_LEN > 254 - need_count) {
         return true;
     }
     return false;
@@ -406,116 +406,11 @@ int16_t dft::insertCurrent() {
     return ret;
 }
 
-#define PREVIOUS_LEAF while (t > trie) { \
-   t -= DFT_UNIT_SIZE; \
-   int16_t p = (DFT_UNIT_SIZE == 3 ? get9bitPtr(t) : util::getInt(t + 1)); \
-   if (p) { \
-       key_at = current_block + p; \
-       break; \
-   } \
-}
-
-#define NEXT_LEVEL setCurrentBlock(getChildPtr(key_at)); \
-    if (node_paths) node_paths[level++] = current_block; \
-    if (isLeaf()) \
-        return searchCurrentBlock(); \
-    keyPos = 0; \
-    key_char = key[keyPos++]; \
-    t = trie;
-
-int16_t dft::traverseToLeaf(byte *node_paths[]) {
-    byte level = 1;
-    byte *t = trie;
-    if (node_paths)
-        *node_paths = current_block;
-    keyPos = 0;
-    byte key_char = key[keyPos++];
-    do {
-        while (key_char > *t) {
-            t++;
-#if DFT_UNIT_SIZE == 3
-            int s = *t & x3F;
-#else
-            int s = *t & x7F;
-#endif
-            if (s) {
-                t += (s * DFT_UNIT_SIZE);
-                t--;
-                continue;
-            } else {
-#if DFT_UNIT_SIZE == 3
-                int child = *t & x40;
-#else
-                int child = *t & x80;
-#endif
-                t += DFT_UNIT_SIZE;
-                while (child) {
-#if DFT_UNIT_SIZE == 3
-                    s = *t & x3F;
-                    child = *t & x40;
-#else
-                    s = *t & x7F;
-                    child = *t & x80;
-#endif
-                    if (s) {
-                        t += s * DFT_UNIT_SIZE;
-                        child = 1;
-                    } else
-                        t += DFT_UNIT_SIZE;
-                }
-                PREVIOUS_LEAF
-                NEXT_LEVEL
-                continue;
-            }
-        }
-        if (key_char == *t++) {
-#if DFT_UNIT_SIZE == 3
-            int r_children = *t & x40;
-            int16_t ptr = get9bitPtr(t);
-#else
-            int r_children = *t & x80;
-            int16_t ptr = util::getInt(t + 1);
-#endif
-            switch (ptr ?
-                    (r_children ? (keyPos == key_len ? 3 : 1) : 2) :
-                    (r_children ? (keyPos == key_len ? 0 : 1) : 0)) {
-            case 1:
-                t += DFT_UNIT_SIZE;
-                t--;
-                key_char = key[keyPos++];
-                break;
-            case 2:
-                int16_t cmp;
-                key_at = current_block + ptr;
-                key_at_len = *key_at;
-                cmp = util::compare(key + keyPos, key_len - keyPos,
-                        (char *) key_at + 1, key_at_len);
-                if (cmp < 0) {
-                    cmp = -cmp;
-                    PREVIOUS_LEAF
-                }
-                NEXT_LEVEL
-                break;
-            case 0:
-                PREVIOUS_LEAF
-                NEXT_LEVEL
-                break;
-            case 3:
-                key_at = current_block + ptr;
-                NEXT_LEVEL
-                break;
-            }
-        } else {
-            PREVIOUS_LEAF
-            NEXT_LEVEL
-        }
-    } while (1);
-}
-
 int16_t dft::searchCurrentBlock() {
     byte *t = trie;
     keyPos = 0;
     byte key_char = key[keyPos++];
+    triePos = 0;
     do {
         origPos = t;
         last_sibling_pos = 0;
@@ -567,7 +462,7 @@ int16_t dft::searchCurrentBlock() {
             int16_t ptr = util::getInt(t + 1);
 #endif
             switch (ptr ?
-                    (r_children ? (keyPos == key_len ? 3 : 1) : 2) :
+                    (r_children ? (keyPos == key_len ? 2 : 1) : 2) :
                     (r_children ? (keyPos == key_len ? 0 : 1) : 0)) {
             case 1:
                 break;
@@ -579,24 +474,24 @@ int16_t dft::searchCurrentBlock() {
                         (char *) key_at, key_at_len);
                 if (cmp == 0)
                     return ptr;
-                if (cmp < 0)
+                if (cmp < 0) {
                     cmp = -cmp;
+                    triePos = t - 1;
+                }
                     insertState = INSERT_THREAD;
                     need_count = (cmp * DFT_UNIT_SIZE) + DFT_UNIT_SIZE * 2;
                 return -1;
             case 0:
+                triePos = t - 1;
                     insertState = INSERT_LEAF;
                 return -1;
-            case 3:
-                key_at = current_block + ptr;
-                key_at_len = *key_at++;
-                return ptr;
             }
             t += DFT_UNIT_SIZE;
             t--;
             key_char = key[keyPos++];
             continue;
         } else {
+            triePos = t - 1;
                 insertState = INSERT_BEFORE;
             return -1;
         }
@@ -681,7 +576,22 @@ byte *dft::getPtrPos() {
 }
 
 byte *dft::getChildPtrPos(int16_t idx) {
+    if (triePos++) {
+        while (triePos > trie) {
+            triePos -= DFT_UNIT_SIZE;
+            int16_t p = (DFT_UNIT_SIZE == 3 ? get9bitPtr(triePos) : util::getInt(triePos + 1));
+            if (p) {
+                key_at = current_block + p + 1;
+                break;
+            }
+        }
+    }
     return key_at;
+}
+
+inline byte *dft::getChildPtr(byte *ptr) {
+    ptr += *(ptr - 1);
+    return (byte *) util::bytesToPtr(ptr);
 }
 
 void dft::decodeNeedCount() {

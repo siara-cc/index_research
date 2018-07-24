@@ -12,7 +12,6 @@ using namespace std;
 #define DFT_UNIT_SIZE 4
 
 #define DFT_HDR_SIZE 8
-#define DFT_MAX_PFX_LEN buf[7]
 
 class dft : public bpt_trie_handler {
 private:
@@ -35,6 +34,7 @@ public:
     inline byte insertUnit(byte *t, byte c1, byte s1, int16_t ptr1);
     inline byte insert2Units(byte *t, byte c1, byte s1, int16_t ptr1, byte c2, byte s2, int16_t ptr2);
     void updatePtrs(byte *upto, int diff);
+    inline byte *getChildPtr(byte *ptr);
     inline byte *getChildPtrPos(int16_t idx);
     inline byte *getPtrPos();
     inline int getHeaderSize();

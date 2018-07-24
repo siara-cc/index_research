@@ -46,12 +46,14 @@ byte *bft::split(byte *first_key, int16_t *first_len_ptr) {
     if (!isLeaf())
         new_block.setLeaf(0);
     new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
+    new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
     bft old_block;
     old_block.setCurrentBlock(bft::split_buf);
     old_block.initCurrentBlock();
     if (!isLeaf())
         old_block.setLeaf(0);
     old_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
+    old_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
     bft *ins_block = &old_block;
     int16_t kv_last_pos = getKVLastPos();
     int16_t halfKVLen = BFT_NODE_SIZE - kv_last_pos + 1;
@@ -61,30 +63,32 @@ byte *bft::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t tot_len = 0;
     // (1) move all data to new_block in order
     int16_t idx;
-    byte ins_key[64], old_first_key[64];
+    byte ins_key[BPT_MAX_PFX_LEN], old_first_key[BPT_MAX_PFX_LEN];
     int16_t ins_key_len, old_first_len;
-    bft_iterator_status s(trie, BPT_MAX_PFX_LEN);
+    bft_iterator_status s(trie, 0); //BPT_MAX_PFX_LEN);
     for (idx = 0; idx < orig_filled_size; idx++) {
         int16_t src_idx = nextPtr(s);
         int16_t kv_len = current_block[src_idx];
         ins_key_len = kv_len;
+        memcpy(ins_key + s.keyPos + 1, current_block + src_idx + 1, kv_len);
         kv_len++;
-        memcpy(ins_key + s.keyPos, current_block + src_idx, kv_len);
         ins_block->value_len = current_block[src_idx + kv_len];
         kv_len++;
         ins_block->value = (const char *) current_block + src_idx + kv_len;
         kv_len += ins_block->value_len;
         tot_len += kv_len;
-        for (int i = BPT_MAX_PFX_LEN; i <= s.keyPos; i++)
+        for (int i = 0; i <= s.keyPos; i++)
             ins_key[i] = trie[s.tp[i] - 1];
-        for (int i = 0; i < BPT_MAX_PFX_LEN; i++)
-            ins_key[i] = key[i];
+        //for (int i = 0; i < BPT_MAX_PFX_LEN; i++)
+        //    ins_key[i] = key[i];
         ins_key_len += s.keyPos;
         ins_key_len++;
         if (idx == 0) {
             memcpy(old_first_key, ins_key, ins_key_len);
             old_first_len = ins_key_len;
         }
+        //ins_key[ins_key_len] = 0;
+        //cout << ins_key << endl;
         ins_block->key = (char *) ins_key;
         ins_block->key_len = ins_key_len;
         if (idx && brk_idx >= 0)
@@ -100,6 +104,8 @@ byte *bft::split(byte *first_key, int16_t *first_len_ptr) {
                 *first_len_ptr = ins_key_len;
                 memcpy(first_key, ins_key, ins_key_len);
             }
+            //first_key[*first_len_ptr] = 0;
+            //cout << (int) isLeaf() << "First key:" << first_key << endl;
             s.keyPos--;
         }
         kv_last_pos += kv_len;
@@ -388,34 +394,37 @@ int16_t bft::insertCurrent() {
     if (BPT_MAX_KEY_LEN < key_len)
         BPT_MAX_KEY_LEN = key_len;
 
+    if (BPT_MAX_PFX_LEN <= keyPos)
+        BPT_MAX_PFX_LEN = keyPos;
+
     return ret;
 }
 
 int16_t bft::getFirstPtr() {
-    bft_iterator_status s(trie, BPT_MAX_PFX_LEN);
+    bft_iterator_status s(trie, 0);
     return nextPtr(s);
 }
 
-int16_t bft::getLastPtrOfChild(byte *triePos) {
+int16_t bft::getLastPtrOfChild(byte *t) {
     do {
 #if BFT_UNIT_SIZE == 3
-        if (*triePos & x40) {
-            byte children = (*triePos & x3F);
+        if (*t & x40) {
+            byte children = (*t & x3F);
             if (children)
-                triePos += (children * 3);
+                t += (children * 3);
             else
-                return get9bitPtr(triePos);
+                return get9bitPtr(t);
         } else
-            triePos += 3;
+            t += 3;
 #else
-        if (*triePos & x80) {
-            byte children = (*triePos & x7F);
+        if (*t & x80) {
+            byte children = (*t & x7F);
             if (children)
-                triePos += (children * 4);
+                t += (children * 4);
             else
-                return util::getInt(triePos + 1);
+                return util::getInt(t + 1);
         } else
-            triePos += 4;
+            t += 4;
 #endif
     } while (1);
     return -1;
@@ -424,35 +433,35 @@ int16_t bft::getLastPtrOfChild(byte *triePos) {
 byte *bft::getLastPtr(byte *last_t) {
 #if BFT_UNIT_SIZE == 3
     byte last_child = (*last_t & x3F);
-    if (!last_child || last_child_pos)
+    if (!last_child || to_pick_leaf)
         return current_block + get9bitPtr(last_t);
     return current_block + getLastPtrOfChild(last_t + (last_child * 3));
 #else
     byte last_child = (*last_t & x7F);
-    if (!last_child || last_child_pos)
+    if (!last_child || to_pick_leaf)
         return current_block + util::getInt(last_t + 1);
     return current_block + getLastPtrOfChild(last_t + (last_child * 4));
 #endif
 }
 
 int16_t bft::searchCurrentBlock() {
-    byte *t, *last_t;
-    t = last_t = trie;
-    keyPos = 0; //BPT_MAX_PFX_LEN;
+    byte *t;
+    t = trie;
+    last_t = trie + 1;
+    keyPos = 0;
     byte key_char = key[keyPos++];
+    last_child_pos = 0;
     do {
         origPos = t;
         while (key_char > *t) {
             last_t = ++t;
 #if BFT_UNIT_SIZE == 3
             if (*t & x40) {
-                if (!isLeaf()) {
-                    byte r_children = *t & x3F;
-                    if (r_children)
-                        key_at = current_block + getLastPtrOfChild(t + r_children * 3);
-                    else
-                        key_at = current_block + get9bitPtr(t);
-                }
+                byte r_children = *t & x3F;
+                if (r_children)
+                    last_t = current_block + getLastPtrOfChild(t + r_children * 3);
+                else
+                    last_t = current_block + get9bitPtr(t);
                 t += 2;
                     triePos = t;
                     insertState = INSERT_AFTER;
@@ -461,14 +470,12 @@ int16_t bft::searchCurrentBlock() {
             t += 2;
 #else
             if (*t & x80) {
+                byte r_children = *t & x7F;
+                if (r_children)
+                    last_t = current_block + getLastPtrOfChild(t + r_children * 4);
+                else
+                    last_t = current_block + util::getInt(t + 1);
                 t += 3;
-                if (!isLeaf()) {
-                    byte r_children = *t & x7F;
-                    if (r_children)
-                        key_at = current_block + getLastPtrOfChild(t + r_children * 4);
-                    else
-                        key_at = current_block + util::getInt(t + 1);
-                }
                     triePos = t;
                     insertState = INSERT_AFTER;
                 return -1;
@@ -476,6 +483,7 @@ int16_t bft::searchCurrentBlock() {
             t += 3;
 #endif
             last_child_pos = 0;
+            to_pick_leaf = 0;
             origPos = t;
         }
         if (key_char == *t++) {
@@ -490,35 +498,36 @@ int16_t bft::searchCurrentBlock() {
             ptr = util::getInt(t + 1);
 #endif
             switch (ptr ?
-                    (r_children ? (keyPos == key_len ? 3 : 1) : 2) :
-                    (r_children ? (keyPos == key_len ? 0 : 1) : 0)) {
+                    (r_children ? (keyPos == key_len ? 2 : 1) : 2) :
+                    (r_children ? (keyPos == key_len ? 0 : 4) : 0)) {
             case 2:
                 int16_t cmp;
                 key_at = current_block + ptr;
                 key_at_len = *key_at++;
                 cmp = util::compare(key + keyPos, key_len - keyPos,
                         (char *) key_at, key_at_len);
-                if (cmp == 0)
+                if (cmp == 0) {
+                    last_t = key_at - 1;
                     return ptr;
+                }
                     insertState = INSERT_THREAD;
                     if (cmp < 0) {
+                        if (!isLeaf())
+                            last_t = getLastPtr(last_t);
                         cmp = -cmp;
-                        key_at = getLastPtr(last_t);
-                    }
+                    } else
+                        last_t = key_at - 1;
                     need_count = (cmp * BFT_UNIT_SIZE) + BFT_UNIT_SIZE * 2;
                 return -1;
             case 0:
                 if (!isLeaf())
-                   key_at = getLastPtr(last_t);
+                   last_t = getLastPtr(last_t);
                     insertState = INSERT_LEAF;
                 return -1;
             case 1:
                 last_t = t;
+                to_pick_leaf = 1;
                 break;
-            case 3:
-                key_at = current_block + ptr;
-                key_at_len = *key_at++;
-                return 1;
             }
             last_child_pos = t - trie;
             t += (r_children * BFT_UNIT_SIZE);
@@ -527,7 +536,7 @@ int16_t bft::searchCurrentBlock() {
             continue;
         } else {
             if (!isLeaf())
-               key_at = getLastPtr(last_t);
+               last_t = getLastPtr(last_t);
                 insertState = INSERT_BEFORE;
             return -1;
         }
@@ -568,7 +577,7 @@ byte *bft::getPtrPos() {
 }
 
 byte *bft::getChildPtrPos(int16_t idx) {
-    return key_at;
+    return last_t;
 }
 
 void bft::decodeNeedCount() {

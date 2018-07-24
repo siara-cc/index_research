@@ -9,7 +9,7 @@
 
 using namespace std;
 
-#define BFT_UNIT_SIZE 3
+#define BFT_UNIT_SIZE 4
 
 #define BFT_HDR_SIZE 8
 
@@ -31,6 +31,7 @@ public:
 
 class bft : public bpt_trie_handler {
 private:
+    byte *last_t;
     byte *split_buf;
     const static byte need_counts[10];
     void decodeNeedCount();
@@ -42,7 +43,8 @@ private:
     int16_t deletePrefix(int16_t prefix_len);
     void appendPtr(int16_t p);
 public:
-    int16_t last_child_pos;
+    byte last_child_pos;
+    byte to_pick_leaf;
     bft(int16_t leaf_block_sz = 512, int16_t parent_block_sz = 512) :
         bpt_trie_handler(leaf_block_sz, parent_block_sz) {
         split_buf = (byte *) util::alignedAlloc(leaf_block_size > parent_block_size ?
