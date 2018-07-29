@@ -79,6 +79,7 @@ byte *rb_tree::split(byte *first_key, int16_t *first_len_ptr) {
     rb_tree new_block;
     new_block.setCurrentBlock(b);
     new_block.initCurrentBlock();
+    new_block.setKVLastPos(RB_TREE_NODE_SIZE);
     if (!isLeaf())
         new_block.setLeaf(false);
     int16_t data_end_pos = util::getInt(current_block + DATA_END_POS);
@@ -199,11 +200,6 @@ int16_t rb_tree::binarySearch(const char *key, int16_t key_len) {
 int16_t rb_tree::searchCurrentBlock() {
     pos = binarySearch(key, key_len);
     return pos;
-}
-
-rb_tree::rb_tree() {
-    GenTree::generateLists();
-    initBuf();
 }
 
 void rb_tree::initBuf() {

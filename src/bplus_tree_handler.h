@@ -32,8 +32,17 @@ using namespace std;
 #else
 #define BPT_INT64MAP 1
 #endif
-#define BPT_9_BIT_PTR 1
+#define BPT_9_BIT_PTR 0
 
+#if (defined(__AVR__))
+#define DEFAULT_PARENT_BLOCK_SIZE 512
+#define DEFAULT_LEAF_BLOCK_SIZE 512
+#else
+#define DEFAULT_PARENT_BLOCK_SIZE 768
+#define DEFAULT_LEAF_BLOCK_SIZE 768
+#endif
+
+template<class T> // CRTP
 class bplus_tree_handler {
 protected:
     long total_size;
@@ -62,8 +71,9 @@ public:
 #endif
 #endif
 
-    const int16_t leaf_block_size, parent_block_size;
-    bplus_tree_handler(int16_t leaf_block_sz = 512, int16_t parent_block_sz = 512) :
+    const uint16_t leaf_block_size, parent_block_size;
+    bplus_tree_handler(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
+            uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE) :
             leaf_block_size (leaf_block_sz), parent_block_size (parent_block_sz) {
         root_block = current_block = (byte *) util::alignedAlloc(leaf_block_size);
         init_stats();
@@ -79,7 +89,7 @@ public:
         count1 = count2 = 0;
     }
 
-    virtual byte *getChildPtrPos(int16_t idx) = 0;
+    //virtual byte *getChildPtrPos(int16_t idx) = 0;
     char *get(const char *key, int8_t key_len, int16_t *pValueLen) {
         setCurrentBlock(root_block);
         this->key = key;
@@ -95,13 +105,63 @@ public:
                 *node_paths++ = current_block;
                 (*plevel_count)++;
             }
-            int16_t idx = searchCurrentBlock();
-            setCurrentBlock(getChildPtr(getChildPtrPos(idx)));
+            int16_t idx = static_cast<T*>(this)->searchCurrentBlock();
+            setCurrentBlock(getChildPtr(static_cast<T*>(this)->getChildPtrPos(idx)));
         }
-        return searchCurrentBlock();
+        return static_cast<T*>(this)->searchCurrentBlock();
     }
 
-    void put(const char *key, int16_t key_len, const char *value,
+    inline bool isLeaf() {
+        return BPT_IS_LEAF_BYTE;
+    }
+
+    inline int16_t filledSize() {
+        return util::getInt(BPT_FILLED_SIZE);
+    }
+
+    inline uint16_t getKVLastPos() {
+        return util::getInt(BPT_LAST_DATA_PTR);
+    }
+
+    inline byte *getKey(int16_t pos, byte *plen) {
+        byte *kvIdx = current_block + getPtr(pos);
+        *plen = *kvIdx;
+        return kvIdx + 1;
+    }
+
+    inline byte *getChildPtr(byte *ptr) {
+        ptr += (*ptr + 1);
+        return (byte *) util::bytesToPtr(ptr);
+    }
+
+    virtual inline char *getValueAt(int16_t *vlen) {
+        key_at += key_at_len;
+        *vlen = *key_at;
+        return (char *) key_at + 1;
+    }
+
+    inline int getPtr(int16_t pos) {
+#if BPT_9_BIT_PTR == 1
+        uint16_t ptr = *(static_cast<T*>(this)->getPtrPos() + pos);
+#if BPT_INT64MAP == 1
+        if (*bitmap & MASK64(pos))
+        ptr |= 256;
+#else
+        if (pos & 0xFFE0) {
+            if (*bitmap2 & MASK32(pos - 32))
+            ptr |= 256;
+        } else {
+            if (*bitmap1 & MASK32(pos))
+            ptr |= 256;
+        }
+#endif
+        return ptr;
+#else
+        return util::getInt(static_cast<T*>(this)->getPtrPos() + (pos << 1));
+#endif
+    }
+
+    void put(const char *key, int8_t key_len, const char *value,
             int16_t value_len) {
         setCurrentBlock(root_block);
         this->key = key;
@@ -109,7 +169,7 @@ public:
         this->value = value;
         this->value_len = value_len;
         if (filledSize() == 0) {
-            addFirstData();
+            static_cast<T*>(this)->addFirstData();
         } else {
             byte *node_paths[7];
             int8_t level_count = 1;
@@ -136,27 +196,25 @@ public:
         //maxKeyCount += node->PREFIX_LEN;
     }
 
-    void recursiveUpdate(int16_t idx, byte *node_paths[], int16_t level) {
+    void recursiveUpdate(int16_t idx, byte *node_paths[], byte level) {
         //int16_t idx = pos; // lastSearchPos[level];
         if (idx < 0) {
             idx = ~idx;
-            if (isFull()) {
+            if (static_cast<T*>(this)->isFull()) {
                 updateSplitStats();
                 byte first_key[BPT_MAX_KEY_LEN]; // is max_pfx_len sufficient?
                 int16_t first_len;
                 byte *old_block = current_block;
-                byte *new_block = split(first_key, &first_len);
+                byte *new_block = static_cast<T*>(this)->split(first_key, &first_len);
                 int16_t cmp = util::compare((char *) first_key, first_len,
                         key, key_len);
                 if (cmp <= 0) {
-                    if (strcmp((const char *)first_key, "iu") != 0) {
                     setCurrentBlock(new_block);
-                    idx = ~searchCurrentBlock();
-                    addData(idx);
-                    }
+                    idx = ~static_cast<T*>(this)->searchCurrentBlock();
+                    static_cast<T*>(this)->addData(idx);
                 } else {
-                    idx = ~searchCurrentBlock();
-                    addData(idx);
+                    idx = ~static_cast<T*>(this)->searchCurrentBlock();
+                    static_cast<T*>(this)->addData(idx);
                 }
                 //cout << "FK:" << level << ":" << first_key << endl;
                 if (root_block == old_block) {
@@ -165,19 +223,20 @@ public:
                     setCurrentBlock(root_block);
                     initCurrentBlock();
                     setLeaf(0);
-                    setKVLastPos(parent_block_size);
+                    if (getKVLastPos() == leaf_block_size)
+                        setKVLastPos(parent_block_size);
                     byte addr[9];
                     key = "";
                     key_len = 1;
                     value = (char *) addr;
                     value_len = util::ptrToBytes((unsigned long) old_block, addr);
-                    addFirstData();
+                    static_cast<T*>(this)->addFirstData();
                     key = (char *) first_key;
                     key_len = first_len;
                     value = (char *) addr;
                     value_len = util::ptrToBytes((unsigned long) new_block, addr);
-                    idx = ~searchCurrentBlock();
-                    addData(idx);
+                    idx = ~static_cast<T*>(this)->searchCurrentBlock();
+                    static_cast<T*>(this)->addData(idx);
                     numLevels++;
                 } else {
                     int16_t prev_level = level - 1;
@@ -188,11 +247,11 @@ public:
                     key_len = first_len;
                     value = (char *) addr;
                     value_len = util::ptrToBytes((unsigned long) new_block, addr);
-                    idx = searchCurrentBlock();
+                    idx = static_cast<T*>(this)->searchCurrentBlock();
                     recursiveUpdate(idx, node_paths, prev_level);
                 }
             } else
-                addData(idx);
+                static_cast<T*>(this)->addData(idx);
         } else {
             //if (node->isLeaf) {
             //    int16_t vIdx = idx + mSizeBy2;
@@ -206,9 +265,9 @@ public:
         current_block = m;
 #if BPT_9_BIT_PTR == 1
 #if BPT_INT64MAP == 1
-        bitmap = (uint64_t *) (current_block + getHeaderSize() - 8);
+        bitmap = (uint64_t *) (current_block + static_cast<T*>(this)->getHeaderSize() - 8);
 #else
-        bitmap1 = (uint32_t *) (current_block + getHeaderSize() - 8);
+        bitmap1 = (uint32_t *) (current_block + static_cast<T*>(this)->getHeaderSize() - 8);
         bitmap2 = bitmap1 + 1;
 #endif
 #endif
@@ -222,10 +281,6 @@ public:
         setKVLastPos(leaf_block_size);
     }
 
-    inline bool isLeaf() {
-        return BPT_IS_LEAF_BYTE;
-    }
-
     inline void setLeaf(char isLeaf) {
         BPT_IS_LEAF_BYTE = isLeaf;
     }
@@ -234,60 +289,14 @@ public:
         util::setInt(BPT_FILLED_SIZE, filledSize);
     }
 
-    inline int16_t filledSize() {
-        return util::getInt(BPT_FILLED_SIZE);
-    }
-
     inline void setKVLastPos(uint16_t val) {
         util::setInt(BPT_LAST_DATA_PTR, val);
     }
 
-    inline uint16_t getKVLastPos() {
-        return util::getInt(BPT_LAST_DATA_PTR);
-    }
-
-    inline byte *getKey(int16_t pos, byte *plen) {
-        byte *kvIdx = current_block + getPtr(pos);
-        *plen = *kvIdx;
-        return kvIdx + 1;
-    }
-
-    virtual inline byte *getChildPtr(byte *ptr) {
-        ptr += (*ptr + 1);
-        return (byte *) util::bytesToPtr(ptr);
-    }
-
-    virtual inline char *getValueAt(int16_t *vlen) {
-        key_at += key_at_len;
-        *vlen = *key_at;
-        return (char *) key_at + 1;
-    }
-
-    inline int getPtr(int16_t pos) {
-#if BPT_9_BIT_PTR == 1
-        uint16_t ptr = *(getPtrPos() + pos);
-#if BPT_INT64MAP == 1
-        if (*bitmap & MASK64(pos))
-        ptr |= 256;
-#else
-        if (pos & 0xFFE0) {
-            if (*bitmap2 & MASK32(pos - 32))
-            ptr |= 256;
-        } else {
-            if (*bitmap1 & MASK32(pos))
-            ptr |= 256;
-        }
-#endif
-        return ptr;
-#else
-        return util::getInt(getPtrPos() + (pos << 1));
-#endif
-    }
-
-    void insPtr(int16_t pos, uint16_t kv_pos) {
+    inline void insPtr(int16_t pos, uint16_t kv_pos) {
         int16_t filledSz = filledSize();
 #if BPT_9_BIT_PTR == 1
-        byte *kvIdx = getPtrPos() + pos;
+        byte *kvIdx = static_cast<T*>(this)->getPtrPos() + pos;
         memmove(kvIdx + 1, kvIdx, filledSz - pos);
         *kvIdx = kv_pos;
 #if BPT_INT64MAP == 1
@@ -304,7 +313,7 @@ public:
         }
 #endif
 #else
-        byte *kvIdx = getPtrPos() + (pos << 1);
+        byte *kvIdx = static_cast<T*>(this)->getPtrPos() + (pos << 1);
         memmove(kvIdx + 2, kvIdx, (filledSz - pos) * 2);
         util::setInt(kvIdx, kv_pos);
 #endif
@@ -312,9 +321,9 @@ public:
 
     }
 
-    void setPtr(int16_t pos, uint16_t ptr) {
+    inline void setPtr(int16_t pos, uint16_t ptr) {
 #if BPT_9_BIT_PTR == 1
-        *(getPtrPos() + pos) = ptr;
+        *(static_cast<T*>(this)->getPtrPos() + pos) = ptr;
 #if BPT_INT64MAP == 1
         if (ptr >= 256)
         *bitmap |= MASK64(pos);
@@ -335,7 +344,7 @@ public:
         }
 #endif
 #else
-        byte *kvIdx = getPtrPos() + (pos << 1);
+        byte *kvIdx = static_cast<T*>(this)->getPtrPos() + (pos << 1);
         return util::setInt(kvIdx, ptr);
 #endif
     }
@@ -360,6 +369,7 @@ public:
     }
 #endif
 
+    /*
     virtual bool isFull() = 0;
     virtual void addFirstData() = 0;
     virtual void addData(int16_t idx) = 0;
@@ -367,6 +377,7 @@ public:
     virtual byte *split(byte *first_key, int16_t *first_len_ptr) = 0;
     virtual byte *getPtrPos() = 0;
     virtual int getHeaderSize() = 0;
+    */
 
     void printMaxKeyCount(long num_entries) {
         util::print("Block Count:");
@@ -400,17 +411,16 @@ public:
 
 };
 
-class bpt_trie_handler: public bplus_tree_handler {
+template<class T>
+class bpt_trie_handler: public bplus_tree_handler<T> {
 
 protected:
-    const static byte need_counts[10];
-    virtual void decodeNeedCount() = 0;
-
     int maxTrieLenNode;
     int maxTrieLenLeaf;
 
-    bpt_trie_handler(int16_t leaf_block_sz = 512, int16_t parent_block_sz = 512) :
-        bplus_tree_handler(leaf_block_sz, parent_block_sz) {
+    bpt_trie_handler<T>(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
+            uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE) :
+       bplus_tree_handler<T>(leaf_block_sz, parent_block_sz) {
         initCurrentBlock();
         init_stats();
     }
@@ -420,26 +430,22 @@ protected:
     }
 
     virtual void initCurrentBlock() {
-        //memset(current_block, '\0', BFOS_NODE_SIZE);
-        setLeaf(1);
-        setFilledSize(0);
-        BPT_MAX_KEY_LEN = 1;
-        BPT_TRIE_LEN = 0;
-        BPT_MAX_PFX_LEN = 1;
+        bplus_tree_handler<T>::initCurrentBlock();
+        bplus_tree_handler<T>::BPT_TRIE_LEN = 0;
+        bplus_tree_handler<T>::BPT_MAX_PFX_LEN = 1;
         keyPos = 1;
-        setKVLastPos(leaf_block_size);
         insertState = INSERT_EMPTY;
     }
 
     virtual void setCurrentBlock(byte *m) {
-        current_block = m;
-        trie = current_block + getHeaderSize();
+        bplus_tree_handler<T>::current_block = m;
+        trie = bplus_tree_handler<T>::current_block + static_cast<T*>(this)->getHeaderSize();
 #if BPT_9_BIT_PTR == 1
 #if BPT_INT64MAP == 1
-        bitmap = (uint64_t *) (current_block + getHeaderSize() - 8);
+        bplus_tree_handler<T>::bitmap = (uint64_t *) (bplus_tree_handler<T>::current_block + static_cast<T*>(this)->getHeaderSize() - 8);
 #else
-        bitmap1 = (uint32_t *) (current_block + getHeaderSize() - 8);
-        bitmap2 = bitmap1 + 1;
+        bplus_tree_handler<T>::bitmap1 = (uint32_t *) (bplus_tree_handler<T>::current_block + static_cast<T*>(this)->getHeaderSize() - 8);
+        bplus_tree_handler<T>::bitmap2 = bplus_tree_handler<T>::bitmap1 + 1;
 #endif
 #endif
     }
@@ -450,80 +456,80 @@ protected:
         //    maxKeyCount = block->filledSize();
         //printf("%d\t%d\t%d\n", block->isLeaf(), block->filledSize(), block->BPT_TRIE_LEN);
         //cout << (int) node->BPT_TRIE_LEN << endl;
-        if (isLeaf()) {
-            maxKeyCountLeaf += filledSize();
-            maxTrieLenLeaf += BPT_TRIE_LEN;
-            blockCountLeaf++;
+        if (bplus_tree_handler<T>::isLeaf()) {
+            bplus_tree_handler<T>::maxKeyCountLeaf += bplus_tree_handler<T>::filledSize();
+            maxTrieLenLeaf += bplus_tree_handler<T>::BPT_TRIE_LEN;
+            bplus_tree_handler<T>::blockCountLeaf++;
         } else {
-            maxKeyCountNode += filledSize();
-            maxTrieLenNode += BPT_TRIE_LEN;
-            blockCountNode++;
+            bplus_tree_handler<T>::maxKeyCountNode += bplus_tree_handler<T>::filledSize();
+            maxTrieLenNode += bplus_tree_handler<T>::BPT_TRIE_LEN;
+            bplus_tree_handler<T>::blockCountNode++;
         }
         //    maxKeyCount += node->BPT_TRIE_LEN;
         //maxKeyCount += node->PREFIX_LEN;
     }
 
     inline void delAt(byte *ptr) {
-        BPT_TRIE_LEN--;
-        memmove(ptr, ptr + 1, trie + BPT_TRIE_LEN - ptr);
+        bplus_tree_handler<T>::BPT_TRIE_LEN--;
+        memmove(ptr, ptr + 1, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
     }
 
     inline void delAt(byte *ptr, int16_t count) {
-        BPT_TRIE_LEN -= count;
-        memmove(ptr, ptr + count, trie + BPT_TRIE_LEN - ptr);
+        bplus_tree_handler<T>::BPT_TRIE_LEN -= count;
+        memmove(ptr, ptr + count, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
     }
 
     inline byte insAt(byte *ptr, byte b) {
-        memmove(ptr + 1, ptr, trie + BPT_TRIE_LEN - ptr);
+        memmove(ptr + 1, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         *ptr = b;
-        BPT_TRIE_LEN++;
+        bplus_tree_handler<T>::BPT_TRIE_LEN++;
         return 1;
     }
 
     inline byte insAt(byte *ptr, byte b1, byte b2) {
-        memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN - ptr);
+        memmove(ptr + 2, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         *ptr++ = b1;
         *ptr = b2;
-        BPT_TRIE_LEN += 2;
+        bplus_tree_handler<T>::BPT_TRIE_LEN += 2;
         return 2;
     }
 
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3) {
-        memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN - ptr);
+        memmove(ptr + 3, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr = b3;
-        BPT_TRIE_LEN += 3;
+        bplus_tree_handler<T>::BPT_TRIE_LEN += 3;
         return 3;
     }
 
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
-        memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN - ptr);
+        memmove(ptr + 4, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr++ = b3;
         *ptr = b4;
-        BPT_TRIE_LEN += 4;
+        bplus_tree_handler<T>::BPT_TRIE_LEN += 4;
         return 4;
     }
 
     inline void insAt(byte *ptr, byte b, const char *s, byte len) {
-        memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN - ptr);
+        memmove(ptr + 1 + len, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         *ptr++ = b;
         memcpy(ptr, s, len);
-        BPT_TRIE_LEN += len;
-        BPT_TRIE_LEN++;
+        bplus_tree_handler<T>::BPT_TRIE_LEN += len;
+        bplus_tree_handler<T>::BPT_TRIE_LEN++;
     }
 
     inline void insAt(byte *ptr, const char *s, byte len) {
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN - ptr);
+        memmove(ptr + len, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         memcpy(ptr, s, len);
-        BPT_TRIE_LEN += len;
+        bplus_tree_handler<T>::BPT_TRIE_LEN += len;
     }
 
     void insBytes(byte *ptr, int16_t len) {
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN - ptr);
-        BPT_TRIE_LEN += len;
+        memmove(ptr + len, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
+        bplus_tree_handler<T>::BPT_TRIE_LEN += len;
     }
 
     inline void setAt(byte pos, byte b) {
@@ -531,28 +537,28 @@ protected:
     }
 
     inline void append(byte b) {
-        trie[BPT_TRIE_LEN++] = b;
+        trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b;
     }
 
     inline void append(byte b1, byte b2) {
-        trie[BPT_TRIE_LEN++] = b1;
-        trie[BPT_TRIE_LEN++] = b2;
+        trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b1;
+        trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b2;
     }
 
     inline void append(byte b1, byte b2, byte b3) {
-        trie[BPT_TRIE_LEN++] = b1;
-        trie[BPT_TRIE_LEN++] = b2;
-        trie[BPT_TRIE_LEN++] = b3;
+        trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b1;
+        trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b2;
+        trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b3;
     }
 
     inline void appendPtr(int16_t p) {
-        util::setInt(trie + BPT_TRIE_LEN, p);
-        BPT_TRIE_LEN += 2;
+        util::setInt(trie + bplus_tree_handler<T>::BPT_TRIE_LEN, p);
+        bplus_tree_handler<T>::BPT_TRIE_LEN += 2;
     }
 
     void append(const char *s, int16_t need_count) {
-        memcpy(trie + BPT_TRIE_LEN, s, need_count);
-        BPT_TRIE_LEN += need_count;
+        memcpy(trie + bplus_tree_handler<T>::BPT_TRIE_LEN, s, need_count);
+        bplus_tree_handler<T>::BPT_TRIE_LEN += need_count;
     }
 
 public:
@@ -593,11 +599,12 @@ public:
     static const int16_t x100 = 0x100;
     virtual ~bpt_trie_handler() {}
     void printMaxKeyCount(long num_entries) {
-        bplus_tree_handler::printMaxKeyCount(num_entries);
+        bplus_tree_handler<T>::printMaxKeyCount(num_entries);
         util::print("Avg Trie Len:");
-        util::print((long) (maxTrieLenNode / (blockCountNode ? blockCountNode : 1)));
+        util::print((long) (maxTrieLenNode
+                / (bplus_tree_handler<T>::blockCountNode ? bplus_tree_handler<T>::blockCountNode : 1)));
         util::print(", ");
-        util::print((long) (maxTrieLenLeaf / blockCountLeaf));
+        util::print((long) (maxTrieLenLeaf / bplus_tree_handler<T>::blockCountLeaf));
         util::endl();
     }
 

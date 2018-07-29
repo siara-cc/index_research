@@ -176,111 +176,8 @@ double timedifference(uint32_t t0, uint32_t t1) {
     return ret;
 }
 
-void print(rb_tree *dx, const char *key, int16_t key_len) {
-    int16_t len;
-    char *value = dx->get(key, key_len, &len);
-    if (value == null || len == 0) {
-        std::cout << "Value for " << key << " is null" << endl;
-        return;
-    }
-    char s[100];
-    strncpy(s, value, len);
-    s[len] = 0;
-    std::cout << "Key: " << key << ", Value:" << s << endl;
-}
-
-void print(dfox *dx, const char *key, int16_t key_len) {
-    int16_t len;
-    char *value = dx->get(key, key_len, &len);
-    if (value == null || len == 0) {
-        std::cout << "Value for " << key << " is null" << endl;
-        return;
-    }
-    char s[100];
-    strncpy(s, value, len);
-    s[len] = 0;
-    std::cout << "Key: " << key << ", Value:" << s << endl;
-}
-
-void print(bft *bx, const char *key, int16_t key_len) {
-    int16_t len;
-    char *value = bx->get(key, key_len, &len);
-    if (value == null || len == 0) {
-        std::cout << "Value for " << key << " is null" << endl;
-        return;
-    }
-    char s[100];
-    strncpy(s, value, len);
-    s[len] = 0;
-    std::cout << "Key: " << key << ", Value:" << s << endl;
-}
-
-void print(dft *bx, const char *key, int16_t key_len) {
-    int16_t len;
-    char *value = bx->get(key, key_len, &len);
-    if (value == null || len == 0) {
-        std::cout << "Value for " << key << " is null" << endl;
-        return;
-    }
-    char s[100];
-    strncpy(s, value, len);
-    s[len] = 0;
-    std::cout << "Key: " << key << ", Value:" << s << endl;
-}
-
-void print(bfos *bx, const char *key, int16_t key_len) {
-    int16_t len;
-    char *value = bx->get(key, key_len, &len);
-    if (value == null || len == 0) {
-        std::cout << "Value for " << key << " is null" << endl;
-        return;
-    }
-    char s[100];
-    strncpy(s, value, len);
-    s[len] = 0;
-    std::cout << "Key: " << key << ", Value:" << s << endl;
-}
-
-void print(bfqs *bx, const char *key, int16_t key_len) {
-    int16_t len;
-    char *value = bx->get(key, key_len, &len);
-    if (value == null || len == 0) {
-        std::cout << "Value for " << key << " is null" << endl;
-        return;
-    }
-    char s[100];
-    strncpy(s, value, len);
-    s[len] = 0;
-    std::cout << "Key: " << key << ", Value:" << s << endl;
-}
-
-void print(dfqx *dx, const char *key, int16_t key_len) {
-    int16_t len;
-    char *value = dx->get(key, key_len, &len);
-    if (value == null || len == 0) {
-        std::cout << "Value for " << key << " is null" << endl;
-        return;
-    }
-    char s[100];
-    strncpy(s, value, len);
-    s[len] = 0;
-    std::cout << "Key: " << key << ", Value:" << s << endl;
-}
-
-void print(basix *dx, const char *key, int16_t key_len) {
-    int16_t len;
-    char *value = dx->get(key, key_len, &len);
-    if (value == null || len == 0) {
-        std::cout << "Value for " << key << " is null" << endl;
-        return;
-    }
-    char s[100];
-    strncpy(s, value, len);
-    s[len] = 0;
-    std::cout << "Key: " << key << ", Value:" << s << endl;
-}
-
-void print(linex *dx, const char *key, int16_t key_len) {
+template<class T>
+void print(bplus_tree_handler<T> *dx, const char *key, int16_t key_len) {
     int16_t len;
     char *value = dx->get(key, key_len, &len);
     if (value == null || len == 0) {
@@ -297,11 +194,12 @@ int main2() {
     util::generateBitCounts();
     //rb_tree *dx = new rb_tree();
     //dfox *dx = new dfox();
+    //dfos *dx = new dfos();
     //dfqx *dx = new dfqx();
     //bfos *dx = new bfos();
-    bfqs *dx = new bfqs();
+    //bfqs *dx = new bfqs();
     //bft *dx = new bft();
-    //dft *dx = new dft();
+    dft *dx = new dft();
     //basix *dx = new basix();
     //linex *dx = new linex();
 
@@ -1143,8 +1041,8 @@ int main2() {
 
     dx->printMaxKeyCount(24);
     dx->printNumLevels();
-    cout << "Trie size: " << (int) dx->root_data[5] << endl;
-    cout << "Filled size: " << (int) dx->root_data[2] << endl;
+    cout << "Trie size: " << (int) dx->BPT_TRIE_LEN << endl;
+    cout << "Filled size: " << (int) dx->filledSize() << endl;
     return 0;
 }
 
@@ -1166,7 +1064,7 @@ int main3() {
         char v[5];
         k[3] = i;
         sprintf(v, "%d", i);
-        print(dx, (char *) k, 4);
+        //print(dx, (char *) k, 4);
     }
     return 0;
 }
@@ -1175,23 +1073,23 @@ int main4() {
     util::generateBitCounts();
     //basix *dx = new basix();
     //bfos *dx = new bfos();
-    dfox *dx = new dfox();
-    //bft *dx = new bft();
+    //dfox *dx = new dfox();
+    bft *dx = new bft();
     //dft *dx = new dft();
     //rb_tree *dx = new rb_tree();
     //dfqx *dx = new dfqx();
     //linex *dx = new linex();
 
-    dx->put("slenwjp", 8, "nels", 4);
-    dx->put("pfqkmdn", 8, "kqfp", 4);
+    dx->put("xzvwueio", 8, "wvzx", 4);
+    dx->put("fwtylcuh", 8, "ytwf", 4);
 
-    print(dx, "slenwjp", 8);
-    print(dx, "pfqkmdn", 8);
+    //print(dx, "xzvwueio", 8);
+    //print(dx, "fwtylcuh", 8);
 
     dx->printMaxKeyCount(NUM_ENTRIES);
     dx->printNumLevels();
     std::cout << "Size:" << dx->size() << endl;
-    std::cout << "Trie Size:" << (int) dx->root_data[5] << endl;
+    std::cout << "Trie Size:" << (int) dx->BPT_TRIE_LEN << endl;
     return 0;
 }
 
@@ -1348,12 +1246,12 @@ int main(int argc, char *argv[]) {
     //getchar();
 
     ctr = 0;
-    linex *dx = new linex();
+    //linex *dx = new linex();
     //basix *dx = new basix();
     //bft *dx = new bft();
     //bfos *dx = new bfos();
     //bfqs *dx = new bfqs();
-    //dft *dx = new dft();
+    dft *dx = new dft();
     //dfqx *dx = new dfqx();
     //dfox *dx = new dfox();
     //dfos *dx = new dfos();
@@ -1435,7 +1333,7 @@ int main(int argc, char *argv[]) {
     lx->printMaxKeyCount(NUM_ENTRIES);
     lx->printNumLevels();
     //lx->printCounts();
-    cout << "Root filled size:" << util::getInt(lx->root_data + 1) << endl;
+    cout << "Root filled size:" << lx->filledSize() << endl;
 
     cmp = 0;
     ctr = 0;

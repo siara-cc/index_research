@@ -35,7 +35,8 @@ using namespace std;
 #define KEY_LEN_POS 7
 #endif
 
-class rb_tree : public bplus_tree_handler {
+// CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
+class rb_tree : public bplus_tree_handler<rb_tree> {
 private:
     int16_t binarySearch(const char *key, int16_t key_len);
     inline int16_t getLeft(int16_t n);
@@ -62,15 +63,21 @@ private:
 public:
     int16_t pos;
     byte last_direction;
-    rb_tree();
-    inline int16_t getDataEndPos();
-    inline void setDataEndPos(int16_t pos);
+
+    rb_tree(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
+            uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE) :
+       bplus_tree_handler<rb_tree>(leaf_block_sz, parent_block_sz) {
+        GenTree::generateLists();
+        initBuf();
+    }
+
+    int16_t getDataEndPos();
+    void setDataEndPos(int16_t pos);
     int16_t filledUpto();
     void setFilledUpto(int16_t filledUpto);
-    inline int16_t getPtr(int16_t pos);
-    inline void setPtr(int16_t pos, int16_t ptr);
+    int16_t getPtr(int16_t pos);
+    void setPtr(int16_t pos, int16_t ptr);
     bool isFull();
-    int16_t traverseToLeaf(byte *node_paths[] = null);
     int16_t searchCurrentBlock();
     void addData(int16_t idx);
     void addFirstData();
@@ -81,12 +88,12 @@ public:
     int16_t getPrevious(int16_t n);
     byte *split(byte *first_key, int16_t *first_len_ptr);
     void initVars();
-    inline byte *getChildPtrPos(int16_t idx);
-    inline char *getValueAt(int16_t *vlen);
+    byte *getChildPtrPos(int16_t idx);
+    char *getValueAt(int16_t *vlen);
     using bplus_tree_handler::getChildPtr;
-    inline byte *getChildPtr(int16_t pos);
-    inline byte *getPtrPos();
-    inline int getHeaderSize();
+    byte *getChildPtr(int16_t pos);
+    byte *getPtrPos();
+    int getHeaderSize();
     void initBuf();
 };
 
