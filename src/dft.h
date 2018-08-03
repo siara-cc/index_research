@@ -9,9 +9,9 @@
 
 using namespace std;
 
-#define DFT_UNIT_SIZE 4
+#define DFT_UNIT_SIZE 3
 
-#define DFT_HDR_SIZE 8
+#define DFT_HDR_SIZE 9
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class dft : public bpt_trie_handler<dft> {
@@ -437,7 +437,7 @@ public:
         }
     #endif
         if (getKVLastPos() < (DFT_HDR_SIZE + BPT_TRIE_LEN
-                + need_count + key_len + value_len + 3)) {
+                + need_count + key_len - keyPos + value_len + 3)) {
             return true;
         }
         if (BPT_TRIE_LEN > 254 - need_count) {

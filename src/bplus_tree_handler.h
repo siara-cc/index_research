@@ -17,8 +17,9 @@ using namespace std;
 #define BPT_FILLED_SIZE current_block + 1
 #define BPT_LAST_DATA_PTR current_block + 3
 #define BPT_MAX_KEY_LEN current_block[5]
-#define BPT_TRIE_LEN current_block[6]
-#define BPT_MAX_PFX_LEN current_block[7]
+#define BPT_TRIE_LEN_PTR current_block + 6
+#define BPT_TRIE_LEN current_block[7]
+#define BPT_MAX_PFX_LEN current_block[8]
 
 #define INSERT_AFTER 1
 #define INSERT_BEFORE 2
@@ -411,6 +412,21 @@ public:
 
 };
 
+#define TRIE_CHILD_PTR_SIZE 2
+#if TRIE_CHILD_PTR_SIZE == 1
+#define BIT_COUNT_CH(x) BIT_COUNT(x)
+#define GET_TRIE_LEN BPT_TRIE_LEN
+#define SET_TRIE_LEN(x) BPT_TRIE_LEN = x;
+#define GET_CHILD_OFFSET(x) *x;
+#define SET_CHILD_OFFSET(x, off) *x = off;
+#else
+#define BIT_COUNT_CH(x) BIT_COUNT2(x)
+#define GET_TRIE_LEN util::getInt(BPT_TRIE_LEN_PTR)
+#define SET_TRIE_LEN(x) util::setInt(BPT_TRIE_LEN_PTR, x)
+#define GET_CHILD_OFFSET(x) util::getInt(x)
+#define SET_CHILD_OFFSET(x, off) util::setInt(x, off)
+#endif
+
 template<class T>
 class bpt_trie_handler: public bplus_tree_handler<T> {
 
@@ -431,6 +447,9 @@ protected:
 
     virtual void initCurrentBlock() {
         bplus_tree_handler<T>::initCurrentBlock();
+#if TRIE_CHILD_PTR_SIZE == 2
+        *(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR) = 0;
+#endif
         bplus_tree_handler<T>::BPT_TRIE_LEN = 0;
         bplus_tree_handler<T>::BPT_MAX_PFX_LEN = 1;
         keyPos = 1;
@@ -540,18 +559,7 @@ protected:
         trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b;
     }
 
-    inline void append(byte b1, byte b2) {
-        trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b1;
-        trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b2;
-    }
-
-    inline void append(byte b1, byte b2, byte b3) {
-        trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b1;
-        trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b2;
-        trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b3;
-    }
-
-    inline void appendPtr(int16_t p) {
+    inline void appendPtr(uint16_t p) {
         util::setInt(trie + bplus_tree_handler<T>::BPT_TRIE_LEN, p);
         bplus_tree_handler<T>::BPT_TRIE_LEN += 2;
     }

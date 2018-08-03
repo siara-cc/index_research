@@ -16,8 +16,7 @@ using namespace std;
 #define DQ_MAX_PTR_BITMAP_BYTES 0
 #define DQ_MAX_PTRS 240
 #endif
-#define DFQX_HDR_SIZE 8
-//#define MID_KEY_LEN buf[DQ_MAX_PTR_BITMAP_BYTES+6]
+#define DFQX_HDR_SIZE 9
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class dfqx: public bpt_trie_handler<dfqx> {
@@ -284,7 +283,7 @@ public:
     #endif
         if (getKVLastPos()
                 < (DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES + BPT_TRIE_LEN
-                        + need_count + ptr_size + key_len + value_len + 3))
+                        + need_count + ptr_size + key_len - keyPos + value_len + 3))
             return true;
         if (filledSize() > DQ_MAX_PTRS)
             return true;

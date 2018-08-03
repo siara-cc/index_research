@@ -9,9 +9,9 @@
 
 using namespace std;
 
-#define BFT_UNIT_SIZE 4
+#define BFT_UNIT_SIZE 3
 
-#define BFT_HDR_SIZE 8
+#define BFT_HDR_SIZE 9
 
 #define BFT_MAX_KEY_PREFIX_LEN 60
 
@@ -324,7 +324,7 @@ public:
         }
     #endif
         if (getKVLastPos() < (BFT_HDR_SIZE + BPT_TRIE_LEN
-                + need_count + key_len + value_len + 3)) {
+                + need_count + key_len - keyPos + value_len + 3)) {
             return true;
         }
         if (BPT_TRIE_LEN > 254 - need_count)

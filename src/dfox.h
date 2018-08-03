@@ -11,8 +11,7 @@ using namespace std;
 
 #define DX_MIDDLE_PREFIX 1
 
-#define DFOX_HDR_SIZE 8
-//#define MID_KEY_LEN buf[DX_MAX_PTR_BITMAP_BYTES+6]
+#define DFOX_HDR_SIZE 9
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class dfox : public bpt_trie_handler<dfox> {
@@ -377,7 +376,7 @@ public:
     bool isFull() {
         decodeNeedCount();
         if (getKVLastPos() < (DFOX_HDR_SIZE + BPT_TRIE_LEN +
-                need_count + key_len + value_len + 3))
+                need_count + key_len - keyPos + value_len + 3))
             return true;
         if (BPT_TRIE_LEN > (254 - need_count))
             return true;
@@ -515,8 +514,8 @@ public:
             new_block.setFilledSize(new_size);
         }
 
-        //consolidateInitialPrefix(current_block);
-        //new_block.consolidateInitialPrefix(new_block.current_block);
+        consolidateInitialPrefix(current_block);
+        new_block.consolidateInitialPrefix(new_block.current_block);
 
         return new_block.current_block;
 
@@ -532,8 +531,8 @@ public:
         byte *t_writer = t_reader + (((*t & x03) == 1) ? 0 : 1);
         byte count = 0;
         byte trie_len_diff = 0;
-        while (((*t_reader & x03) == 1) || ((*t_reader & x02) && (*t_reader & x04) && BIT_COUNT(t_reader[2]) == 1
-                && BIT_COUNT(t_reader[3]) == 0)) {
+        while (((*t_reader & x03) == 1) || ((*t_reader & x02) && (*t_reader & x04) && BIT_COUNT(t_reader[3]) == 1
+                && BIT_COUNT(t_reader[4]) == 0)) {
             if ((*t_reader & x03) == 1) {
                 byte len = *t_reader++ >> 2;
                 memcpy(t_writer, t_reader, len);
@@ -542,10 +541,10 @@ public:
                 count += len;
                 trie_len_diff++;
             } else {
-                *t_writer++ = (*t_reader & xF8) + BIT_COUNT(t_reader[2] - 1);
-                t_reader += 4;
+                *t_writer++ = (*t_reader & xF8) + BIT_COUNT(t_reader[3] - 1);
+                t_reader += 5;
                 count++;
-                trie_len_diff += 3;
+                trie_len_diff += 4;
             }
         }
         if (t_reader > t_writer) {
@@ -553,7 +552,7 @@ public:
             if ((*t & x03) == 1) {
                 *t = (((*t >> 2) + count) << 2) + 1;
             } else {
-                *t = (count << 1) + 1;
+                *t = (count << 2) + 1;
                 trie_len_diff--;
             }
             BPT_TRIE_LEN -= trie_len_diff;
