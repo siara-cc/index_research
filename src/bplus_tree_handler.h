@@ -39,8 +39,8 @@ using namespace std;
 #define DEFAULT_PARENT_BLOCK_SIZE 512
 #define DEFAULT_LEAF_BLOCK_SIZE 512
 #else
-#define DEFAULT_PARENT_BLOCK_SIZE 768
-#define DEFAULT_LEAF_BLOCK_SIZE 768
+#define DEFAULT_PARENT_BLOCK_SIZE 1024
+#define DEFAULT_LEAF_BLOCK_SIZE 1024
 #endif
 
 template<class T> // CRTP
@@ -411,21 +411,6 @@ public:
     }
 
 };
-
-#define TRIE_CHILD_PTR_SIZE 2
-#if TRIE_CHILD_PTR_SIZE == 1
-#define BIT_COUNT_CH(x) BIT_COUNT(x)
-#define GET_TRIE_LEN BPT_TRIE_LEN
-#define SET_TRIE_LEN(x) BPT_TRIE_LEN = x;
-#define GET_CHILD_OFFSET(x) *x;
-#define SET_CHILD_OFFSET(x, off) *x = off;
-#else
-#define BIT_COUNT_CH(x) BIT_COUNT2(x)
-#define GET_TRIE_LEN util::getInt(BPT_TRIE_LEN_PTR)
-#define SET_TRIE_LEN(x) util::setInt(BPT_TRIE_LEN_PTR, x)
-#define GET_CHILD_OFFSET(x) util::getInt(x)
-#define SET_CHILD_OFFSET(x, off) util::setInt(x, off)
-#endif
 
 template<class T>
 class bpt_trie_handler: public bplus_tree_handler<T> {

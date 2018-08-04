@@ -18,8 +18,7 @@ using namespace std;
 #define DS_MAX_PTR_BITMAP_BYTES 0
 #define DS_MAX_PTRS 240
 #endif
-#define DFOS_HDR_SIZE 8
-#define DS_MAX_PFX_LEN buf[7]
+#define DFOS_HDR_SIZE 9
 //#define MID_KEY_LEN buf[DS_MAX_PTR_BITMAP_BYTES+6]
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
@@ -373,7 +372,7 @@ public:
     #endif
         if (getKVLastPos()
                 < (DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + BPT_TRIE_LEN
-                        + need_count + ptr_size + key_len + value_len + 3))
+                        + need_count + ptr_size + key_len - keyPos + value_len + 3))
             return true;
         if (filledSize() > DS_MAX_PTRS)
             return true;
