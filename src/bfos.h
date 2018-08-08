@@ -261,7 +261,7 @@ public:
                 byte *brk_key, int16_t brk_key_len, byte whichHalf) {
 #endif
         byte *orig_dest = dest;
-        if (*t & x01) {
+        while (*t & x01) {
             byte len = (*t >> 1) + 1;
             memcpy(dest, t, len);
             dest += len;
@@ -323,7 +323,7 @@ public:
                 }
                 t += BIT_COUNT2(orig_leaves);
             } else {
-                int len = (tc & x02) ? 3 + BS_BIT_COUNT_CH(t[1]) + BIT_COUNT2(t[2])
+                byte len = (tc & x02) ? 3 + BS_BIT_COUNT_CH(t[1]) + BIT_COUNT2(t[2])
                         : 2 + BIT_COUNT2(t[1]);
                 memcpy(dest, t, len);
                 t += len;
@@ -345,18 +345,20 @@ public:
         byte *t = trie;
         byte *new_trie = dest;
         int lvl = 0;
-        if (*t & x01) {
+        while (*t & x01) {
             byte len = (*t >> 1);
             for (int i = 0; i < len; i++)
                 tp_child[i] = dest - new_trie;
             lvl = len;
+            t += len + 1;
         }
+        t = trie;
         uint16_t last_len = copyKary(t, dest, lvl, tp, brk_key, brk_key_len, whichHalf);
         d = dest;
         dest += last_len;
         do {
             byte tc = *d++;
-            if (tc & x01) {
+            while (tc & x01) {
                 d += (tc >> 1);
                 tc = *d++;
             }
@@ -369,12 +371,14 @@ public:
                     BS_SET_CHILD_OFFSET(d, dest - d);
                     child_num[lvl++] = 0;
                     t = child;
-                    if (*t & x01) {
+                    while (*t & x01) {
                         byte len = (*t >> 1);
                         for (int i = 0; i < len; i++)
                             tp_child[lvl + i] = dest - new_trie;
                         lvl += len;
+                        t += len + 1;
                     }
+                    t = child;
                     last_len = copyKary(t, dest, lvl, tp, brk_key, brk_key_len, whichHalf);
                     d = dest;
                     dest += last_len;
@@ -386,6 +390,8 @@ public:
             while (tc & x04) {
                 do {
                     lvl--;
+                    if (lvl < 0)
+                        break;
                     d = new_trie + tp_child[lvl];
                     tc = *d;
                 } while (tc & x01);
@@ -405,12 +411,14 @@ public:
                     BS_SET_CHILD_OFFSET(d, dest - d);
                     child_num[lvl++] = i;
                     t = child;
-                    if (*t & x01) {
+                    while (*t & x01) {
                         byte len = (*t >> 1);
                         for (int i = 0; i < len; i++)
                             tp_child[lvl + i] = dest - new_trie;
                         lvl += len;
+                        t += len + 1;
                     }
+                    t = child;
                     last_len = copyKary(t, dest, lvl, tp, brk_key, brk_key_len, whichHalf);
                     d = dest;
                     dest += last_len;
@@ -522,7 +530,7 @@ public:
                 if (tc & x04) {
                     new_block.keyPos--;
                     t = new_block.trie + tp[new_block.keyPos];
-                    if (*t & x01) {
+                    while (*t & x01) {
                         new_block.keyPos -= (*t >> 1);
                         t = new_block.trie + tp[new_block.keyPos];
                     }
@@ -542,7 +550,7 @@ public:
             if (ctr > x07) {
                 tp[new_block.keyPos] = t - new_block.trie;
                 tc = *t++;
-                if (tc & x01) {
+                while (tc & x01) {
                     byte len = tc >> 1;
                     for (int i = 0; i < len; i++)
                         tp[new_block.keyPos + i] = t - new_block.trie - 1;
@@ -672,7 +680,7 @@ public:
                 + need_count + key_len - keyPos + value_len + 3))
             return true;
 #if BS_CHILD_PTR_SIZE == 1
-        if (BS_GET_TRIE_LEN > 252 - need_count)
+        if (BS_GET_TRIE_LEN > 254 - need_count)
             return true;
 #endif
         return false;
@@ -960,8 +968,15 @@ public:
                   }
               }
               if (need_count) {
-                  append((need_count << 1) | x01);
-                  append(key + keyPos, need_count);
+                  if (need_count > 127) {
+                      append(xFF);
+                      append(key + keyPos, 127);
+                      append(((need_count - 127) << 1) | x01);
+                      append(key + keyPos + 127, need_count - 127);
+                  } else {
+                      append((need_count << 1) | x01);
+                      append(key + keyPos, need_count);
+                  }
                   p += need_count;
                   //count1 += need_count;
               }
