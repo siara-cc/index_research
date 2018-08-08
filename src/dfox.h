@@ -17,9 +17,9 @@ using namespace std;
 #if DX_SIBLING_PTR_SIZE == 1
 #define DX_BIT_COUNT_SB(x) BIT_COUNT(x)
 #define DX_GET_TRIE_LEN BPT_TRIE_LEN
-#define DX_SET_TRIE_LEN(x) BPT_TRIE_LEN = x;
-#define DX_GET_SIBLING_OFFSET(x) *x;
-#define DX_SET_SIBLING_OFFSET(x, off) *x = off;
+#define DX_SET_TRIE_LEN(x) BPT_TRIE_LEN = x
+#define DX_GET_SIBLING_OFFSET(x) *x
+#define DX_SET_SIBLING_OFFSET(x, off) *x = off
 #else
 #define DX_BIT_COUNT_SB(x) BIT_COUNT2(x)
 #define DX_GET_TRIE_LEN util::getInt(BPT_TRIE_LEN_PTR)
@@ -46,20 +46,20 @@ public:
         while (count) {
             byte tc = *t++;
             switch (tc & x03) {
-            case x01:
-                t += (tc >> 2);
-                continue;
-            case x00:
-                t += BIT_COUNT2(*t);
-                t++;
-                break;
-            case x02:
-                t += DX_GET_SIBLING_OFFSET(t);
-                break;
             case x03:
                 count--;
                 t++;
                 last_t = t - 2;
+                continue;
+            case x02:
+                t += DX_GET_SIBLING_OFFSET(t);
+                break;
+            case x00:
+                t += BIT_COUNT2(*t);
+                t++;
+                break;
+            case x01:
+                t += (tc >> 2);
                 continue;
             }
             last_t = t - 2;
@@ -74,7 +74,6 @@ public:
         byte *t = trie;
         byte trie_char = *t;
         keyPos = 1;
-        last_t = 0;
         origPos = t++;
         do {
 #if DX_MIDDLE_PREFIX == 1
@@ -92,7 +91,7 @@ public:
                         t = skipChildren(t + pfx_len, 1);
                         key_at = t;
                     }
-                        insertState = INSERT_CONVERT;
+                    insertState = INSERT_CONVERT;
                     return -1;
                 }
                 trie_char = *t;
@@ -100,15 +99,12 @@ public:
             }
 #endif
             while ((key_char & xF8) > trie_char) {
-                if (trie_char & x02) {
+                if (trie_char & x02)
                     t += DX_GET_SIBLING_OFFSET(t);
-                } else {
-                    t += BIT_COUNT2(*t);
-                    t++;
-                }
+                else
+                    t += BIT_COUNT2(*t) + 1;
                 last_t = t - 2;
                 if (trie_char & x04) {
-                    triePos = t;
                     insertState = INSERT_AFTER;
                     return -1;
                 }
@@ -116,7 +112,6 @@ public:
                 origPos = t++;
             }
             if ((key_char ^ trie_char) & xF8) {
-                triePos = origPos;
                 insertState = INSERT_BEFORE;
                 return -1;
             }
@@ -125,7 +120,7 @@ public:
                 byte r_children = *t++;
                 byte r_leaves = *t++;
                 byte r_mask = x01 << (key_char & x07);
-                key_char = (r_leaves & r_mask ? x02 : x00) |
+                trie_char = (r_leaves & r_mask ? x02 : x00) |
                         ((r_children & r_mask) && keyPos != key_len ? x01 : x00);
                 //key_char = (r_leaves & r_mask ? x01 : x00)
                 //        | (r_children & r_mask ? x02 : x00)
@@ -135,10 +130,10 @@ public:
             } else {
                 byte r_leaves = *t++;
                 byte r_mask = x01 << (key_char & x07);
-                key_char = (r_leaves & r_mask ? x02 : x00);
+                trie_char = (r_leaves & r_mask ? x02 : x00);
                 t = skipChildren(t, BIT_COUNT(r_leaves & (r_mask - 1)));
             }
-            switch (key_char) {
+            switch (trie_char) {
             case 0:
                 triePos = t;
                 insertState = INSERT_LEAF;
@@ -617,16 +612,17 @@ public:
         switch (insertState) {
         case INSERT_AFTER:
             *origPos &= xFB;
+            triePos = origPos + ((*origPos & x02) ? DX_GET_SIBLING_OFFSET(origPos + 1) + 1 : BIT_COUNT2(origPos[1]) + 2);
             insAt(triePos, ((key_char & xF8) | x04), mask, x00, x00);
             ret = triePos + 2;
             if (keyPos > 1)
                 updateSkipLens(origPos - 1, triePos - 1, 4);
             break;
         case INSERT_BEFORE:
-            insAt(triePos, key_char & xF8, mask, x00, x00);
-            ret = triePos + 2;
+            insAt(origPos, key_char & xF8, mask, x00, x00);
+            ret = origPos + 2;
             if (keyPos > 1)
-                updateSkipLens(triePos, triePos + 1, 4);
+                updateSkipLens(origPos, origPos + 1, 4);
             break;
         case INSERT_LEAF:
             if (*origPos & x02)

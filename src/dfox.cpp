@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include "dfox.h"
 
-#if TRIE_SIBLING_PTR_SIZE == 1
+#if DX_SIBLING_PTR_SIZE == 1
 const byte dfox::need_counts[10] = {0, 4, 4, 2, 4, 0, 7, 0, 0, 0};
 #else
 const byte dfox::need_counts[10] = {0, 4, 4, 2, 4, 0, 8, 0, 0, 0};

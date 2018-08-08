@@ -13,6 +13,21 @@ using namespace std;
 
 #define BFOS_HDR_SIZE 9
 
+#define BS_CHILD_PTR_SIZE 2
+#if BS_CHILD_PTR_SIZE == 1
+#define BS_BIT_COUNT_CH(x) BIT_COUNT(x)
+#define BS_GET_TRIE_LEN BPT_TRIE_LEN
+#define BS_SET_TRIE_LEN(x) BPT_TRIE_LEN = x;
+#define BS_GET_CHILD_OFFSET(x) *x;
+#define BS_SET_CHILD_OFFSET(x, off) *x = off;
+#else
+#define BS_BIT_COUNT_CH(x) BIT_COUNT2(x)
+#define BS_GET_TRIE_LEN util::getInt(BPT_TRIE_LEN_PTR)
+#define BS_SET_TRIE_LEN(x) util::setInt(BPT_TRIE_LEN_PTR, x)
+#define BS_GET_CHILD_OFFSET(x) util::getInt(x)
+#define BS_SET_CHILD_OFFSET(x, off) util::setInt(x, off)
+#endif
+
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class bfos : public bpt_trie_handler<bfos> {
 public:
@@ -32,22 +47,22 @@ public:
             int rslt = (last_child > last_leaf ? 2 : (last_leaf ^ last_child) > last_child ? 1 : 2);
             switch (rslt) {
             case 1:
-                return current_block + util::getInt(last_t + (*last_t & x02 ? BIT_COUNT_CH(last_t[1]) + 1 : 0)
+                return current_block + util::getInt(last_t + (*last_t & x02 ? BS_BIT_COUNT_CH(last_t[1]) + 1 : 0)
                         + BIT_COUNT2(last_leaf));
             case 2:
-#if TRIE_CHILD_PTR_SIZE == 1
-                last_t += BIT_COUNT_CH(last_child) + 2;
+#if BS_CHILD_PTR_SIZE == 1
+                last_t += BS_BIT_COUNT_CH(last_child) + 2;
 #else
                 last_t++;
-                last_t += BIT_COUNT_CH(last_child);
+                last_t += BS_BIT_COUNT_CH(last_child);
 #endif
-                last_t += GET_CHILD_OFFSET(last_t);
+                last_t += BS_GET_CHILD_OFFSET(last_t);
                 while (*last_t & x01) {
                     last_t += (*last_t >> 1);
                     last_t++;
                 }
                 while (!(*last_t & x04)) {
-                    last_t += (*last_t & x02 ? BIT_COUNT_CH(last_t[1])
+                    last_t += (*last_t & x02 ? BS_BIT_COUNT_CH(last_t[1])
                          + BIT_COUNT2(last_t[2]) + 3 : BIT_COUNT2(last_t[1]) + 2);
                 }
                 last_child = (*last_t & x02 ? last_t[1] : 0);
@@ -61,7 +76,7 @@ public:
         if (key_char > *t) {
             t += pfx_rem_len;
             while (!(*t & x04)) {
-                t += (*t & x02 ? BIT_COUNT_CH(t[1])
+                t += (*t & x02 ? BS_BIT_COUNT_CH(t[1])
                      + BIT_COUNT2(t[2]) + 3 : BIT_COUNT2(t[1]) + 2);
             }
             last_t = t++;
@@ -119,7 +134,7 @@ public:
                 last_t = origPos;
                 last_child = (trie_char & x02 ? *t++ : 0);
                 last_leaf = *t++;
-                t += BIT_COUNT_CH(last_child) + BIT_COUNT2(last_leaf);
+                t += BS_BIT_COUNT_CH(last_child) + BIT_COUNT2(last_leaf);
                 if (trie_char & x04) {
                     //if (!isLeaf())
                     //    last_t = getLastPtr();
@@ -160,7 +175,7 @@ public:
                 break;
             case 2:
                 int16_t cmp;
-                t += BIT_COUNT_CH(r_children) + BIT_COUNT2(r_leaves & r_mask);
+                t += BS_BIT_COUNT_CH(r_children) + BIT_COUNT2(r_leaves & r_mask);
                 key_at = current_block + util::getInt(t);
                 key_at_len = *key_at++;
                 cmp = util::compare(key + keyPos, key_len - keyPos,
@@ -177,7 +192,7 @@ public:
                     last_t = key_at - 1;
                     insertState = INSERT_THREAD;
 #if BS_MIDDLE_PREFIX == 1
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
                     need_count = cmp + 7;
 #else
                     need_count = cmp + 8;
@@ -194,8 +209,8 @@ public:
                 }
                 break;
             }
-            t += BIT_COUNT_CH(r_children & r_mask);
-            t += GET_CHILD_OFFSET(t);
+            t += BS_BIT_COUNT_CH(r_children & r_mask);
+            t += BS_GET_CHILD_OFFSET(t);
             key_char = key[keyPos++];
             trie_char = *t;
             origPos = t++;
@@ -217,7 +232,7 @@ public:
 
     void setPtrDiff(uint16_t diff) {
         byte *t = trie;
-        byte *t_end = trie + GET_TRIE_LEN;
+        byte *t_end = trie + BS_GET_TRIE_LEN;
         while (t < t_end) {
             byte tc = *t++;
             if (tc & x01) {
@@ -227,7 +242,7 @@ public:
             byte leaves = 0;
             if (tc & x02) {
                 leaves = t[1];
-                t += BIT_COUNT_CH(*t);
+                t += BS_BIT_COUNT_CH(*t);
                 t += 2;
             } else
                 leaves = *t++;
@@ -238,7 +253,7 @@ public:
         }
     }
 
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
     byte copyKary(byte *t, byte *dest, int lvl, byte *tp,
             byte *brk_key, int16_t brk_key_len, byte whichHalf) {
 #else
@@ -277,14 +292,14 @@ public:
                         *dest++ = children;
                     *dest++ = leaves;
                     for (int i = 0; i < BIT_COUNT(children); i++) {
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
                         *dest++ = t[i];
 #else
                         util::setInt(dest, util::getInt(t + i * 2));
                         dest += 2;
 #endif
                     }
-                    t += BIT_COUNT_CH(orig_children);
+                    t += BS_BIT_COUNT_CH(orig_children);
                     memcpy(dest, t, BIT_COUNT2(leaves));
                     dest += BIT_COUNT2(leaves);
                     break;
@@ -295,20 +310,20 @@ public:
                         *dest++ = children;
                     *dest++ = leaves;
                     for (int i = BIT_COUNT(orig_children - children); i < BIT_COUNT(orig_children); i++) {
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
                         *dest++ = t[i];
 #else
                         util::setInt(dest, util::getInt(t + i * 2));
                         dest += 2;
 #endif
                     }
-                    t += BIT_COUNT_CH(orig_children);
+                    t += BS_BIT_COUNT_CH(orig_children);
                     memcpy(dest, t + BIT_COUNT2(orig_leaves - leaves), BIT_COUNT2(leaves));
                     dest += BIT_COUNT2(leaves);
                 }
                 t += BIT_COUNT2(orig_leaves);
             } else {
-                byte len = (tc & x02) ? 3 + BIT_COUNT_CH(t[1]) + BIT_COUNT2(t[2])
+                int len = (tc & x02) ? 3 + BS_BIT_COUNT_CH(t[1]) + BIT_COUNT2(t[2])
                         : 2 + BIT_COUNT2(t[1]);
                 memcpy(dest, t, len);
                 t += len;
@@ -318,7 +333,7 @@ public:
         return dest - orig_dest;
     }
 
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
     byte copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_len, byte *dest, byte whichHalf) {
         byte tp_child[BPT_MAX_PFX_LEN];
 #else
@@ -350,8 +365,8 @@ public:
                 if (len) {
                     d++;
                     tp_child[lvl] = d - new_trie - 3;
-                    byte *child = trie + GET_CHILD_OFFSET(d);
-                    SET_CHILD_OFFSET(d, dest - d);
+                    byte *child = trie + BS_GET_CHILD_OFFSET(d);
+                    BS_SET_CHILD_OFFSET(d, dest - d);
                     child_num[lvl++] = 0;
                     t = child;
                     if (*t & x01) {
@@ -381,13 +396,13 @@ public:
                 byte i = child_num[lvl];
                 i++;
                 if (i < len) {
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
                     d += (i + 3);
 #else
                     d += (i * 2 + 3);
 #endif
-                    byte *child = trie + GET_CHILD_OFFSET(d);
-                    SET_CHILD_OFFSET(d, dest - d);
+                    byte *child = trie + BS_GET_CHILD_OFFSET(d);
+                    BS_SET_CHILD_OFFSET(d, dest - d);
                     child_num[lvl++] = i;
                     t = child;
                     if (*t & x01) {
@@ -403,7 +418,7 @@ public:
                 }
                 tc = *d;
                 if (!(tc & x04)) {
-                    d += (tc & x02 ? 3 + BIT_COUNT_CH(d[1]) + BIT_COUNT2(d[2]) :
+                    d += (tc & x02 ? 3 + BS_BIT_COUNT_CH(d[1]) + BIT_COUNT2(d[2]) :
                             2 + BIT_COUNT2(d[1]));
                     break;
                 }
@@ -422,7 +437,7 @@ public:
         byte *t_writer = t_reader + (*t & x01 ? 0 : 1);
         byte count = 0;
         byte trie_len_diff = 0;
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
         while ((*t_reader & x01) || ((*t_reader & x02) && (*t_reader & x04) && BIT_COUNT(t_reader[1]) == 1
                 && BIT_COUNT(t_reader[2]) == 0 && t_reader[3] == 1)) {
 #else
@@ -439,7 +454,7 @@ public:
             } else {
                 *t_writer++ = (*t_reader & xF8) + BIT_COUNT(t_reader[1] - 1);
                 count++;
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
                 t_reader += 4;
                 trie_len_diff += 3;
 #else
@@ -449,14 +464,14 @@ public:
             }
         }
         if (t_reader > t_writer) {
-            memmove(t_writer, t_reader, GET_TRIE_LEN - (t_reader - t));
+            memmove(t_writer, t_reader, BS_GET_TRIE_LEN - (t_reader - t));
             if (*t & x01) {
                 *t = (((*t >> 1) + count) << 1) + 1;
             } else {
                 *t = (count << 1) + 1;
                 trie_len_diff--;
             }
-            SET_TRIE_LEN(GET_TRIE_LEN - trie_len_diff);
+            BS_SET_TRIE_LEN(BS_GET_TRIE_LEN - trie_len_diff);
             //cout << (int) (*t >> 1) << endl;
         }
     }
@@ -479,9 +494,9 @@ public:
         brk_idx = brk_kv_pos = 0;
         // (1) move all data to new_block in order
         int16_t idx = 0;
-        byte alloc_size = BPT_MAX_PFX_LEN + 1;
+        int alloc_size = BPT_MAX_PFX_LEN + 1;
         byte curr_key[alloc_size];
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
         byte tp[alloc_size];
         byte tp_cpy[alloc_size];
 #else
@@ -491,13 +506,13 @@ public:
         int16_t tp_cpy_len = 0;
         byte *t = new_block.trie;
         //if (!isLeaf())
-        //   cout << "Trie len:" << (int) GET_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DX_MAX_KEY_LEN << endl;
+        //   cout << "Trie len:" << (int) BS_GET_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DX_MAX_KEY_LEN << endl;
         new_block.keyPos = 0;
-        memcpy(new_block.trie, trie, GET_TRIE_LEN);
-#if TRIE_CHILD_PTR_SIZE == 1
+        memcpy(new_block.trie, trie, BS_GET_TRIE_LEN);
+#if BS_CHILD_PTR_SIZE == 1
         new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
 #else
-        util::setInt(new_block.BPT_TRIE_LEN_PTR, GET_TRIE_LEN);
+        util::setInt(new_block.BPT_TRIE_LEN_PTR, BS_GET_TRIE_LEN);
 #endif
         byte tc, leaf, child, leaf_child;
         tc = leaf = child = leaf_child = 0;
@@ -514,7 +529,7 @@ public:
                     tc = *t++;
                     child = (tc & x02) ? *t++ : 0;
                     leaf = *t++;
-                    t += BIT_COUNT_CH(child);
+                    t += BS_BIT_COUNT_CH(child);
                     ctr = curr_key[new_block.keyPos] & x07;
                     leaf_child = (leaf | child) & (xFE << ctr);
                     ctr = leaf_child ? FIRST_BIT_OFFSET_FROM_RIGHT(leaf_child) : 8;
@@ -539,7 +554,7 @@ public:
                 }
                 child = (tc & x02) ? *t++ : 0;
                 leaf = *t++;
-                t += BIT_COUNT_CH(child);
+                t += BS_BIT_COUNT_CH(child);
                 leaf_child = leaf | child;
                 ctr = FIRST_BIT_OFFSET_FROM_RIGHT(leaf_child);
             }
@@ -571,7 +586,7 @@ public:
                         memcpy(first_key + new_block.keyPos, current_block + src_idx + 1, current_block[src_idx]);
                         *first_len_ptr = new_block.keyPos + current_block[src_idx];
                     }
-                    memcpy(tp_cpy, tp, tp_cpy_len * TRIE_CHILD_PTR_SIZE);
+                    memcpy(tp_cpy, tp, tp_cpy_len * BS_CHILD_PTR_SIZE);
                     //curr_key[new_block.keyPos] = 0;
                     //cout << "Middle:" << curr_key << endl;
                     new_block.keyPos--;
@@ -589,7 +604,7 @@ public:
                         brk_kv_pos = kv_last_pos;
                         *first_len_ptr = new_block.keyPos + 1;
                         memcpy(first_key, curr_key, *first_len_ptr);
-                        SET_TRIE_LEN(new_block.copyTrieHalf(tp, first_key, *first_len_ptr, trie, 1));
+                        BS_SET_TRIE_LEN(new_block.copyTrieHalf(tp, first_key, *first_len_ptr, trie, 1));
                     }
                 }
                 idx++;
@@ -597,9 +612,9 @@ public:
                     break;
             }
             if (child & mask) {
-                t -= BIT_COUNT_CH(child & (xFF << ctr));
-                uint16_t child_offset = GET_CHILD_OFFSET(t);
-                SET_CHILD_OFFSET(t, t - new_block.trie + child_offset);
+                t -= BS_BIT_COUNT_CH(child & (xFF << ctr));
+                uint16_t child_offset = BS_GET_CHILD_OFFSET(t);
+                BS_SET_CHILD_OFFSET(t, t - new_block.trie + child_offset);
                 t += child_offset;
                 new_block.keyPos++;
                 ctr = 9;
@@ -608,13 +623,13 @@ public:
             leaf_child &= ~mask;
             ctr = leaf_child ? FIRST_BIT_OFFSET_FROM_RIGHT(leaf_child) : 8;
         } while (1);
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
         new_block.BPT_TRIE_LEN = new_block.copyTrieHalf(tp_cpy, first_key, tp_cpy_len, trie + BPT_TRIE_LEN, 2);
         memcpy(new_block.trie, trie + BPT_TRIE_LEN, new_block.BPT_TRIE_LEN);
 #else
         util::setInt(new_block.BPT_TRIE_LEN_PTR, new_block.copyTrieHalf(tp_cpy, first_key,
-                tp_cpy_len, trie + GET_TRIE_LEN, 2));
-        memcpy(new_block.trie, trie + GET_TRIE_LEN, util::getInt(new_block.BPT_TRIE_LEN_PTR));
+                tp_cpy_len, trie + BS_GET_TRIE_LEN, 2));
+        memcpy(new_block.trie, trie + BS_GET_TRIE_LEN, util::getInt(new_block.BPT_TRIE_LEN_PTR));
 #endif
 
         kv_last_pos = getKVLastPos() + BFOS_NODE_SIZE - kv_last_pos;
@@ -653,11 +668,11 @@ public:
 
     bool isFull() {
         decodeNeedCount();
-        if (getKVLastPos() < (BFOS_HDR_SIZE + GET_TRIE_LEN
+        if (getKVLastPos() < (BFOS_HDR_SIZE + BS_GET_TRIE_LEN
                 + need_count + key_len - keyPos + value_len + 3))
             return true;
-#if TRIE_CHILD_PTR_SIZE == 1
-        if (GET_TRIE_LEN > 252 - need_count)
+#if BS_CHILD_PTR_SIZE == 1
+        if (BS_GET_TRIE_LEN > 252 - need_count)
             return true;
 #endif
         return false;
@@ -696,18 +711,18 @@ public:
             int count = (tc & x02 ? BIT_COUNT(*t++) : 0);
             byte leaves = *t++;
             while (count--) {
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
                 if (t < upto && (t + *t) >= upto)
                     *t += diff;
                 if (insertState == INSERT_BEFORE && keyPos > 1 && (t + *t) == (origPos + 4))
                     *t -= 4;
                 t++;
 #else
-                int16_t child_offset = GET_CHILD_OFFSET(t);
+                uint16_t child_offset = BS_GET_CHILD_OFFSET(t);
                 if (t < upto && (t + child_offset) >= upto)
-                    SET_CHILD_OFFSET(t, child_offset + diff);
-                if (insertState == INSERT_BEFORE && keyPos > 1 && (t + GET_CHILD_OFFSET(t)) == (origPos + 4))
-                    SET_CHILD_OFFSET(t, GET_CHILD_OFFSET(t) - 4);
+                    BS_SET_CHILD_OFFSET(t, child_offset + diff);
+                if (insertState == INSERT_BEFORE && keyPos > 1 && (t + BS_GET_CHILD_OFFSET(t)) == (origPos + 4))
+                    BS_SET_CHILD_OFFSET(t, BS_GET_CHILD_OFFSET(t) - 4);
                 t += 2;
 #endif
                 // todo: avoid inside loops
@@ -718,76 +733,76 @@ public:
     }
 
     inline void delAt(byte *ptr, int16_t count) {
-        int16_t trie_len = GET_TRIE_LEN - count;
-        SET_TRIE_LEN(trie_len);
+        int16_t trie_len = BS_GET_TRIE_LEN - count;
+        BS_SET_TRIE_LEN(trie_len);
         memmove(ptr, ptr + count, trie + trie_len - ptr);
     }
 
     inline int16_t insAt(byte *ptr, byte b) {
-        int16_t trie_len = GET_TRIE_LEN;
+        int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + 1, ptr, trie + trie_len - ptr);
         *ptr = b;
-        SET_TRIE_LEN(trie_len + 1);
+        BS_SET_TRIE_LEN(trie_len + 1);
         return 1;
     }
 
     inline int16_t insAt(byte *ptr, byte b1, byte b2) {
-        int16_t trie_len = GET_TRIE_LEN;
+        int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + 2, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
         *ptr = b2;
-        SET_TRIE_LEN(trie_len + 2);
+        BS_SET_TRIE_LEN(trie_len + 2);
         return 2;
     }
 
     inline int16_t insAt(byte *ptr, byte b1, byte b2, byte b3) {
-        int16_t trie_len = GET_TRIE_LEN;
+        int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + 3, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr = b3;
-        SET_TRIE_LEN(trie_len + 3);
+        BS_SET_TRIE_LEN(trie_len + 3);
         return 3;
     }
 
     inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
-        int16_t trie_len = GET_TRIE_LEN;
+        int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + 4, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr++ = b3;
         *ptr = b4;
-        SET_TRIE_LEN(trie_len + 4);
+        BS_SET_TRIE_LEN(trie_len + 4);
         return 4;
     }
 
     void insBytes(byte *ptr, int16_t len) {
-        int16_t trie_len = GET_TRIE_LEN;
+        int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + len, ptr, trie + trie_len - ptr);
-        SET_TRIE_LEN(trie_len + len);
+        BS_SET_TRIE_LEN(trie_len + len);
     }
 
     inline void append(byte b) {
-        int16_t trie_len = GET_TRIE_LEN;
+        int16_t trie_len = BS_GET_TRIE_LEN;
         trie[trie_len] = b;
-        SET_TRIE_LEN(trie_len + 1);
+        BS_SET_TRIE_LEN(trie_len + 1);
     }
 
     inline void appendPtr(uint16_t p) {
-        int16_t trie_len = GET_TRIE_LEN;
+        int16_t trie_len = BS_GET_TRIE_LEN;
         util::setInt(trie + trie_len, p);
-        SET_TRIE_LEN(trie_len + 2);
+        BS_SET_TRIE_LEN(trie_len + 2);
     }
 
     void append(const char *s, int16_t need_count) {
-        int16_t trie_len = GET_TRIE_LEN;
+        int16_t trie_len = BS_GET_TRIE_LEN;
         memcpy(trie + trie_len, s, need_count);
-        SET_TRIE_LEN(trie_len + need_count);
+        BS_SET_TRIE_LEN(trie_len + need_count);
     }
 
     uint16_t insertCurrent() {
         byte key_char, mask;
-        int16_t diff;
+        uint16_t diff;
         uint16_t ret;
 
         key_char = key[keyPos - 1];
@@ -795,7 +810,7 @@ public:
         switch (insertState) {
         case INSERT_AFTER:
             *origPos &= xFB;
-            triePos = origPos + (*origPos & x02 ? BIT_COUNT_CH(origPos[1])
+            triePos = origPos + (*origPos & x02 ? BS_BIT_COUNT_CH(origPos[1])
                     + BIT_COUNT2(origPos[2]) + 3 : BIT_COUNT2(origPos[1]) + 2);
             updatePtrs(triePos, 4);
             insAt(triePos, ((key_char & xF8) | x04), mask, 0, 0);
@@ -809,7 +824,7 @@ public:
         case INSERT_LEAF:
             triePos = origPos + ((*origPos & x02) ? 2 : 1);
             *triePos |= mask;
-            triePos += ((*origPos & x02 ? BIT_COUNT_CH(origPos[1]) : 0)
+            triePos += ((*origPos & x02 ? BS_BIT_COUNT_CH(origPos[1]) : 0)
                     + BIT_COUNT2(*triePos & (mask - 1)) + 1);
             updatePtrs(triePos, 2);
             insAt(triePos, x00, x00);
@@ -830,7 +845,7 @@ public:
               need_count = (*origPos >> 1) - diff;
               diff--;
               *triePos++ = ((cmp_rel == 0 ? c : key_char) & xF8) | b;
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
               b = (cmp_rel == 2 ? 4 : 6);
 #else
               b = (cmp_rel == 2 ? 5 : 7);
@@ -847,7 +862,7 @@ public:
               switch (cmp_rel) {
               case 0:
                   *triePos++ = 0;
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
                   *triePos++ = 5;
 #else
                   *triePos++ = 0;
@@ -864,7 +879,7 @@ public:
                   *triePos++ = (c & xF8) | x06;
                   *triePos++ = 1 << (c & x07);
                   *triePos++ = 0;
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
                   *triePos++ = 1;
 #else
                   *triePos++ = 0;
@@ -873,7 +888,7 @@ public:
                   break;
               case 2:
                   *triePos++ = mask;
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
                   *triePos++ = 3;
 #else
                   *triePos++ = 0;
@@ -897,24 +912,24 @@ public:
               c1 = c2 = key_char;
               childPos = origPos + 1;
               if (*origPos & x02) {
-                  triePos = childPos + 2 + BIT_COUNT_CH(*childPos & (mask - 1));
-#if TRIE_CHILD_PTR_SIZE == 1
+                  triePos = childPos + 2 + BS_BIT_COUNT_CH(*childPos & (mask - 1));
+#if BS_CHILD_PTR_SIZE == 1
                   insAt(triePos, (byte) (BPT_TRIE_LEN - (triePos - trie) + 1));
                   updatePtrs(triePos, 1);
 #else
-                  int16_t offset = (GET_TRIE_LEN + 1 - (triePos - trie) + 1);
+                  int16_t offset = (BS_GET_TRIE_LEN + 1 - (triePos - trie) + 1);
                   insAt(triePos, offset >> 8, offset & xFF);
                   updatePtrs(triePos, 2);
 #endif
                   *childPos |= mask;
               } else {
                   *origPos |= x02;
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
                   insAt(childPos, mask, *childPos);
                   childPos[2] = (byte) (BPT_TRIE_LEN - (childPos + 2 - trie));
                   updatePtrs(childPos, 2);
 #else
-                  int16_t offset = GET_TRIE_LEN + 3 - (childPos + 2 - trie);
+                  int16_t offset = BS_GET_TRIE_LEN + 3 - (childPos + 2 - trie);
                   insAt(childPos, mask, *childPos, (byte) (offset >> 8));
                   childPos[3] = offset & xFF;
                   updatePtrs(childPos, 3);
@@ -922,7 +937,7 @@ public:
               }
               p = keyPos;
               min = util::min16(key_len, keyPos + key_at_len);
-              triePos = origPos + BIT_COUNT_CH(*childPos) + 3
+              triePos = origPos + BS_BIT_COUNT_CH(*childPos) + 3
                       + BIT_COUNT2(origPos[2] & (mask - 1));
               ptr = util::getInt(triePos);
               if (p < min) {
@@ -934,7 +949,7 @@ public:
                   ret = pos;
               }
 #if BS_MIDDLE_PREFIX == 1
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
               need_count -= 8;
 #else
               need_count -= 9;
@@ -970,7 +985,7 @@ public:
                       append((c1 & xF8) | x06);
                       append(x01 << (c1 & x07));
                       append(0);
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
                       append(1);
 #else
                       append(0);
@@ -981,37 +996,37 @@ public:
                   case 0:
                       append(c1 & xF8);
                       append(x01 << (c1 & x07));
-                      ret = isSwapped ? ret : GET_TRIE_LEN;
-                      pos = isSwapped ? GET_TRIE_LEN : pos;
+                      ret = isSwapped ? ret : BS_GET_TRIE_LEN;
+                      pos = isSwapped ? BS_GET_TRIE_LEN : pos;
                       appendPtr(isSwapped ? ptr : 0);
                       append((c2 & xF8) | x04);
                       append(x01 << (c2 & x07));
-                      ret = isSwapped ? GET_TRIE_LEN : ret;
-                      pos = isSwapped ? pos : GET_TRIE_LEN;
+                      ret = isSwapped ? BS_GET_TRIE_LEN : ret;
+                      pos = isSwapped ? pos : BS_GET_TRIE_LEN;
                       appendPtr(isSwapped ? 0 : ptr);
                       break;
                   case 1:
                       append((c1 & xF8) | x04);
                       append((x01 << (c1 & x07)) | (x01 << (c2 & x07)));
-                      ret = isSwapped ? ret : GET_TRIE_LEN;
-                      pos = isSwapped ? GET_TRIE_LEN : pos;
+                      ret = isSwapped ? ret : BS_GET_TRIE_LEN;
+                      pos = isSwapped ? BS_GET_TRIE_LEN : pos;
                       appendPtr(isSwapped ? ptr : 0);
-                      ret = isSwapped ? GET_TRIE_LEN : ret;
-                      pos = isSwapped ? pos : GET_TRIE_LEN;
+                      ret = isSwapped ? BS_GET_TRIE_LEN : ret;
+                      pos = isSwapped ? pos : BS_GET_TRIE_LEN;
                       appendPtr(isSwapped ? 0 : ptr);
                       break;
                   case 3:
                       append((c1 & xF8) | x06);
                       append(x01 << (c1 & x07));
                       append(x01 << (c1 & x07));
-#if TRIE_CHILD_PTR_SIZE == 1
+#if BS_CHILD_PTR_SIZE == 1
                       append(3);
 #else
                       append(0);
                       append(4);
 #endif
-                      ret = (p + 1 == key_len) ? GET_TRIE_LEN : ret;
-                      pos = (p + 1 == key_len) ? pos : GET_TRIE_LEN;
+                      ret = (p + 1 == key_len) ? BS_GET_TRIE_LEN : ret;
+                      pos = (p + 1 == key_len) ? pos : BS_GET_TRIE_LEN;
                       appendPtr((p + 1 == key_len) ? 0 : ptr);
                       break;
                   }
@@ -1025,8 +1040,8 @@ public:
                   c2 = (p == key_len ? key_at[diff] : key[p]);
                   append((c2 & xF8) | x04);
                   append(x01 << (c2 & x07));
-                  ret = (p == key_len) ? ret : GET_TRIE_LEN;
-                  pos = (p == key_len) ? GET_TRIE_LEN : pos;
+                  ret = (p == key_len) ? ret : BS_GET_TRIE_LEN;
+                  pos = (p == key_len) ? BS_GET_TRIE_LEN : pos;
                   appendPtr((p == key_len) ? ptr : 0);
                   if (p == key_len)
                       keyPos--;
@@ -1047,7 +1062,7 @@ public:
             trie[0] = (key_char & xF8) | x04;
             trie[1] = mask;
             ret = 2;
-            SET_TRIE_LEN(4);
+            BS_SET_TRIE_LEN(4);
             break;
         }
 

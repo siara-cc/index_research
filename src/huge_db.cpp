@@ -43,9 +43,9 @@ using namespace std;
 #define CS_255_DENSE 6
 
 //char *IMPORT_FILE = "/Users/arun/index_research/Release/w7.txt";
-char *IMPORT_FILE = null; //"/Users/arun/index_research/Release/dbpedia_labels.txt";
+char *IMPORT_FILE = NULL; //"/Users/arun/index_research/Release/dbpedia_labels.txt";
 //char *IMPORT_FILE = "/Users/arun/index_research/Release/domain_rank.csv";
-unsigned long NUM_ENTRIES = 100;
+unsigned long NUM_ENTRIES = 40;
 int CHAR_SET = 2;
 int KEY_LEN = 8;
 int VALUE_LEN = 4;
@@ -193,13 +193,13 @@ void print(bplus_tree_handler<T> *dx, const char *key, int16_t key_len) {
 int main2() {
     util::generateBitCounts();
     //rb_tree *dx = new rb_tree();
-    //dfox *dx = new dfox();
+    dfox *dx = new dfox();
     //dfos *dx = new dfos();
     //dfqx *dx = new dfqx();
     //bfos *dx = new bfos();
     //bfqs *dx = new bfqs();
     //bft *dx = new bft();
-    dft *dx = new dft();
+    //dft *dx = new dft();
     //basix *dx = new basix();
     //linex *dx = new linex();
 
@@ -1039,7 +1039,7 @@ int main2() {
     print(dx, "coachoutletstoreonline.com.co", 29);
     print(dx, "pittsburghsteelersjerseys.com", 29);
 
-    dx->printMaxKeyCount(24);
+    dx->printStats(24);
     dx->printNumLevels();
     cout << "Trie size: " << (int) dx->BPT_TRIE_LEN << endl;
     cout << "Filled size: " << (int) dx->filledSize() << endl;
@@ -1073,20 +1073,20 @@ int main4() {
     util::generateBitCounts();
     //basix *dx = new basix();
     //bfos *dx = new bfos();
-    //dfox *dx = new dfox();
-    bft *dx = new bft();
+    dfox *dx = new dfox();
+    //bft *dx = new bft();
     //dft *dx = new dft();
     //rb_tree *dx = new rb_tree();
     //dfqx *dx = new dfqx();
     //linex *dx = new linex();
 
-    dx->put("xzvwueio", 8, "wvzx", 4);
-    dx->put("fwtylcuh", 8, "ytwf", 4);
+    dx->put("juhdncll", 8, "dhuj", 4);
+    dx->put("ttdhazel", 8, "hdtt", 4);
 
-    //print(dx, "xzvwueio", 8);
-    //print(dx, "fwtylcuh", 8);
+    print(dx, "juhdncll", 8);
+    print(dx, "ttdhazel", 8);
 
-    dx->printMaxKeyCount(NUM_ENTRIES);
+    dx->printStats(NUM_ENTRIES);
     dx->printNumLevels();
     std::cout << "Size:" << dx->size() << endl;
     std::cout << "Trie Size:" << (int) dx->BPT_TRIE_LEN << endl;
@@ -1224,11 +1224,11 @@ int main(int argc, char *argv[]) {
 
     ctr = 0;
     //linex *lx = new linex();
-    basix *lx = new basix();
+    //basix *lx = new basix();
     //rb_tree *lx = new rb_tree();
     //bft *lx = new bft();
     //dft *lx = new dft();
-    //bfos *lx = new bfos();
+    bfos *lx = new bfos();
     //bfqs *lx = new bfqs();
     //dfqx *lx = new dfqx();
     //dfox *lx = new dfox();
@@ -1251,9 +1251,9 @@ int main(int argc, char *argv[]) {
     //bft *dx = new bft();
     //bfos *dx = new bfos();
     //bfqs *dx = new bfqs();
-    dft *dx = new dft();
+    //dft *dx = new dft();
     //dfqx *dx = new dfqx();
-    //dfox *dx = new dfox();
+    dfox *dx = new dfox();
     //dfos *dx = new dfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();
@@ -1330,7 +1330,7 @@ int main(int argc, char *argv[]) {
     stop = getTimeVal();
     cout << "B+Tree Get Time:" << timedifference(start, stop) << endl;
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
-    lx->printMaxKeyCount(NUM_ENTRIES);
+    lx->printStats(NUM_ENTRIES);
     lx->printNumLevels();
     //lx->printCounts();
     cout << "Root filled size:" << lx->filledSize() << endl;
@@ -1364,7 +1364,7 @@ int main(int argc, char *argv[]) {
     stop = getTimeVal();
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
     cout << "DFox+Tree get time:" << timedifference(start, stop) << endl;
-    dx->printMaxKeyCount(NUM_ENTRIES);
+    dx->printStats(NUM_ENTRIES);
     dx->printNumLevels();
     //dx->printCounts();
     //cout << "Root filled size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES+2] << endl;
