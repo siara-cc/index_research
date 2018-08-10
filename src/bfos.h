@@ -17,9 +17,9 @@ using namespace std;
 #if BS_CHILD_PTR_SIZE == 1
 #define BS_BIT_COUNT_CH(x) BIT_COUNT(x)
 #define BS_GET_TRIE_LEN BPT_TRIE_LEN
-#define BS_SET_TRIE_LEN(x) BPT_TRIE_LEN = x;
-#define BS_GET_CHILD_OFFSET(x) *x;
-#define BS_SET_CHILD_OFFSET(x, off) *x = off;
+#define BS_SET_TRIE_LEN(x) BPT_TRIE_LEN = x
+#define BS_GET_CHILD_OFFSET(x) *x
+#define BS_SET_CHILD_OFFSET(x, off) *x = off
 #else
 #define BS_BIT_COUNT_CH(x) BIT_COUNT2(x)
 #define BS_GET_TRIE_LEN util::getInt(BPT_TRIE_LEN_PTR)
@@ -75,6 +75,8 @@ public:
     inline void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) {
         if (key_char > *t) {
             t += pfx_rem_len;
+            while (*t & x01)
+                t += (*t >> 1) + 1;
             while (!(*t & x04)) {
                 t += (*t & x02 ? BS_BIT_COUNT_CH(t[1])
                      + BIT_COUNT2(t[2]) + 3 : BIT_COUNT2(t[1]) + 2);
@@ -109,7 +111,7 @@ public:
         keyPos = 1;
         do {
 #if BS_MIDDLE_PREFIX == 1
-            if (trie_char & x01) {
+            while (trie_char & x01) {
                 byte pfx_len;
                 pfx_len = (trie_char >> 1);
                 while (pfx_len && key_char == *t && keyPos < key_len) {
@@ -391,12 +393,10 @@ public:
                 do {
                     lvl--;
                     if (lvl < 0)
-                        break;
+                        return dest - new_trie;
                     d = new_trie + tp_child[lvl];
                     tc = *d;
                 } while (tc & x01);
-                if (lvl < 0)
-                    return dest - new_trie;
                 d = new_trie + tp_child[lvl];
                 byte len = BIT_COUNT(d[1]);
                 byte i = child_num[lvl];
@@ -438,28 +438,34 @@ public:
     void consolidateInitialPrefix(byte *t) {
         t += BFOS_HDR_SIZE;
         byte *t_reader = t;
+        byte count = 0;
         if (*t & x01) {
-            t_reader += (*t >> 1);
+            count = (*t >> 1);
+            t_reader += count;
             t_reader++;
         }
         byte *t_writer = t_reader + (*t & x01 ? 0 : 1);
-        byte count = 0;
         byte trie_len_diff = 0;
 #if BS_CHILD_PTR_SIZE == 1
         while ((*t_reader & x01) || ((*t_reader & x02) && (*t_reader & x04) && BIT_COUNT(t_reader[1]) == 1
                 && BIT_COUNT(t_reader[2]) == 0 && t_reader[3] == 1)) {
 #else
-        while ((*t_reader & x01) || ((*t_reader & x02) && (*t_reader & x04) && BIT_COUNT(t_reader[1]) == 1
+        while ((*t_reader & x01) ||
+                ((*t_reader & x02) && (*t_reader & x04) && BIT_COUNT(t_reader[1]) == 1
                 && BIT_COUNT(t_reader[2]) == 0 && t_reader[3] == 0 && t_reader[4] == 2)) {
 #endif
             if (*t_reader & x01) {
-                byte len = *t_reader++ >> 1;
-                memcpy(t_writer, t_reader, len);
+                byte len = *t_reader >> 1;
+                if (count + len > 127)
+                    break;
+                memcpy(t_writer, ++t_reader, len);
                 t_writer += len;
                 t_reader += len;
                 count += len;
                 trie_len_diff++;
             } else {
+                if (count > 126)
+                    break;
                 *t_writer++ = (*t_reader & xF8) + BIT_COUNT(t_reader[1] - 1);
                 count++;
 #if BS_CHILD_PTR_SIZE == 1
@@ -473,12 +479,9 @@ public:
         }
         if (t_reader > t_writer) {
             memmove(t_writer, t_reader, BS_GET_TRIE_LEN - (t_reader - t));
-            if (*t & x01) {
-                *t = (((*t >> 1) + count) << 1) + 1;
-            } else {
-                *t = (count << 1) + 1;
+            if (!(*t & x01))
                 trie_len_diff--;
-            }
+            *t = (count << 1) + 1;
             BS_SET_TRIE_LEN(BS_GET_TRIE_LEN - trie_len_diff);
             //cout << (int) (*t >> 1) << endl;
         }
@@ -968,14 +971,12 @@ public:
                   }
               }
               if (need_count) {
-                  if (need_count > 127) {
-                      append(xFF);
-                      append(key + keyPos, 127);
-                      append(((need_count - 127) << 1) | x01);
-                      append(key + keyPos + 127, need_count - 127);
-                  } else {
-                      append((need_count << 1) | x01);
-                      append(key + keyPos, need_count);
+                  byte copied = 0;
+                  while (copied < need_count) {
+                      int16_t to_copy = (need_count - copied) > 127 ? 127 : need_count - copied;
+                      append((to_copy << 1) | x01);
+                      append(key + keyPos + copied, to_copy);
+                      copied += to_copy;
                   }
                   p += need_count;
                   //count1 += need_count;

@@ -77,7 +77,7 @@ public:
         origPos = t++;
         do {
 #if DX_MIDDLE_PREFIX == 1
-            if ((trie_char & x03) == x01) {
+            while ((trie_char & x03) == x01) {
                 byte pfx_len;
                 pfx_len = (trie_char >> 2);
                 while (pfx_len && key_char == *t && keyPos < key_len) {
@@ -217,7 +217,7 @@ public:
                 } else {
                     tp[keyPos] = t - trie;
                     tc = *t++;
-                    if (x01 == (tc & x03)) {
+                    while (x01 == (tc & x03)) {
                         byte len = tc >> 2;
                         for (int i = 0; i < len; i++)
                             tp[keyPos + i] = t - trie - 1;
@@ -255,7 +255,7 @@ public:
     byte *nextPtr(byte *t) {
         byte tc = *t & x03;
         while (x03 != tc) {
-            if (x01 == tc) {
+            while (x01 == tc) {
                 t += (*t >> 2);
                 t++;
                 tc = *t & x03;
@@ -322,7 +322,7 @@ public:
             byte *t = trie + tp[idx];
             byte tc = *t++;
             if (x01 == (tc & x03)) {
-                byte len = tc >> 2;
+                byte len = (tc >> 2);
                 deleteSegment(trie + tp[idx + 1], t + len);
                 idx -= len;
                 idx++;
@@ -354,10 +354,9 @@ public:
         deleteSegment(trie + tp[0], trie);
     }
 
-    void updateSkipLens(byte *loop_upto, byte *covering_upto, int8_t diff) {
+    void updateSkipLens(byte *loop_upto, int8_t diff) {
         byte *t = trie;
         byte tc = *t++;
-        loop_upto++;
         while (t <= loop_upto) {
             switch (tc & x03) {
             case x01:
@@ -366,7 +365,7 @@ public:
             case x02:
                 unsigned int s;
                 s = DX_GET_SIBLING_OFFSET(t);
-                if ((t + s) > covering_upto) {
+                if ((t + s) > loop_upto) {
                     DX_SET_SIBLING_OFFSET(t, s + diff);
                     t += (2 + DX_SIBLING_PTR_SIZE);
                 } else
@@ -565,24 +564,29 @@ public:
     void consolidateInitialPrefix(byte *t) {
         t += DFOX_HDR_SIZE;
         byte *t_reader = t;
+        byte count = 0;
         if ((*t & x03) == 1) {
-            t_reader += (*t >> 2);
+            count = (*t >> 2);
+            t_reader += count;
             t_reader++;
         }
         byte *t_writer = t_reader + (((*t & x03) == 1) ? 0 : 1);
-        byte count = 0;
         byte trie_len_diff = 0;
         while (((*t_reader & x03) == 1) || ((*t_reader & x02) && (*t_reader & x04)
                 && BIT_COUNT(t_reader[2 + DX_SIBLING_PTR_SIZE]) == 1
                 && BIT_COUNT(t_reader[3 + DX_SIBLING_PTR_SIZE]) == 0)) {
             if ((*t_reader & x03) == 1) {
-                byte len = *t_reader++ >> 2;
-                memcpy(t_writer, t_reader, len);
+                byte len = *t_reader >> 2;
+                if (count + len > 63)
+                    break;
+                memcpy(t_writer, ++t_reader, len);
                 t_writer += len;
                 t_reader += len;
                 count += len;
                 trie_len_diff++;
             } else {
+                if (count > 62)
+                    break;
                 *t_writer++ = (*t_reader & xF8) + BIT_COUNT(t_reader[2 + DX_SIBLING_PTR_SIZE] - 1);
                 t_reader += (4 + DX_SIBLING_PTR_SIZE);
                 count++;
@@ -591,12 +595,9 @@ public:
         }
         if (t_reader > t_writer) {
             memmove(t_writer, t_reader, DX_GET_TRIE_LEN - (t_reader - t) + filledSize() * 2);
-            if ((*t & x03) == 1) {
-                *t = (((*t >> 2) + count) << 2) + 1;
-            } else {
-                *t = (count << 2) + 1;
+            if ((*t & x03) != 1)
                 trie_len_diff--;
-            }
+            *t = (count << 2) + 1;
             DX_SET_TRIE_LEN(DX_GET_TRIE_LEN - trie_len_diff);
             //cout << (int) (*t >> 1) << endl;
         }
@@ -616,13 +617,13 @@ public:
             insAt(triePos, ((key_char & xF8) | x04), mask, x00, x00);
             ret = triePos + 2;
             if (keyPos > 1)
-                updateSkipLens(origPos - 1, triePos - 1, 4);
+                updateSkipLens(origPos, 4);
             break;
         case INSERT_BEFORE:
             insAt(origPos, key_char & xF8, mask, x00, x00);
             ret = origPos + 2;
             if (keyPos > 1)
-                updateSkipLens(origPos, origPos + 1, 4);
+                updateSkipLens(origPos + 1, 4);
             break;
         case INSERT_LEAF:
             if (*origPos & x02)
@@ -631,7 +632,7 @@ public:
                 origPos[1] |= mask;
             insAt(triePos, x00, x00);
             ret = triePos;
-            updateSkipLens(origPos, triePos - 1, 2);
+            updateSkipLens(origPos + 1, 2);
             break;
     #if DX_MIDDLE_PREFIX == 1
         case INSERT_CONVERT:
@@ -662,7 +663,7 @@ public:
             if (need_count)
                 b++;
             insBytes(triePos + (diff ? 0 : 1), b);
-            updateSkipLens(origPos, triePos, b + (cmp_rel == 0 ? 4
+            updateSkipLens(origPos + 1, b + (cmp_rel == 0 ? 4
                     : (cmp_rel == 2 && c < key_char ? 2 : 0)));
             if (cmp_rel == 1) {
                 *triePos++ = 1 << (key_char & x07);
@@ -733,7 +734,7 @@ public:
                     diff--;
                 }
             }
-            diff = need_count + (need_count ? 1 : 0)
+            diff = need_count + (need_count ? (need_count / 64) + 1 : 0)
                     + (diff == min ? 4 : (key[diff] ^ key_at[diff - keyPos]) > x07 ? 6 :
                             (key[diff] == key_at[diff - keyPos] ? 7 + DX_SIBLING_PTR_SIZE : 4));
             insBytes(triePos, diff);
@@ -759,9 +760,14 @@ public:
                 ptrPos = triePos + diff - (p < min ? 0 : 2);
 #if DX_MIDDLE_PREFIX == 1
             if (need_count) {
-                *triePos++ = (need_count << 2) | x01;
-                memcpy(triePos, key + keyPos, need_count);
-                triePos += need_count;
+                int16_t copied = 0;
+                while (copied < need_count) {
+                    int16_t to_copy = (need_count - copied) > 63 ? 63 : need_count - copied;
+                    *triePos++ = (to_copy << 2) | x01;
+                    memcpy(triePos, key + keyPos + copied, to_copy);
+                    copied += to_copy;
+                    triePos += to_copy;
+                }
                 p += need_count;
                 //count1 += need_count;
             }
@@ -837,7 +843,7 @@ public:
                 *triePos++ = (c2 & xF8) | x04;
                 *triePos = x01 << (c2 & x07);
             }
-            updateSkipLens(origPos - 1, origPos, diff + (*origPos & x02 ? 0 : 1 + DX_SIBLING_PTR_SIZE));
+            updateSkipLens(origPos, diff + (*origPos & x02 ? 0 : 1 + DX_SIBLING_PTR_SIZE));
 #if DX_SIBLING_PTR_SIZE == 1
             origPos[1] += diff;
 #else
