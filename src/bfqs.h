@@ -215,7 +215,7 @@ public:
         return -1;
     }
 
-    inline byte *getChildPtrPos(int16_t idx) {
+    inline byte *getChildPtrPos(int16_t search_result) {
         return last_t - current_block < getKVLastPos() ? getLastPtr() : last_t;
     }
 
@@ -655,7 +655,7 @@ public:
         addData(0);
     }
 
-    void addData(int16_t idx) {
+    void addData(int16_t search_result) {
 
         int16_t ptr = insertCurrent();
 
@@ -672,7 +672,7 @@ public:
 
     }
 
-    bool isFull() {
+    bool isFull(int16_t search_result) {
         decodeNeedCount();
         if (getKVLastPos() < (BFQS_HDR_SIZE + BPT_TRIE_LEN +
                 need_count + key_len - keyPos + value_len + 3))

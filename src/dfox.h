@@ -13,13 +13,13 @@ using namespace std;
 
 #define DFOX_HDR_SIZE 9
 
-#define DX_SIBLING_PTR_SIZE 2
+#define DX_SIBLING_PTR_SIZE 1
 #if DX_SIBLING_PTR_SIZE == 1
 #define DX_BIT_COUNT_SB(x) BIT_COUNT(x)
 #define DX_GET_TRIE_LEN BPT_TRIE_LEN
 #define DX_SET_TRIE_LEN(x) BPT_TRIE_LEN = x
-#define DX_GET_SIBLING_OFFSET(x) *x
-#define DX_SET_SIBLING_OFFSET(x, off) *x = off
+#define DX_GET_SIBLING_OFFSET(x) *(x)
+#define DX_SET_SIBLING_OFFSET(x, off) *(x) = off
 #else
 #define DX_BIT_COUNT_SB(x) BIT_COUNT2(x)
 #define DX_GET_TRIE_LEN util::getInt(BPT_TRIE_LEN_PTR)
@@ -91,8 +91,7 @@ public:
                         t = skipChildren(t + pfx_len, 1);
                         key_at = t;
                     }
-                    insertState = INSERT_CONVERT;
-                    return -1;
+                    return -INSERT_CONVERT;
                 }
                 trie_char = *t;
                 origPos = t++;
@@ -104,17 +103,13 @@ public:
                 else
                     t += BIT_COUNT2(*t) + 1;
                 last_t = t - 2;
-                if (trie_char & x04) {
-                    insertState = INSERT_AFTER;
-                    return -1;
-                }
+                if (trie_char & x04)
+                    return -INSERT_AFTER;
                 trie_char = *t;
                 origPos = t++;
             }
-            if ((key_char ^ trie_char) & xF8) {
-                insertState = INSERT_BEFORE;
-                return -1;
-            }
+            if ((key_char ^ trie_char) & xF8)
+                return -INSERT_BEFORE;
             if (trie_char & x02) {
                 t += DX_SIBLING_PTR_SIZE;
                 byte r_children = *t++;
@@ -136,8 +131,7 @@ public:
             switch (trie_char) {
             case 0:
                 triePos = t;
-                insertState = INSERT_LEAF;
-                return -1;
+                return -INSERT_LEAF;
             case 1:
                 break;
             case 2:
@@ -147,20 +141,19 @@ public:
                         (char *) key_at, key_at_len);
                 if (cmp == 0) {
                     last_t = t;
-                    return 1;
+                    return 0;
                 }
                 if (cmp > 0)
                     last_t = t;
                 else
                     cmp = -cmp;
                 triePos = t;
-                insertState = INSERT_THREAD;
 #if DX_MIDDLE_PREFIX == 1
                 need_count = cmp + 7 + DX_SIBLING_PTR_SIZE;
 #else
                 need_count = (cmp * 5) + 5 + DX_SIBLING_PTR_SIZE;
 #endif
-                return -1;
+                return -INSERT_THREAD;
             case 3:
                 last_t = t;
                 t += 2;
@@ -192,7 +185,7 @@ public:
         return NULL;
     }
 
-    inline byte *getChildPtrPos(int16_t idx) {
+    inline byte *getChildPtrPos(int16_t search_result) {
         return current_block + getPtr(last_t);
     }
 
@@ -383,10 +376,12 @@ public:
     }
 
     void addFirstData() {
-        addData(0);
+        addData(3);
     }
 
-    void addData(int16_t idx) {
+    void addData(int16_t search_result) {
+
+        insertState = search_result + 1;
 
         byte *ptr = insertCurrent();
 
@@ -404,8 +399,8 @@ public:
 
     }
 
-    bool isFull() {
-        decodeNeedCount();
+    bool isFull(int16_t search_result) {
+        decodeNeedCount(search_result);
         if (getKVLastPos() < (DFOX_HDR_SIZE + DX_GET_TRIE_LEN +
                 need_count + key_len - keyPos + value_len + 3))
             return true;
@@ -917,7 +912,8 @@ public:
         DX_SET_TRIE_LEN(trie_len + len);
     }
 
-    void decodeNeedCount() {
+    void decodeNeedCount(int16_t search_result) {
+        insertState = search_result + 1;
         if (insertState != INSERT_THREAD)
             need_count = need_counts[insertState];
     }

@@ -123,11 +123,12 @@ public:
         return (len1 < len2 ? -k : k);
     }
 
+    static inline int16_t min_b(byte x, byte y) {
+        return (x > y ? y : x);
+    }
+
     static inline int16_t min16(int16_t x, int16_t y) {
         return (x > y ? y : x);
-        //if (x > y)
-        //    return y;
-        //return x;
     }
 
     static int fast_memeq(const void* src1, const void* src2, int len) {

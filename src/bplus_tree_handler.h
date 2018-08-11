@@ -39,8 +39,8 @@ using namespace std;
 #define DEFAULT_PARENT_BLOCK_SIZE 512
 #define DEFAULT_LEAF_BLOCK_SIZE 512
 #else
-#define DEFAULT_PARENT_BLOCK_SIZE 4096
-#define DEFAULT_LEAF_BLOCK_SIZE 4096
+#define DEFAULT_PARENT_BLOCK_SIZE 512
+#define DEFAULT_LEAF_BLOCK_SIZE 512
 #endif
 
 template<class T> // CRTP
@@ -116,15 +116,15 @@ public:
         return (char *) key_at + 1;
     }
 
-    byte *getChildPtrPos(int16_t idx);
+    byte *getChildPtrPos(int16_t search_result);
     int16_t traverseToLeaf(int8_t *plevel_count = NULL, byte *node_paths[] = NULL) {
         while (!isLeaf()) {
             if (node_paths) {
                 *node_paths++ = current_block;
                 (*plevel_count)++;
             }
-            int16_t idx = static_cast<T*>(this)->searchCurrentBlock();
-            setCurrentBlock(getChildPtr(static_cast<T*>(this)->getChildPtrPos(idx)));
+            int16_t search_result = static_cast<T*>(this)->searchCurrentBlock();
+            setCurrentBlock(getChildPtr(static_cast<T*>(this)->getChildPtrPos(search_result)));
         }
         return static_cast<T*>(this)->searchCurrentBlock();
     }
@@ -207,17 +207,17 @@ public:
         } else {
             byte *node_paths[7];
             int8_t level_count = 1;
-            int16_t idx = traverseToLeaf(&level_count, node_paths);
-            recursiveUpdate(idx, node_paths, level_count - 1);
+            int16_t search_result = traverseToLeaf(&level_count, node_paths);
+            recursiveUpdate(search_result, node_paths, level_count - 1);
         }
         total_size++;
     }
 
-    void recursiveUpdate(int16_t idx, byte *node_paths[], byte level) {
-        //int16_t idx = pos; // lastSearchPos[level];
-        if (idx < 0) {
-            idx = ~idx;
-            if (static_cast<T*>(this)->isFull()) {
+    void recursiveUpdate(int16_t search_result, byte *node_paths[], byte level) {
+        //int16_t search_result = pos; // lastSearchPos[level];
+        if (search_result < 0) {
+            search_result = ~search_result;
+            if (static_cast<T*>(this)->isFull(search_result)) {
                 updateSplitStats();
                 byte first_key[BPT_MAX_KEY_LEN]; // is max_pfx_len sufficient?
                 int16_t first_len;
@@ -227,8 +227,8 @@ public:
                         key, key_len);
                 if (cmp <= 0)
                     setCurrentBlock(new_block);
-                idx = ~static_cast<T*>(this)->searchCurrentBlock();
-                static_cast<T*>(this)->addData(idx);
+                search_result = ~static_cast<T*>(this)->searchCurrentBlock();
+                static_cast<T*>(this)->addData(search_result);
                 //cout << "FK:" << level << ":" << first_key << endl;
                 if (root_block == old_block) {
                     blockCountNode++;
@@ -248,8 +248,8 @@ public:
                     key_len = first_len;
                     value = (char *) addr;
                     value_len = util::ptrToBytes((unsigned long) new_block, addr);
-                    idx = ~static_cast<T*>(this)->searchCurrentBlock();
-                    static_cast<T*>(this)->addData(idx);
+                    search_result = ~static_cast<T*>(this)->searchCurrentBlock();
+                    static_cast<T*>(this)->addData(search_result);
                     numLevels++;
                 } else {
                     int16_t prev_level = level - 1;
@@ -260,11 +260,11 @@ public:
                     key_len = first_len;
                     value = (char *) addr;
                     value_len = util::ptrToBytes((unsigned long) new_block, addr);
-                    idx = static_cast<T*>(this)->searchCurrentBlock();
-                    recursiveUpdate(idx, node_paths, prev_level);
+                    search_result = static_cast<T*>(this)->searchCurrentBlock();
+                    recursiveUpdate(search_result, node_paths, prev_level);
                 }
             } else
-                static_cast<T*>(this)->addData(idx);
+                static_cast<T*>(this)->addData(search_result);
         } else {
             //if (node->isLeaf) {
             //    int16_t vIdx = idx + mSizeBy2;
@@ -274,9 +274,9 @@ public:
         }
     }
 
-    bool isFull();
+    bool isFull(int16_t search_result);
     void addFirstData();
-    void addData(int16_t idx);
+    void addData(int16_t search_result);
     byte *split(byte *first_key, int16_t *first_len_ptr);
 
     inline void setLeaf(char isLeaf) {
@@ -539,7 +539,7 @@ public:
     byte *triePos;
     byte *origPos;
     byte need_count;
-    byte insertState;
+    int16_t insertState;
     byte keyPos;
     static const byte x00 = 0;
     static const byte x01 = 1;

@@ -18,8 +18,8 @@ using namespace std;
 #define BS_BIT_COUNT_CH(x) BIT_COUNT(x)
 #define BS_GET_TRIE_LEN BPT_TRIE_LEN
 #define BS_SET_TRIE_LEN(x) BPT_TRIE_LEN = x
-#define BS_GET_CHILD_OFFSET(x) *x
-#define BS_SET_CHILD_OFFSET(x, off) *x = off
+#define BS_GET_CHILD_OFFSET(x) *(x)
+#define BS_SET_CHILD_OFFSET(x, off) *(x) = off
 #else
 #define BS_BIT_COUNT_CH(x) BIT_COUNT2(x)
 #define BS_GET_TRIE_LEN util::getInt(BPT_TRIE_LEN_PTR)
@@ -125,8 +125,7 @@ public:
                         setPrefixLast(key_char, t, pfx_len);
                         //last_t = getLastPtr();
                     }
-                    insertState = INSERT_CONVERT;
-                    return -1;
+                    return -INSERT_CONVERT;
                 }
                 trie_char = *t;
                 origPos = t++;
@@ -140,8 +139,7 @@ public:
                 if (trie_char & x04) {
                     //if (!isLeaf())
                     //    last_t = getLastPtr();
-                    insertState = INSERT_AFTER;
-                    return -1;
+                    return -INSERT_AFTER;
                 }
                 trie_char = *t;
                 origPos = t++;
@@ -149,8 +147,7 @@ public:
             if ((key_char ^ trie_char) & xF8) {
                 //if (!isLeaf())
                 //    last_t = getLastPtr();
-                insertState = INSERT_BEFORE;
-                return -1;
+                return -INSERT_BEFORE;
             }
             byte r_mask, r_leaves, r_children;
             r_children = (trie_char & x02 ? *t++ : 0);
@@ -169,10 +166,9 @@ public:
             }
             switch (trie_char) {
             case 0:
-                insertState = INSERT_LEAF;
                 //if (!isLeaf())
                 //    last_t = getLastPtr();
-                return -1;
+                return -INSERT_LEAF;
             case 1:
                 break;
             case 2:
@@ -184,7 +180,7 @@ public:
                         (char *) key_at, key_at_len);
                 if (cmp == 0) {
                     last_t = key_at - 1;
-                    return 1;
+                    return 0;
                 }
                 if (cmp < 0) {
                     cmp = -cmp;
@@ -192,7 +188,6 @@ public:
                     //    last_t = getLastPtr();
                 } else
                     last_t = key_at - 1;
-                    insertState = INSERT_THREAD;
 #if BS_MIDDLE_PREFIX == 1
 #if BS_CHILD_PTR_SIZE == 1
                     need_count = cmp + 7;
@@ -202,7 +197,7 @@ public:
 #else
                     need_count = (cmp * 4) + 10;
 #endif
-                return -1;
+                return -INSERT_THREAD;
             case 3:
                 if (!isLeaf()) {
                     last_t = origPos;
@@ -220,7 +215,7 @@ public:
         return -1;
     }
 
-    inline byte *getChildPtrPos(int16_t idx) {
+    inline byte *getChildPtrPos(int16_t search_result) {
         return last_t - current_block < getKVLastPos() ? getLastPtr() : last_t;
     }
 
@@ -677,8 +672,8 @@ public:
 
     }
 
-    bool isFull() {
-        decodeNeedCount();
+    bool isFull(int16_t search_result) {
+        decodeNeedCount(search_result);
         if (getKVLastPos() < (BFOS_HDR_SIZE + BS_GET_TRIE_LEN
                 + need_count + key_len - keyPos + value_len + 3))
             return true;
@@ -690,10 +685,12 @@ public:
     }
 
     void addFirstData() {
-        addData(0);
+        addData(3);
     }
 
-    void addData(int16_t idx) {
+    void addData(int16_t search_result) {
+
+        insertState = search_result + 1;
 
         uint16_t ptr = insertCurrent();
 
@@ -841,7 +838,7 @@ public:
             insAt(triePos, x00, x00);
             ret = triePos - trie;
             break;
-    #if BS_MIDDLE_PREFIX == 1
+#if BS_MIDDLE_PREFIX == 1
         case INSERT_CONVERT:
               ret = 0;
               byte b, c;
@@ -947,7 +944,7 @@ public:
 #endif
               }
               p = keyPos;
-              min = util::min16(key_len, keyPos + key_at_len);
+              min = util::min_b(key_len, keyPos + key_at_len);
               triePos = origPos + BS_BIT_COUNT_CH(*childPos) + 3
                       + BIT_COUNT2(origPos[2] & (mask - 1));
               ptr = util::getInt(triePos);
@@ -1091,7 +1088,8 @@ public:
         return ret;
     }
 
-    void decodeNeedCount() {
+    void decodeNeedCount(int16_t search_result) {
+        insertState = search_result + 1;
         if (insertState != INSERT_THREAD)
             need_count = need_counts[insertState];
     }

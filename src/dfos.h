@@ -347,7 +347,7 @@ public:
         addData(0);
     }
 
-    void addData(int16_t idx) {
+    void addData(int16_t search_result) {
 
         insertCurrent();
 
@@ -360,11 +360,11 @@ public:
         current_block[kv_last_pos + key_left + 1] = value_len;
         memcpy(current_block + kv_last_pos + key_left + 2, value, value_len);
 
-        insPtr(idx, kv_last_pos);
+        insPtr(search_result, kv_last_pos);
 
     }
 
-    bool isFull() {
+    bool isFull(int16_t search_result) {
         decodeNeedCount();
         int16_t ptr_size = filledSize() + 1;
     #if BPT_9_BIT_PTR == 0
@@ -849,12 +849,12 @@ public:
         return ~pos;
     }
 
-    inline byte *getChildPtrPos(int16_t idx) {
-        if (idx < 0) {
-            idx++;
-            idx = ~idx;
+    inline byte *getChildPtrPos(int16_t search_result) {
+        if (search_result < 0) {
+            search_result++;
+            search_result = ~search_result;
         }
-        return current_block + getPtr(idx);
+        return current_block + getPtr(search_result);
     }
 
     inline int getHeaderSize() {

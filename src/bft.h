@@ -152,7 +152,7 @@ public:
         return NULL;
     }
 
-    inline byte *getChildPtrPos(int16_t idx) {
+    inline byte *getChildPtrPos(int16_t search_result) {
         return last_t;
     }
 
@@ -289,7 +289,7 @@ public:
         addData(0);
     }
 
-    void addData(int16_t idx) {
+    void addData(int16_t search_result) {
 
         int16_t ptr = insertCurrent();
 
@@ -314,7 +314,7 @@ public:
 
     }
 
-    bool isFull() {
+    bool isFull(int16_t search_result) {
         decodeNeedCount();
     #if BFT_UNIT_SIZE == 3
         if ((BPT_TRIE_LEN + need_count) > 189) {

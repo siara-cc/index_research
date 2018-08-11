@@ -125,7 +125,7 @@ public:
         return NULL;
     }
 
-    inline byte *getChildPtrPos(int16_t idx) {
+    inline byte *getChildPtrPos(int16_t search_result) {
         if (triePos++) {
             while (triePos > trie) {
                 triePos -= DFT_UNIT_SIZE;
@@ -402,7 +402,7 @@ public:
         addData(0);
     }
 
-    void addData(int16_t idx) {
+    void addData(int16_t search_result) {
 
         int16_t ptr = insertCurrent();
 
@@ -427,7 +427,7 @@ public:
 
     }
 
-    bool isFull() {
+    bool isFull(int16_t search_result) {
         decodeNeedCount();
     #if DFT_UNIT_SIZE == 3
         if (BPT_TRIE_LEN > 189 - need_count) {

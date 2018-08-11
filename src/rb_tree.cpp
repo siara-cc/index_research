@@ -9,7 +9,7 @@ void rb_tree::addFirstData() {
     addData(0);
 }
 
-void rb_tree::addData(int16_t idx) {
+void rb_tree::addData(int16_t search_result) {
 
     //idx = -1; // !!!!!
 
@@ -228,7 +228,7 @@ int16_t rb_tree::filledUpto() {
 #endif
 }
 
-bool rb_tree::isFull() {
+bool rb_tree::isFull(int16_t search_result) {
     int16_t kv_len = key_len + value_len + 9; // 3 int16_t pointer, 1 byte key len, 1 byte value len, 1 flag
     uint16_t RB_TREE_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
     int16_t spaceLeft = RB_TREE_NODE_SIZE - util::getInt(current_block + DATA_END_POS);
@@ -529,13 +529,13 @@ void rb_tree::setColor(int16_t n, byte c) {
 #endif
 }
 
-byte *rb_tree::getChildPtrPos(int16_t idx) {
-    if (idx < 0) {
-        idx = ~idx;
+byte *rb_tree::getChildPtrPos(int16_t search_result) {
+    if (search_result < 0) {
+        search_result = ~search_result;
         if (last_direction == 'l') {
-            int16_t p = getPrevious(idx);
+            int16_t p = getPrevious(search_result);
             if (p)
-                idx = p;
+                search_result = p;
         }
     }
     return current_block + pos + KEY_LEN_POS;

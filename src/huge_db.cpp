@@ -1247,13 +1247,13 @@ int main(int argc, char *argv[]) {
 
     ctr = 0;
     //linex *dx = new linex();
-    //basix *dx = new basix();
+    basix *dx = new basix();
     //bft *dx = new bft();
     //bfos *dx = new bfos();
     //bfqs *dx = new bfqs();
     //dft *dx = new dft();
     //dfqx *dx = new dfqx();
-    dfox *dx = new dfox();
+    //dfox *dx = new dfox();
     //dfos *dx = new dfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();

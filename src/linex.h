@@ -83,7 +83,7 @@ public:
         addData(0);
     }
 
-    void addData(int16_t idx) {
+    void addData(int16_t search_result) {
         int16_t prev_plen = 0;
         int16_t filled_size = filledSize();
         setFilledSize(filled_size + 1);
@@ -243,7 +243,7 @@ public:
 
     }
 
-    bool isFull() {
+    bool isFull(int16_t search_result) {
         uint16_t LINEX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         if ((getKVLastPos() + key_len + value_len + 3) >= LINEX_NODE_SIZE)
             return true;
@@ -264,8 +264,8 @@ public:
         return (char *) key_at;
     }
 
-    byte *getChildPtrPos(int16_t idx) {
-        if (idx < 0)
+    byte *getChildPtrPos(int16_t search_result) {
+        if (search_result < 0)
             key_at = prev_key_at;
         return key_at + 1;
     }
