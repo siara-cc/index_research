@@ -13,15 +13,13 @@ using namespace std;
 
 #define DFOX_HDR_SIZE 9
 
-#define DX_SIBLING_PTR_SIZE 1
+#define DX_SIBLING_PTR_SIZE 2
 #if DX_SIBLING_PTR_SIZE == 1
-#define DX_BIT_COUNT_SB(x) BIT_COUNT(x)
 #define DX_GET_TRIE_LEN BPT_TRIE_LEN
 #define DX_SET_TRIE_LEN(x) BPT_TRIE_LEN = x
 #define DX_GET_SIBLING_OFFSET(x) *(x)
 #define DX_SET_SIBLING_OFFSET(x, off) *(x) = off
 #else
-#define DX_BIT_COUNT_SB(x) BIT_COUNT2(x)
 #define DX_GET_TRIE_LEN util::getInt(BPT_TRIE_LEN_PTR)
 #define DX_SET_TRIE_LEN(x) util::setInt(BPT_TRIE_LEN_PTR, x)
 #define DX_GET_SIBLING_OFFSET(x) util::getInt(x)
@@ -36,6 +34,16 @@ public:
     dfox(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE) :
         bpt_trie_handler<dfox>(leaf_block_sz, parent_block_sz) {
+    }
+
+    inline void setCurrentBlockRoot() {
+        current_block = root_block;
+        trie = current_block + DFOX_HDR_SIZE;
+    }
+
+    inline void setCurrentBlock(byte *m) {
+        current_block = m;
+        trie = current_block + DFOX_HDR_SIZE;
     }
 
 #if DX_SIBLING_PTR_SIZE == 1
@@ -723,11 +731,9 @@ public:
 #if DX_MIDDLE_PREFIX == 1
             need_count -= (8 + DX_SIBLING_PTR_SIZE);
             diff = p + need_count;
-            if (diff == min) {
-                if (need_count) {
-                    need_count--;
-                    diff--;
-                }
+            if (diff == min && need_count) {
+                need_count--;
+                diff--;
             }
             diff = need_count + (need_count ? (need_count / 64) + 1 : 0)
                     + (diff == min ? 4 : (key[diff] ^ key_at[diff - keyPos]) > x07 ? 6 :

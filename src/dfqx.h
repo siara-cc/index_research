@@ -42,6 +42,23 @@ public:
         bpt_trie_handler<dfqx>(leaf_block_sz, parent_block_sz) {
     }
 
+    inline void setCurrentBlockRoot() {
+        setCurrentBlock(root_block);
+    }
+
+    inline void setCurrentBlock(byte *m) {
+        current_block = m;
+        trie = current_block + DFQX_HDR_SIZE;
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
+        bitmap = (uint64_t *) (current_block + getHeaderSize() - 8);
+#else
+        bitmap1 = (uint32_t *) (current_block + getHeaderSize() - 8);
+        bitmap2 = bitmap1 + 1;
+#endif
+#endif
+    }
+
     //static byte first_bit_offset4[16];
     //static byte bit_count_16[16];
     inline byte *skipChildren(byte *t, uint16_t& count) {

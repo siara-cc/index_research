@@ -78,6 +78,8 @@ public:
     int16_t getPtr(int16_t pos);
     void setPtr(int16_t pos, int16_t ptr);
     bool isFull(int16_t search_result);
+    inline void setCurrentBlockRoot();
+    inline void setCurrentBlock(byte *m);
     int16_t searchCurrentBlock();
     void addData(int16_t search_result);
     void addFirstData();

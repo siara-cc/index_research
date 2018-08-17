@@ -40,6 +40,16 @@ public:
         bpt_trie_handler<bfqs>(leaf_block_sz, parent_block_sz) {
     }
 
+    inline void setCurrentBlockRoot() {
+        current_block = root_block;
+        trie = current_block + BFQS_HDR_SIZE;
+    }
+
+    inline void setCurrentBlock(byte *m) {
+        current_block = m;
+        trie = current_block + BFQS_HDR_SIZE;
+    }
+
     inline byte *getLastPtr() {
         //keyPos = 0;
         while ((last_leaf_child & xAA) > (last_leaf_child & x55)) {

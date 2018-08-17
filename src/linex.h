@@ -51,8 +51,10 @@ private:
     #endif
             if (cmp > 0)
                 return ~idx;
-            else if (cmp == 0)
+            else if (cmp == 0) {
+                key_at += 2;
                 return idx;
+            }
             prev_key_at = key_at;
             prev_prefix_len = prefix_len;
             key_at += key_at_len;
@@ -87,6 +89,8 @@ public:
         int16_t prev_plen = 0;
         int16_t filled_size = filledSize();
         setFilledSize(filled_size + 1);
+        if (search_result < 0)
+            key_at -= 2;
     #if LX_PREFIX_CODING == 1
         if (filled_size && key_at != prev_key_at) {
             while (prev_plen < key_len) {
@@ -255,16 +259,9 @@ public:
         return pos;
     }
 
-    inline char *getValueAt(int16_t *vlen) {
-        key_at++;
-        key_at += *key_at;
-        key_at++;
-        *vlen = *key_at;
-        key_at++;
-        return (char *) key_at;
-    }
-
     byte *getChildPtrPos(int16_t search_result) {
+        if (search_result >= 0)
+            key_at -= 2;
         if (search_result < 0)
             key_at = prev_key_at;
         return key_at + 1;
@@ -278,8 +275,14 @@ public:
         return NULL;
     }
 
+    void setCurrentBlockRoot() {
+        current_block = root_block;
+        key_at = current_block + LX_BLK_HDR_SIZE;
+        prefix_len = 0;
+    }
+
     void setCurrentBlock(byte *m) {
-        bplus_tree_handler<linex>::current_block = m;
+        current_block = m;
         key_at = m + LX_BLK_HDR_SIZE;
         prefix_len = 0;
     }

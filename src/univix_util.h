@@ -24,7 +24,7 @@ typedef unsigned char byte;
 
 #define USE_POP_CNT 0
 
-#if (defined(__AVR__))
+#if (defined(__AVR_ATmega328P__))
 #define BIT_COUNT(x) pgm_read_byte_near(util::bit_count + (x))
 #define BIT_COUNT2(x) pgm_read_byte_near(util::bit_count2x + (x))
 #define LEFT_MASK32(x) pgm_read_dword_near(util::left_mask32 + (x))
@@ -51,7 +51,7 @@ typedef unsigned char byte;
 
 class util {
 public:
-#if (defined(__AVR__))
+#if (defined(__AVR_ATmega328P__))
     static const byte bit_count[256] PROGMEM;
     static const byte bit_count2x[256] PROGMEM;
     static const byte bit_count_lf_ch[256] PROGMEM;

@@ -193,8 +193,8 @@ void print(bplus_tree_handler<T> *dx, const char *key, int16_t key_len) {
 int main2() {
     util::generateBitCounts();
     //rb_tree *dx = new rb_tree();
-    dfox *dx = new dfox();
-    //dfos *dx = new dfos();
+    //dfox *dx = new dfox();
+    dfos *dx = new dfos();
     //dfqx *dx = new dfqx();
     //bfos *dx = new bfos();
     //bfqs *dx = new bfqs();
@@ -1247,14 +1247,14 @@ int main(int argc, char *argv[]) {
 
     ctr = 0;
     //linex *dx = new linex();
-    basix *dx = new basix();
+    //basix *dx = new basix();
     //bft *dx = new bft();
     //bfos *dx = new bfos();
     //bfqs *dx = new bfqs();
     //dft *dx = new dft();
     //dfqx *dx = new dfqx();
     //dfox *dx = new dfox();
-    //dfos *dx = new dfos();
+    dfos *dx = new dfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();
     start = getTimeVal();

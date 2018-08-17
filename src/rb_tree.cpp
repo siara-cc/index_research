@@ -176,6 +176,22 @@ void rb_tree::setDataEndPos(int16_t pos) {
     util::setInt(current_block + DATA_END_POS, pos);
 }
 
+inline void rb_tree::setCurrentBlockRoot() {
+    setCurrentBlock(root_block);
+}
+
+inline void rb_tree::setCurrentBlock(byte *m) {
+    current_block = m;
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
+    bitmap = (uint64_t *) (current_block + getHeaderSize() - 8);
+#else
+    bitmap1 = (uint32_t *) (current_block + getHeaderSize() - 8);
+    bitmap2 = bitmap1 + 1;
+#endif
+#endif
+}
+
 int16_t rb_tree::binarySearch(const char *key, int16_t key_len) {
     register int middle;
     register int new_middle = getRoot();
@@ -252,15 +268,6 @@ byte *rb_tree::getKey(int16_t pos, int16_t *plen) {
     *plen = kvIdx[0];
     kvIdx++;
     return kvIdx;
-}
-
-char *rb_tree::getValueAt(int16_t *vlen) {
-    key_at = current_block + pos + KEY_LEN_POS;
-    key_at += *key_at;
-    key_at++;
-    *vlen = *key_at;
-    key_at++;
-    return (char *) key_at;
 }
 
 int16_t rb_tree::getFirst() {

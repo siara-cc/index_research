@@ -47,6 +47,16 @@ public:
         delete split_buf;
     }
 
+    inline void setCurrentBlockRoot() {
+        current_block = root_block;
+        trie = current_block + BFT_HDR_SIZE;
+    }
+
+    inline void setCurrentBlock(byte *m) {
+        current_block = m;
+        trie = current_block + BFT_HDR_SIZE;
+    }
+
     inline int16_t searchCurrentBlock() {
         byte *t;
         t = trie;

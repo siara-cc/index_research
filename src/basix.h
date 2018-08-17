@@ -25,6 +25,22 @@ public:
         bplus_tree_handler<basix>(leaf_block_sz, parent_block_sz) {
     }
 
+    inline void setCurrentBlockRoot() {
+        setCurrentBlock(root_block);
+    }
+
+    inline void setCurrentBlock(byte *m) {
+        current_block = m;
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
+        bitmap = (uint64_t *) (current_block + getHeaderSize() - 8);
+#else
+        bitmap1 = (uint32_t *) (current_block + getHeaderSize() - 8);
+        bitmap2 = bitmap1 + 1;
+#endif
+#endif
+    }
+
     inline int16_t searchCurrentBlock() {
         int middle, first, filled_size;
         first = 0;

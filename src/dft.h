@@ -25,6 +25,16 @@ public:
         bpt_trie_handler<dft>(leaf_block_sz, parent_block_sz) {
     }
 
+    inline void setCurrentBlockRoot() {
+        current_block = root_block;
+        trie = current_block + DFT_HDR_SIZE;
+    }
+
+    inline void setCurrentBlock(byte *m) {
+        current_block = m;
+        trie = current_block + DFT_HDR_SIZE;
+    }
+
     inline int16_t searchCurrentBlock() {
         byte *t = trie;
         keyPos = 0;

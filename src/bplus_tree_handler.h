@@ -35,12 +35,15 @@ using namespace std;
 #endif
 #define BPT_9_BIT_PTR 0
 
-#if (defined(__AVR__))
+#if (defined(__AVR_ATmega328P__))
 #define DEFAULT_PARENT_BLOCK_SIZE 512
 #define DEFAULT_LEAF_BLOCK_SIZE 512
+#elif (defined(__AVR_ATmega2560__))
+#define DEFAULT_PARENT_BLOCK_SIZE 2048
+#define DEFAULT_LEAF_BLOCK_SIZE 2048
 #else
-#define DEFAULT_PARENT_BLOCK_SIZE 512
-#define DEFAULT_LEAF_BLOCK_SIZE 512
+#define DEFAULT_PARENT_BLOCK_SIZE 4096
+#define DEFAULT_LEAF_BLOCK_SIZE 4096
 #endif
 
 template<class T> // CRTP
@@ -98,61 +101,34 @@ public:
         count1 = count2 = 0;
     }
 
-    virtual void setCurrentBlock(byte *m) {
-        current_block = m;
-#if BPT_9_BIT_PTR == 1
-#if BPT_INT64MAP == 1
-        bitmap = (uint64_t *) (current_block + static_cast<T*>(this)->getHeaderSize() - 8);
-#else
-        bitmap1 = (uint32_t *) (current_block + static_cast<T*>(this)->getHeaderSize() - 8);
-        bitmap2 = bitmap1 + 1;
-#endif
-#endif
-    }
-
-    virtual inline char *getValueAt(int16_t *vlen) {
+    inline char *getValueAt(int16_t *vlen) {
         key_at += key_at_len;
         *vlen = *key_at;
         return (char *) key_at + 1;
     }
 
-    byte *getChildPtrPos(int16_t search_result);
-    int16_t traverseToLeaf(int8_t *plevel_count = NULL, byte *node_paths[] = NULL) {
-        while (!isLeaf()) {
-            if (node_paths) {
-                *node_paths++ = current_block;
-                (*plevel_count)++;
-            }
-            int16_t search_result = static_cast<T*>(this)->searchCurrentBlock();
-            setCurrentBlock(getChildPtr(static_cast<T*>(this)->getChildPtrPos(search_result)));
-        }
-        return static_cast<T*>(this)->searchCurrentBlock();
-    }
-
+    byte *skipChildren(byte *t, byte count);
+    byte *skipChildren(byte *t, int16_t count);
+    byte *getLastPtr();
+    void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
     int16_t searchCurrentBlock();
-    int getHeaderSize();
     byte *getPtrPos();
     inline bool isLeaf() {
         return BPT_IS_LEAF_BYTE;
     }
 
-    char *get(const char *key, int8_t key_len, int16_t *pValueLen) {
-        setCurrentBlock(root_block);
+    void setCurrentBlockRoot();
+    void setCurrentBlock(byte *m);
+    char *get(const char *key, uint8_t key_len, int16_t *pValueLen) {
+        static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
         this->key_len = key_len;
-        if (traverseToLeaf() < 0)
+        if ((isLeaf() ? static_cast<T*>(this)->searchCurrentBlock() : traverseToLeaf()) < 0)
             return null;
         return getValueAt(pValueLen);
     }
 
-    inline int16_t filledSize() {
-        return util::getInt(BPT_FILLED_SIZE);
-    }
-
-    inline uint16_t getKVLastPos() {
-        return util::getInt(BPT_LAST_DATA_PTR);
-    }
-
+    byte *getKey(byte *t, byte *plen);
     inline byte *getKey(int16_t pos, byte *plen) {
         byte *kvIdx = current_block + getPtr(pos);
         *plen = *kvIdx;
@@ -185,6 +161,28 @@ public:
 #endif
     }
 
+    byte *getChildPtrPos(int16_t search_result);
+    int16_t traverseToLeaf(int8_t *plevel_count = NULL, byte *node_paths[] = NULL) {
+        while (!isLeaf()) {
+            if (node_paths) {
+                *node_paths++ = current_block;
+                (*plevel_count)++;
+            }
+            int16_t search_result = static_cast<T*>(this)->searchCurrentBlock();
+            static_cast<T*>(this)->setCurrentBlock(getChildPtr(
+                    static_cast<T*>(this)->getChildPtrPos(search_result)));
+        }
+        return static_cast<T*>(this)->searchCurrentBlock();
+    }
+
+    inline int16_t filledSize() {
+        return util::getInt(BPT_FILLED_SIZE);
+    }
+
+    inline uint16_t getKVLastPos() {
+        return util::getInt(BPT_LAST_DATA_PTR);
+    }
+
     virtual inline void updateSplitStats() {
         if (isLeaf()) {
             maxKeyCountLeaf += filledSize();
@@ -195,9 +193,9 @@ public:
         }
     }
 
-    void put(const char *key, int8_t key_len, const char *value,
+    void put(const char *key, uint8_t key_len, const char *value,
             int16_t value_len) {
-        setCurrentBlock(root_block);
+        static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
         this->key_len = key_len;
         this->value = value;
@@ -207,7 +205,9 @@ public:
         } else {
             byte *node_paths[7];
             int8_t level_count = 1;
-            int16_t search_result = traverseToLeaf(&level_count, node_paths);
+            int16_t search_result = isLeaf() ?
+                    static_cast<T*>(this)->searchCurrentBlock() :
+                    traverseToLeaf(&level_count, node_paths);
             recursiveUpdate(search_result, node_paths, level_count - 1);
         }
         total_size++;
@@ -226,14 +226,14 @@ public:
                 int16_t cmp = util::compare((char *) first_key, first_len,
                         key, key_len);
                 if (cmp <= 0)
-                    setCurrentBlock(new_block);
+                    static_cast<T*>(this)->setCurrentBlock(new_block);
                 search_result = ~static_cast<T*>(this)->searchCurrentBlock();
                 static_cast<T*>(this)->addData(search_result);
                 //cout << "FK:" << level << ":" << first_key << endl;
                 if (root_block == old_block) {
                     blockCountNode++;
                     root_block = (byte *) util::alignedAlloc(parent_block_size);
-                    setCurrentBlock(root_block);
+                    static_cast<T*>(this)->setCurrentBlock(root_block);
                     initCurrentBlock();
                     setLeaf(0);
                     if (getKVLastPos() == leaf_block_size)
@@ -254,7 +254,7 @@ public:
                 } else {
                     int16_t prev_level = level - 1;
                     byte *parent_data = node_paths[prev_level];
-                    setCurrentBlock(parent_data);
+                    static_cast<T*>(this)->setCurrentBlock(parent_data);
                     byte addr[9];
                     key = (char *) first_key;
                     key_len = first_len;
@@ -428,27 +428,14 @@ protected:
         insertState = INSERT_EMPTY;
     }
 
-    virtual void setCurrentBlock(byte *m) {
-        bplus_tree_handler<T>::current_block = m;
-        trie = bplus_tree_handler<T>::current_block + static_cast<T*>(this)->getHeaderSize();
-#if BPT_9_BIT_PTR == 1
-#if BPT_INT64MAP == 1
-        bplus_tree_handler<T>::bitmap = (uint64_t *) (bplus_tree_handler<T>::current_block + static_cast<T*>(this)->getHeaderSize() - 8);
-#else
-        bplus_tree_handler<T>::bitmap1 = (uint32_t *) (bplus_tree_handler<T>::current_block + static_cast<T*>(this)->getHeaderSize() - 8);
-        bplus_tree_handler<T>::bitmap2 = bplus_tree_handler<T>::bitmap1 + 1;
-#endif
-#endif
-    }
-
     virtual inline void updateSplitStats() {
         if (bplus_tree_handler<T>::isLeaf()) {
             bplus_tree_handler<T>::maxKeyCountLeaf += bplus_tree_handler<T>::filledSize();
-            maxTrieLenLeaf += bplus_tree_handler<T>::BPT_TRIE_LEN + (*bplus_tree_handler<T>::BPT_TRIE_LEN_PTR << 8);
+            maxTrieLenLeaf += bplus_tree_handler<T>::BPT_TRIE_LEN + (*(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR) << 8);
             bplus_tree_handler<T>::blockCountLeaf++;
         } else {
             bplus_tree_handler<T>::maxKeyCountNode += bplus_tree_handler<T>::filledSize();
-            maxTrieLenNode += bplus_tree_handler<T>::BPT_TRIE_LEN + (*bplus_tree_handler<T>::BPT_TRIE_LEN_PTR << 8);
+            maxTrieLenNode += bplus_tree_handler<T>::BPT_TRIE_LEN + (*(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR) << 8);
             bplus_tree_handler<T>::blockCountNode++;
         }
     }

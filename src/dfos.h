@@ -16,10 +16,23 @@ using namespace std;
 #define DS_MAX_PTRS 63
 #else
 #define DS_MAX_PTR_BITMAP_BYTES 0
-#define DS_MAX_PTRS 240
+#define DS_MAX_PTRS 255
 #endif
 #define DFOS_HDR_SIZE 9
 //#define MID_KEY_LEN buf[DS_MAX_PTR_BITMAP_BYTES+6]
+
+#define DS_SIBLING_PTR_SIZE 2
+#if DS_SIBLING_PTR_SIZE == 1
+#define DS_GET_TRIE_LEN BPT_TRIE_LEN
+#define DS_SET_TRIE_LEN(x) BPT_TRIE_LEN = x
+#define DS_GET_SIBLING_OFFSET(x) *(x)
+#define DS_SET_SIBLING_OFFSET(x, off) *(x) = off
+#else
+#define DS_GET_TRIE_LEN util::getInt(BPT_TRIE_LEN_PTR)
+#define DS_SET_TRIE_LEN(x) util::setInt(BPT_TRIE_LEN_PTR, x)
+#define DS_GET_SIBLING_OFFSET(x) util::getInt(x)
+#define DS_SET_SIBLING_OFFSET(x, off) util::setInt(x, off)
+#endif
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class dfos : public bpt_trie_handler<dfos> {
@@ -33,129 +46,158 @@ public:
         bpt_trie_handler<dfos>(leaf_block_sz, parent_block_sz) {
     }
 
-    void insAtWithPtrs(byte *ptr, const char *s, byte len) {
-    #if BPT_9_BIT_PTR == 1
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-    #else
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-    #endif
-        memcpy(ptr, s, len);
-        BPT_TRIE_LEN += len;
+    inline void setCurrentBlockRoot() {
+        setCurrentBlock(root_block);
     }
 
-    void insAtWithPtrs(byte *ptr, byte b, const char *s, byte len) {
-    #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-    #else
-        memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-    #endif
-        *ptr++ = b;
-        memcpy(ptr, s, len);
-        BPT_TRIE_LEN += len;
-        BPT_TRIE_LEN++;
+    inline void setCurrentBlock(byte *m) {
+        current_block = m;
+        trie = current_block + DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES;
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
+        bitmap = (uint64_t *) (current_block + getHeaderSize() - 8);
+#else
+        bitmap1 = (uint32_t *) (current_block + getHeaderSize() - 8);
+        bitmap2 = bitmap1 + 1;
+#endif
+#endif
     }
 
-    byte insAtWithPtrs(byte *ptr, byte b1, byte b2) {
-    #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-    #else
-        memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-    #endif
-        *ptr++ = b1;
-        *ptr = b2;
-        BPT_TRIE_LEN += 2;
-        return 2;
+#if DS_SIBLING_PTR_SIZE == 1
+    inline byte *skipChildren(byte *t, byte count) {
+#else
+    inline byte *skipChildren(byte *t, int16_t count) {
+#endif
+        while (count) {
+            byte tc = *t++;
+            switch (tc & x03) {
+            case 0:
+                pos += BIT_COUNT(*t++);
+                break;
+            case 2:
+                pos += *t++;
+                t += DS_GET_SIBLING_OFFSET(t);
+                break;
+            case 1:
+            case 3:
+                t += (tc >> 1);
+                continue;
+            }
+            if (tc & x04)
+                count--;
+        }
+        return t;
     }
 
-    byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3) {
-    #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-    #else
-        memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-    #endif
-        *ptr++ = b1;
-        *ptr++ = b2;
-        *ptr = b3;
-        BPT_TRIE_LEN += 3;
-        return 3;
+    inline int16_t searchCurrentBlock() {
+        byte key_char = *key;
+        byte *t = trie;
+        byte trie_char = *t;
+        keyPos = 1;
+        origPos = t++;
+        pos = 0;
+        do {
+#if DS_MIDDLE_PREFIX == 1
+            while (trie_char & x01) {
+                byte pfx_len;
+                pfx_len = (trie_char >> 1);
+                while (pfx_len && key_char == *t && keyPos < key_len) {
+                    key_char = key[keyPos++];
+                    t++;
+                    pfx_len--;
+                }
+                if (pfx_len) {
+                    triePos = t;
+                    if (key_char > *t) {
+                        t = skipChildren(t + pfx_len, 1);
+                        key_at = t;
+                    }
+                    insertState = INSERT_CONVERT;
+                    return ~pos;
+                }
+                trie_char = *t;
+                origPos = t++;
+            }
+#endif
+            while ((key_char & xF8) > trie_char) {
+                if (trie_char & x02) {
+                    pos += *t++;
+                    t += DS_GET_SIBLING_OFFSET(t);
+                } else
+                    pos += BIT_COUNT(*t++);
+                if (trie_char & x04) {
+                    insertState = INSERT_AFTER;
+                    return ~pos;
+                }
+                trie_char = *t;
+                origPos = t++;
+            }
+            if ((key_char ^ trie_char) & xF8) {
+                insertState = INSERT_BEFORE;
+                return ~pos;
+            }
+            if (trie_char & x02) {
+                t += (1 + DS_SIBLING_PTR_SIZE);
+                byte r_children = *t++;
+                byte r_leaves = *t++;
+                byte r_mask = x01 << (key_char & x07);
+                key_char = (r_leaves & r_mask ? x02 : x00) |
+                        ((r_children & r_mask) && keyPos != key_len ? x01 : x00);
+                //key_char = r_leaves & r_mask ?
+                //        (r_children & r_mask ? (keyPos == key_len ? x01 : x03) : x01) :
+                //        (r_children & r_mask ? (keyPos == key_len ? x00 : x02) : x00);
+                r_mask--;
+                pos += BIT_COUNT(r_leaves & r_mask);
+                t = skipChildren(t, BIT_COUNT(r_children & r_mask));
+            } else {
+                byte r_leaves = *t++;
+                byte r_mask = x01 << (key_char & x07);
+                key_char = (r_leaves & r_mask) ? x02 : x00;
+                pos += BIT_COUNT(r_leaves & (r_mask - 1));
+            }
+            switch (key_char) {
+            case 0:
+                insertState = INSERT_LEAF;
+                return ~pos;
+            case 1:
+                break;
+            case 2:
+                int16_t cmp;
+                key_at = getKey(pos, &key_at_len);
+                cmp = util::compare(key + keyPos, key_len - keyPos,
+                        (char *) key_at, key_at_len);
+                if (cmp == 0)
+                    return pos;
+                key_at_pos = pos;
+                if (cmp > 0)
+                    pos++;
+                else
+                    cmp = -cmp;
+                triePos = t;
+                insertState = INSERT_THREAD;
+#if DS_MIDDLE_PREFIX == 1
+                need_count = cmp + (7 + DS_SIBLING_PTR_SIZE);
+#else
+                need_count = (cmp * (4 + DS_SIBLING_PTR_SIZE))
+                        + 4 + DS_SIBLING_PTR_SIZE;
+#endif
+                return ~pos;
+            case 3:
+                pos++;
+                break;
+            }
+            key_char = key[keyPos++];
+            trie_char = *t;
+            origPos = t++;
+        } while (1);
+        return ~pos;
     }
 
-    byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
-    #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-    #else
-        memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-    #endif
-        *ptr++ = b1;
-        *ptr++ = b2;
-        *ptr++ = b3;
-        *ptr = b4;
-        BPT_TRIE_LEN += 4;
-        return 4;
-    }
-
-    byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
-            byte b5) {
-    #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-    #else
-        memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-    #endif
-        *ptr++ = b1;
-        *ptr++ = b2;
-        *ptr++ = b3;
-        *ptr++ = b4;
-        *ptr = b5;
-        BPT_TRIE_LEN += 5;
-        return 5;
-    }
-
-    byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4,
-            byte b5, byte b6) {
-    #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-    #else
-        memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-    #endif
-        *ptr++ = b1;
-        *ptr++ = b2;
-        *ptr++ = b3;
-        *ptr++ = b4;
-        *ptr++ = b5;
-        *ptr = b6;
-        BPT_TRIE_LEN += 6;
-        return 6;
-    }
-
-    void insBytesWithPtrs(byte *ptr, int16_t len) {
-    #if BPT_9_BIT_PTR == 1
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-    #else
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-    #endif
-        BPT_TRIE_LEN += len;
-    }
-
-    byte insChildAndLeafAt(byte *ptr, byte b1, byte b2) {
-    #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
-    #else
-        memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filledSize() * 2 - ptr);
-    #endif
-        *ptr++ = b1;
-        *ptr++ = x02;
-        *ptr++ = x05;
-        *ptr++ = b2;
-        *ptr = b2;
-        BPT_TRIE_LEN += 5;
-        return 5;
-    }
-
-    void append(byte b) {
-        trie[BPT_TRIE_LEN++] = b;
-    }
-
+#if DS_SIBLING_PTR_SIZE == 1
     byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf) {
+#else
+    byte *nextKey(byte *first_key, int16_t *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf) {
+#endif
         do {
             while (ctr > x07) {
                 if (tc & x04) {
@@ -165,23 +207,24 @@ public:
                         keyPos--;
                         tc = trie[tp[keyPos]];
                     }
-                    child = (tc & x02 ? trie[tp[keyPos] + 3] : 0);
-                    leaf = trie[tp[keyPos] + (tc & x02 ? 4 : 1)];
+                    child = (tc & x02 ? trie[tp[keyPos] + 2 + DS_SIBLING_PTR_SIZE] : 0);
+                    leaf = trie[tp[keyPos] + (tc & x02 ? 3 + DS_SIBLING_PTR_SIZE : 1)];
                     ctr = first_key[keyPos] & 0x07;
                     ctr++;
                 } else {
                     tp[keyPos] = t - trie;
                     tc = *t++;
-                    if (tc & x01) {
+                    while (tc & x01) {
                         byte len = tc >> 1;
-                        memset(tp + keyPos, t - trie - 1, len);
+                        for (int i = 0; i < len; i++)
+                            tp[keyPos + i] = t - trie - 1;
                         memcpy(first_key + keyPos, t, len);
                         t += len;
                         keyPos += len;
                         tp[keyPos] = t - trie;
                         tc = *t++;
                     }
-                    t += (tc & x02 ? 2 : 0);
+                    t += (tc & x02 ? 1 + DS_SIBLING_PTR_SIZE : 0);
                     child = (tc & x02 ? *t++ : 0);
                     leaf = *t++;
                     ctr = 0;
@@ -201,40 +244,29 @@ public:
                 tc = 0;
             }
             ctr++;
-        } while (1); // (t - trie) < BPT_TRIE_LEN);
+        } while (1); // (t - trie) < DS_GET_TRIE_LEN);
         return t;
     }
 
-    void updateSkipLens(byte *loop_upto, byte *covering_upto, int diff) {
-        byte *t = trie;
-        byte tc = *t++;
-        loop_upto++;
-        while (t <= loop_upto) {
-            if (tc & x01) {
-                t += (tc >> 1);
-            } else if (tc & x02) {
-                t++;
-                if ((t + *t) > covering_upto) {
-                    *t = *t + diff;
-                    (*(t-1))++;
-                    t += 3;
-                } else
-                    t += *t;
-            } else
-                t++;
-            tc = *t++;
-        }
-    }
+#if DS_SIBLING_PTR_SIZE == 1
     void movePtrList(byte orig_trie_len) {
-    #if BPT_9_BIT_PTR == 1
-        memmove(trie + BPT_TRIE_LEN, trie + orig_trie_len, filledSize());
-    #else
-        memmove(trie + BPT_TRIE_LEN, trie + orig_trie_len, filledSize() << 1);
-    #endif
+#else
+    void movePtrList(int16_t orig_trie_len) {
+#endif
+#if BPT_9_BIT_PTR == 1
+        memmove(trie + DS_GET_TRIE_LEN, trie + orig_trie_len, filledSize());
+#else
+        memmove(trie + DS_GET_TRIE_LEN, trie + orig_trie_len, filledSize() << 1);
+#endif
     }
 
+#if DS_SIBLING_PTR_SIZE == 1
     void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
-        byte orig_trie_len = BPT_TRIE_LEN;
+        byte orig_trie_len = DS_GET_TRIE_LEN;
+#else
+    void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, int16_t *tp) {
+        int16_t orig_trie_len = DS_GET_TRIE_LEN;
+#endif
         for (int idx = brk_key_len; idx >= 0; idx--) {
             byte *t = trie + tp[idx];
             byte tc = *t;
@@ -243,21 +275,21 @@ public:
             byte offset = first_key[idx] & x07;
             *t++ = (tc | x04);
             if (tc & x02) {
-                byte children = t[2];
+                byte children = t[1 + DS_SIBLING_PTR_SIZE];
                 children &= ~((idx == brk_key_len ? xFF : xFE) << offset);
                                 // ryte_mask[offset] : ryte_incl_mask[offset]);
-                t[2] = children;
-                byte leaves = t[3] & ~(xFE << offset);
-                t[3] = leaves; // ryte_incl_mask[offset];
+                t[1 + DS_SIBLING_PTR_SIZE] = children;
+                byte leaves = t[2 + DS_SIBLING_PTR_SIZE] & ~(xFE << offset);
+                t[2 + DS_SIBLING_PTR_SIZE] = leaves; // ryte_incl_mask[offset];
                 pos = BIT_COUNT(leaves);
-                byte *new_t = skipChildren(t + 4, BIT_COUNT(children));
+                byte *new_t = skipChildren(t + 3 + DS_SIBLING_PTR_SIZE, BIT_COUNT(children));
                 *t++ = pos;
-                *t = new_t - t;
+                DS_SET_SIBLING_OFFSET(t, new_t - t);
                 t = new_t;
             } else
                 *t++ &= ~(xFE << offset); // ryte_incl_mask[offset];
             if (idx == brk_key_len)
-                BPT_TRIE_LEN = t - trie;
+                DS_SET_TRIE_LEN(t - trie);
         }
         movePtrList(orig_trie_len);
     }
@@ -265,14 +297,19 @@ public:
     int deleteSegment(byte *delete_end, byte *delete_start) {
         int count = delete_end - delete_start;
         if (count) {
-            BPT_TRIE_LEN -= count;
-            memmove(delete_start, delete_end, trie + BPT_TRIE_LEN - delete_start);
+            DS_SET_TRIE_LEN(DS_GET_TRIE_LEN - count);
+            memmove(delete_start, delete_end, trie + DS_GET_TRIE_LEN - delete_start);
         }
         return count;
     }
 
+#if DS_SIBLING_PTR_SIZE == 1
     void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
-        byte orig_trie_len = BPT_TRIE_LEN;
+        byte orig_trie_len = DS_GET_TRIE_LEN;
+#else
+    void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, int16_t *tp) {
+        int16_t orig_trie_len = DS_GET_TRIE_LEN;
+#endif
         for (int idx = brk_key_len; idx >= 0; idx--) {
             byte *t = trie + tp[idx];
             byte tc = *t++;
@@ -285,18 +322,18 @@ public:
             }
             byte offset = first_key[idx] & 0x07;
             if (tc & x02) {
-                byte children = t[2];
+                byte children = t[1 + DS_SIBLING_PTR_SIZE];
                 int16_t count = BIT_COUNT(children & ~(xFF << offset)); // ryte_mask[offset];
                 children &= (xFF << offset); // left_incl_mask[offset];
-                t[2] = children;
-                byte leaves = t[3] & ((idx == brk_key_len ? xFF : xFE) << offset); // left_incl_mask[offset] : left_mask[offset]);
-                t[3] = leaves;
-                byte *new_t = skipChildren(t + 4, count);
-                deleteSegment((idx < brk_key_len) ? (trie + tp[idx + 1]) : new_t, t + 4);
+                t[1 + DS_SIBLING_PTR_SIZE] = children;
+                byte leaves = t[2 + DS_SIBLING_PTR_SIZE] & ((idx == brk_key_len ? xFF : xFE) << offset); // left_incl_mask[offset] : left_mask[offset]);
+                t[2 + DS_SIBLING_PTR_SIZE] = leaves;
+                byte *new_t = skipChildren(t + 3 + DS_SIBLING_PTR_SIZE, count);
+                deleteSegment((idx < brk_key_len) ? (trie + tp[idx + 1]) : new_t, t + 3 + DS_SIBLING_PTR_SIZE);
                 pos = BIT_COUNT(leaves);
-                new_t = skipChildren(t + 4, BIT_COUNT(children));
+                new_t = skipChildren(t + 3 + DS_SIBLING_PTR_SIZE, BIT_COUNT(children));
                 *t++ = pos;
-                *t = new_t - t;
+                DS_SET_SIBLING_OFFSET(t, new_t - t);
             } else
                 *t &= ((idx == brk_key_len ? xFF : xFE) << offset); // left_incl_mask[offset] : left_mask[offset]);
         }
@@ -307,38 +344,41 @@ public:
     void consolidateInitialPrefix(byte *t) {
         t += DFOS_HDR_SIZE;
         byte *t_reader = t;
+        byte count = 0;
         if (*t & x01) {
-            t_reader += (*t >> 1);
+            count = (*t >> 1);
+            t_reader += count;
             t_reader++;
         }
         byte *t_writer = t_reader + (*t & x01 ? 0 : 1);
-        byte count = 0;
         byte trie_len_diff = 0;
-        while ((*t_reader & x01) || ((*t_reader & x02) && (*t_reader & x04) && BIT_COUNT(t_reader[3]) == 1
-                && BIT_COUNT(t_reader[4]) == 0)) {
+        while ((*t_reader & x01) || ((*t_reader & x02) && (*t_reader & x04)
+                && BIT_COUNT(t_reader[2 + DS_SIBLING_PTR_SIZE]) == 1
+                && BIT_COUNT(t_reader[3 + DS_SIBLING_PTR_SIZE]) == 0)) {
             if (*t_reader & x01) {
-                byte len = *t_reader++ >> 1;
-                memcpy(t_writer, t_reader, len);
+                byte len = *t_reader >> 1;
+                if (count + len > 127)
+                    break;
+                memcpy(t_writer, ++t_reader, len);
                 t_writer += len;
                 t_reader += len;
                 count += len;
                 trie_len_diff++;
             } else {
-                *t_writer++ = (*t_reader & xF8) + BIT_COUNT(t_reader[3] - 1);
-                t_reader += 5;
+                if (count > 126)
+                    break;
+                *t_writer++ = (*t_reader & xF8) + BIT_COUNT(t_reader[2 + DS_SIBLING_PTR_SIZE] - 1);
+                t_reader += 4 + DS_SIBLING_PTR_SIZE;
                 count++;
-                trie_len_diff += 4;
+                trie_len_diff += 3 + DS_SIBLING_PTR_SIZE;
             }
         }
         if (t_reader > t_writer) {
-            memmove(t_writer, t_reader, BPT_TRIE_LEN - (t_reader - t) + filledSize() * 2);
-            if (*t & x01) {
-                *t = (((*t >> 1) + count) << 1) + 1;
-            } else {
-                *t = (count << 1) + 1;
+            memmove(t_writer, t_reader, DS_GET_TRIE_LEN - (t_reader - t) + filledSize() * 2);
+            if (!(*t & x01))
                 trie_len_diff--;
-            }
-            BPT_TRIE_LEN -= trie_len_diff;
+            *t = (count << 1) + 1;
+            DS_SET_TRIE_LEN(DS_GET_TRIE_LEN - trie_len_diff);
             //cout << (int) (*t >> 1) << endl;
         }
     }
@@ -352,7 +392,7 @@ public:
         insertCurrent();
 
         int16_t key_left = key_len - keyPos;
-        int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
+        uint16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
         setKVLastPos(kv_last_pos);
         current_block[kv_last_pos] = key_left;
         if (key_left)
@@ -366,18 +406,20 @@ public:
 
     bool isFull(int16_t search_result) {
         decodeNeedCount();
-        int16_t ptr_size = filledSize() + 1;
-    #if BPT_9_BIT_PTR == 0
+        uint16_t ptr_size = filledSize() + 1;
+#if BPT_9_BIT_PTR == 0
         ptr_size <<= 1;
-    #endif
+#endif
         if (getKVLastPos()
-                < (DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + BPT_TRIE_LEN
+                < (DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES + DS_GET_TRIE_LEN
                         + need_count + ptr_size + key_len - keyPos + value_len + 3))
             return true;
-        if (filledSize() > DS_MAX_PTRS)
+        if (filledSize() >= DS_MAX_PTRS)
             return true;
-        if (BPT_TRIE_LEN > (254 - need_count))
+#if DS_SIBLING_PTR_SIZE == 1
+        if (DS_GET_TRIE_LEN > (254 - need_count))
             return true;
+#endif
         return false;
     }
 
@@ -391,33 +433,41 @@ public:
         new_block.setKVLastPos(DFOS_NODE_SIZE);
         if (!isLeaf())
             new_block.setLeaf(false);
-        memcpy(new_block.trie, trie, BPT_TRIE_LEN);
+        memcpy(new_block.trie, trie, DS_GET_TRIE_LEN);
+#if DS_SIBLING_PTR_SIZE == 1
         new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
+#else
+        util::setInt(new_block.BPT_TRIE_LEN_PTR, DS_GET_TRIE_LEN);
+#endif
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
-        int16_t kv_last_pos = getKVLastPos();
-        int16_t halfKVLen = DFOS_NODE_SIZE - kv_last_pos + 1;
+        uint16_t kv_last_pos = getKVLastPos();
+        uint16_t halfKVLen = DFOS_NODE_SIZE - kv_last_pos + 1;
         halfKVLen /= 2;
 
         int16_t brk_idx = -1;
-        int16_t brk_kv_pos;
-        int16_t tot_len;
+        uint16_t brk_kv_pos;
+        uint16_t tot_len;
         brk_kv_pos = tot_len = 0;
         char ctr = x08;
+#if DS_SIBLING_PTR_SIZE == 1
         byte tp[BPT_MAX_PFX_LEN + 1];
+#else
+        int16_t tp[BPT_MAX_PFX_LEN + 1];
+#endif
         byte last_key[BPT_MAX_PFX_LEN + 1];
         int16_t last_key_len = 0;
         byte *t = trie;
         byte tc, child, leaf;
         tc = child = leaf = 0;
         //if (!isLeaf())
-        //   cout << "Trie len:" << (int) BPT_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DS_MAX_KEY_LEN << endl;
+        //   cout << "Trie len:" << (int) DS_GET_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DS_MAX_KEY_LEN << endl;
         keyPos = 0;
         // (1) move all data to new_block in order
         int16_t idx;
         for (idx = 0; idx < orig_filled_size; idx++) {
-            int16_t src_idx = getPtr(idx);
-            int16_t kv_len = current_block[src_idx];
+            uint16_t src_idx = getPtr(idx);
+            uint16_t kv_len = current_block[src_idx];
             kv_len++;
             kv_len += current_block[src_idx + kv_len];
             kv_len++;
@@ -427,14 +477,14 @@ public:
             if (brk_idx == -1) {
                 t = nextKey(first_key, tp, t, ctr, tc, child, leaf);
                 //brk_key_len = nextKey(s);
-                //if (tot_len > halfKVLen) {
                 //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
                 //first_key[keyPos+1+current_block[src_idx]] = 0;
                 //cout << first_key << endl;
+                //if (tot_len > halfKVLen) {
                 if (tot_len > halfKVLen || idx == (orig_filled_size / 2)) {
                     //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
                     //first_key[keyPos+1+current_block[src_idx]] = 0;
-                    //cout << first_key << ":";
+                    //cout << "Middle: " << first_key << endl;
                     brk_idx = idx + 1;
                     brk_kv_pos = kv_last_pos;
                     last_key_len = keyPos + 1;
@@ -455,7 +505,7 @@ public:
         new_block.setKVLastPos(kv_last_pos);
         memmove(new_block.current_block + kv_last_pos, new_block.current_block + getKVLastPos(), DFOS_NODE_SIZE - kv_last_pos);
         brk_kv_pos += (kv_last_pos - getKVLastPos());
-        int16_t diff = DFOS_NODE_SIZE - brk_kv_pos;
+        uint16_t diff = DFOS_NODE_SIZE - brk_kv_pos;
         for (idx = 0; idx < orig_filled_size; idx++) {
             new_block.insPtr(idx, kv_last_pos + (idx < brk_idx ? diff : 0));
             kv_last_pos += new_block.current_block[kv_last_pos];
@@ -467,9 +517,9 @@ public:
 
     #if BPT_9_BIT_PTR == 1
         memcpy(current_block + DFOS_HDR_SIZE, new_block.current_block + DFOS_HDR_SIZE, DS_MAX_PTR_BITMAP_BYTES);
-        memcpy(trie + BPT_TRIE_LEN, new_block.trie + new_block.BPT_TRIE_LEN, brk_idx);
+        memcpy(trie + DS_GET_TRIE_LEN, new_block.trie + util::getInt(new_block.BPT_TRIE_LEN_PTR), brk_idx);
     #else
-        memcpy(trie + BPT_TRIE_LEN, new_block.trie + new_block.BPT_TRIE_LEN, (brk_idx << 1));
+        memcpy(trie + DS_GET_TRIE_LEN, new_block.trie + util::getInt(new_block.BPT_TRIE_LEN_PTR), (brk_idx << 1));
     #endif
 
         {
@@ -491,7 +541,7 @@ public:
         }
 
         {
-            int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
+            uint16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
             memcpy(current_block + DFOS_NODE_SIZE - old_blk_new_len,
                     new_block.current_block + kv_last_pos, old_blk_new_len); // Copy back first half to old block
             setKVLastPos(DFOS_NODE_SIZE - old_blk_new_len);
@@ -512,7 +562,7 @@ public:
     #endif
     #endif
             int16_t new_size = orig_filled_size - brk_idx;
-            byte *block_ptrs = new_block.trie + new_block.BPT_TRIE_LEN;
+            byte *block_ptrs = new_block.trie + util::getInt(new_block.BPT_TRIE_LEN_PTR);
     #if BPT_9_BIT_PTR == 1
             memmove(block_ptrs, block_ptrs + brk_idx, new_size);
     #else
@@ -522,23 +572,104 @@ public:
             new_block.setFilledSize(new_size);
         }
 
+#if DS_MIDDLE_PREFIX == 1
         consolidateInitialPrefix(current_block);
         new_block.consolidateInitialPrefix(new_block.current_block);
+#endif
 
         return new_block.current_block;
 
     }
 
+    void insAtWithPtrs(byte *ptr, const char *s, byte len) {
+    #if BPT_9_BIT_PTR == 1
+        memmove(ptr + len, ptr, trie + DS_GET_TRIE_LEN + filledSize() - ptr);
+    #else
+        memmove(ptr + len, ptr, trie + DS_GET_TRIE_LEN + filledSize() * 2 - ptr);
+    #endif
+        memcpy(ptr, s, len);
+        DS_SET_TRIE_LEN(DS_GET_TRIE_LEN + len);
+    }
+
+    byte insAtWithPtrs(byte *ptr, byte b1, byte b2) {
+    #if BPT_9_BIT_PTR == 1
+        memmove(ptr + 2, ptr, trie + DS_GET_TRIE_LEN + filledSize() - ptr);
+    #else
+        memmove(ptr + 2, ptr, trie + DS_GET_TRIE_LEN + filledSize() * 2 - ptr);
+    #endif
+        *ptr++ = b1;
+        *ptr = b2;
+        DS_SET_TRIE_LEN(DS_GET_TRIE_LEN + 2);
+        return 2;
+    }
+
+    byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3) {
+    #if BPT_9_BIT_PTR == 1
+        memmove(ptr + 3, ptr, trie + DS_GET_TRIE_LEN + filledSize() - ptr);
+    #else
+        memmove(ptr + 3, ptr, trie + DS_GET_TRIE_LEN + filledSize() * 2 - ptr);
+    #endif
+        *ptr++ = b1;
+        *ptr++ = b2;
+        *ptr = b3;
+        DS_SET_TRIE_LEN(DS_GET_TRIE_LEN + 3);
+        return 3;
+    }
+
+    byte insAtWithPtrs(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
+    #if BPT_9_BIT_PTR == 1
+        memmove(ptr + 4, ptr, trie + DS_GET_TRIE_LEN + filledSize() - ptr);
+    #else
+        memmove(ptr + 4, ptr, trie + DS_GET_TRIE_LEN + filledSize() * 2 - ptr);
+    #endif
+        *ptr++ = b1;
+        *ptr++ = b2;
+        *ptr++ = b3;
+        *ptr = b4;
+        DS_SET_TRIE_LEN(DS_GET_TRIE_LEN + 4);
+        return 4;
+    }
+
+    void insBytesWithPtrs(byte *ptr, uint16_t len) {
+    #if BPT_9_BIT_PTR == 1
+        memmove(ptr + len, ptr, trie + DS_GET_TRIE_LEN + filledSize() - ptr);
+    #else
+        memmove(ptr + len, ptr, trie + DS_GET_TRIE_LEN + filledSize() * 2 - ptr);
+    #endif
+        DS_SET_TRIE_LEN(DS_GET_TRIE_LEN + len);
+    }
+
+    void updateSkipLens(byte *loop_upto, byte *covering_upto, int diff) {
+        byte *t = trie;
+        byte tc = *t++;
+        loop_upto++;
+        while (t <= loop_upto) {
+            if (tc & x01) {
+                t += (tc >> 1);
+            } else if (tc & x02) {
+                t++;
+                if ((t + DS_GET_SIBLING_OFFSET(t)) > covering_upto) {
+                    DS_SET_SIBLING_OFFSET(t, DS_GET_SIBLING_OFFSET(t) + diff);
+                    (*(t-1))++;
+                    t += (2 + DS_SIBLING_PTR_SIZE);
+                } else
+                    t += DS_GET_SIBLING_OFFSET(t);
+            } else
+                t++;
+            tc = *t++;
+        }
+    }
+
     void insertCurrent() {
         byte key_char, mask;
-        int16_t diff;
+        uint16_t diff;
 
         key_char = key[keyPos - 1];
         mask = x01 << (key_char & x07);
         switch (insertState) {
         case INSERT_AFTER:
             *origPos &= xFB;
-            triePos = ((*origPos & x02) ? origPos + origPos[2] : origPos) + 2;
+            triePos = origPos + 2 + ((*origPos & x02) ? DS_GET_SIBLING_OFFSET(origPos + 2) : 0);
             insAtWithPtrs(triePos, ((key_char & xF8) | x04), mask);
             if (keyPos > 1)
                 updateSkipLens(origPos - 1, triePos - 1, 2);
@@ -550,7 +681,7 @@ public:
             break;
         case INSERT_LEAF:
             if (*origPos & x02)
-                origPos[4] |= mask;
+                origPos[3 + DS_SIBLING_PTR_SIZE] |= mask;
             else
                 origPos[1] |= mask;
             updateSkipLens(origPos, origPos + 1, 0);
@@ -564,7 +695,7 @@ public:
             c = *triePos;
             cmp_rel = ((c ^ key_char) > x07 ? (c < key_char ? 0 : 1) : 2);
             if (cmp_rel == 0)
-                insAtWithPtrs(triePos + key_at_pos, (key_char & xF8) | 0x04, 1 << (key_char & x07));
+                insAtWithPtrs(key_at, (key_char & xF8) | 0x04, 1 << (key_char & x07));
             if (diff == 1)
                 triePos = origPos;
             b = (cmp_rel == 2 ? x04 : x00) | (cmp_rel == 1 ? x00 : x02);
@@ -572,6 +703,9 @@ public:
             diff--;
             *triePos++ = ((cmp_rel == 0 ? c : key_char) & xF8) | b;
             b = (cmp_rel == 1 ? (diff ? 6 : 5) : (diff ? 4 : 3));
+#if DS_SIBLING_PTR_SIZE == 2
+            b++;
+#endif
             if (diff)
                 *origPos = (diff << 1) | x01;
             if (need_count)
@@ -584,9 +718,10 @@ public:
             }
             b = pos;
             pos = (cmp_rel == 2 ? 1 : 0);
-            triePos[1] = skipChildren(triePos + need_count + (need_count ? 5 : 4), 1) - triePos - 1;
+            DS_SET_SIBLING_OFFSET(triePos + 1, skipChildren(triePos + need_count + (need_count ? 1 : 0)
+                    + 3 + DS_SIBLING_PTR_SIZE, 1) - triePos - 1);
             *triePos++ = pos;
-            triePos++;
+            triePos += DS_SIBLING_PTR_SIZE;
             pos = b;
             *triePos++ = 1 << (c & x07);
             if (cmp_rel == 2)
@@ -598,37 +733,47 @@ public:
             break;
     #endif
         case INSERT_THREAD:
-            int16_t p, min;
+            uint16_t p, min;
             byte c1, c2;
             byte *fromPos;
             fromPos = triePos;
             if (*origPos & x02) {
-                origPos[3] |= mask;
+                origPos[2 + DS_SIBLING_PTR_SIZE] |= mask;
                 origPos[1]++;
             } else {
+#if DS_SIBLING_PTR_SIZE == 1
                 insAtWithPtrs(origPos + 1, BIT_COUNT(origPos[1]) + 1, x00, mask);
-                triePos += 3;
+#else
+                insAtWithPtrs(origPos + 1, BIT_COUNT(origPos[1]) + 1, x00, x00, mask);
+#endif
+                triePos += (2 + DS_SIBLING_PTR_SIZE);
                 *origPos |= x02;
             }
             c1 = c2 = key_char;
             p = keyPos;
             min = util::min16(key_len, keyPos + key_at_len);
             if (p < min)
-                origPos[4] &= ~mask;
+                origPos[3 + DS_SIBLING_PTR_SIZE] &= ~mask;
     #if DS_MIDDLE_PREFIX == 1
-            need_count -= 9;
+            need_count -= (8 + DS_SIBLING_PTR_SIZE);
             diff = p + need_count;
             if (diff == min && need_count) {
                 need_count--;
                 diff--;
             }
-            insBytesWithPtrs(triePos, need_count + (need_count ? 1 : 0)
+            diff = need_count + (need_count ? (need_count / 128) + 1 : 0)
                     + (diff == min ? 2 : (key[diff] ^ key_at[diff - keyPos]) > x07 ? 4 :
-                            (key[diff] == key_at[diff - keyPos] ? 7 : 2)));
+                            (key[diff] == key_at[diff - keyPos] ? 6 + DS_SIBLING_PTR_SIZE : 2));
+            insBytesWithPtrs(triePos, diff);
             if (need_count) {
-                *triePos++ = (need_count << 1) | x01;
-                memcpy(triePos, key + keyPos, need_count);
-                triePos += need_count;
+                int16_t copied = 0;
+                while (copied < need_count) {
+                    int16_t to_copy = (need_count - copied) > 127 ? 127 : need_count - copied;
+                    *triePos++ = (to_copy << 1) | x01;
+                    memcpy(triePos, key + keyPos + copied, to_copy);
+                    copied += to_copy;
+                    triePos += to_copy;
+                }
                 p += need_count;
                 //count1 += need_count;
             }
@@ -637,7 +782,8 @@ public:
                 while (p < min) {
                     c1 = key[p];
                     c2 = key_at[p - keyPos];
-                    need_count += ((c1 ^ c2) > x07 ? 4 : (c1 == c2 ? (p + 1 == min ? 7 : 5) : 2));
+                    need_count += ((c1 ^ c2) > x07 ? 4 : (c1 == c2 ? (p + 1 == min ?
+                            6 + DS_SIBLING_PTR_SIZE : 4 + DS_SIBLING_PTR_SIZE) : 2));
                     if (c1 != c2)
                         break;
                     p++;
@@ -653,20 +799,21 @@ public:
                     c1 = c2;
                     c2 = swap;
                 }
-    #if DS_MIDDLE_PREFIX == 1
+#if DS_MIDDLE_PREFIX == 1
                 switch ((c1 ^ c2) > x07 ? 0 : (c1 == c2 ? 3 : 1)) {
-    #else
+#else
                 switch ((c1 ^ c2) > x07 ?
                         0 : (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1)) {
                 case 2:
-                    need_count -= 5;
+                    need_count -= (4 + DS_SIBLING_PTR_SIZE);
                     *triePos++ = (c1 & xF8) | x06;
                     *triePos++ = 2;
-                    *triePos++ = need_count + 3;
+                    DS_SET_SIBLING_OFFSET(triePos, need_count + 2 + DS_SIBLING_PTR_SIZE);
+                    triePos += DS_SIBLING_PTR_SIZE;
                     *triePos++ = x01 << (c1 & x07);
                     *triePos++ = 0;
                     break;
-    #endif
+#endif
                 case 0:
                     *triePos++ = c1 & xF8;
                     *triePos++ = x01 << (c1 & x07);
@@ -680,7 +827,8 @@ public:
                 case 3:
                     *triePos++ = (c1 & xF8) | x06;
                     *triePos++ = x02;
-                    *triePos++ = x05;
+                    DS_SET_SIBLING_OFFSET(triePos, 4 + DS_SIBLING_PTR_SIZE);
+                    triePos += DS_SIBLING_PTR_SIZE;
                     *triePos++ = x01 << (c1 & x07);
                     *triePos++ = x01 << (c1 & x07);
                     break;
@@ -700,153 +848,31 @@ public:
             }
             p = triePos - fromPos;
             updateSkipLens(origPos - 2, origPos, p);
-            origPos[2] += p;
+            origPos += 2;
+            DS_SET_SIBLING_OFFSET(origPos, p + DS_GET_SIBLING_OFFSET(origPos));
             if (diff < key_at_len)
                 diff++;
-            if (diff) {
-                p = getPtr(key_at_pos);
+            if (key_at_len >= diff) {
                 key_at_len -= diff;
+                p = getPtr(key_at_pos);
                 p += diff;
-                if (key_at_len >= 0) {
-                    current_block[p] = key_at_len;
-                    setPtr(key_at_pos, p);
-                }
+                current_block[p] = key_at_len;
+                setPtr(key_at_pos, p);
             }
             break;
         case INSERT_EMPTY:
-            append((key_char & xF8) | x04);
-            append(mask);
+            trie[0] = (key_char & xF8) | x04;
+            trie[1] = mask;
+            DS_SET_TRIE_LEN(2);
             break;
         }
 
-        if (BPT_MAX_PFX_LEN <= (isLeaf() ? keyPos : key_len))
-            BPT_MAX_PFX_LEN = (isLeaf() ? keyPos + 1 : key_len);
+        if (BPT_MAX_PFX_LEN < keyPos)
+            BPT_MAX_PFX_LEN = keyPos;
 
         if (BPT_MAX_KEY_LEN < key_len)
             BPT_MAX_KEY_LEN = key_len;
 
-    }
-
-    inline byte *skipChildren(byte *t, byte count) {
-        while (count) {
-            byte tc = *t++;
-            if (tc & x01) {
-                t += (tc >> 1);
-                continue;
-            }
-            if (tc & x04)
-                count--;
-            if (tc & x02) {
-                pos += *t++;
-                t += *t;
-            } else
-                pos += BIT_COUNT(*t++);
-        }
-        return t;
-    }
-
-    inline int16_t searchCurrentBlock() {
-        byte key_char = *key;
-        byte *t = trie;
-        byte trie_char = *t;
-        keyPos = 1;
-        origPos = t++;
-        pos = 0;
-        do {
-#if DS_MIDDLE_PREFIX == 1
-            if (trie_char & x01) {
-                byte pfx_len;
-                pfx_len = (trie_char >> 1);
-                while (pfx_len && key_char == *t && keyPos < key_len) {
-                    key_char = key[keyPos++];
-                    t++;
-                    pfx_len--;
-                }
-                if (pfx_len) {
-                    triePos = t;
-                    if (key_char > *t) {
-                        t = skipChildren(t + pfx_len, 1);
-                        key_at_pos = t - triePos;
-                    }
-                    insertState = INSERT_CONVERT;
-                    return ~pos;
-                }
-                trie_char = *t;
-                origPos = t++;
-            }
-#endif
-            while ((key_char & xF8) > trie_char) {
-                if (trie_char & x02) {
-                    pos += *t++;
-                    t += *t;
-                } else
-                    pos += BIT_COUNT(*t++);
-                if (trie_char & x04) {
-                    insertState = INSERT_AFTER;
-                    return ~pos;
-                }
-                trie_char = *t;
-                origPos = t++;
-            }
-            if ((key_char ^ trie_char) & xF8) {
-                insertState = INSERT_BEFORE;
-                return ~pos;
-            }
-            if (trie_char & x02) {
-                t += 2;
-                byte r_children = *t++;
-                byte r_leaves = *t++;
-                byte r_mask = x01 << (key_char & x07);
-                key_char = (r_leaves & r_mask ? x02 : x00) |
-                        ((r_children & r_mask) && keyPos != key_len ? x01 : x00);
-                //key_char = r_leaves & r_mask ?
-                //        (r_children & r_mask ? (keyPos == key_len ? x01 : x03) : x01) :
-                //        (r_children & r_mask ? (keyPos == key_len ? x00 : x02) : x00);
-                r_mask--;
-                pos += BIT_COUNT(r_leaves & r_mask);
-                t = skipChildren(t, BIT_COUNT(r_children & r_mask));
-            } else {
-                byte r_leaves = *t++;
-                byte r_mask = x01 << (key_char & x07);
-                key_char = (r_leaves & r_mask) ? x02 : x00;
-                pos += BIT_COUNT(r_leaves & (r_mask - 1));
-            }
-            switch (key_char) {
-            case 0:
-                triePos = t;
-                insertState = INSERT_LEAF;
-                return ~pos;
-            case 1:
-                break;
-            case 2:
-                int16_t cmp;
-                key_at = getKey(pos, &key_at_len);
-                cmp = util::compare(key + keyPos, key_len - keyPos,
-                        (char *) key_at, key_at_len);
-                if (cmp == 0)
-                    return pos;
-                key_at_pos = pos;
-                if (cmp > 0)
-                    pos++;
-                else
-                    cmp = -cmp;
-                triePos = t;
-                insertState = INSERT_THREAD;
-#if DS_MIDDLE_PREFIX == 1
-                need_count = cmp + 8;
-#else
-                need_count = (cmp * 5) + 5;
-#endif
-                return ~pos;
-            case 3:
-                pos++;
-                break;
-            }
-            key_char = key[keyPos++];
-            trie_char = *t;
-            origPos = t++;
-        } while (1);
-        return ~pos;
     }
 
     inline byte *getChildPtrPos(int16_t search_result) {
@@ -862,7 +888,7 @@ public:
     }
 
     inline byte *getPtrPos() {
-        return trie + BPT_TRIE_LEN;
+        return trie + DS_GET_TRIE_LEN;
     }
 
     void decodeNeedCount() {
