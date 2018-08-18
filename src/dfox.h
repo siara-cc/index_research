@@ -13,7 +13,11 @@ using namespace std;
 
 #define DFOX_HDR_SIZE 9
 
+#if (defined(__AVR_ATmega328P__))
+#define DX_SIBLING_PTR_SIZE 1
+#else
 #define DX_SIBLING_PTR_SIZE 2
+#endif
 #if DX_SIBLING_PTR_SIZE == 1
 #define DX_GET_TRIE_LEN BPT_TRIE_LEN
 #define DX_SET_TRIE_LEN(x) BPT_TRIE_LEN = x

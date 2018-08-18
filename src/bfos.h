@@ -13,7 +13,11 @@ using namespace std;
 
 #define BFOS_HDR_SIZE 9
 
+#if (defined(__AVR_ATmega328P__))
+#define BS_CHILD_PTR_SIZE 1
+#else
 #define BS_CHILD_PTR_SIZE 2
+#endif
 #if BS_CHILD_PTR_SIZE == 1
 #define BS_BIT_COUNT_CH(x) BIT_COUNT(x)
 #define BS_GET_TRIE_LEN BPT_TRIE_LEN

@@ -107,16 +107,6 @@ public:
         return (char *) key_at + 1;
     }
 
-    byte *skipChildren(byte *t, byte count);
-    byte *skipChildren(byte *t, int16_t count);
-    byte *getLastPtr();
-    void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
-    int16_t searchCurrentBlock();
-    byte *getPtrPos();
-    inline bool isLeaf() {
-        return BPT_IS_LEAF_BYTE;
-    }
-
     void setCurrentBlockRoot();
     void setCurrentBlock(byte *m);
     char *get(const char *key, uint8_t key_len, int16_t *pValueLen) {
@@ -128,18 +118,11 @@ public:
         return getValueAt(pValueLen);
     }
 
-    byte *getKey(byte *t, byte *plen);
-    inline byte *getKey(int16_t pos, byte *plen) {
-        byte *kvIdx = current_block + getPtr(pos);
-        *plen = *kvIdx;
-        return kvIdx + 1;
+    inline bool isLeaf() {
+        return BPT_IS_LEAF_BYTE;
     }
 
-    inline byte *getChildPtr(byte *ptr) {
-        ptr += (*ptr + 1);
-        return (byte *) util::bytesToPtr(ptr);
-    }
-
+    byte *getPtrPos();
     inline int getPtr(int16_t pos) {
 #if BPT_9_BIT_PTR == 1
         uint16_t ptr = *(static_cast<T*>(this)->getPtrPos() + pos);
@@ -161,7 +144,19 @@ public:
 #endif
     }
 
-    byte *getChildPtrPos(int16_t search_result);
+    byte *getKey(byte *t, byte *plen);
+    inline byte *getKey(int16_t pos, byte *plen) {
+        byte *kvIdx = current_block + getPtr(pos);
+        *plen = *kvIdx;
+        return kvIdx + 1;
+    }
+
+    byte *skipChildren(byte *t, byte count);
+    byte *skipChildren(byte *t, int16_t count);
+    int16_t searchCurrentBlock();
+    byte *getLastPtr();
+    void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
+
     int16_t traverseToLeaf(int8_t *plevel_count = NULL, byte *node_paths[] = NULL) {
         while (!isLeaf()) {
             if (node_paths) {
@@ -175,22 +170,18 @@ public:
         return static_cast<T*>(this)->searchCurrentBlock();
     }
 
+    byte *getChildPtrPos(int16_t search_result);
+    inline byte *getChildPtr(byte *ptr) {
+        ptr += (*ptr + 1);
+        return (byte *) util::bytesToPtr(ptr);
+    }
+
     inline int16_t filledSize() {
         return util::getInt(BPT_FILLED_SIZE);
     }
 
     inline uint16_t getKVLastPos() {
         return util::getInt(BPT_LAST_DATA_PTR);
-    }
-
-    virtual inline void updateSplitStats() {
-        if (isLeaf()) {
-            maxKeyCountLeaf += filledSize();
-            blockCountLeaf++;
-        } else {
-            maxKeyCountNode += filledSize();
-            blockCountNode++;
-        }
     }
 
     void put(const char *key, uint8_t key_len, const char *value,
@@ -277,18 +268,10 @@ public:
     bool isFull(int16_t search_result);
     void addFirstData();
     void addData(int16_t search_result);
-    byte *split(byte *first_key, int16_t *first_len_ptr);
-
-    inline void setLeaf(char isLeaf) {
-        BPT_IS_LEAF_BYTE = isLeaf;
-    }
+    void insertCurrent();
 
     inline void setFilledSize(int16_t filledSize) {
         util::setInt(BPT_FILLED_SIZE, filledSize);
-    }
-
-    inline void setKVLastPos(uint16_t val) {
-        util::setInt(BPT_LAST_DATA_PTR, val);
     }
 
     inline void insPtr(int16_t pos, uint16_t kv_pos) {
@@ -347,6 +330,24 @@ public:
 #endif
     }
 
+    virtual inline void updateSplitStats() {
+        if (isLeaf()) {
+            maxKeyCountLeaf += filledSize();
+            blockCountLeaf++;
+        } else {
+            maxKeyCountNode += filledSize();
+            blockCountNode++;
+        }
+    }
+
+    inline void setLeaf(char isLeaf) {
+        BPT_IS_LEAF_BYTE = isLeaf;
+    }
+
+    inline void setKVLastPos(uint16_t val) {
+        util::setInt(BPT_LAST_DATA_PTR, val);
+    }
+
     inline void insBit(uint32_t *ui32, int pos, uint16_t kv_pos) {
         uint32_t ryte_part = (*ui32) & RYTE_MASK32(pos);
         ryte_part >>= 1;
@@ -356,6 +357,7 @@ public:
 
     }
 
+    byte *split(byte *first_key, int16_t *first_len_ptr);
 #if BPT_INT64MAP == 1
     inline void insBit(uint64_t *ui64, int pos, uint16_t kv_pos) {
         uint64_t ryte_part = (*ui64) & RYTE_MASK64(pos);
