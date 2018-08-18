@@ -43,7 +43,6 @@ class dfos : public bpt_trie_handler<dfos> {
 public:
     byte pos, key_at_pos;
     const static byte need_counts[10];
-    const static byte switch_map[8];
 
     dfos(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE) :
@@ -188,6 +187,179 @@ public:
         return -1;
     }
 
+    inline int getHeaderSize() {
+        return DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES;
+    }
+
+    inline byte *getPtrPos() {
+        return trie + DS_GET_TRIE_LEN;
+    }
+
+    inline byte *getChildPtrPos(int16_t search_result) {
+        if (search_result < 0) {
+            if (pos)
+                pos--;
+        }
+        return current_block + getPtr(pos);
+    }
+
+#if DS_SIBLING_PTR_SIZE == 1
+    byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf) {
+#else
+    byte *nextKey(byte *first_key, int16_t *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf) {
+#endif
+        do {
+            while (ctr > x07) {
+                if (tc & x04) {
+                    keyPos--;
+                    tc = trie[tp[keyPos]];
+                    while (tc & x01) {
+                        keyPos--;
+                        tc = trie[tp[keyPos]];
+                    }
+                    child = (tc & x02 ? trie[tp[keyPos] + 2 + DS_SIBLING_PTR_SIZE] : 0);
+                    leaf = trie[tp[keyPos] + (tc & x02 ? 3 + DS_SIBLING_PTR_SIZE : 1)];
+                    ctr = first_key[keyPos] & 0x07;
+                    ctr++;
+                } else {
+                    tp[keyPos] = t - trie;
+                    tc = *t++;
+                    while (tc & x01) {
+                        byte len = tc >> 1;
+                        for (int i = 0; i < len; i++)
+                            tp[keyPos + i] = t - trie - 1;
+                        memcpy(first_key + keyPos, t, len);
+                        t += len;
+                        keyPos += len;
+                        tp[keyPos] = t - trie;
+                        tc = *t++;
+                    }
+                    t += (tc & x02 ? 1 + DS_SIBLING_PTR_SIZE : 0);
+                    child = (tc & x02 ? *t++ : 0);
+                    leaf = *t++;
+                    ctr = 0;
+                }
+            }
+            first_key[keyPos] = (tc & xF8) | ctr;
+            byte mask = x01 << ctr;
+            if (leaf & mask) {
+                leaf &= ~mask;
+                if (0 == (child & mask))
+                    ctr++;
+                return t;
+            }
+            if (child & mask) {
+                keyPos++;
+                ctr = x08;
+                tc = 0;
+            }
+            ctr++;
+        } while (1); // (t - trie) < DS_GET_TRIE_LEN);
+        return t;
+    }
+
+#if DS_SIBLING_PTR_SIZE == 1
+    void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
+        byte orig_trie_len = DS_GET_TRIE_LEN;
+#else
+    void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, int16_t *tp) {
+        int16_t orig_trie_len = DS_GET_TRIE_LEN;
+#endif
+        for (int idx = brk_key_len; idx >= 0; idx--) {
+            byte *t = trie + tp[idx];
+            byte tc = *t;
+            if (tc & x01)
+                continue;
+            byte offset = first_key[idx] & x07;
+            *t++ = (tc | x04);
+            if (tc & x02) {
+                byte children = t[1 + DS_SIBLING_PTR_SIZE];
+                children &= ~((idx == brk_key_len ? xFF : xFE) << offset);
+                                // ryte_mask[offset] : ryte_incl_mask[offset]);
+                t[1 + DS_SIBLING_PTR_SIZE] = children;
+                byte leaves = t[2 + DS_SIBLING_PTR_SIZE] & ~(xFE << offset);
+                t[2 + DS_SIBLING_PTR_SIZE] = leaves; // ryte_incl_mask[offset];
+                pos = BIT_COUNT(leaves);
+                byte *new_t = skipChildren(t + 3 + DS_SIBLING_PTR_SIZE, BIT_COUNT(children));
+                *t++ = pos;
+                DS_SET_SIBLING_OFFSET(t, new_t - t);
+                t = new_t;
+            } else
+                *t++ &= ~(xFE << offset); // ryte_incl_mask[offset];
+            if (idx == brk_key_len)
+                DS_SET_TRIE_LEN(t - trie);
+        }
+        movePtrList(orig_trie_len);
+    }
+
+    int deleteSegment(byte *delete_end, byte *delete_start) {
+        int count = delete_end - delete_start;
+        if (count) {
+            DS_SET_TRIE_LEN(DS_GET_TRIE_LEN - count);
+            memmove(delete_start, delete_end, trie + DS_GET_TRIE_LEN - delete_start);
+        }
+        return count;
+    }
+
+#if DS_SIBLING_PTR_SIZE == 1
+    void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
+        byte orig_trie_len = DS_GET_TRIE_LEN;
+#else
+    void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, int16_t *tp) {
+        int16_t orig_trie_len = DS_GET_TRIE_LEN;
+#endif
+        for (int idx = brk_key_len; idx >= 0; idx--) {
+            byte *t = trie + tp[idx];
+            byte tc = *t++;
+            if (tc & x01) {
+                byte len = tc >> 1;
+                deleteSegment(trie + tp[idx + 1], t + len);
+                idx -= len;
+                idx++;
+                continue;
+            }
+            byte offset = first_key[idx] & 0x07;
+            if (tc & x02) {
+                byte children = t[1 + DS_SIBLING_PTR_SIZE];
+                int16_t count = BIT_COUNT(children & ~(xFF << offset)); // ryte_mask[offset];
+                children &= (xFF << offset); // left_incl_mask[offset];
+                t[1 + DS_SIBLING_PTR_SIZE] = children;
+                byte leaves = t[2 + DS_SIBLING_PTR_SIZE] & ((idx == brk_key_len ? xFF : xFE) << offset); // left_incl_mask[offset] : left_mask[offset]);
+                t[2 + DS_SIBLING_PTR_SIZE] = leaves;
+                byte *new_t = skipChildren(t + 3 + DS_SIBLING_PTR_SIZE, count);
+                deleteSegment((idx < brk_key_len) ? (trie + tp[idx + 1]) : new_t, t + 3 + DS_SIBLING_PTR_SIZE);
+                pos = BIT_COUNT(leaves);
+                new_t = skipChildren(t + 3 + DS_SIBLING_PTR_SIZE, BIT_COUNT(children));
+                *t++ = pos;
+                DS_SET_SIBLING_OFFSET(t, new_t - t);
+            } else
+                *t &= ((idx == brk_key_len ? xFF : xFE) << offset); // left_incl_mask[offset] : left_mask[offset]);
+        }
+        deleteSegment(trie + tp[0], trie);
+        movePtrList(orig_trie_len);
+    }
+
+    void updateSkipLens(byte *loop_upto, byte *covering_upto, int diff) {
+        byte *t = trie;
+        byte tc = *t++;
+        loop_upto++;
+        while (t <= loop_upto) {
+            if (tc & x01) {
+                t += (tc >> 1);
+            } else if (tc & x02) {
+                t++;
+                if ((t + DS_GET_SIBLING_OFFSET(t)) > covering_upto) {
+                    DS_SET_SIBLING_OFFSET(t, DS_GET_SIBLING_OFFSET(t) + diff);
+                    (*(t-1))++;
+                    t += (2 + DS_SIBLING_PTR_SIZE);
+                } else
+                    t += DS_GET_SIBLING_OFFSET(t);
+            } else
+                t++;
+            tc = *t++;
+        }
+    }
+
     void addFirstData() {
         pos = 0;
         addData(3);
@@ -231,24 +403,215 @@ public:
         return false;
     }
 
-    void updateSkipLens(byte *loop_upto, byte *covering_upto, int diff) {
+    byte *split(byte *first_key, int16_t *first_len_ptr) {
+        int16_t orig_filled_size = filledSize();
+        const uint16_t DFOS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
+        byte *b = (byte *) util::alignedAlloc(DFOS_NODE_SIZE);
+        dfos new_block;
+        new_block.setCurrentBlock(b);
+        new_block.initCurrentBlock();
+        new_block.setKVLastPos(DFOS_NODE_SIZE);
+        if (!isLeaf())
+            new_block.setLeaf(false);
+        memcpy(new_block.trie, trie, DS_GET_TRIE_LEN);
+#if DS_SIBLING_PTR_SIZE == 1
+        new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
+#else
+        util::setInt(new_block.BPT_TRIE_LEN_PTR, DS_GET_TRIE_LEN);
+#endif
+        new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
+        new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
+        uint16_t kv_last_pos = getKVLastPos();
+        uint16_t halfKVLen = DFOS_NODE_SIZE - kv_last_pos + 1;
+        halfKVLen /= 2;
+
+        int16_t brk_idx = -1;
+        uint16_t brk_kv_pos;
+        uint16_t tot_len;
+        brk_kv_pos = tot_len = 0;
+        char ctr = x08;
+#if DS_SIBLING_PTR_SIZE == 1
+        byte tp[BPT_MAX_PFX_LEN + 1];
+#else
+        int16_t tp[BPT_MAX_PFX_LEN + 1];
+#endif
+        byte last_key[BPT_MAX_PFX_LEN + 1];
+        int16_t last_key_len = 0;
         byte *t = trie;
-        byte tc = *t++;
-        loop_upto++;
-        while (t <= loop_upto) {
-            if (tc & x01) {
-                t += (tc >> 1);
-            } else if (tc & x02) {
-                t++;
-                if ((t + DS_GET_SIBLING_OFFSET(t)) > covering_upto) {
-                    DS_SET_SIBLING_OFFSET(t, DS_GET_SIBLING_OFFSET(t) + diff);
-                    (*(t-1))++;
-                    t += (2 + DS_SIBLING_PTR_SIZE);
+        byte tc, child, leaf;
+        tc = child = leaf = 0;
+        //if (!isLeaf())
+        //   cout << "Trie len:" << (int) DS_GET_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DS_MAX_KEY_LEN << endl;
+        keyPos = 0;
+        // (1) move all data to new_block in order
+        int16_t idx;
+        for (idx = 0; idx < orig_filled_size; idx++) {
+            uint16_t src_idx = getPtr(idx);
+            uint16_t kv_len = current_block[src_idx];
+            kv_len++;
+            kv_len += current_block[src_idx + kv_len];
+            kv_len++;
+            tot_len += kv_len;
+            memcpy(new_block.current_block + kv_last_pos, current_block + src_idx, kv_len);
+            kv_last_pos += kv_len;
+            if (brk_idx == -1) {
+                t = nextKey(first_key, tp, t, ctr, tc, child, leaf);
+                //brk_key_len = nextKey(s);
+                //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
+                //first_key[keyPos+1+current_block[src_idx]] = 0;
+                //cout << first_key << endl;
+                //if (tot_len > halfKVLen) {
+                if (tot_len > halfKVLen || idx == (orig_filled_size / 2)) {
+                    //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
+                    //first_key[keyPos+1+current_block[src_idx]] = 0;
+                    //cout << "Middle: " << first_key << endl;
+                    brk_idx = idx + 1;
+                    brk_kv_pos = kv_last_pos;
+                    last_key_len = keyPos + 1;
+                    memcpy(last_key, first_key, last_key_len);
+                    deleteTrieLastHalf(keyPos, first_key, tp);
+                    new_block.keyPos = keyPos;
+                    t = new_block.trie + (t - trie);
+                    t = new_block.nextKey(first_key, tp, t, ctr, tc, child, leaf);
+                    keyPos = new_block.keyPos;
+                    //src_idx = getPtr(idx + 1);
+                    //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
+                    //first_key[keyPos+1+current_block[src_idx]] = 0;
+                    //cout << first_key << endl;
+                }
+            }
+        }
+        kv_last_pos = getKVLastPos() + DFOS_NODE_SIZE - kv_last_pos;
+        new_block.setKVLastPos(kv_last_pos);
+        memmove(new_block.current_block + kv_last_pos, new_block.current_block + getKVLastPos(), DFOS_NODE_SIZE - kv_last_pos);
+        brk_kv_pos += (kv_last_pos - getKVLastPos());
+        uint16_t diff = DFOS_NODE_SIZE - brk_kv_pos;
+        for (idx = 0; idx < orig_filled_size; idx++) {
+            new_block.insPtr(idx, kv_last_pos + (idx < brk_idx ? diff : 0));
+            kv_last_pos += new_block.current_block[kv_last_pos];
+            kv_last_pos++;
+            kv_last_pos += new_block.current_block[kv_last_pos];
+            kv_last_pos++;
+        }
+        kv_last_pos = new_block.getKVLastPos();
+
+    #if BPT_9_BIT_PTR == 1
+        memcpy(current_block + DFOS_HDR_SIZE, new_block.current_block + DFOS_HDR_SIZE, DS_MAX_PTR_BITMAP_BYTES);
+        memcpy(trie + DS_GET_TRIE_LEN, new_block.trie + util::getInt(new_block.BPT_TRIE_LEN_PTR), brk_idx);
+    #else
+        memcpy(trie + DS_GET_TRIE_LEN, new_block.trie + util::getInt(new_block.BPT_TRIE_LEN_PTR), (brk_idx << 1));
+    #endif
+
+        {
+            if (isLeaf()) {
+                // *first_len_ptr = keyPos + 1;
+                *first_len_ptr = util::compare((const char *) first_key, keyPos + 1, (const char *) last_key, last_key_len);
+            } else {
+                new_block.key_at = new_block.getKey(brk_idx, &new_block.key_at_len);
+                keyPos++;
+                if (new_block.key_at_len) {
+                    memcpy(first_key + keyPos, new_block.key_at,
+                            new_block.key_at_len);
+                    *first_len_ptr = keyPos + new_block.key_at_len;
                 } else
-                    t += DS_GET_SIBLING_OFFSET(t);
-            } else
-                t++;
-            tc = *t++;
+                    *first_len_ptr = keyPos;
+                keyPos--;
+            }
+            new_block.deleteTrieFirstHalf(keyPos, first_key, tp);
+        }
+
+        {
+            uint16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
+            memcpy(current_block + DFOS_NODE_SIZE - old_blk_new_len,
+                    new_block.current_block + kv_last_pos, old_blk_new_len); // Copy back first half to old block
+            setKVLastPos(DFOS_NODE_SIZE - old_blk_new_len);
+            setFilledSize(brk_idx);
+        }
+
+        {
+    #if BPT_9_BIT_PTR == 1
+    #if BPT_INT64MAP == 1
+            (*new_block.bitmap) <<= brk_idx;
+    #else
+            if (brk_idx & 0xFFE0)
+            *new_block.bitmap1 = *new_block.bitmap2 << (brk_idx - 32);
+            else {
+                *new_block.bitmap1 <<= brk_idx;
+                *new_block.bitmap1 |= (*new_block.bitmap2 >> (32 - brk_idx));
+            }
+    #endif
+    #endif
+            int16_t new_size = orig_filled_size - brk_idx;
+            byte *block_ptrs = new_block.trie + util::getInt(new_block.BPT_TRIE_LEN_PTR);
+    #if BPT_9_BIT_PTR == 1
+            memmove(block_ptrs, block_ptrs + brk_idx, new_size);
+    #else
+            memmove(block_ptrs, block_ptrs + (brk_idx << 1), new_size << 1);
+    #endif
+            new_block.setKVLastPos(brk_kv_pos);
+            new_block.setFilledSize(new_size);
+        }
+
+#if DS_MIDDLE_PREFIX == 1
+        consolidateInitialPrefix(current_block);
+        new_block.consolidateInitialPrefix(new_block.current_block);
+#endif
+
+        return new_block.current_block;
+
+    }
+
+#if DS_SIBLING_PTR_SIZE == 1
+    void movePtrList(byte orig_trie_len) {
+#else
+    void movePtrList(int16_t orig_trie_len) {
+#endif
+#if BPT_9_BIT_PTR == 1
+        memmove(trie + DS_GET_TRIE_LEN, trie + orig_trie_len, filledSize());
+#else
+        memmove(trie + DS_GET_TRIE_LEN, trie + orig_trie_len, filledSize() << 1);
+#endif
+    }
+
+    void consolidateInitialPrefix(byte *t) {
+        t += DFOS_HDR_SIZE;
+        byte *t_reader = t;
+        byte count = 0;
+        if (*t & x01) {
+            count = (*t >> 1);
+            t_reader += count;
+            t_reader++;
+        }
+        byte *t_writer = t_reader + (*t & x01 ? 0 : 1);
+        byte trie_len_diff = 0;
+        while ((*t_reader & x01) || ((*t_reader & x02) && (*t_reader & x04)
+                && BIT_COUNT(t_reader[2 + DS_SIBLING_PTR_SIZE]) == 1
+                && BIT_COUNT(t_reader[3 + DS_SIBLING_PTR_SIZE]) == 0)) {
+            if (*t_reader & x01) {
+                byte len = *t_reader >> 1;
+                if (count + len > 127)
+                    break;
+                memcpy(t_writer, ++t_reader, len);
+                t_writer += len;
+                t_reader += len;
+                count += len;
+                trie_len_diff++;
+            } else {
+                if (count > 126)
+                    break;
+                *t_writer++ = (*t_reader & xF8) + BIT_COUNT(t_reader[2 + DS_SIBLING_PTR_SIZE] - 1);
+                t_reader += 4 + DS_SIBLING_PTR_SIZE;
+                count++;
+                trie_len_diff += 3 + DS_SIBLING_PTR_SIZE;
+            }
+        }
+        if (t_reader > t_writer) {
+            memmove(t_writer, t_reader, DS_GET_TRIE_LEN - (t_reader - t) + filledSize() * 2);
+            if (!(*t & x01))
+                trie_len_diff--;
+            *t = (count << 1) + 1;
+            DS_SET_TRIE_LEN(DS_GET_TRIE_LEN - trie_len_diff);
+            //cout << (int) (*t >> 1) << endl;
         }
     }
 
@@ -467,354 +830,6 @@ public:
 
     }
 
-#if DS_SIBLING_PTR_SIZE == 1
-    byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf) {
-#else
-    byte *nextKey(byte *first_key, int16_t *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf) {
-#endif
-        do {
-            while (ctr > x07) {
-                if (tc & x04) {
-                    keyPos--;
-                    tc = trie[tp[keyPos]];
-                    while (tc & x01) {
-                        keyPos--;
-                        tc = trie[tp[keyPos]];
-                    }
-                    child = (tc & x02 ? trie[tp[keyPos] + 2 + DS_SIBLING_PTR_SIZE] : 0);
-                    leaf = trie[tp[keyPos] + (tc & x02 ? 3 + DS_SIBLING_PTR_SIZE : 1)];
-                    ctr = first_key[keyPos] & 0x07;
-                    ctr++;
-                } else {
-                    tp[keyPos] = t - trie;
-                    tc = *t++;
-                    while (tc & x01) {
-                        byte len = tc >> 1;
-                        for (int i = 0; i < len; i++)
-                            tp[keyPos + i] = t - trie - 1;
-                        memcpy(first_key + keyPos, t, len);
-                        t += len;
-                        keyPos += len;
-                        tp[keyPos] = t - trie;
-                        tc = *t++;
-                    }
-                    t += (tc & x02 ? 1 + DS_SIBLING_PTR_SIZE : 0);
-                    child = (tc & x02 ? *t++ : 0);
-                    leaf = *t++;
-                    ctr = 0;
-                }
-            }
-            first_key[keyPos] = (tc & xF8) | ctr;
-            byte mask = x01 << ctr;
-            if (leaf & mask) {
-                leaf &= ~mask;
-                if (0 == (child & mask))
-                    ctr++;
-                return t;
-            }
-            if (child & mask) {
-                keyPos++;
-                ctr = x08;
-                tc = 0;
-            }
-            ctr++;
-        } while (1); // (t - trie) < DS_GET_TRIE_LEN);
-        return t;
-    }
-
-#if DS_SIBLING_PTR_SIZE == 1
-    void movePtrList(byte orig_trie_len) {
-#else
-    void movePtrList(int16_t orig_trie_len) {
-#endif
-#if BPT_9_BIT_PTR == 1
-        memmove(trie + DS_GET_TRIE_LEN, trie + orig_trie_len, filledSize());
-#else
-        memmove(trie + DS_GET_TRIE_LEN, trie + orig_trie_len, filledSize() << 1);
-#endif
-    }
-
-#if DS_SIBLING_PTR_SIZE == 1
-    void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
-        byte orig_trie_len = DS_GET_TRIE_LEN;
-#else
-    void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, int16_t *tp) {
-        int16_t orig_trie_len = DS_GET_TRIE_LEN;
-#endif
-        for (int idx = brk_key_len; idx >= 0; idx--) {
-            byte *t = trie + tp[idx];
-            byte tc = *t;
-            if (tc & x01)
-                continue;
-            byte offset = first_key[idx] & x07;
-            *t++ = (tc | x04);
-            if (tc & x02) {
-                byte children = t[1 + DS_SIBLING_PTR_SIZE];
-                children &= ~((idx == brk_key_len ? xFF : xFE) << offset);
-                                // ryte_mask[offset] : ryte_incl_mask[offset]);
-                t[1 + DS_SIBLING_PTR_SIZE] = children;
-                byte leaves = t[2 + DS_SIBLING_PTR_SIZE] & ~(xFE << offset);
-                t[2 + DS_SIBLING_PTR_SIZE] = leaves; // ryte_incl_mask[offset];
-                pos = BIT_COUNT(leaves);
-                byte *new_t = skipChildren(t + 3 + DS_SIBLING_PTR_SIZE, BIT_COUNT(children));
-                *t++ = pos;
-                DS_SET_SIBLING_OFFSET(t, new_t - t);
-                t = new_t;
-            } else
-                *t++ &= ~(xFE << offset); // ryte_incl_mask[offset];
-            if (idx == brk_key_len)
-                DS_SET_TRIE_LEN(t - trie);
-        }
-        movePtrList(orig_trie_len);
-    }
-
-    int deleteSegment(byte *delete_end, byte *delete_start) {
-        int count = delete_end - delete_start;
-        if (count) {
-            DS_SET_TRIE_LEN(DS_GET_TRIE_LEN - count);
-            memmove(delete_start, delete_end, trie + DS_GET_TRIE_LEN - delete_start);
-        }
-        return count;
-    }
-
-#if DS_SIBLING_PTR_SIZE == 1
-    void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
-        byte orig_trie_len = DS_GET_TRIE_LEN;
-#else
-    void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, int16_t *tp) {
-        int16_t orig_trie_len = DS_GET_TRIE_LEN;
-#endif
-        for (int idx = brk_key_len; idx >= 0; idx--) {
-            byte *t = trie + tp[idx];
-            byte tc = *t++;
-            if (tc & x01) {
-                byte len = tc >> 1;
-                deleteSegment(trie + tp[idx + 1], t + len);
-                idx -= len;
-                idx++;
-                continue;
-            }
-            byte offset = first_key[idx] & 0x07;
-            if (tc & x02) {
-                byte children = t[1 + DS_SIBLING_PTR_SIZE];
-                int16_t count = BIT_COUNT(children & ~(xFF << offset)); // ryte_mask[offset];
-                children &= (xFF << offset); // left_incl_mask[offset];
-                t[1 + DS_SIBLING_PTR_SIZE] = children;
-                byte leaves = t[2 + DS_SIBLING_PTR_SIZE] & ((idx == brk_key_len ? xFF : xFE) << offset); // left_incl_mask[offset] : left_mask[offset]);
-                t[2 + DS_SIBLING_PTR_SIZE] = leaves;
-                byte *new_t = skipChildren(t + 3 + DS_SIBLING_PTR_SIZE, count);
-                deleteSegment((idx < brk_key_len) ? (trie + tp[idx + 1]) : new_t, t + 3 + DS_SIBLING_PTR_SIZE);
-                pos = BIT_COUNT(leaves);
-                new_t = skipChildren(t + 3 + DS_SIBLING_PTR_SIZE, BIT_COUNT(children));
-                *t++ = pos;
-                DS_SET_SIBLING_OFFSET(t, new_t - t);
-            } else
-                *t &= ((idx == brk_key_len ? xFF : xFE) << offset); // left_incl_mask[offset] : left_mask[offset]);
-        }
-        deleteSegment(trie + tp[0], trie);
-        movePtrList(orig_trie_len);
-    }
-
-    void consolidateInitialPrefix(byte *t) {
-        t += DFOS_HDR_SIZE;
-        byte *t_reader = t;
-        byte count = 0;
-        if (*t & x01) {
-            count = (*t >> 1);
-            t_reader += count;
-            t_reader++;
-        }
-        byte *t_writer = t_reader + (*t & x01 ? 0 : 1);
-        byte trie_len_diff = 0;
-        while ((*t_reader & x01) || ((*t_reader & x02) && (*t_reader & x04)
-                && BIT_COUNT(t_reader[2 + DS_SIBLING_PTR_SIZE]) == 1
-                && BIT_COUNT(t_reader[3 + DS_SIBLING_PTR_SIZE]) == 0)) {
-            if (*t_reader & x01) {
-                byte len = *t_reader >> 1;
-                if (count + len > 127)
-                    break;
-                memcpy(t_writer, ++t_reader, len);
-                t_writer += len;
-                t_reader += len;
-                count += len;
-                trie_len_diff++;
-            } else {
-                if (count > 126)
-                    break;
-                *t_writer++ = (*t_reader & xF8) + BIT_COUNT(t_reader[2 + DS_SIBLING_PTR_SIZE] - 1);
-                t_reader += 4 + DS_SIBLING_PTR_SIZE;
-                count++;
-                trie_len_diff += 3 + DS_SIBLING_PTR_SIZE;
-            }
-        }
-        if (t_reader > t_writer) {
-            memmove(t_writer, t_reader, DS_GET_TRIE_LEN - (t_reader - t) + filledSize() * 2);
-            if (!(*t & x01))
-                trie_len_diff--;
-            *t = (count << 1) + 1;
-            DS_SET_TRIE_LEN(DS_GET_TRIE_LEN - trie_len_diff);
-            //cout << (int) (*t >> 1) << endl;
-        }
-    }
-
-    byte *split(byte *first_key, int16_t *first_len_ptr) {
-        int16_t orig_filled_size = filledSize();
-        const uint16_t DFOS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        byte *b = (byte *) util::alignedAlloc(DFOS_NODE_SIZE);
-        dfos new_block;
-        new_block.setCurrentBlock(b);
-        new_block.initCurrentBlock();
-        new_block.setKVLastPos(DFOS_NODE_SIZE);
-        if (!isLeaf())
-            new_block.setLeaf(false);
-        memcpy(new_block.trie, trie, DS_GET_TRIE_LEN);
-#if DS_SIBLING_PTR_SIZE == 1
-        new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
-#else
-        util::setInt(new_block.BPT_TRIE_LEN_PTR, DS_GET_TRIE_LEN);
-#endif
-        new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
-        new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
-        uint16_t kv_last_pos = getKVLastPos();
-        uint16_t halfKVLen = DFOS_NODE_SIZE - kv_last_pos + 1;
-        halfKVLen /= 2;
-
-        int16_t brk_idx = -1;
-        uint16_t brk_kv_pos;
-        uint16_t tot_len;
-        brk_kv_pos = tot_len = 0;
-        char ctr = x08;
-#if DS_SIBLING_PTR_SIZE == 1
-        byte tp[BPT_MAX_PFX_LEN + 1];
-#else
-        int16_t tp[BPT_MAX_PFX_LEN + 1];
-#endif
-        byte last_key[BPT_MAX_PFX_LEN + 1];
-        int16_t last_key_len = 0;
-        byte *t = trie;
-        byte tc, child, leaf;
-        tc = child = leaf = 0;
-        //if (!isLeaf())
-        //   cout << "Trie len:" << (int) DS_GET_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DS_MAX_KEY_LEN << endl;
-        keyPos = 0;
-        // (1) move all data to new_block in order
-        int16_t idx;
-        for (idx = 0; idx < orig_filled_size; idx++) {
-            uint16_t src_idx = getPtr(idx);
-            uint16_t kv_len = current_block[src_idx];
-            kv_len++;
-            kv_len += current_block[src_idx + kv_len];
-            kv_len++;
-            tot_len += kv_len;
-            memcpy(new_block.current_block + kv_last_pos, current_block + src_idx, kv_len);
-            kv_last_pos += kv_len;
-            if (brk_idx == -1) {
-                t = nextKey(first_key, tp, t, ctr, tc, child, leaf);
-                //brk_key_len = nextKey(s);
-                //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
-                //first_key[keyPos+1+current_block[src_idx]] = 0;
-                //cout << first_key << endl;
-                //if (tot_len > halfKVLen) {
-                if (tot_len > halfKVLen || idx == (orig_filled_size / 2)) {
-                    //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
-                    //first_key[keyPos+1+current_block[src_idx]] = 0;
-                    //cout << "Middle: " << first_key << endl;
-                    brk_idx = idx + 1;
-                    brk_kv_pos = kv_last_pos;
-                    last_key_len = keyPos + 1;
-                    memcpy(last_key, first_key, last_key_len);
-                    deleteTrieLastHalf(keyPos, first_key, tp);
-                    new_block.keyPos = keyPos;
-                    t = new_block.trie + (t - trie);
-                    t = new_block.nextKey(first_key, tp, t, ctr, tc, child, leaf);
-                    keyPos = new_block.keyPos;
-                    //src_idx = getPtr(idx + 1);
-                    //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
-                    //first_key[keyPos+1+current_block[src_idx]] = 0;
-                    //cout << first_key << endl;
-                }
-            }
-        }
-        kv_last_pos = getKVLastPos() + DFOS_NODE_SIZE - kv_last_pos;
-        new_block.setKVLastPos(kv_last_pos);
-        memmove(new_block.current_block + kv_last_pos, new_block.current_block + getKVLastPos(), DFOS_NODE_SIZE - kv_last_pos);
-        brk_kv_pos += (kv_last_pos - getKVLastPos());
-        uint16_t diff = DFOS_NODE_SIZE - brk_kv_pos;
-        for (idx = 0; idx < orig_filled_size; idx++) {
-            new_block.insPtr(idx, kv_last_pos + (idx < brk_idx ? diff : 0));
-            kv_last_pos += new_block.current_block[kv_last_pos];
-            kv_last_pos++;
-            kv_last_pos += new_block.current_block[kv_last_pos];
-            kv_last_pos++;
-        }
-        kv_last_pos = new_block.getKVLastPos();
-
-    #if BPT_9_BIT_PTR == 1
-        memcpy(current_block + DFOS_HDR_SIZE, new_block.current_block + DFOS_HDR_SIZE, DS_MAX_PTR_BITMAP_BYTES);
-        memcpy(trie + DS_GET_TRIE_LEN, new_block.trie + util::getInt(new_block.BPT_TRIE_LEN_PTR), brk_idx);
-    #else
-        memcpy(trie + DS_GET_TRIE_LEN, new_block.trie + util::getInt(new_block.BPT_TRIE_LEN_PTR), (brk_idx << 1));
-    #endif
-
-        {
-            if (isLeaf()) {
-                // *first_len_ptr = keyPos + 1;
-                *first_len_ptr = util::compare((const char *) first_key, keyPos + 1, (const char *) last_key, last_key_len);
-            } else {
-                new_block.key_at = new_block.getKey(brk_idx, &new_block.key_at_len);
-                keyPos++;
-                if (new_block.key_at_len) {
-                    memcpy(first_key + keyPos, new_block.key_at,
-                            new_block.key_at_len);
-                    *first_len_ptr = keyPos + new_block.key_at_len;
-                } else
-                    *first_len_ptr = keyPos;
-                keyPos--;
-            }
-            new_block.deleteTrieFirstHalf(keyPos, first_key, tp);
-        }
-
-        {
-            uint16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
-            memcpy(current_block + DFOS_NODE_SIZE - old_blk_new_len,
-                    new_block.current_block + kv_last_pos, old_blk_new_len); // Copy back first half to old block
-            setKVLastPos(DFOS_NODE_SIZE - old_blk_new_len);
-            setFilledSize(brk_idx);
-        }
-
-        {
-    #if BPT_9_BIT_PTR == 1
-    #if BPT_INT64MAP == 1
-            (*new_block.bitmap) <<= brk_idx;
-    #else
-            if (brk_idx & 0xFFE0)
-            *new_block.bitmap1 = *new_block.bitmap2 << (brk_idx - 32);
-            else {
-                *new_block.bitmap1 <<= brk_idx;
-                *new_block.bitmap1 |= (*new_block.bitmap2 >> (32 - brk_idx));
-            }
-    #endif
-    #endif
-            int16_t new_size = orig_filled_size - brk_idx;
-            byte *block_ptrs = new_block.trie + util::getInt(new_block.BPT_TRIE_LEN_PTR);
-    #if BPT_9_BIT_PTR == 1
-            memmove(block_ptrs, block_ptrs + brk_idx, new_size);
-    #else
-            memmove(block_ptrs, block_ptrs + (brk_idx << 1), new_size << 1);
-    #endif
-            new_block.setKVLastPos(brk_kv_pos);
-            new_block.setFilledSize(new_size);
-        }
-
-#if DS_MIDDLE_PREFIX == 1
-        consolidateInitialPrefix(current_block);
-        new_block.consolidateInitialPrefix(new_block.current_block);
-#endif
-
-        return new_block.current_block;
-
-    }
-
     void insAtWithPtrs(byte *ptr, const char *s, byte len) {
     #if BPT_9_BIT_PTR == 1
         memmove(ptr + len, ptr, trie + DS_GET_TRIE_LEN + filledSize() - ptr);
@@ -871,22 +886,6 @@ public:
         memmove(ptr + len, ptr, trie + DS_GET_TRIE_LEN + filledSize() * 2 - ptr);
     #endif
         DS_SET_TRIE_LEN(DS_GET_TRIE_LEN + len);
-    }
-
-    inline byte *getChildPtrPos(int16_t search_result) {
-        if (search_result < 0) {
-            if (pos)
-                pos--;
-        }
-        return current_block + getPtr(pos);
-    }
-
-    inline int getHeaderSize() {
-        return DFOS_HDR_SIZE + DS_MAX_PTR_BITMAP_BYTES;
-    }
-
-    inline byte *getPtrPos() {
-        return trie + DS_GET_TRIE_LEN;
     }
 
     void decodeNeedCount(int16_t search_result) {
