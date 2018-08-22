@@ -24,7 +24,7 @@ using namespace std;
 #if (defined(__AVR_ATmega328P__))
 #define DS_SIBLING_PTR_SIZE 1
 #else
-#define DS_SIBLING_PTR_SIZE 2
+#define DS_SIBLING_PTR_SIZE 1
 #endif
 #if DS_SIBLING_PTR_SIZE == 1
 #define DS_GET_TRIE_LEN BPT_TRIE_LEN
@@ -679,10 +679,7 @@ public:
             triePos += DS_SIBLING_PTR_SIZE;
             pos = b;
             *triePos++ = 1 << (c & x07);
-            if (cmp_rel == 2)
-                *triePos++ = 1 << (key_char & x07);
-            else
-                *triePos++ = 0;
+            *triePos++ = (cmp_rel == 2) ? 1 << (key_char & x07) : 0;
             if (need_count)
                 *triePos = (need_count << 1) | x01;
             break;
@@ -709,7 +706,7 @@ public:
             min = util::min16(key_len, keyPos + key_at_len);
             if (p < min)
                 origPos[3 + DS_SIBLING_PTR_SIZE] &= ~mask;
-    #if DS_MIDDLE_PREFIX == 1
+#if DS_MIDDLE_PREFIX == 1
             need_count -= (8 + DS_SIBLING_PTR_SIZE);
             diff = p + need_count;
             if (diff == min && need_count) {
@@ -732,20 +729,20 @@ public:
                 p += need_count;
                 //count1 += need_count;
             }
-    #else
-                need_count = (p == min ? 2 : 0);
-                while (p < min) {
-                    c1 = key[p];
-                    c2 = key_at[p - keyPos];
-                    need_count += ((c1 ^ c2) > x07 ? 4 : (c1 == c2 ? (p + 1 == min ?
-                            6 + DS_SIBLING_PTR_SIZE : 4 + DS_SIBLING_PTR_SIZE) : 2));
-                    if (c1 != c2)
-                        break;
-                    p++;
-                }
-                p = keyPos;
-                insAtWithPtrs(triePos, (const char *) current_block, need_count);
-    #endif
+#else
+            need_count = (p == min ? 2 : 0);
+            while (p < min) {
+                c1 = key[p];
+                c2 = key_at[p - keyPos];
+                need_count += ((c1 ^ c2) > x07 ? 4 : (c1 == c2 ? (p + 1 == min ?
+                        6 + DS_SIBLING_PTR_SIZE : 4 + DS_SIBLING_PTR_SIZE) : 2));
+                if (c1 != c2)
+                    break;
+                p++;
+            }
+            p = keyPos;
+            insAtWithPtrs(triePos, (const char *) current_block, need_count);
+#endif
             while (p < min) {
                 c1 = key[p];
                 c2 = key_at[p - keyPos];

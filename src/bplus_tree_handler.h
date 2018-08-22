@@ -42,8 +42,8 @@ using namespace std;
 #define DEFAULT_PARENT_BLOCK_SIZE 2048
 #define DEFAULT_LEAF_BLOCK_SIZE 2048
 #else
-#define DEFAULT_PARENT_BLOCK_SIZE 4096
-#define DEFAULT_LEAF_BLOCK_SIZE 4096
+#define DEFAULT_PARENT_BLOCK_SIZE 512
+#define DEFAULT_LEAF_BLOCK_SIZE 512
 #endif
 
 template<class T> // CRTP
@@ -154,8 +154,8 @@ public:
     byte *skipChildren(byte *t, byte count);
     byte *skipChildren(byte *t, int16_t count);
     int16_t searchCurrentBlock();
-    byte *getLastPtr();
     void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
+    byte *getLastPtr();
 
     int16_t traverseToLeaf(int8_t *plevel_count = NULL, byte *node_paths[] = NULL) {
         while (!isLeaf()) {
