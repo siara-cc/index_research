@@ -108,26 +108,6 @@ public:
                     return ~pos;
                 }
                 break;
-#if DS_MIDDLE_PREFIX == 1
-            case 3:
-                byte pfx_len;
-                pfx_len = (trie_char >> 1);
-                while (pfx_len && key_char == *t && keyPos < key_len) {
-                    key_char = key[keyPos++];
-                    t++;
-                    pfx_len--;
-                }
-                if (!pfx_len)
-                    break;
-                triePos = t;
-                if (key_char > *t)
-                    key_at = skipChildren(t + pfx_len, 1);
-                insertState = INSERT_CONVERT;
-                return ~pos;
-#endif
-            case 2:
-                insertState = INSERT_BEFORE;
-                return ~pos;
             case 1:
                 if (trie_char & x02) {
                     t += (1 + DS_SIBLING_PTR_SIZE);
@@ -180,6 +160,26 @@ public:
                 }
                 key_char = key[keyPos++];
                 break;
+#if DS_MIDDLE_PREFIX == 1
+            case 3:
+                byte pfx_len;
+                pfx_len = (trie_char >> 1);
+                while (pfx_len && key_char == *t && keyPos < key_len) {
+                    key_char = key[keyPos++];
+                    t++;
+                    pfx_len--;
+                }
+                if (!pfx_len)
+                    break;
+                triePos = t;
+                if (key_char > *t)
+                    key_at = skipChildren(t + pfx_len, 1);
+                insertState = INSERT_CONVERT;
+                return ~pos;
+#endif
+            case 2:
+                insertState = INSERT_BEFORE;
+                return ~pos;
             }
             trie_char = *t;
             origPos = t++;

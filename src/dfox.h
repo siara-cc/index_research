@@ -94,25 +94,6 @@ public:
                 if (trie_char & x04)
                     return -INSERT_AFTER;
                 break;
-#if DX_MIDDLE_PREFIX == 1
-            case 3:
-                byte pfx_len;
-                pfx_len = (trie_char >> 2);
-                while (pfx_len && key_char == *t && keyPos < key_len) {
-                    key_char = key[keyPos++];
-                    t++;
-                    pfx_len--;
-                }
-                if (pfx_len) {
-                    triePos = t;
-                    if (key_char > *t)
-                        key_at = skipChildren(t + pfx_len, 1);
-                    return -INSERT_CONVERT;
-                }
-                break;
-#endif
-            case 2:
-                return -INSERT_BEFORE;
             case 1:
                 if (trie_char & x02) {
                     t += DX_SIBLING_PTR_SIZE;
@@ -165,6 +146,25 @@ public:
                 }
                 key_char = key[keyPos++];
                 break;
+#if DX_MIDDLE_PREFIX == 1
+            case 3:
+                byte pfx_len;
+                pfx_len = (trie_char >> 2);
+                while (pfx_len && key_char == *t && keyPos < key_len) {
+                    key_char = key[keyPos++];
+                    t++;
+                    pfx_len--;
+                }
+                if (pfx_len) {
+                    triePos = t;
+                    if (key_char > *t)
+                        key_at = skipChildren(t + pfx_len, 1);
+                    return -INSERT_CONVERT;
+                }
+                break;
+#endif
+            case 2:
+                return -INSERT_BEFORE;
             }
             trie_char = *t;
             origPos = t++;

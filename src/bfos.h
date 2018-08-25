@@ -133,25 +133,6 @@ public:
                 if (trie_char & x04)
                     return -INSERT_AFTER;
                 break;
-#if BS_MIDDLE_PREFIX == 1
-            case 3:
-                byte pfx_len;
-                pfx_len = (trie_char >> 1);
-                while (pfx_len && key_char == *t && keyPos < key_len) {
-                    key_char = key[keyPos++];
-                    t++;
-                    pfx_len--;
-                }
-                if (pfx_len) {
-                    triePos = t;
-                    if (!isLeaf())
-                        setPrefixLast(key_char, t, pfx_len);
-                    return -INSERT_CONVERT;
-                }
-                break;
-#endif
-            case 2:
-                return -INSERT_BEFORE;
             case 1:
                 byte r_leaves, r_children;
                 r_children = (trie_char & x02 ? *t++ : 0);
@@ -206,6 +187,25 @@ public:
                 t += BS_GET_CHILD_OFFSET(t);
                 key_char = key[keyPos++];
                 break;
+#if BS_MIDDLE_PREFIX == 1
+            case 3:
+                byte pfx_len;
+                pfx_len = (trie_char >> 1);
+                while (pfx_len && key_char == *t && keyPos < key_len) {
+                    key_char = key[keyPos++];
+                    t++;
+                    pfx_len--;
+                }
+                if (pfx_len) {
+                    triePos = t;
+                    if (!isLeaf())
+                        setPrefixLast(key_char, t, pfx_len);
+                    return -INSERT_CONVERT;
+                }
+                break;
+#endif
+            case 2:
+                return -INSERT_BEFORE;
             }
             trie_char = *t;
             origPos = t++;
