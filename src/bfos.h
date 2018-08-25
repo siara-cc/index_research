@@ -16,7 +16,7 @@ using namespace std;
 #if (defined(__AVR_ATmega328P__))
 #define BS_CHILD_PTR_SIZE 1
 #else
-#define BS_CHILD_PTR_SIZE 1
+#define BS_CHILD_PTR_SIZE 2
 #endif
 #if BS_CHILD_PTR_SIZE == 1
 #define BS_BIT_COUNT_CH(x) BIT_COUNT(x)
@@ -124,8 +124,17 @@ public:
         byte key_char = *key; //[keyPos++];
         keyPos = 1;
         do {
+            switch (trie_char & x01 ? 3 : (key_char ^ trie_char) > x07 ? (key_char > trie_char ? 0 : 2) : 1) {
+            case 0:
+                last_t = origPos;
+                last_child = (trie_char & x02 ? *t++ : 0);
+                last_leaf = *t++;
+                t += BS_BIT_COUNT_CH(last_child) + BIT_COUNT2(last_leaf);
+                if (trie_char & x04)
+                    return -INSERT_AFTER;
+                break;
 #if BS_MIDDLE_PREFIX == 1
-            while (trie_char & x01) {
+            case 3:
                 byte pfx_len;
                 pfx_len = (trie_char >> 1);
                 while (pfx_len && key_char == *t && keyPos < key_len) {
@@ -139,74 +148,65 @@ public:
                         setPrefixLast(key_char, t, pfx_len);
                     return -INSERT_CONVERT;
                 }
-                trie_char = *t;
-                origPos = t++;
-            }
-#endif
-            while ((key_char & xF8) > trie_char) {
-                last_t = origPos;
-                last_child = (trie_char & x02 ? *t++ : 0);
-                last_leaf = *t++;
-                t += BS_BIT_COUNT_CH(last_child) + BIT_COUNT2(last_leaf);
-                if (trie_char & x04)
-                    return -INSERT_AFTER;
-                trie_char = *t;
-                origPos = t++;
-            }
-            if ((key_char ^ trie_char) & xF8)
-                return -INSERT_BEFORE;
-            byte r_leaves, r_children;
-            r_children = (trie_char & x02 ? *t++ : 0);
-            r_leaves = *t++;
-            key_char = x01 << (key_char & x07);
-            trie_char = (r_leaves & key_char ? x02 : x00) |     // faster
-                    ((r_children & key_char) && keyPos != key_len ? x01 : x00);
-            //trie_char = r_leaves & r_mask ?                 // slower
-            //        (r_children & r_mask ? (keyPos == key_len ? x02 : x03) : x02) :
-            //        (r_children & r_mask ? (keyPos == key_len ? x00 : x01) : x00);
-            key_char--;
-            if (!isLeaf() && ((r_children | r_leaves) & key_char)) {
-                last_t = origPos;
-                last_child = r_children & key_char;
-                last_leaf = r_leaves & key_char;
-            }
-            switch (trie_char) {
-            case 0:
-                return -INSERT_LEAF;
-            case 1:
                 break;
-            case 2:
-                int16_t cmp;
-                t += BS_BIT_COUNT_CH(r_children) + BIT_COUNT2(r_leaves & key_char);
-                key_at = current_block + util::getInt(t);
-                key_at_len = *key_at++;
-                cmp = util::compare(key + keyPos, key_len - keyPos,
-                        (char *) key_at, key_at_len);
-                if (cmp == 0) {
-                    last_t = key_at;
-                    return 0;
-                }
-                if (cmp < 0)
-                    cmp = -cmp;
-                else
-                    last_t = key_at;
-#if BS_MIDDLE_PREFIX == 1
-                need_count = cmp + 8 + BS_CHILD_PTR_SIZE;
-#else
-                need_count = (cmp * (3 + BS_CHILD_PTR_SIZE)) + 8;
 #endif
-                return -INSERT_THREAD;
-            case 3:
-                if (!isLeaf()) {
+            case 2:
+                return -INSERT_BEFORE;
+            case 1:
+                byte r_leaves, r_children;
+                r_children = (trie_char & x02 ? *t++ : 0);
+                r_leaves = *t++;
+                key_char = x01 << (key_char & x07);
+                trie_char = (r_leaves & key_char ? x02 : x00) |     // faster
+                        ((r_children & key_char) && keyPos != key_len ? x01 : x00);
+                //trie_char = r_leaves & r_mask ?                 // slower
+                //        (r_children & r_mask ? (keyPos == key_len ? x02 : x03) : x02) :
+                //        (r_children & r_mask ? (keyPos == key_len ? x00 : x01) : x00);
+                key_char--;
+                if (!isLeaf() && ((r_children | r_leaves) & key_char)) {
                     last_t = origPos;
                     last_child = r_children & key_char;
-                    last_leaf = (r_leaves & key_char) | (key_char + 1);
+                    last_leaf = r_leaves & key_char;
                 }
+                switch (trie_char) {
+                case 0:
+                    return -INSERT_LEAF;
+                case 1:
+                    break;
+                case 2:
+                    int16_t cmp;
+                    t += BS_BIT_COUNT_CH(r_children) + BIT_COUNT2(r_leaves & key_char);
+                    key_at = current_block + util::getInt(t);
+                    key_at_len = *key_at++;
+                    cmp = util::compare(key + keyPos, key_len - keyPos,
+                            (char *) key_at, key_at_len);
+                    if (cmp == 0) {
+                        last_t = key_at;
+                        return 0;
+                    }
+                    if (cmp < 0)
+                        cmp = -cmp;
+                    else
+                        last_t = key_at;
+#if BS_MIDDLE_PREFIX == 1
+                    need_count = cmp + 8 + BS_CHILD_PTR_SIZE;
+#else
+                    need_count = (cmp * (3 + BS_CHILD_PTR_SIZE)) + 8;
+#endif
+                    return -INSERT_THREAD;
+                case 3:
+                    if (!isLeaf()) {
+                        last_t = origPos;
+                        last_child = r_children & key_char;
+                        last_leaf = (r_leaves & key_char) | (key_char + 1);
+                    }
+                    break;
+                }
+                t += BS_BIT_COUNT_CH(r_children & key_char);
+                t += BS_GET_CHILD_OFFSET(t);
+                key_char = key[keyPos++];
                 break;
             }
-            t += BS_BIT_COUNT_CH(r_children & key_char);
-            t += BS_GET_CHILD_OFFSET(t);
-            key_char = key[keyPos++];
             trie_char = *t;
             origPos = t++;
         } while (1);
@@ -568,8 +568,8 @@ public:
         uint16_t brk_kv_pos;
         brk_idx = brk_kv_pos = 0;
         // (1) move all data to new_block in order
-        int16_t idx = 0;
-        int alloc_size = BPT_MAX_PFX_LEN + 1;
+        int16_t idx;
+        byte alloc_size = BPT_MAX_PFX_LEN + 1;
         byte curr_key[alloc_size];
 #if BS_CHILD_PTR_SIZE == 1
         byte tp[alloc_size];
@@ -581,7 +581,7 @@ public:
         int16_t tp_cpy_len = 0;
         byte *t = new_block.trie;
         //if (!isLeaf())
-        //   cout << "Trie len:" << (int) BS_GET_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DX_MAX_KEY_LEN << endl;
+        //   cout << "Trie len:" << (int) BPT_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DX_MAX_KEY_LEN << endl;
         new_block.keyPos = 0;
         memcpy(new_block.trie, trie, BS_GET_TRIE_LEN);
 #if BS_CHILD_PTR_SIZE == 1
@@ -589,8 +589,8 @@ public:
 #else
         util::setInt(new_block.BPT_TRIE_LEN_PTR, BS_GET_TRIE_LEN);
 #endif
-        byte tc, leaf, child, leaf_child;
-        tc = leaf = child = leaf_child = 0;
+        byte tc, child, leaf;
+        tc = child = leaf = 0;
         byte ctr = 9;
         for (idx = 0; idx < orig_filled_size; idx++) {
             byte *leaf_ptr = new_block.nextPtr(curr_key, tp, &t, ctr, tc, child, leaf);
@@ -601,8 +601,6 @@ public:
             kv_len++;
             memcpy(new_block.current_block + kv_last_pos, current_block + src_idx, kv_len);
             util::setInt(leaf_ptr, kv_last_pos);
-            //if (brk_idx == 0)
-            //    util::setInt(trie + (leaf_ptr - new_block.trie), kv_last_pos);
             //memcpy(curr_key + new_block.keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
             //curr_key[new_block.keyPos+1+current_block[src_idx]] = 0;
             //cout << curr_key << endl;
@@ -616,9 +614,9 @@ public:
                             (const char *) first_key, *first_len_ptr);
                     memcpy(first_key, curr_key, tp_cpy_len);
                 } else {
-                    memcpy(curr_key + new_block.keyPos, current_block + src_idx + 1, current_block[src_idx]);
+                    memcpy(first_key, curr_key, new_block.keyPos);
+                    memcpy(first_key + new_block.keyPos, current_block + src_idx + 1, current_block[src_idx]);
                     *first_len_ptr = new_block.keyPos + current_block[src_idx];
-                    memcpy(first_key, curr_key, *first_len_ptr);
                 }
                 memcpy(tp_cpy, tp, tp_cpy_len * BS_CHILD_PTR_SIZE);
                 //curr_key[new_block.keyPos] = 0;
@@ -630,8 +628,8 @@ public:
                 //brk_key_len = nextKey(s);
                 //if (tot_len > halfKVLen) {
                 if (kv_last_pos > halfKVPos || idx == (orig_filled_size / 2)) {
-                    //memcpy(first_key + keyPos + 1, buf + src_idx + 1, buf[src_idx]);
-                    //first_key[keyPos+1+buf[src_idx]] = 0;
+                    //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
+                    //first_key[keyPos+1+current_block[src_idx]] = 0;
                     //cout << first_key << ":";
                     brk_idx = idx + 1;
                     brk_idx = -brk_idx;
@@ -724,11 +722,10 @@ public:
 
     inline void updatePtrs(byte *upto, int diff) {
         byte *t = trie;
-        byte tc = *t++;
-        while (t <= upto) {
+        while (t < upto) {
+            byte tc = *t++;
             if (tc & x01) {
                 t += (tc >> 1);
-                tc = *t++;
                 continue;
             }
             int count = (tc & x02 ? BIT_COUNT(*t++) : 0);
@@ -751,7 +748,6 @@ public:
                 // todo: avoid inside loops
             }
             t += BIT_COUNT2(leaves);
-            tc = *t++;
         }
     }
 

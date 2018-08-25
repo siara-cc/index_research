@@ -50,11 +50,7 @@ public:
         trie = current_block + DFOX_HDR_SIZE;
     }
 
-#if DX_SIBLING_PTR_SIZE == 1
     inline byte *skipChildren(byte *t, byte count) {
-#else
-    inline byte *skipChildren(byte *t, int16_t count) {
-#endif
         while (count) {
             byte tc = *t++;
             switch (tc & x03) {
@@ -88,8 +84,18 @@ public:
         keyPos = 1;
         origPos = t++;
         do {
+            switch (trie_char & x01 ? 3 : (key_char ^ trie_char) > x07 ? (key_char > trie_char ? 0 : 2) : 1) {
+            case 0:
+                if (trie_char & x02)
+                    t += DX_GET_SIBLING_OFFSET(t);
+                else
+                    t += BIT_COUNT2(*t) + 1;
+                last_t = t - 2;
+                if (trie_char & x04)
+                    return -INSERT_AFTER;
+                break;
 #if DX_MIDDLE_PREFIX == 1
-            while ((trie_char & x03) == x01) {
+            case 3:
                 byte pfx_len;
                 pfx_len = (trie_char >> 2);
                 while (pfx_len && key_char == *t && keyPos < key_len) {
@@ -99,79 +105,67 @@ public:
                 }
                 if (pfx_len) {
                     triePos = t;
-                    if (key_char > *t) {
-                        t = skipChildren(t + pfx_len, 1);
-                        key_at = t;
-                    }
+                    if (key_char > *t)
+                        key_at = skipChildren(t + pfx_len, 1);
                     return -INSERT_CONVERT;
                 }
-                trie_char = *t;
-                origPos = t++;
-            }
-#endif
-            while ((key_char & xF8) > trie_char) {
-                if (trie_char & x02)
-                    t += DX_GET_SIBLING_OFFSET(t);
-                else
-                    t += BIT_COUNT2(*t) + 1;
-                last_t = t - 2;
-                if (trie_char & x04)
-                    return -INSERT_AFTER;
-                trie_char = *t;
-                origPos = t++;
-            }
-            if ((key_char ^ trie_char) & xF8)
-                return -INSERT_BEFORE;
-            if (trie_char & x02) {
-                t += DX_SIBLING_PTR_SIZE;
-                byte r_children = *t++;
-                byte r_leaves = *t++;
-                byte r_mask = x01 << (key_char & x07);
-                trie_char = (r_leaves & r_mask ? x02 : x00) |
-                        ((r_children & r_mask) && keyPos != key_len ? x01 : x00);
-                //key_char = (r_leaves & r_mask ? x01 : x00)
-                //        | (r_children & r_mask ? x02 : x00)
-                //        | (keyPos == key_len ? x04 : x00);
-                r_mask--;
-                t = skipChildren(t, BIT_COUNT(r_children & r_mask) + BIT_COUNT(r_leaves & r_mask));
-            } else {
-                byte r_leaves = *t++;
-                byte r_mask = x01 << (key_char & x07);
-                trie_char = (r_leaves & r_mask ? x02 : x00);
-                t = skipChildren(t, BIT_COUNT(r_leaves & (r_mask - 1)));
-            }
-            switch (trie_char) {
-            case 0:
-                triePos = t;
-                return -INSERT_LEAF;
-            case 1:
                 break;
+#endif
             case 2:
-                int16_t cmp;
-                key_at = getKey(t, &key_at_len);
-                cmp = util::compare(key + keyPos, key_len - keyPos,
-                        (char *) key_at, key_at_len);
-                if (cmp == 0) {
-                    last_t = t;
-                    return 0;
+                return -INSERT_BEFORE;
+            case 1:
+                if (trie_char & x02) {
+                    t += DX_SIBLING_PTR_SIZE;
+                    byte r_children = *t++;
+                    byte r_leaves = *t++;
+                    byte r_mask = x01 << (key_char & x07);
+                    trie_char = (r_leaves & r_mask ? x02 : x00) |
+                            ((r_children & r_mask) && keyPos != key_len ? x01 : x00);
+                    //key_char = (r_leaves & r_mask ? x01 : x00)
+                    //        | (r_children & r_mask ? x02 : x00)
+                    //        | (keyPos == key_len ? x04 : x00);
+                    r_mask--;
+                    t = skipChildren(t, BIT_COUNT(r_children & r_mask) + BIT_COUNT(r_leaves & r_mask));
+                } else {
+                    byte r_leaves = *t++;
+                    byte r_mask = x01 << (key_char & x07);
+                    trie_char = (r_leaves & r_mask ? x02 : x00);
+                    t = skipChildren(t, BIT_COUNT(r_leaves & (r_mask - 1)));
                 }
-                if (cmp > 0)
+                switch (trie_char) {
+                case 0:
+                    triePos = t;
+                    return -INSERT_LEAF;
+                case 1:
+                    break;
+                case 2:
+                    int16_t cmp;
+                    key_at = getKey(t, &key_at_len);
+                    cmp = util::compare(key + keyPos, key_len - keyPos,
+                            (char *) key_at, key_at_len);
+                    if (cmp == 0) {
+                        last_t = t;
+                        return 0;
+                    }
+                    if (cmp > 0)
+                        last_t = t;
+                    else
+                        cmp = -cmp;
+                    triePos = t;
+    #if DX_MIDDLE_PREFIX == 1
+                    need_count = cmp + 7 + DX_SIBLING_PTR_SIZE;
+    #else
+                    need_count = (cmp * 5) + 5 + DX_SIBLING_PTR_SIZE;
+    #endif
+                    return -INSERT_THREAD;
+                case 3:
                     last_t = t;
-                else
-                    cmp = -cmp;
-                triePos = t;
-#if DX_MIDDLE_PREFIX == 1
-                need_count = cmp + 7 + DX_SIBLING_PTR_SIZE;
-#else
-                need_count = (cmp * 5) + 5 + DX_SIBLING_PTR_SIZE;
-#endif
-                return -INSERT_THREAD;
-            case 3:
-                last_t = t;
-                t += 2;
+                    t += 2;
+                    break;
+                }
+                key_char = key[keyPos++];
                 break;
             }
-            key_char = key[keyPos++];
             trie_char = *t;
             origPos = t++;
         } while (1);
@@ -361,12 +355,9 @@ public:
 
     void updateSkipLens(byte *loop_upto, int8_t diff) {
         byte *t = trie;
-        byte tc = *t++;
-        while (t <= loop_upto) {
+        while (t < loop_upto) {
+            byte tc = *t++;
             switch (tc & x03) {
-            case x01:
-                t += (tc >> 2);
-                break;
             case x02:
                 unsigned int s;
                 s = DX_GET_SIBLING_OFFSET(t);
@@ -382,8 +373,11 @@ public:
                 break;
             case x03:
                 t++;
+                break;
+            case x01:
+                t += (tc >> 2);
+                break;
             }
-            tc = *t++;
         }
     }
 

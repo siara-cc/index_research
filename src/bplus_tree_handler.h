@@ -42,8 +42,8 @@ using namespace std;
 #define DEFAULT_PARENT_BLOCK_SIZE 2048
 #define DEFAULT_LEAF_BLOCK_SIZE 2048
 #else
-#define DEFAULT_PARENT_BLOCK_SIZE 512
-#define DEFAULT_LEAF_BLOCK_SIZE 512
+#define DEFAULT_PARENT_BLOCK_SIZE 4096
+#define DEFAULT_LEAF_BLOCK_SIZE 4096
 #endif
 
 template<class T> // CRTP
@@ -122,7 +122,17 @@ public:
         return BPT_IS_LEAF_BYTE;
     }
 
-    byte *getPtrPos();
+    byte *skipChildren(byte *t, byte count);
+    int16_t searchCurrentBlock();
+    void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
+
+    inline byte *getKey(int16_t pos, byte *plen) {
+        byte *kvIdx = current_block + getPtr(pos);
+        *plen = *kvIdx;
+        return kvIdx + 1;
+    }
+    byte *getKey(byte *t, byte *plen);
+
     inline int getPtr(int16_t pos) {
 #if BPT_9_BIT_PTR == 1
         uint16_t ptr = *(static_cast<T*>(this)->getPtrPos() + pos);
@@ -143,19 +153,7 @@ public:
         return util::getInt(static_cast<T*>(this)->getPtrPos() + (pos << 1));
 #endif
     }
-
-    byte *getKey(byte *t, byte *plen);
-    inline byte *getKey(int16_t pos, byte *plen) {
-        byte *kvIdx = current_block + getPtr(pos);
-        *plen = *kvIdx;
-        return kvIdx + 1;
-    }
-
-    byte *skipChildren(byte *t, byte count);
-    byte *skipChildren(byte *t, int16_t count);
-    int16_t searchCurrentBlock();
-    void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
-    byte *getLastPtr();
+    byte *getPtrPos();
 
     int16_t traverseToLeaf(int8_t *plevel_count = NULL, byte *node_paths[] = NULL) {
         while (!isLeaf()) {
@@ -170,6 +168,7 @@ public:
         return static_cast<T*>(this)->searchCurrentBlock();
     }
 
+    byte *getLastPtr();
     byte *getChildPtrPos(int16_t search_result);
     inline byte *getChildPtr(byte *ptr) {
         ptr += (*ptr + 1);
