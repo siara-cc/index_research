@@ -28,6 +28,7 @@
 #include <tr1/unordered_map>
 #endif
 #include <sys/time.h>
+#include <sys/stat.h>
 #endif
 
 #ifndef __APPLE__
@@ -43,17 +44,19 @@ using namespace std;
 #define CS_255_DENSE 6
 
 //char *IMPORT_FILE = "/Users/arun/index_research/Release/w7.txt";
-char *IMPORT_FILE = NULL; //"/Users/arun/index_research/Release/dbpedia_labels.txt";
+char *IMPORT_FILE = NULL; //"/Users/arun/index_research/Release/unordered_dbpedia_labels.txt";
 //char *IMPORT_FILE = "/Users/arun/index_research/Release/domain_rank.csv";
 unsigned long NUM_ENTRIES = 40;
 int CHAR_SET = 2;
 int KEY_LEN = 8;
 int VALUE_LEN = 4;
+int USE_HASHTABLE = 0;
 int ctr = 0;
 
-void insert(unordered_map<string, string>& m) {
-    char k[100];
-    char v[100];
+int64_t insert(unordered_map<string, string>& m, byte *data_buf) {
+    char k[KEY_LEN + 1];
+    char v[VALUE_LEN + 1];
+    int64_t ret = 0;
     srand(time(NULL));
     for (unsigned long l = 0; l < NUM_ENTRIES; l++) {
 
@@ -105,17 +108,35 @@ void insert(unordered_map<string, string>& m) {
         //itoa(rand(), v + strlen(v), 10);
         if (l == 0)
             cout << "key:" << k << ", value: " << v << endl;
-        m.insert(pair<string, string>(k, v));
+        if (USE_HASHTABLE)
+            m.insert(pair<string, string>(k, v));
+        else {
+            data_buf[ret++] = KEY_LEN;
+            memcpy(data_buf + ret, k, KEY_LEN);
+            ret += KEY_LEN;
+            data_buf[ret++] = 0;
+            data_buf[ret++] = VALUE_LEN;
+            memcpy(data_buf + ret, v, VALUE_LEN);
+            ret += VALUE_LEN;
+        }
     }
     NUM_ENTRIES = m.size();
+    return ret;
 }
 
-void loadFile(unordered_map<string, string>& m) {
+int64_t getImportFileSize() {
+    struct stat st;
+    stat(IMPORT_FILE, &st);
+    return st.st_size;
+}
+
+int64_t loadFile(unordered_map<string, string>& m, byte *data_buf) {
     FILE *fp;
     char key[2000];
-    char value[200];
+    char value[255];
     char *buf;
     int ctr = 0;
+    int64_t ret = 0;
     fp = fopen(IMPORT_FILE, "r");
     if (fp == NULL)
         perror("Error opening file");
@@ -132,13 +153,35 @@ void loadFile(unordered_map<string, string>& m) {
             if (len > 0 && len <= KEY_LEN) {
                 //if (m[key].length() > 0)
                 //    cout << key << ":" << value << endl;
-                if (buf == value)
-                    m.insert(pair<string, string>(key, value));
-                else {
+                if (buf == value) {
+                    if (USE_HASHTABLE)
+                        m.insert(pair<string, string>(key, value));
+                    else {
+                        data_buf[ret++] = len;
+                        memcpy(data_buf + ret, key, len);
+                        ret += len;
+                        data_buf[ret++] = 0;
+                        len = strlen(value);
+                        data_buf[ret++] = len;
+                        memcpy(data_buf + ret, value, len);
+                        ret += len;
+                    }
+                } else {
                     sprintf(value, "%ld", NUM_ENTRIES);
                     //util::ptrToBytes(NUM_ENTRIES, (byte *) value);
                     //value[4] = 0;
-                    m.insert(pair<string, string>(key, value));
+                    if (USE_HASHTABLE)
+                        m.insert(pair<string, string>(key, value));
+                    else {
+                        data_buf[ret++] = len;
+                        memcpy(data_buf + ret, key, len);
+                        ret += len;
+                        data_buf[ret++] = 0;
+                        len = strlen(value);
+                        data_buf[ret++] = len;
+                        memcpy(data_buf + ret, value, len);
+                        ret += len;
+                    }
                 }
                 if (NUM_ENTRIES % 100000 == 0)
                     cout << "Key:'" << key << "'" << "\t" << "Value:'" << value
@@ -154,10 +197,23 @@ void loadFile(unordered_map<string, string>& m) {
         }
     }
     if (key[0] != 0) {
-        m.insert(pair<string, string>(key, value));
+        if (USE_HASHTABLE)
+            m.insert(pair<string, string>(key, value));
+        else {
+            int16_t len = strlen(key);
+            data_buf[ret++] = len;
+            memcpy(data_buf + ret, key, len);
+            ret += len;
+            data_buf[ret++] = 0;
+            len = strlen(value);
+            data_buf[ret++] = len;
+            memcpy(data_buf + ret, value, len);
+            ret += len;
+        }
         NUM_ENTRIES++;
     }
     fclose(fp);
+    return ret;
 }
 uint32_t getTimeVal() {
 #ifdef _MSC_VER
@@ -1106,6 +1162,23 @@ int main6() {
     return 1;
 }
 
+void checkValue(const char *key, int key_len, const char *val, int val_len,
+        const char *returned_value, int returned_len, int& null_ctr, int& cmp) {
+    if (returned_value == null) {
+        null_ctr++;
+    } else {
+        int16_t d = util::compare(val, val_len, returned_value, returned_len);
+        if (d != 0) {
+            cmp++;
+            char value[256];
+            strncpy(value, returned_value, returned_len);
+            value[returned_len] = 0;
+            cout << cmp << ":" << (char *) key << "=========="
+                    << val << "----------->" << returned_value << endl;
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
 
     if (argc > 1) {
@@ -1115,6 +1188,8 @@ int main(int argc, char *argv[]) {
             IMPORT_FILE = argv[1];
             if (argc > 2)
                 KEY_LEN = atoi(argv[2]);
+            if (argc > 3 && (argv[3][0] == '0' || argv[3][0] == '1'))
+                USE_HASHTABLE = atoi(argv[3]);
         }
     }
     if (argc > 2 && IMPORT_FILE == null)
@@ -1124,21 +1199,26 @@ int main(int argc, char *argv[]) {
     if (argc > 4 && IMPORT_FILE == null)
         VALUE_LEN = atoi(argv[4]);
 
-    util::generateBitCounts();
+    int64_t data_alloc_sz = (IMPORT_FILE == NULL ? (KEY_LEN + VALUE_LEN + 3) * NUM_ENTRIES // including \0 at end of key
+            : getImportFileSize() + 110000000); // extra 30mb for 7 + key_len + value_len + \0 for max 11 mil entries
+    byte *data_buf = (byte *) malloc(data_alloc_sz);
+    int64_t data_sz = 0;
 
     unordered_map<string, string> m;
     uint32_t start, stop;
     start = getTimeVal();
     if (IMPORT_FILE == NULL)
-        insert(m);
+        data_sz = insert(m, data_buf);
     else {
         cout << "Loading:" << IMPORT_FILE << "..." << endl;
         NUM_ENTRIES = 0;
-        loadFile(m);
+        data_sz = loadFile(m, data_buf);
         for (int i = 3; i < argc; i++) {
-            IMPORT_FILE = argv[i];
-            cout << "Loading:" << IMPORT_FILE << "..." << endl;
-            loadFile(m);
+            if (argv[3][0] != '0' && argv[3][0] != '1') {
+                IMPORT_FILE = argv[i];
+                cout << "Loading:" << IMPORT_FILE << "..." << endl;
+                data_sz += loadFile(m, data_buf + data_sz);
+            }
         }
     }
     stop = getTimeVal();
@@ -1210,13 +1290,23 @@ int main(int argc, char *argv[]) {
     art_tree at;
     art_tree_init(&at);
     start = getTimeVal();
-    it1 = m.begin();
-    for (; it1 != m.end(); ++it1) {
-        //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
-        art_insert(&at, (unsigned char*) it1->first.c_str(),
-                it1->first.length() + 1, (void *) it1->second.c_str(),
-                it1->second.length());
-        ctr++;
+    if (USE_HASHTABLE) {
+        it1 = m.begin();
+        for (; it1 != m.end(); ++it1) {
+            //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
+            art_insert(&at, (unsigned char*) it1->first.c_str(),
+                    it1->first.length() + 1, (void *) it1->second.c_str(),
+                    it1->second.length());
+            ctr++;
+        }
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            byte key_len = data_buf[pos++];
+            byte value_len = data_buf[pos + key_len + 1];
+            art_insert(&at, data_buf + pos, key_len + 1, data_buf + pos + key_len + 2, value_len);
+            pos += key_len + value_len + 1;
+            ctr++;
+        }
     }
     stop = getTimeVal();
     cout << "ART Insert Time:" << timedifference(start, stop) << endl;
@@ -1224,22 +1314,33 @@ int main(int argc, char *argv[]) {
 
     ctr = 0;
     //linex *lx = new linex();
-    //basix *lx = new basix();
+    basix *lx = new basix();
     //rb_tree *lx = new rb_tree();
     //bft *lx = new bft();
     //dft *lx = new dft();
-    bfos *lx = new bfos();
+    //bfos *lx = new bfos();
     //bfqs *lx = new bfqs();
     //dfqx *lx = new dfqx();
     //dfox *lx = new dfox();
     //dfos *lx = new dfos();
     it1 = m.begin();
     start = getTimeVal();
-    for (; it1 != m.end(); ++it1) {
-        //cout << it1->first.c_str() << ":" << it1->second.c_str() << endl;
-        lx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
-                it1->second.length());
-        ctr++;
+    if (USE_HASHTABLE) {
+        it1 = m.begin();
+        for (; it1 != m.end(); ++it1) {
+            //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
+            lx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
+                    it1->second.length());
+            ctr++;
+        }
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            byte key_len = data_buf[pos++];
+            byte value_len = data_buf[pos + key_len + 1];
+            lx->put((char *) data_buf + pos, key_len, (char *) data_buf + pos + key_len + 2, value_len);
+            pos += key_len + value_len + 1;
+            ctr++;
+        }
     }
     stop = getTimeVal();
     cout << "B+Tree insert time:" << timedifference(start, stop) << endl;
@@ -1249,19 +1350,31 @@ int main(int argc, char *argv[]) {
     //linex *dx = new linex();
     //basix *dx = new basix();
     //bft *dx = new bft();
-    //bfos *dx = new bfos();
+    bfos *dx = new bfos();
     //bfqs *dx = new bfqs();
     //dft *dx = new dft();
     //dfqx *dx = new dfqx();
     //dfox *dx = new dfox();
-    dfos *dx = new dfos();
+    //dfos *dx = new dfos();
     //rb_tree *dx = new rb_tree();
     it1 = m.begin();
     start = getTimeVal();
-    for (; it1 != m.end(); ++it1) {
-        dx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
-                it1->second.length());
-        ctr++;
+    if (USE_HASHTABLE) {
+        it1 = m.begin();
+        for (; it1 != m.end(); ++it1) {
+            //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
+            dx->put(it1->first.c_str(), it1->first.length(), it1->second.c_str(),
+                    it1->second.length());
+            ctr++;
+        }
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            byte key_len = data_buf[pos++];
+            byte value_len = data_buf[pos + key_len + 1];
+            dx->put((char *) data_buf + pos, key_len, (char *) data_buf + pos + key_len + 2, value_len);
+            pos += key_len + value_len + 1;
+            ctr++;
+        }
     }
     stop = getTimeVal();
     cout << "DFox+Tree insert time:" << timedifference(start, stop) << endl;
@@ -1272,26 +1385,27 @@ int main(int argc, char *argv[]) {
     null_ctr = 0;
     it1 = m.begin();
     start = getTimeVal();
-    for (; it1 != m.end(); ++it1) {
-        int len;
-        char *value = (char *) art_search(&at,
-                (unsigned char*) it1->first.c_str(), it1->first.length() + 1,
-                &len);
-        char v[100];
-        if (value == null) {
-            null_ctr++;
-        } else {
-            int16_t d = util::compare(it1->second.c_str(), it1->second.length(),
-                    value, len);
-            if (d != 0) {
-                cmp++;
-                strncpy(v, value, len);
-                v[it1->first.length()] = 0;
-                cout << cmp << ":" << it1->first.c_str() << "=========="
-                        << it1->second.c_str() << "----------->" << v << endl;
-            }
+    if (USE_HASHTABLE) {
+        for (; it1 != m.end(); ++it1) {
+            int len;
+            char *value = (char *) art_search(&at,
+                    (unsigned char*) it1->first.c_str(), it1->first.length() + 1,
+                    &len);
+            checkValue(it1->first.c_str(), it1->first.length() + 1,
+                    it1->second.c_str(), it1->second.length(), value, len, null_ctr, cmp);
+            ctr++;
         }
-        ctr++;
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            int len;
+            byte key_len = data_buf[pos++];
+            byte value_len = data_buf[pos + key_len + 1];
+            char *value = (char *) art_search(&at, data_buf + pos, key_len + 1, &len);
+            checkValue((char *) data_buf + pos, key_len + 1,
+                    (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
+            pos += key_len + value_len + 1;
+            ctr++;
+        }
     }
     stop = getTimeVal();
     cout << "ART Get Time:" << timedifference(start, stop) << endl;
@@ -1304,28 +1418,25 @@ int main(int argc, char *argv[]) {
     null_ctr = 0;
     it1 = m.begin();
     start = getTimeVal();
-    for (; it1 != m.end(); ++it1) {
-        int16_t len;
-        char *value = lx->get(it1->first.c_str(), it1->first.length(), &len);
-        char v[100];
-        if (value == null) {
-            null_ctr++;
-        } else {
-            int16_t d = util::compare(it1->second.c_str(), it1->second.length(),
-                    value, len);
-            if (d != 0) {
-                cmp++;
-                strncpy(v, value, len);
-                v[len] = 0;
-                cout << cmp << ":" << it1->first.c_str() << "=========="
-                        << it1->second.c_str() << "----------->" << v << endl;
-            } // else {
-              //    strncpy(v, value, len);
-              //    v[len] = 0;
-              //    cout << v << endl;
-              //}
+    if (USE_HASHTABLE) {
+        for (; it1 != m.end(); ++it1) {
+            int16_t len;
+            char *value = lx->get(it1->first.c_str(), it1->first.length(), &len);
+            checkValue(it1->first.c_str(), it1->first.length() + 1,
+                    it1->second.c_str(), it1->second.length(), value, len, null_ctr, cmp);
+            ctr++;
         }
-        ctr++;
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            int16_t len;
+            byte key_len = data_buf[pos++];
+            byte value_len = data_buf[pos + key_len + 1];
+            char *value = lx->get((char *) data_buf + pos, key_len, &len);
+            checkValue((char *) data_buf + pos, key_len,
+                    (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
+            pos += key_len + value_len + 1;
+            ctr++;
+        }
     }
     stop = getTimeVal();
     cout << "B+Tree Get Time:" << timedifference(start, stop) << endl;
@@ -1341,25 +1452,25 @@ int main(int argc, char *argv[]) {
     //bfos::count = 0;
     it1 = m.begin();
     start = getTimeVal();
-    for (; it1 != m.end(); ++it1) {
-        int16_t len;
-        char *value = dx->get(it1->first.c_str(), it1->first.length(), &len);
-        char v[100];
-        if (value == null) {
-            cout << "Null:" << it1->first.c_str() << endl;
-            null_ctr++;
-        } else {
-            int16_t d = util::compare(it1->second.c_str(), it1->second.length(),
-                    value, len);
-            if (d != 0) {
-                cmp++;
-                strncpy(v, value, len);
-                v[it1->first.length()] = 0;
-                cout << cmp << ":" << it1->first.c_str() << "=========="
-                        << it1->second.c_str() << "----------->" << v << endl;
-            }
+    if (USE_HASHTABLE) {
+        for (; it1 != m.end(); ++it1) {
+            int16_t len;
+            char *value = dx->get(it1->first.c_str(), it1->first.length(), &len);
+            checkValue(it1->first.c_str(), it1->first.length() + 1,
+                    it1->second.c_str(), it1->second.length(), value, len, null_ctr, cmp);
+            ctr++;
         }
-        ctr++;
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            int16_t len;
+            byte key_len = data_buf[pos++];
+            byte value_len = data_buf[pos + key_len + 1];
+            char *value = dx->get((char *) data_buf + pos, key_len, &len);
+            checkValue((char *) data_buf + pos, key_len,
+                    (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
+            pos += key_len + value_len + 1;
+            ctr++;
+        }
     }
     stop = getTimeVal();
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
@@ -1378,6 +1489,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    free(data_buf);
     return 0;
 
 }
