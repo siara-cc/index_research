@@ -17,8 +17,8 @@ using namespace std;
 class dft : public bpt_trie_handler<dft> {
 public:
     const static byte need_counts[10];
-    int16_t last_sibling_pos;
-    int16_t pos, key_at_pos;
+    int last_sibling_pos;
+    int pos, key_at_pos;
 
     dft(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE) :
@@ -35,7 +35,7 @@ public:
         trie = current_block + DFT_HDR_SIZE;
     }
 
-    inline int16_t searchCurrentBlock() {
+    inline int searchCurrentBlock() {
         byte *t = trie;
         keyPos = 0;
         byte key_char = key[keyPos++];
@@ -105,7 +105,7 @@ public:
             case 1:
                 break;
             case 2:
-                int16_t cmp;
+                int cmp;
                 key_at = current_block + ptr;
                 key_at_len = *key_at++;
                 cmp = util::compare(key + keyPos, key_len - keyPos,
@@ -135,7 +135,7 @@ public:
         return NULL;
     }
 
-    inline byte *getChildPtrPos(int16_t search_result) {
+    inline byte *getChildPtrPos(int search_result) {
         if (triePos++) {
             while (triePos > trie) {
                 triePos -= DFT_UNIT_SIZE;
@@ -412,11 +412,11 @@ public:
         addData(0);
     }
 
-    void addData(int16_t search_result) {
+    void addData(int search_result) {
 
         int16_t ptr = insertCurrent();
 
-        int16_t key_left = key_len - keyPos;
+        int key_left = key_len - keyPos;
         int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
         setKVLastPos(kv_last_pos);
     #if DFT_UNIT_SIZE == 3
@@ -437,7 +437,7 @@ public:
 
     }
 
-    bool isFull(int16_t search_result) {
+    bool isFull(int search_result) {
         decodeNeedCount();
     #if DFT_UNIT_SIZE == 3
         if (BPT_TRIE_LEN > 189 - need_count) {

@@ -96,7 +96,7 @@ public:
         }
     }
 
-    inline int16_t searchCurrentBlock() {
+    inline int searchCurrentBlock() {
         byte *t = trie;
         byte trie_char = *t;
         origPos = t++;
@@ -160,7 +160,7 @@ public:
                 case 1:
                 //case 5:
                 //case 7:
-                    int16_t cmp;
+                    int cmp;
                     t += BIT_COUNT_LF_CH(r_leaves_children & (r_shft | xAA));
                     key_at = current_block + util::getInt(t);
                     key_at_len = *key_at++;
@@ -225,7 +225,7 @@ public:
         return -1;
     }
 
-    inline byte *getChildPtrPos(int16_t search_result) {
+    inline byte *getChildPtrPos(int search_result) {
         return last_t - current_block < getKVLastPos() ? getLastPtr() : last_t;
     }
 
@@ -429,7 +429,7 @@ public:
         }
     }
 
-    int16_t insertAfter() {
+    int insertAfter() {
         byte key_char;
         byte mask;
         key_char = key[keyPos - 1];
@@ -441,7 +441,7 @@ public:
         return triePos - trie + 2;
     }
 
-    int16_t insertBefore() {
+    int insertBefore() {
         byte key_char;
         byte mask;
         key_char = key[keyPos - 1];
@@ -451,7 +451,7 @@ public:
         return origPos - trie + 2;
     }
 
-    int16_t insertLeaf() {
+    int insertLeaf() {
         byte key_char;
         byte mask;
         key_char = key[keyPos - 1];
@@ -466,15 +466,15 @@ public:
     }
 
     #if BQ_MIDDLE_PREFIX == 1
-    int16_t insertConvert() {
+    int insertConvert() {
         byte key_char;
         byte mask;
-        int16_t ret = 0;
+        int ret = 0;
         key_char = key[keyPos - 1];
         mask = x01 << ((key_char & x03) << 1);
         byte b, c;
         char cmp_rel;
-        int16_t diff;
+        int diff;
         diff = triePos - origPos;
         // 3 possible relationships between key_char and *triePos, 4 possible positions of triePos
         c = *triePos;
@@ -524,12 +524,12 @@ public:
     }
     #endif
 
-    int16_t insertThread() {
+    int insertThread() {
         byte key_char;
         byte mask;
-        int16_t p, min;
+        int p, min;
         byte c1, c2;
-        int16_t diff;
+        int diff;
         int16_t ret, ptr, pos;
         ret = pos = 0;
 
@@ -651,10 +651,10 @@ public:
         return ret;
     }
 
-    int16_t insertEmpty() {
+    int insertEmpty() {
         append((*key & xFC) | x02);
         append(x01 << ((*key & x03) << 1));
-        int16_t ret = BPT_TRIE_LEN;
+        int ret = BPT_TRIE_LEN;
         keyPos = 1;
         append(0);
         append(0);
@@ -665,12 +665,12 @@ public:
         addData(0);
     }
 
-    void addData(int16_t search_result) {
+    void addData(int search_result) {
 
-        int16_t ptr = insertCurrent();
+        int ptr = insertCurrent();
 
-        int16_t key_left = key_len - keyPos;
-        int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
+        int key_left = key_len - keyPos;
+        uint16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
         setKVLastPos(kv_last_pos);
         util::setInt(trie + ptr, kv_last_pos);
         current_block[kv_last_pos] = key_left;
@@ -682,7 +682,7 @@ public:
 
     }
 
-    bool isFull(int16_t search_result) {
+    bool isFull(int search_result) {
         decodeNeedCount();
         if (getKVLastPos() < (BFQS_HDR_SIZE + BPT_TRIE_LEN +
                 need_count + key_len - keyPos + value_len + 3))
@@ -860,8 +860,8 @@ public:
 
     }
 
-    int16_t insertCurrent() {
-        int16_t ret;
+    int insertCurrent() {
+        int ret;
 
         switch (insertState) {
         case INSERT_AFTER:

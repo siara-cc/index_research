@@ -61,7 +61,7 @@ public:
 
     //static byte first_bit_offset4[16];
     //static byte bit_count_16[16];
-    inline byte *skipChildren(byte *t, uint16_t& count) {
+    inline byte *skipChildren(byte *t, int& count) {
         while (count & xFF) {
             byte tc = *t++;
             count -= tc & x01;
@@ -70,9 +70,9 @@ public:
         }
         return t;
     }
-    inline int16_t searchCurrentBlock() {
+    inline int searchCurrentBlock() {
         byte *t = trie;
-        uint16_t to_skip = 0;
+        int to_skip = 0;
         byte key_char = *key;
         keyPos = 1;
         do {
@@ -102,7 +102,7 @@ public:
                 switch (((r_leaves_children << key_char) & 0x88) | (keyPos == key_len ? x01 : x00)) {
                 case 0x80: // 10000000
                 case 0x81: // 10000001
-                    int16_t cmp;
+                    int cmp;
                     pos = to_skip >> 8;
                     key_at = getKey(pos, &key_at_len);
                     cmp = util::compare(key + keyPos, key_len - keyPos,
@@ -147,7 +147,7 @@ public:
         return -1; // dummy - will never reach here
     }
 
-    inline byte *getChildPtrPos(int16_t search_result) {
+    inline byte *getChildPtrPos(int search_result) {
         if (search_result < 0) {
             search_result++;
             search_result = ~search_result;
@@ -223,7 +223,7 @@ public:
             byte child_leaf = (*t & (ryte_incl_mask[offset] << 4)) + children;
             *t++ = child_leaf;
             if (tc & x02 || idx == brk_key_len) {
-                uint16_t count = bit_count[children] + (bit_count[child_leaf >> 4] << 8);
+                int count = bit_count[children] + (bit_count[child_leaf >> 4] << 8);
                 byte *new_t = skipChildren(t, count);
                 if (tc & x02) {
                     *(t - 3) = count >> 8;
@@ -254,7 +254,7 @@ public:
             t += (tc & x02 ? 3 : 1);
             byte offset = first_key[idx] & 0x03;
             byte children = *t & x0F;
-            uint16_t count = bit_count[children & ryte_mask[offset]];
+            int count = bit_count[children & ryte_mask[offset]];
             children &= left_incl_mask[offset];
             byte leaves = (*t & ((idx == brk_key_len ? left_incl_mask[offset] : left_mask[offset]) << 4));
             *t++ = (children + leaves);
@@ -275,12 +275,12 @@ public:
         addData(0);
     }
 
-    void addData(int16_t search_result) {
+    void addData(int search_result) {
 
         insertCurrent();
 
-        int16_t key_left = key_len - keyPos;
-        int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
+        int key_left = key_len - keyPos;
+        uint16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
         setKVLastPos(kv_last_pos);
         current_block[kv_last_pos] = key_left;
         if (key_left)
@@ -292,7 +292,7 @@ public:
 
     }
 
-    bool isFull(int16_t search_result) {
+    bool isFull(int search_result) {
         decodeNeedCount();
         int16_t ptr_size = filledSize() + 1;
     #if BPT_9_BIT_PTR == 0
@@ -457,7 +457,7 @@ public:
             updateSkipLens(origPos, origPos + 1, 0);
             break;
         case INSERT_THREAD:
-            uint16_t p, min;
+            int p, min;
             byte c1, c2;
             byte *fromPos;
             fromPos = triePos;

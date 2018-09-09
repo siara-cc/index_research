@@ -1314,7 +1314,7 @@ int main(int argc, char *argv[]) {
 
     ctr = 0;
     //linex *lx = new linex();
-    basix *lx = new basix();
+    //basix *lx = new basix();
     //rb_tree *lx = new rb_tree();
     //bft *lx = new bft();
     //dft *lx = new dft();
@@ -1322,7 +1322,7 @@ int main(int argc, char *argv[]) {
     //bfqs *lx = new bfqs();
     //dfqx *lx = new dfqx();
     //dfox *lx = new dfox();
-    //dfos *lx = new dfos();
+    dfos *lx = new dfos();
     it1 = m.begin();
     start = getTimeVal();
     if (USE_HASHTABLE) {

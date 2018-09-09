@@ -9,7 +9,7 @@ void rb_tree::addFirstData() {
     addData(0);
 }
 
-void rb_tree::addData(int16_t search_result) {
+void rb_tree::addData(int search_result) {
 
     //idx = -1; // !!!!!
 
@@ -40,7 +40,7 @@ void rb_tree::addData(int16_t search_result) {
             while (1) {
                 int16_t key_at_len;
                 char *key_at = (char *) getKey(n, &key_at_len);
-                int16_t comp_result = util::compare(key, key_len, key_at,
+                int comp_result = util::compare(key, key_len, key_at,
                         key_at_len);
                 if (comp_result == 0) {
                     //setValue(n, value);
@@ -176,11 +176,11 @@ void rb_tree::setDataEndPos(int16_t pos) {
     util::setInt(current_block + DATA_END_POS, pos);
 }
 
-inline void rb_tree::setCurrentBlockRoot() {
+void rb_tree::setCurrentBlockRoot() {
     setCurrentBlock(root_block);
 }
 
-inline void rb_tree::setCurrentBlock(byte *m) {
+void rb_tree::setCurrentBlock(byte *m) {
     current_block = m;
 #if BPT_9_BIT_PTR == 1
 #if BPT_INT64MAP == 1
@@ -192,7 +192,7 @@ inline void rb_tree::setCurrentBlock(byte *m) {
 #endif
 }
 
-int16_t rb_tree::binarySearch(const char *key, int16_t key_len) {
+int rb_tree::binarySearch(const char *key, int16_t key_len) {
     register int middle;
     register int new_middle = getRoot();
     do {
@@ -213,7 +213,7 @@ int16_t rb_tree::binarySearch(const char *key, int16_t key_len) {
     return ~middle;
 }
 
-int16_t rb_tree::searchCurrentBlock() {
+int rb_tree::searchCurrentBlock() {
     pos = binarySearch(key, key_len);
     return pos;
 }
@@ -244,7 +244,7 @@ int16_t rb_tree::filledUpto() {
 #endif
 }
 
-bool rb_tree::isFull(int16_t search_result) {
+bool rb_tree::isFull(int search_result) {
     int16_t kv_len = key_len + value_len + 9; // 3 int16_t pointer, 1 byte key len, 1 byte value len, 1 flag
     uint16_t RB_TREE_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
     int16_t spaceLeft = RB_TREE_NODE_SIZE - util::getInt(current_block + DATA_END_POS);
@@ -254,7 +254,7 @@ bool rb_tree::isFull(int16_t search_result) {
     return false;
 }
 
-byte *rb_tree::getChildPtr(int16_t pos) {
+byte *rb_tree::getChildPtr(int pos) {
     byte *kvIdx = current_block + pos + KEY_LEN_POS;
     kvIdx += kvIdx[0];
     kvIdx += 2;
@@ -536,7 +536,7 @@ void rb_tree::setColor(int16_t n, byte c) {
 #endif
 }
 
-byte *rb_tree::getChildPtrPos(int16_t search_result) {
+byte *rb_tree::getChildPtrPos(int search_result) {
     if (search_result < 0) {
         search_result = ~search_result;
         if (last_direction == 'l') {

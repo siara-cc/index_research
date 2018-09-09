@@ -175,7 +175,7 @@
                             							
                             <tool id="cdt.managedbuild.tool.gnu.c.compiler.base.1823089644" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.base">
                                 								
-                                <option defaultValue="gnu.c.optimization.level.most" id="gnu.c.compiler.option.optimization.level.1706914978" name="Optimization Level" superClass="gnu.c.compiler.option.optimization.level" useByScannerDiscovery="false" valueType="enumerated"/>
+                                <option defaultValue="gnu.c.optimization.level.most" id="gnu.c.compiler.option.optimization.level.1706914978" name="Optimization Level" superClass="gnu.c.compiler.option.optimization.level" useByScannerDiscovery="false" value="gnu.c.optimization.level.most" valueType="enumerated"/>
                                 								
                                 <option id="gnu.c.compiler.option.debugging.level.744290961" name="Debug Level" superClass="gnu.c.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.c.debugging.level.none" valueType="enumerated"/>
                                 								
@@ -226,12 +226,6 @@
                     <fileInfo id="cdt.managedbuild.config.gnu.exe.release.101111951.2070577423" name="dfos.h" rcbsApplicability="disable" resourcePath="src/dfos.h" toolsToInvoke=""/>
                     					
                     <fileInfo id="cdt.managedbuild.config.gnu.exe.release.101111951.911682936" name="bfqs.h" rcbsApplicability="disable" resourcePath="src/bfqs.h" toolsToInvoke=""/>
-                    					
-                    <fileInfo id="cdt.managedbuild.config.gnu.exe.release.101111951.942072557" name="bfos.cpp" rcbsApplicability="disable" resourcePath="src/bfos.cpp" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.base.1215354105.1509082375">
-                        						
-                        <tool id="cdt.managedbuild.tool.gnu.cpp.compiler.base.1215354105.1509082375" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.base.1215354105"/>
-                        					
-                    </fileInfo>
                     					
                     <sourceEntries>
                         						

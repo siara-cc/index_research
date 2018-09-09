@@ -23,7 +23,7 @@ private:
         prev_key_at = key_at;
         prefix_len = prev_prefix_len = 0;
         while (idx < filled_size) {
-            int16_t cmp;
+            int cmp;
             key_at_len = *(key_at + 1);
     #if LX_PREFIX_CODING == 1
             byte *p_cur_prefix_len = key_at;
@@ -69,7 +69,7 @@ private:
         return ~idx;
     }
 public:
-    int16_t pos;
+    int pos;
     byte *prev_key_at;
     byte prefix[60];
     int16_t prefix_len;
@@ -254,12 +254,12 @@ public:
         return false;
     }
 
-    inline int16_t searchCurrentBlock() {
+    inline int searchCurrentBlock() {
         pos = linearSearch();
         return pos;
     }
 
-    byte *getChildPtrPos(int16_t search_result) {
+    byte *getChildPtrPos(int search_result) {
         if (search_result >= 0)
             key_at -= 2;
         if (search_result < 0)

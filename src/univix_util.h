@@ -17,6 +17,12 @@
 #include <malloc.h>
 #endif
 
+#if defined(ANDROID) || defined(__ANDROID__)
+#include <android/log.h>
+#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "native-activity", __VA_ARGS__))
+#define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "native-activity", __VA_ARGS__))
+#endif
+
 using namespace std;
 
 typedef unsigned char byte;
@@ -105,8 +111,8 @@ public:
         return ret;
     }
 
-    static int16_t compare(const char *v1, int16_t len1, const char *v2,
-            int16_t len2, int k = 0) {
+    static int compare(const char *v1, byte len1, const char *v2,
+            byte len2, int k = 0) {
         int lim = (len2 < len1 ? len2 : len1);
         while (k < lim) {
             byte c1 = v1[k];
@@ -122,6 +128,24 @@ public:
         k++;
         return (len1 < len2 ? -k : k);
     }
+
+//    static int16_t compare(const char *v1, int16_t len1, const char *v2,
+//            int16_t len2, int k = 0) {
+//        int lim = (len2 < len1 ? len2 : len1);
+//        while (k < lim) {
+//            byte c1 = v1[k];
+//            byte c2 = v2[k];
+//            k++;
+//            if (c1 < c2)
+//                return -k;
+//            else if (c1 > c2)
+//                return k;
+//        }
+//        if (len1 == len2)
+//            return 0;
+//        k++;
+//        return (len1 < len2 ? -k : k);
+//    }
 
     static inline int16_t min_b(byte x, byte y) {
         return (x > y ? y : x);
@@ -183,6 +207,8 @@ public:
     static void print(const char s[]) {
 #if defined(ARDUINO)
         Serial.print(s);
+#elif defined(ANDROID) || defined(__ANDROID__)
+        LOGI("%s", s);
 #else
         cout << s;
 #endif
@@ -191,6 +217,8 @@ public:
     static void print(long l) {
 #if defined(ARDUINO)
         Serial.print(l);
+#elif defined(ANDROID) || defined(__ANDROID__)
+        LOGI("%ld", l);
 #else
         cout << l;
 #endif
@@ -199,6 +227,8 @@ public:
     static void print(int16_t i16) {
 #if defined(ARDUINO)
         Serial.print(i16);
+#elif defined(ANDROID) || defined(__ANDROID__)
+        LOGI("%d", i16);
 #else
         cout << i16;
 #endif
@@ -207,6 +237,8 @@ public:
     static void print(uint8_t l) {
 #if defined(ARDUINO)
         Serial.print((int)l);
+#elif defined(ANDROID) || defined(__ANDROID__)
+        LOGI("%d", l);
 #else
         cout << (int) l;
 #endif
@@ -215,6 +247,8 @@ public:
     static void print(uint32_t l) {
 #if defined(ARDUINO)
         Serial.print((unsigned long) l);
+#elif defined(ANDROID) || defined(__ANDROID__)
+        LOGI("%u", l);
 #else
         cout << l;
 #endif
@@ -223,6 +257,8 @@ public:
     static void print(uint64_t l) {
 #if defined(ARDUINO)
         Serial.print((unsigned long) l);
+#elif defined(ANDROID) || defined(__ANDROID__)
+        LOGI("%lu", l);
 #else
         cout << l;
 #endif
@@ -231,6 +267,8 @@ public:
     static void endl() {
 #if defined(ARDUINO)
         Serial.print("\n");
+#elif defined(ANDROID) || defined(__ANDROID__)
+        LOGI("\n");
 #else
         cout << std::endl;
 #endif
