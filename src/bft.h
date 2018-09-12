@@ -57,7 +57,7 @@ public:
         trie = current_block + BFT_HDR_SIZE;
     }
 
-    inline int searchCurrentBlock() {
+    inline int16_t searchCurrentBlock() {
         byte *t;
         t = trie;
         last_t = trie + 1;
@@ -127,7 +127,7 @@ public:
             case 1:
                 break;
             case 2:
-                int cmp;
+                int16_t cmp;
                 key_at = current_block + ptr;
                 key_at_len = *key_at++;
                 cmp = util::compare(key + keyPos, key_len - keyPos,
@@ -162,7 +162,7 @@ public:
         return NULL;
     }
 
-    inline byte *getChildPtrPos(int search_result) {
+    inline byte *getChildPtrPos(int16_t search_result) {
         return last_t;
     }
 
@@ -299,12 +299,12 @@ public:
         addData(0);
     }
 
-    void addData(int search_result) {
+    void addData(int16_t search_result) {
 
         int16_t ptr = insertCurrent();
 
-        int key_left = key_len - keyPos;
-        uint16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
+        int16_t key_left = key_len - keyPos;
+        int16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
         setKVLastPos(kv_last_pos);
     #if BFT_UNIT_SIZE == 3
         trie[ptr--] = kv_last_pos;
@@ -324,7 +324,7 @@ public:
 
     }
 
-    bool isFull(int search_result) {
+    bool isFull(int16_t search_result) {
         decodeNeedCount();
     #if BFT_UNIT_SIZE == 3
         if ((BPT_TRIE_LEN + need_count) > 189) {
@@ -490,7 +490,7 @@ public:
             ret = origPos - trie + 2;
             break;
         case INSERT_THREAD:
-            int p, min;
+            int16_t p, min;
             byte c1, c2;
             key_char = key[keyPos - 1];
             c1 = c2 = key_char;
@@ -570,7 +570,7 @@ public:
                     break;
                 p++;
             }
-            int diff;
+            int16_t diff;
             diff = p - keyPos;
             keyPos = p + 1;
             if (c1 == c2) {

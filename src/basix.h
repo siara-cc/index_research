@@ -19,7 +19,7 @@ using namespace std;
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class basix : public bplus_tree_handler<basix> {
 public:
-    int pos;
+    int16_t pos;
     basix(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE) :
         bplus_tree_handler<basix>(leaf_block_sz, parent_block_sz) {
@@ -41,14 +41,14 @@ public:
 #endif
     }
 
-    inline int searchCurrentBlock() {
+    inline int16_t searchCurrentBlock() {
         int middle, first, filled_size;
         first = 0;
         filled_size = filledSize();
         while (first < filled_size) {
             middle = (first + filled_size) >> 1;
             key_at = getKey(middle, &key_at_len);
-            int cmp = util::compare((char *) key_at, key_at_len, key, key_len);
+            int16_t cmp = util::compare((char *) key_at, key_at_len, key, key_len);
             if (cmp < 0)
                 first = middle + 1;
             else if (cmp > 0)
@@ -59,7 +59,7 @@ public:
         return ~filled_size;
     }
 
-    inline byte *getChildPtrPos(int search_result) {
+    inline byte *getChildPtrPos(int16_t search_result) {
         if (search_result < 0) {
             search_result++;
             search_result = ~search_result;
@@ -75,7 +75,7 @@ public:
         return BLK_HDR_SIZE;
     }
 
-    bool isFull(int search_result) {
+    bool isFull(int16_t search_result) {
         int16_t ptr_size = filledSize() + 1;
     #if BPT_9_BIT_PTR == 0
         ptr_size <<= 1;
@@ -184,7 +184,7 @@ public:
         return b;
     }
 
-    void addData(int search_result) {
+    void addData(int16_t search_result) {
 
         uint16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
         setKVLastPos(kv_last_pos);

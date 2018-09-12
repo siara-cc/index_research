@@ -77,7 +77,7 @@ public:
         return t;
     }
 
-    inline int searchCurrentBlock() {
+    inline int16_t searchCurrentBlock() {
         byte key_char = *key;
         byte *t = trie;
         byte trie_char = *t;
@@ -120,7 +120,7 @@ public:
                 case 1:
                     break;
                 case 2:
-                    int cmp;
+                    int16_t cmp;
                     key_at = getKey(t, &key_at_len);
                     cmp = util::compare(key + keyPos, key_len - keyPos,
                             (char *) key_at, key_at_len);
@@ -191,7 +191,7 @@ public:
         return NULL;
     }
 
-    inline byte *getChildPtrPos(int search_result) {
+    inline byte *getChildPtrPos(int16_t search_result) {
         return current_block + getPtr(last_t);
     }
 
@@ -385,7 +385,7 @@ public:
         addData(3);
     }
 
-    void addData(int search_result) {
+    void addData(int16_t search_result) {
 
         insertState = search_result + 1;
 
@@ -405,7 +405,7 @@ public:
 
     }
 
-    bool isFull(int search_result) {
+    bool isFull(int16_t search_result) {
         decodeNeedCount(search_result);
         if (getKVLastPos() < (DFOX_HDR_SIZE + DX_GET_TRIE_LEN +
                 need_count + key_len - keyPos + value_len + 3))

@@ -41,7 +41,7 @@ using namespace std;
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class dfos : public bpt_trie_handler<dfos> {
 public:
-    int pos, key_at_pos;
+    byte pos, key_at_pos;
     const static byte need_counts[10];
 
     dfos(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
@@ -88,7 +88,7 @@ public:
         return t;
     }
 
-    inline int searchCurrentBlock() {
+    inline int16_t searchCurrentBlock() {
         byte key_char = *key;
         byte *t = trie;
         byte trie_char = *t;
@@ -135,7 +135,7 @@ public:
                 case 1:
                     break;
                 case 2:
-                    int cmp;
+                    int16_t cmp;
                     key_at = getKey(pos, &key_at_len);
                     cmp = util::compare(key + keyPos, key_len - keyPos,
                             (char *) key_at, key_at_len);
@@ -195,7 +195,7 @@ public:
         return trie + DS_GET_TRIE_LEN;
     }
 
-    inline byte *getChildPtrPos(int search_result) {
+    inline byte *getChildPtrPos(int16_t search_result) {
         if (search_result < 0) {
             search_result++;
             search_result = ~search_result;
@@ -363,11 +363,11 @@ public:
         addData(0);
     }
 
-    void addData(int search_result) {
+    void addData(int16_t search_result) {
 
         insertCurrent();
 
-        int key_left = key_len - keyPos;
+        int16_t key_left = key_len - keyPos;
         uint16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
         setKVLastPos(kv_last_pos);
         current_block[kv_last_pos] = key_left;
@@ -380,7 +380,7 @@ public:
 
     }
 
-    bool isFull(int search_result) {
+    bool isFull(int16_t search_result) {
         decodeNeedCount(search_result);
         uint16_t ptr_size = filledSize() + 1;
 #if BPT_9_BIT_PTR == 0
@@ -681,7 +681,7 @@ public:
             break;
     #endif
         case INSERT_THREAD:
-            int p, min;
+            uint16_t p, min;
             byte c1, c2;
             byte *fromPos;
             fromPos = triePos;
@@ -714,9 +714,9 @@ public:
                             (key[diff] == key_at[diff - keyPos] ? 6 + DS_SIBLING_PTR_SIZE : 2));
             insBytesWithPtrs(triePos, diff);
             if (need_count) {
-                int copied = 0;
+                int16_t copied = 0;
                 while (copied < need_count) {
-                    int to_copy = (need_count - copied) > 127 ? 127 : need_count - copied;
+                    int16_t to_copy = (need_count - copied) > 127 ? 127 : need_count - copied;
                     *triePos++ = (to_copy << 1) | x01;
                     memcpy(triePos, key + keyPos + copied, to_copy);
                     copied += to_copy;

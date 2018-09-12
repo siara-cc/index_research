@@ -85,7 +85,7 @@ public:
         return 0;
     }
 
-    inline void setPrefixLast(byte key_char, byte *t, int pfx_rem_len) {
+    inline void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) {
         if (key_char > *t) {
             t += pfx_rem_len;
             while (*t & x01)
@@ -100,7 +100,7 @@ public:
         }
     }
 
-    inline int searchCurrentBlock() {
+    inline int16_t searchCurrentBlock() {
         byte *t = trie;
         byte trie_char = *t;
         origPos = t++;
@@ -156,7 +156,7 @@ public:
                 case 1:
                     break;
                 case 2:
-                    int cmp;
+                    int16_t cmp;
                     key_at = current_block + util::getInt(t + BS_BIT_COUNT_CH(r_children)
                             + BIT_COUNT2(r_leaves & key_char));
                     key_at_len = *key_at++;
@@ -190,7 +190,7 @@ public:
                 break;
 #if BS_MIDDLE_PREFIX == 1
             case 3:
-                int pfx_len;
+                byte pfx_len;
                 pfx_len = (trie_char >> 1);
                 while (pfx_len && key_char == *t && keyPos < key_len) {
                     key_char = key[keyPos++];
@@ -214,7 +214,7 @@ public:
         return -1;
     }
 
-    inline byte *getChildPtrPos(int search_result) {
+    inline byte *getChildPtrPos(int16_t search_result) {
         return key_at == last_t ? last_t - 1 : getLastPtr();
     }
 
@@ -686,7 +686,7 @@ public:
 
     }
 
-    bool isFull(int search_result) {
+    bool isFull(int16_t search_result) {
         decodeNeedCount(search_result);
         if (getKVLastPos() < (BFOS_HDR_SIZE + BS_GET_TRIE_LEN
                 + need_count + key_len - keyPos + value_len + 3))
@@ -702,7 +702,7 @@ public:
         addData(3);
     }
 
-    void addData(int search_result) {
+    void addData(int16_t search_result) {
 
         insertState = search_result + 1;
 
@@ -804,8 +804,8 @@ public:
 
     uint16_t insertCurrent() {
         byte key_char, mask;
-        unsigned int diff;
-        unsigned int ret;
+        uint16_t diff;
+        uint16_t ret;
 
         key_char = key[keyPos - 1];
         mask = x01 << (key_char & x07);
@@ -905,7 +905,7 @@ public:
             break;
     #endif
         case INSERT_THREAD:
-              unsigned int p, min;
+              uint16_t p, min;
               byte c1, c2;
               byte *childPos;
               uint16_t ptr, pos;
@@ -921,25 +921,31 @@ public:
               if (*origPos & x02) {
                   *childPos |= mask;
                   childPos = childPos + 2 + BS_BIT_COUNT_CH(*childPos & (mask - 1));
-                  int offset = (BS_GET_TRIE_LEN - (childPos - trie) + BS_CHILD_PTR_SIZE);
 #if BS_CHILD_PTR_SIZE == 1
-                  insAt(childPos, (byte) offset);
+                  insAt(childPos, (byte) (BPT_TRIE_LEN - (childPos - trie) + 1));
+                  updatePtrs(childPos, 1);
+                  triePos++;
 #else
+                  int16_t offset = (BS_GET_TRIE_LEN + 1 - (childPos - trie) + 1);
                   insAt(childPos, offset >> 8, offset & xFF);
+                  updatePtrs(childPos, 2);
+                  triePos += 2;
 #endif
               } else {
+                  *origPos |= x02;
 #if BS_CHILD_PTR_SIZE == 1
                   insAt(childPos, mask, *childPos);
                   childPos[2] = (byte) (BPT_TRIE_LEN - (childPos + 2 - trie));
+                  updatePtrs(childPos, 2);
+                  triePos += 2;
 #else
-                  int offset = BS_GET_TRIE_LEN + 3 - (childPos + 2 - trie);
+                  int16_t offset = BS_GET_TRIE_LEN + 3 - (childPos + 2 - trie);
                   insAt(childPos, mask, *childPos, (byte) (offset >> 8));
                   childPos[3] = offset & xFF;
+                  updatePtrs(childPos, 3);
+                  triePos += 3;
 #endif
               }
-              updatePtrs(childPos, BS_CHILD_PTR_SIZE + (*origPos & x02 ? 0 : 1));
-              triePos += BS_CHILD_PTR_SIZE + (*origPos & x02 ? 0 : 1);
-              *origPos |= x02;
               if (p < min) {
                   origPos[2] &= ~mask;
                   delAt(triePos, 2);
@@ -972,7 +978,7 @@ public:
               if (need_count) {
                   byte copied = 0;
                   while (copied < need_count) {
-                      int to_copy = (need_count - copied) > 127 ? 127 : need_count - copied;
+                      int16_t to_copy = (need_count - copied) > 127 ? 127 : need_count - copied;
                       *triePos++ = (to_copy << 1) | x01;
                       memcpy(triePos, key + keyPos + copied, to_copy);
                       triePos += to_copy;
@@ -1087,7 +1093,7 @@ public:
         return ret;
     }
 
-    void decodeNeedCount(int search_result) {
+    void decodeNeedCount(int16_t search_result) {
         insertState = search_result + 1;
         if (insertState != INSERT_THREAD)
             need_count = need_counts[insertState];

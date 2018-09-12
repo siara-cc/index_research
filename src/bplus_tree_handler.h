@@ -42,7 +42,7 @@ using namespace std;
 #define DEFAULT_PARENT_BLOCK_SIZE 2048
 #define DEFAULT_LEAF_BLOCK_SIZE 2048
 #else
-#define DEFAULT_PARENT_BLOCK_SIZE 8192
+#define DEFAULT_PARENT_BLOCK_SIZE 4096
 #define DEFAULT_LEAF_BLOCK_SIZE 4096
 #endif
 
@@ -123,8 +123,8 @@ public:
     }
 
     byte *skipChildren(byte *t, byte count);
-    int searchCurrentBlock();
-    void setPrefixLast(byte key_char, byte *t, int pfx_rem_len);
+    int16_t searchCurrentBlock();
+    void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
 
     inline byte *getKey(int16_t pos, byte *plen) {
         byte *kvIdx = current_block + getPtr(pos);
@@ -155,13 +155,13 @@ public:
     }
     byte *getPtrPos();
 
-    int traverseToLeaf(int8_t *plevel_count = NULL, byte *node_paths[] = NULL) {
+    int16_t traverseToLeaf(int8_t *plevel_count = NULL, byte *node_paths[] = NULL) {
         while (!isLeaf()) {
             if (node_paths) {
                 *node_paths++ = current_block;
                 (*plevel_count)++;
             }
-            int search_result = static_cast<T*>(this)->searchCurrentBlock();
+            int16_t search_result = static_cast<T*>(this)->searchCurrentBlock();
             static_cast<T*>(this)->setCurrentBlock(getChildPtr(
                     static_cast<T*>(this)->getChildPtrPos(search_result)));
         }
@@ -169,7 +169,7 @@ public:
     }
 
     byte *getLastPtr();
-    byte *getChildPtrPos(int search_result);
+    byte *getChildPtrPos(int16_t search_result);
     inline byte *getChildPtr(byte *ptr) {
         ptr += (*ptr + 1);
         return (byte *) util::bytesToPtr(ptr);
@@ -195,7 +195,7 @@ public:
         } else {
             byte *node_paths[7];
             int8_t level_count = 1;
-            int search_result = isLeaf() ?
+            int16_t search_result = isLeaf() ?
                     static_cast<T*>(this)->searchCurrentBlock() :
                     traverseToLeaf(&level_count, node_paths);
             recursiveUpdate(search_result, node_paths, level_count - 1);
@@ -203,7 +203,7 @@ public:
         total_size++;
     }
 
-    void recursiveUpdate(int search_result, byte *node_paths[], byte level) {
+    void recursiveUpdate(int16_t search_result, byte *node_paths[], byte level) {
         //int16_t search_result = pos; // lastSearchPos[level];
         if (search_result < 0) {
             search_result = ~search_result;
@@ -213,7 +213,7 @@ public:
                 int16_t first_len;
                 byte *old_block = current_block;
                 byte *new_block = static_cast<T*>(this)->split(first_key, &first_len);
-                int cmp = util::compare((char *) first_key, first_len,
+                int16_t cmp = util::compare((char *) first_key, first_len,
                         key, key_len);
                 if (cmp <= 0)
                     static_cast<T*>(this)->setCurrentBlock(new_block);
@@ -264,16 +264,16 @@ public:
         }
     }
 
-    bool isFull(int search_result);
+    bool isFull(int16_t search_result);
     void addFirstData();
-    void addData(int search_result);
+    void addData(int16_t search_result);
     void insertCurrent();
 
     inline void setFilledSize(int16_t filledSize) {
         util::setInt(BPT_FILLED_SIZE, filledSize);
     }
 
-    inline void insPtr(int pos, uint16_t kv_pos) {
+    inline void insPtr(int16_t pos, uint16_t kv_pos) {
         int16_t filledSz = filledSize();
 #if BPT_9_BIT_PTR == 1
         byte *kvIdx = static_cast<T*>(this)->getPtrPos() + pos;
@@ -301,7 +301,7 @@ public:
 
     }
 
-    inline void setPtr(int pos, uint16_t ptr) {
+    inline void setPtr(int16_t pos, uint16_t ptr) {
 #if BPT_9_BIT_PTR == 1
         *(static_cast<T*>(this)->getPtrPos() + pos) = ptr;
 #if BPT_INT64MAP == 1
@@ -527,8 +527,8 @@ public:
     byte *triePos;
     byte *origPos;
     byte need_count;
-    int insertState;
-    int keyPos;
+    int16_t insertState;
+    byte keyPos;
     static const byte x00 = 0;
     static const byte x01 = 1;
     static const byte x02 = 2;
