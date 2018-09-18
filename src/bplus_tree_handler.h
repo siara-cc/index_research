@@ -109,7 +109,7 @@ public:
 
     void setCurrentBlockRoot();
     void setCurrentBlock(byte *m);
-    char *get(const char *key, uint8_t key_len, int16_t *pValueLen) {
+    const char *get(const char *key, uint8_t key_len, int16_t *pValueLen) {
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
         this->key_len = key_len;

@@ -32,6 +32,31 @@ using namespace std;
 #define BS_SET_CHILD_OFFSET(x, off) util::setInt(x, off)
 #endif
 
+class bfos_iterator_vars {
+public:
+#if BS_CHILD_PTR_SIZE == 1
+    bfos_iterator_vars(byte *tp_ext, byte *t_ext) {
+#else
+    bfos_iterator_vars(uint16_t *tp_ext, byte *t_ext) {
+#endif
+        tp = tp_ext;
+        t = t_ext;
+        ctr = 9;
+        only_leaf = 1;
+    }
+#if BS_CHILD_PTR_SIZE == 1
+    byte *tp;
+#else
+    uint16_t *tp;
+#endif
+    byte *t;
+    byte ctr;
+    byte tc;
+    byte child;
+    byte leaf;
+    byte only_leaf;
+};
+
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class bfos : public bpt_trie_handler<bfos> {
 public:
@@ -485,72 +510,70 @@ public:
     }
 
 #if BS_CHILD_PTR_SIZE == 1
-    byte *nextPtr(byte *first_key, byte *tp, byte **t_ptr, byte& ctr, byte& tc, byte& child, byte& leaf) {
+    byte *nextPtr(byte *first_key, bfos_iterator_vars& it) {
 #else
-    byte *nextPtr(byte *first_key, uint16_t *tp, byte **t_ptr, byte& ctr, byte& tc, byte& child, byte& leaf) {
+    byte *nextPtr(byte *first_key, bfos_iterator_vars& it) {
 #endif
-        byte only_leaf = 1;
-        if (ctr > 15) {
-            ctr -= 16;
-            only_leaf = 0;
-        }
         do {
-            while (ctr == x08) {
-                if (tc & x04) {
+            while (it.ctr == x08) {
+                if (it.tc & x04) {
                     keyPos--;
-                    *t_ptr = trie + tp[keyPos];
-                    while (*(*t_ptr) & x01) {
-                        keyPos -= (*(*t_ptr) >> 1);
-                        *t_ptr = trie + tp[keyPos];
+                    it.t = trie + it.tp[keyPos];
+                    while (*it.t & x01) {
+                        keyPos -= (*it.t >> 1);
+                        it.t = trie + it.tp[keyPos];
                     }
-                    tc = *(*t_ptr)++;
-                    child = (tc & x02 ? *(*t_ptr)++ : 0);
-                    leaf = *(*t_ptr)++;
-                    ctr = first_key[keyPos] & x07;
-                    ctr++;
-                    *t_ptr += BS_BIT_COUNT_CH(child);
+                    it.tc = *it.t++;
+                    it.child = (it.tc & x02 ? *it.t++ : 0);
+                    it.leaf = *it.t++;
+                    it.ctr = first_key[keyPos] & x07;
+                    it.ctr++;
+                    it.t += BS_BIT_COUNT_CH(it.child);
                 } else {
-                    *t_ptr += BIT_COUNT2(leaf);
-                    ctr = 0x09;
+                    it.t += BIT_COUNT2(it.leaf);
+                    it.ctr = 0x09;
                     break;
                 }
             }
-            if (ctr > x07) {
-                tp[keyPos] = *t_ptr - trie;
-                tc = *(*t_ptr)++;
-                while (tc & x01) {
-                    byte len = tc >> 1;
+            if (it.ctr > x07) {
+                it.tp[keyPos] = it.t - trie;
+                it.tc = *it.t++;
+                while (it.tc & x01) {
+                    byte len = it.tc >> 1;
                     for (int i = 0; i < len; i++)
-                        tp[keyPos + i] = *t_ptr - trie - 1;
-                    memcpy(first_key + keyPos, *t_ptr, len);
-                    *t_ptr += len;
+                        it.tp[keyPos + i] = it.t - trie - 1;
+                    memcpy(first_key + keyPos, it.t, len);
+                    it.t += len;
                     keyPos += len;
-                    tp[keyPos] = *t_ptr - trie;
-                    tc = *(*t_ptr)++;
+                    it.tp[keyPos] = it.t - trie;
+                    it.tc = *it.t++;
                 }
-                child = (tc & x02 ? *(*t_ptr)++ : 0);
-                leaf = *(*t_ptr)++;
-                *t_ptr += BS_BIT_COUNT_CH(child);
-                ctr = FIRST_BIT_OFFSET_FROM_RIGHT(child | leaf);
+                it.child = (it.tc & x02 ? *it.t++ : 0);
+                it.leaf = *it.t++;
+                it.t += BS_BIT_COUNT_CH(it.child);
+                it.ctr = FIRST_BIT_OFFSET_FROM_RIGHT(it.child | it.leaf);
             }
-            first_key[keyPos] = (tc & xF8) | ctr;
-            byte mask = x01 << ctr;
-            if ((leaf & mask) && only_leaf) {
-                ctr += (child & mask) ? 16 : 1;
-                return *t_ptr + BIT_COUNT2(leaf & (mask - 1));
+            first_key[keyPos] = (it.tc & xF8) | it.ctr;
+            byte mask = x01 << it.ctr;
+            if ((it.leaf & mask) && it.only_leaf) {
+                if (it.child & mask)
+                    it.only_leaf = 0;
+                else
+                    it.ctr++;
+                return it.t + BIT_COUNT2(it.leaf & (mask - 1));
             }
-            only_leaf = 1;
-            if (child & mask) {
-                (*t_ptr) -= BS_BIT_COUNT_CH(child & (xFF << ctr));
-                uint16_t child_offset = BS_GET_CHILD_OFFSET(*t_ptr);
-                BS_SET_CHILD_OFFSET(*t_ptr, *t_ptr - trie + child_offset);
-                *t_ptr += child_offset;
+            it.only_leaf = 1;
+            if (it.child & mask) {
+                it.t -= BS_BIT_COUNT_CH(it.child & (xFF << it.ctr));
+                uint16_t child_offset = BS_GET_CHILD_OFFSET(it.t);
+                BS_SET_CHILD_OFFSET(it.t, it.t - trie + child_offset);
+                it.t += child_offset;
                 keyPos++;
-                ctr = 0x09;
-                tc = 0;
+                it.ctr = 0x09;
+                it.tc = 0;
                 continue;
             }
-            ctr = (ctr == x07 ? 8 : FIRST_BIT_OFFSET_FROM_RIGHT((child | leaf) & (xFE << ctr)));
+            it.ctr = (it.ctr == x07 ? 8 : FIRST_BIT_OFFSET_FROM_RIGHT((it.child | it.leaf) & (xFE << it.ctr)));
         } while (1); // (s.t - trie) < BPT_TRIE_LEN);
         return 0;
     }
@@ -583,7 +606,7 @@ public:
         uint16_t tp_cpy[alloc_size];
 #endif
         int16_t tp_cpy_len = 0;
-        byte *t = new_block.trie;
+        bfos_iterator_vars it(tp, new_block.trie);
         //if (!isLeaf())
         //   cout << "Trie len:" << (int) BPT_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DX_MAX_KEY_LEN << endl;
         new_block.keyPos = 0;
@@ -593,11 +616,8 @@ public:
 #else
         util::setInt(new_block.BPT_TRIE_LEN_PTR, BS_GET_TRIE_LEN);
 #endif
-        byte tc, child, leaf;
-        tc = child = leaf = 0;
-        byte ctr = 9;
         for (idx = 0; idx < orig_filled_size; idx++) {
-            byte *leaf_ptr = new_block.nextPtr(curr_key, tp, &t, ctr, tc, child, leaf);
+            byte *leaf_ptr = new_block.nextPtr(curr_key, it);
             uint16_t src_idx = util::getInt(leaf_ptr);
             uint16_t kv_len = current_block[src_idx];
             kv_len++;
@@ -631,7 +651,7 @@ public:
             if (brk_idx == 0) {
                 //brk_key_len = nextKey(s);
                 //if (tot_len > halfKVLen) {
-                if (kv_last_pos > halfKVPos || idx == (orig_filled_size / 2)) {
+                if (kv_last_pos > halfKVPos || idx >= (orig_filled_size * 2 / 3)) {
                     //memcpy(first_key + keyPos + 1, current_block + src_idx + 1, current_block[src_idx]);
                     //first_key[keyPos+1+current_block[src_idx]] = 0;
                     //cout << first_key << ":";

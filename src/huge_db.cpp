@@ -235,7 +235,7 @@ double timedifference(uint32_t t0, uint32_t t1) {
 template<class T>
 void print(bplus_tree_handler<T> *dx, const char *key, int16_t key_len) {
     int16_t len;
-    char *value = dx->get(key, key_len, &len);
+    const char *value = dx->get(key, key_len, &len);
     if (value == null || len == 0) {
         std::cout << "Value for " << key << " is null" << endl;
         return;
@@ -1314,7 +1314,7 @@ int main(int argc, char *argv[]) {
 
     ctr = 0;
     //linex *lx = new linex();
-    //basix *lx = new basix();
+    basix *lx = new basix();
     //rb_tree *lx = new rb_tree();
     //bft *lx = new bft();
     //dft *lx = new dft();
@@ -1322,9 +1322,11 @@ int main(int argc, char *argv[]) {
     //bfqs *lx = new bfqs();
     //dfqx *lx = new dfqx();
     //dfox *lx = new dfox();
-    dfos *lx = new dfos();
+    //dfos *lx = new dfos();
     it1 = m.begin();
     start = getTimeVal();
+    byte dummy[9];
+    cout << "Ptr size:" << util::ptrToBytes((unsigned long) lx->root_block, dummy) << endl;
     if (USE_HASHTABLE) {
         it1 = m.begin();
         for (; it1 != m.end(); ++it1) {
@@ -1421,7 +1423,7 @@ int main(int argc, char *argv[]) {
     if (USE_HASHTABLE) {
         for (; it1 != m.end(); ++it1) {
             int16_t len;
-            char *value = lx->get(it1->first.c_str(), it1->first.length(), &len);
+            const char *value = lx->get(it1->first.c_str(), it1->first.length(), &len);
             checkValue(it1->first.c_str(), it1->first.length() + 1,
                     it1->second.c_str(), it1->second.length(), value, len, null_ctr, cmp);
             ctr++;
@@ -1431,7 +1433,7 @@ int main(int argc, char *argv[]) {
             int16_t len;
             byte key_len = data_buf[pos++];
             byte value_len = data_buf[pos + key_len + 1];
-            char *value = lx->get((char *) data_buf + pos, key_len, &len);
+            const char *value = lx->get((char *) data_buf + pos, key_len, &len);
             checkValue((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
             pos += key_len + value_len + 1;
@@ -1452,10 +1454,14 @@ int main(int argc, char *argv[]) {
     //bfos::count = 0;
     it1 = m.begin();
     start = getTimeVal();
+    __builtin_prefetch(util::bit_count2x, 0, 3);
+    __builtin_prefetch(util::bit_count2x + 64, 0, 3);
+    __builtin_prefetch(util::bit_count2x + 128, 0, 3);
+    __builtin_prefetch(util::bit_count2x + 192, 0, 3);
     if (USE_HASHTABLE) {
         for (; it1 != m.end(); ++it1) {
             int16_t len;
-            char *value = dx->get(it1->first.c_str(), it1->first.length(), &len);
+            const char *value = dx->get(it1->first.c_str(), it1->first.length(), &len);
             checkValue(it1->first.c_str(), it1->first.length() + 1,
                     it1->second.c_str(), it1->second.length(), value, len, null_ctr, cmp);
             ctr++;
@@ -1465,7 +1471,7 @@ int main(int argc, char *argv[]) {
             int16_t len;
             byte key_len = data_buf[pos++];
             byte value_len = data_buf[pos + key_len + 1];
-            char *value = dx->get((char *) data_buf + pos, key_len, &len);
+            const char *value = dx->get((char *) data_buf + pos, key_len, &len);
             checkValue((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
             pos += key_len + value_len + 1;
