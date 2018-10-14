@@ -34,14 +34,20 @@ using namespace std;
 #else
 #define DS_GET_TRIE_LEN util::getInt(BPT_TRIE_LEN_PTR)
 #define DS_SET_TRIE_LEN(x) util::setInt(BPT_TRIE_LEN_PTR, x)
-#define DS_GET_SIBLING_OFFSET(x) util::getInt(x)
-#define DS_SET_SIBLING_OFFSET(x, off) util::setInt(x, off)
+#define DS_GET_SIBLING_OFFSET(x) (util::getInt(x) & 0x3FFF)
+#define DS_SET_SIBLING_OFFSET(x, off) util::setInt(x, off + (((*x) & 0xC0) << 8))
+#undef DS_MAX_PTRS
+#define DS_MAX_PTRS 1023
 #endif
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class dfos : public bpt_trie_handler<dfos> {
 public:
+#if DS_SIBLING_PTR_SIZE == 1
     byte pos, key_at_pos;
+#else
+    int pos, key_at_pos;
+#endif
     const static byte need_counts[10];
 
     dfos(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
@@ -75,6 +81,9 @@ public:
                 break;
             case 2:
                 pos += *t++;
+#if DS_SIBLING_PTR_SIZE == 2
+                pos += ((*t & xC0) << 2);
+#endif
                 t += DS_GET_SIBLING_OFFSET(t);
                 break;
             case 1:
@@ -100,6 +109,9 @@ public:
             case 0:
                 if (trie_char & x02) {
                     pos += *t++;
+#if DS_SIBLING_PTR_SIZE == 2
+                    pos += ((*t & xC0) << 2);
+#endif
                     t += DS_GET_SIBLING_OFFSET(t);
                 } else
                     pos += BIT_COUNT(*t++);
@@ -282,6 +294,9 @@ public:
                 pos = BIT_COUNT(leaves);
                 byte *new_t = skipChildren(t + 3 + DS_SIBLING_PTR_SIZE, BIT_COUNT(children));
                 *t++ = pos;
+#if DS_SIBLING_PTR_SIZE == 2
+                *t = (pos & 0x0300) >> 2;
+#endif
                 DS_SET_SIBLING_OFFSET(t, new_t - t);
                 t = new_t;
             } else
@@ -331,6 +346,9 @@ public:
                 pos = BIT_COUNT(leaves);
                 new_t = skipChildren(t + 3 + DS_SIBLING_PTR_SIZE, BIT_COUNT(children));
                 *t++ = pos;
+#if DS_SIBLING_PTR_SIZE == 2
+                *t = (pos & 0x0300) >> 2;
+#endif
                 DS_SET_SIBLING_OFFSET(t, new_t - t);
             } else
                 *t &= ((idx == brk_key_len ? xFF : xFE) << offset); // left_incl_mask[offset] : left_mask[offset]);
@@ -350,8 +368,13 @@ public:
             t++;
             if (tc & x02) {
                 if ((t + DS_GET_SIBLING_OFFSET(t)) > covering_upto) {
+                    // can be improved
                     DS_SET_SIBLING_OFFSET(t, DS_GET_SIBLING_OFFSET(t) + diff);
-                    (*(t-1))++;
+                    (*(t - 1))++;
+#if DS_SIBLING_PTR_SIZE == 2
+                    if (*(t - 1) == 0)
+                        (*t) += 0x40;
+#endif
                     t += (2 + DS_SIBLING_PTR_SIZE);
                 } else
                     t += DS_GET_SIBLING_OFFSET(t);
@@ -491,12 +514,12 @@ public:
         }
         kv_last_pos = new_block.getKVLastPos();
 
-    #if BPT_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
         memcpy(current_block + DFOS_HDR_SIZE, new_block.current_block + DFOS_HDR_SIZE, DS_MAX_PTR_BITMAP_BYTES);
         memcpy(trie + DS_GET_TRIE_LEN, new_block.trie + util::getInt(new_block.BPT_TRIE_LEN_PTR), brk_idx);
-    #else
+#else
         memcpy(trie + DS_GET_TRIE_LEN, new_block.trie + util::getInt(new_block.BPT_TRIE_LEN_PTR), (brk_idx << 1));
-    #endif
+#endif
 
         {
             if (isLeaf()) {
@@ -525,25 +548,25 @@ public:
         }
 
         {
-    #if BPT_9_BIT_PTR == 1
-    #if BPT_INT64MAP == 1
+#if BPT_9_BIT_PTR == 1
+#if BPT_INT64MAP == 1
             (*new_block.bitmap) <<= brk_idx;
-    #else
+#else
             if (brk_idx & 0xFFE0)
             *new_block.bitmap1 = *new_block.bitmap2 << (brk_idx - 32);
             else {
                 *new_block.bitmap1 <<= brk_idx;
                 *new_block.bitmap1 |= (*new_block.bitmap2 >> (32 - brk_idx));
             }
-    #endif
-    #endif
+#endif
+#endif
             int16_t new_size = orig_filled_size - brk_idx;
             byte *block_ptrs = new_block.trie + util::getInt(new_block.BPT_TRIE_LEN_PTR);
-    #if BPT_9_BIT_PTR == 1
+#if BPT_9_BIT_PTR == 1
             memmove(block_ptrs, block_ptrs + brk_idx, new_size);
-    #else
+#else
             memmove(block_ptrs, block_ptrs + (brk_idx << 1), new_size << 1);
-    #endif
+#endif
             new_block.setKVLastPos(brk_kv_pos);
             new_block.setFilledSize(new_size);
         }
@@ -637,7 +660,7 @@ public:
                 origPos[1] |= mask;
             updateSkipLens(origPos, origPos + 1, 0);
             break;
-    #if DS_MIDDLE_PREFIX == 1
+#if DS_MIDDLE_PREFIX == 1
         case INSERT_CONVERT:
             byte b, c;
             char cmp_rel;
@@ -667,19 +690,23 @@ public:
                 *triePos++ = 1 << (key_char & x07);
                 *triePos++ = (c & xF8) | x06;
             }
-            b = pos;
+            key_at_pos = pos;
             pos = (cmp_rel == 2 ? 1 : 0);
-            DS_SET_SIBLING_OFFSET(triePos + 1, skipChildren(triePos + need_count + (need_count ? 1 : 0)
-                    + 3 + DS_SIBLING_PTR_SIZE, 1) - triePos - 1);
+            origPos = skipChildren(triePos + need_count + (need_count ? 1 : 0)
+                    + 3 + DS_SIBLING_PTR_SIZE, 1);
             *triePos++ = pos;
+#if DS_SIBLING_PTR_SIZE == 2
+            *triePos = (pos & 0x0300) >> 2;
+#endif
+            DS_SET_SIBLING_OFFSET(triePos, origPos - triePos);
             triePos += DS_SIBLING_PTR_SIZE;
-            pos = b;
+            pos = key_at_pos;
             *triePos++ = 1 << (c & x07);
             *triePos++ = (cmp_rel == 2) ? 1 << (key_char & x07) : 0;
             if (need_count)
                 *triePos = (need_count << 1) | x01;
             break;
-    #endif
+#endif
         case INSERT_THREAD:
             uint16_t p, min;
             byte c1, c2;
@@ -756,6 +783,7 @@ public:
                     need_count -= (4 + DS_SIBLING_PTR_SIZE);
                     *triePos++ = (c1 & xF8) | x06;
                     *triePos++ = 2;
+                    *triePos = 0;
                     DS_SET_SIBLING_OFFSET(triePos, need_count + 2 + DS_SIBLING_PTR_SIZE);
                     triePos += DS_SIBLING_PTR_SIZE;
                     *triePos++ = x01 << (c1 & x07);
@@ -775,6 +803,7 @@ public:
                 case 3:
                     *triePos++ = (c1 & xF8) | x06;
                     *triePos++ = x02;
+                    *triePos = 0;
                     DS_SET_SIBLING_OFFSET(triePos, 4 + DS_SIBLING_PTR_SIZE);
                     triePos += DS_SIBLING_PTR_SIZE;
                     *triePos++ = x01 << (c1 & x07);
