@@ -12,6 +12,7 @@
 #include "basix.h"
 #include "dfox.h"
 #include "dfos.h"
+#include "octp.h"
 #include "dfqx.h"
 #include "bft.h"
 #include "dft.h"
@@ -51,6 +52,7 @@ int CHAR_SET = 2;
 int KEY_LEN = 8;
 int VALUE_LEN = 4;
 int USE_HASHTABLE = 0;
+int TEST_HASHTABLE = 1;
 int ctr = 0;
 
 int64_t insert(unordered_map<string, string>& m, byte *data_buf) {
@@ -1129,18 +1131,18 @@ int main4() {
     util::generateBitCounts();
     //basix *dx = new basix();
     //bfos *dx = new bfos();
-    dfox *dx = new dfox();
+    octp *dx = new octp();
     //bft *dx = new bft();
     //dft *dx = new dft();
     //rb_tree *dx = new rb_tree();
     //dfqx *dx = new dfqx();
     //linex *dx = new linex();
 
-    dx->put("juhdncll", 8, "dhuj", 4);
-    dx->put("ttdhazel", 8, "hdtt", 4);
+    dx->put("hello", 5, "dhuj", 4);
+    dx->put("world", 8, "hdtt", 4);
 
-    print(dx, "juhdncll", 8);
-    print(dx, "ttdhazel", 8);
+    print(dx, "hello", 8);
+    print(dx, "world", 8);
 
     dx->printStats(NUM_ENTRIES);
     dx->printNumLevels();
@@ -1222,10 +1224,6 @@ int main(int argc, char *argv[]) {
         }
     }
     stop = getTimeVal();
-    cout << "HashMap insert time:" << timedifference(start, stop) << endl;
-    cout << "Number of entries: " << NUM_ENTRIES << ",";
-    cout << "HashMap size:" << m.size() << endl;
-    //getchar();
 
     unordered_map<string, string>::iterator it;
     int null_ctr = 0;
@@ -1311,6 +1309,22 @@ int main(int argc, char *argv[]) {
     stop = getTimeVal();
     cout << "ART Insert Time:" << timedifference(start, stop) << endl;
     //getchar();
+
+    if (TEST_HASHTABLE) {
+        start = getTimeVal();
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            byte key_len = data_buf[pos++];
+            byte value_len = data_buf[pos + key_len + 1];
+            m.insert(pair<string, string>((char *) data_buf + pos, (char *) data_buf + pos + key_len + 2));
+            pos += key_len + value_len + 1;
+            ctr++;
+        }
+        stop = getTimeVal();
+        cout << "HashMap insert time:" << timedifference(start, stop) << ", ";
+        cout << "Number of entries: " << NUM_ENTRIES << ", ";
+        cout << "HashMap size:" << m.size() << endl;
+        //getchar();
+    }
 
     ctr = 0;
     //linex *lx = new linex();
@@ -1410,10 +1424,33 @@ int main(int argc, char *argv[]) {
         }
     }
     stop = getTimeVal();
-    cout << "ART Get Time:" << timedifference(start, stop) << endl;
-    cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
+    cout << "ART Get Time:" << timedifference(start, stop) << ", ";
+    cout << "Null:" << null_ctr << ", Cmp:" << cmp << ", ";
     cout << "ART Size:" << art_size(&at) << endl;
     //getchar();
+
+    if (TEST_HASHTABLE) {
+        cmp = 0;
+        ctr = 0;
+        null_ctr = 0;
+        start = getTimeVal();
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            int16_t len;
+            byte key_len = data_buf[pos++];
+            byte value_len = data_buf[pos + key_len + 1];
+            it = m.find((char *) (data_buf + pos));
+            char *value = (char *) it->second.c_str();
+            len = value_len;
+            checkValue((char *) data_buf + pos, key_len,
+                    (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
+            pos += key_len + value_len + 1;
+            ctr++;
+        }
+        stop = getTimeVal();
+        cout << "Hashtable Get Time:" << timedifference(start, stop) << ", ";
+        cout << "Null:" << null_ctr << ", Cmp:" << cmp << ", ";
+        cout << "Size:" << ctr << endl;
+    }
 
     cmp = 0;
     ctr = 0;
@@ -1441,7 +1478,7 @@ int main(int argc, char *argv[]) {
         }
     }
     stop = getTimeVal();
-    cout << "B+Tree Get Time:" << timedifference(start, stop) << endl;
+    cout << "B+Tree Get Time:" << timedifference(start, stop) << ", ";
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
     lx->printStats(NUM_ENTRIES);
     lx->printNumLevels();
@@ -1479,8 +1516,8 @@ int main(int argc, char *argv[]) {
         }
     }
     stop = getTimeVal();
+    cout << "DFox+Tree get time:" << timedifference(start, stop) << ", ";
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
-    cout << "DFox+Tree get time:" << timedifference(start, stop) << endl;
     dx->printStats(NUM_ENTRIES);
     dx->printNumLevels();
     //dx->printCounts();

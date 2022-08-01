@@ -109,7 +109,7 @@ public:
 
     void setCurrentBlockRoot();
     void setCurrentBlock(byte *m);
-    const char *get(const char *key, uint8_t key_len, int16_t *pValueLen) {
+    char *get(const char *key, uint8_t key_len, int16_t *pValueLen) {
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
         this->key_len = key_len;
@@ -256,10 +256,10 @@ public:
             } else
                 static_cast<T*>(this)->addData(search_result);
         } else {
-            //if (node->isLeaf) {
-            //    int16_t vIdx = idx + mSizeBy2;
-            //    returnValue = (V) arr[vIdx];
-            //    arr[vIdx] = value;
+            //if (isLeaf()) {
+            //    this->key_at += this->key_at_len;
+            //    if (*key_at == this->value_len) {
+            //        memcpy((char *) key_at + 1, this->value, this->value_len);
             //}
         }
     }
