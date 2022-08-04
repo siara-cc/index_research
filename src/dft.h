@@ -21,8 +21,9 @@ public:
     int16_t pos, key_at_pos;
 
     dft(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
-            uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE) :
-        bpt_trie_handler<dft>(leaf_block_sz, parent_block_sz) {
+            uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
+            const char *fname = NULL) :
+        bpt_trie_handler<dft>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
     }
 
     inline void setCurrentBlockRoot() {
@@ -239,7 +240,7 @@ public:
     byte *split(byte *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filledSize();
         const uint16_t DFT_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        byte *b = (byte *) util::alignedAlloc(DFT_NODE_SIZE);
+        byte *b = allocateBlock(DFT_NODE_SIZE);
         dft new_block;
         new_block.setCurrentBlock(b);
         new_block.initCurrentBlock();

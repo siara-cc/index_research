@@ -2,4 +2,6 @@
 /Release
 /index.pdf
 /huge_db
+.DS_Store
+*.ix
 

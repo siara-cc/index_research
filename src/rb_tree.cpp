@@ -75,7 +75,7 @@ void rb_tree::addData(int16_t search_result) {
 byte *rb_tree::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t filled_upto = filledUpto();
     const uint16_t RB_TREE_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-    byte *b = (byte *) util::alignedAlloc(RB_TREE_NODE_SIZE);
+    byte *b = allocateBlock(RB_TREE_NODE_SIZE);
     rb_tree new_block;
     new_block.setCurrentBlock(b);
     new_block.initCurrentBlock();

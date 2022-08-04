@@ -1139,10 +1139,10 @@ int main4() {
     //linex *dx = new linex();
 
     dx->put("hello", 5, "dhuj", 4);
-    dx->put("world", 8, "hdtt", 4);
+    dx->put("world", 5, "hdtt", 4);
 
-    print(dx, "hello", 8);
-    print(dx, "world", 8);
+    print(dx, "hello", 5);
+    print(dx, "world", 5);
 
     dx->printStats(NUM_ENTRIES);
     dx->printNumLevels();
@@ -1164,6 +1164,118 @@ int main6() {
     return 1;
 }
 
+int main() {
+    util::generateBitCounts();
+    //basix *dx = new basix(512, 512, 4, "test.ix");
+    bfos *dx = new bfos(512, 512, 4, "test.ix");
+    //octp *dx = new octp();
+    //bft *dx = new bft();
+    //dft *dx = new dft();
+    //rb_tree *dx = new rb_tree();
+    //dfqx *dx = new dfqx();
+    //linex *dx = new linex();
+
+    dx->put("hello", 5, "dhuj", 4);
+    dx->put("world", 5, "hdtt", 4);
+
+    dx->put("resin", 5, "3", 1);
+    dx->put("rinse", 5, "2", 1);
+    dx->put("rickshaw", 8, "4", 1);
+    dx->put("ride", 4, "5", 1);
+    dx->put("rider", 5, "6", 1);
+    dx->put("rid", 3, "5.5", 3);
+    dx->put("rice", 4, "7", 1);
+    dx->put("rick", 4, "8", 1);
+    dx->put("aruna", 5, "9", 1);
+    dx->put("hello", 5, "10", 2);
+    dx->put("world", 5, "11", 2);
+    dx->put("how", 3, "12", 2);
+    dx->put("are", 3, "13", 2);
+    dx->put("you", 3, "14", 2);
+    dx->put("hundred", 7, "100", 3);
+    dx->put("boy", 3, "15", 2);
+    dx->put("boat", 4, "16", 2);
+    dx->put("thousand", 8, "1000", 4);
+    dx->put("buoy", 4, "17", 2);
+    dx->put("boast", 5, "18", 2);
+    dx->put("January", 7, "first", 5);
+    dx->put("February", 8, "second", 6);
+    dx->put("March", 5, "third", 5);
+    dx->put("April", 5, "forth", 5);
+    dx->put("May", 3, "fifth", 5);
+    dx->put("June", 4, "sixth", 5);
+    dx->put("July", 4, "seventh", 7);
+    dx->put("August", 6, "eighth", 6);
+    dx->put("September", 9, "ninth", 5);
+    dx->put("October", 7, "tenth", 5);
+    dx->put("November", 8, "eleventh", 8);
+    dx->put("December", 8, "twelfth", 7);
+    dx->put("Sunday", 6, "one", 3);
+    dx->put("Monday", 6, "two", 3);
+    dx->put("Tuesday", 7, "three", 5);
+    dx->put("Wednesday", 9, "four", 4);
+    dx->put("Thursday", 8, "five", 4);
+    dx->put("Friday", 6, "six", 3);
+    dx->put("Saturday", 8, "seven", 7);
+    dx->put("casa", 4, "nova", 4);
+    dx->put("young", 5, "19", 2);
+    dx->put("youth", 5, "20", 2);
+
+    print(dx, "hello", 5);
+    print(dx, "world", 5);
+
+    print(dx, "resin", 5);
+    print(dx, "rinse", 5);
+    print(dx, "rickshaw", 8);
+    print(dx, "ride", 4);
+    print(dx, "rider", 5);
+    print(dx, "rid", 3);
+    print(dx, "rice", 4);
+    print(dx, "rick", 4);
+    print(dx, "aruna", 5);
+    print(dx, "hello", 5);
+    print(dx, "world", 5);
+    print(dx, "how", 3);
+    print(dx, "are", 3);
+    print(dx, "you", 3);
+    print(dx, "hundred", 7);
+    print(dx, "boy", 3);
+    print(dx, "boat", 4);
+    print(dx, "thousand", 8);
+    print(dx, "buoy", 4);
+    print(dx, "boast", 5);
+    print(dx, "January", 7);
+    print(dx, "February", 8);
+    print(dx, "March", 5);
+    print(dx, "April", 5);
+    print(dx, "May", 3);
+    print(dx, "June", 4);
+    print(dx, "July", 4);
+    print(dx, "August", 6);
+    print(dx, "September", 9);
+    print(dx, "October", 7);
+    print(dx, "November", 8);
+    print(dx, "December", 8);
+    print(dx, "Sunday", 6);
+    print(dx, "Monday", 6);
+    print(dx, "Tuesday", 7);
+    print(dx, "Wednesday", 9);
+    print(dx, "Thursday", 8);
+    print(dx, "Friday", 6);
+    print(dx, "Saturday", 8);
+    print(dx, "casa", 4);
+    print(dx, "young", 5);
+    print(dx, "youth", 5);
+
+    delete dx;
+
+    dx->printStats(NUM_ENTRIES);
+    dx->printNumLevels();
+    std::cout << "Size:" << dx->size() << endl;
+    std::cout << "Trie Size:" << (int) dx->BPT_TRIE_LEN << endl;
+    return 0;
+}
+
 void checkValue(const char *key, int key_len, const char *val, int val_len,
         const char *returned_value, int returned_len, int& null_ctr, int& cmp) {
     if (returned_value == null) {
@@ -1181,7 +1293,7 @@ void checkValue(const char *key, int key_len, const char *val, int val_len,
     }
 }
 
-int main(int argc, char *argv[]) {
+int main7(int argc, char *argv[]) {
 
     if (argc > 1) {
         if (argv[1][0] >= '0' && argv[1][0] <= '9')
