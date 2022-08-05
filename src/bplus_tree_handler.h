@@ -213,7 +213,7 @@ public:
 
     byte *allocateBlock(int size) {
         if (cache_size > 0)
-            return cache->writeNewPage();
+            return cache->writeNewPage(current_block);
         return (byte *) util::alignedAlloc(size);
     }
 
@@ -261,7 +261,7 @@ public:
                     blockCountNode++;
                     int old_page = 0;
                     if (cache_size > 0) {
-                        old_block = cache->writeNewPage();
+                        old_block = cache->writeNewPage(NULL);
                         memcpy(old_block, root_block, parent_block_size);
                         old_page = cache->get_page_count() - 1;
                     } else

@@ -51,6 +51,11 @@ unsigned long NUM_ENTRIES = 40;
 int CHAR_SET = 2;
 int KEY_LEN = 8;
 int VALUE_LEN = 4;
+int LEAF_PAGE_SIZE = DEFAULT_LEAF_BLOCK_SIZE;
+int PARENT_PAGE_SIZE = DEFAULT_PARENT_BLOCK_SIZE;
+int CACHE_SIZE = 0;
+char *OUT_FILE1 = NULL;
+char *OUT_FILE2 = NULL;
 int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 1;
 int ctr = 0;
@@ -1164,10 +1169,10 @@ int main6() {
     return 1;
 }
 
-int main() {
+int main7() {
     util::generateBitCounts();
     //basix *dx = new basix(512, 512, 4, "test.ix");
-    bfos *dx = new bfos(512, 512, 4, "test.ix");
+    bfos *dx = new bfos(512, 512, 2, "test.ix");
     //octp *dx = new octp();
     //bft *dx = new bft();
     //dft *dx = new dft();
@@ -1175,97 +1180,11 @@ int main() {
     //dfqx *dx = new dfqx();
     //linex *dx = new linex();
 
-    dx->put("hello", 5, "dhuj", 4);
-    dx->put("world", 5, "hdtt", 4);
+    dx->put("Hello", 5, "World", 5);
+    dx->put("Nice", 4, "Place", 5);
 
-    dx->put("resin", 5, "3", 1);
-    dx->put("rinse", 5, "2", 1);
-    dx->put("rickshaw", 8, "4", 1);
-    dx->put("ride", 4, "5", 1);
-    dx->put("rider", 5, "6", 1);
-    dx->put("rid", 3, "5.5", 3);
-    dx->put("rice", 4, "7", 1);
-    dx->put("rick", 4, "8", 1);
-    dx->put("aruna", 5, "9", 1);
-    dx->put("hello", 5, "10", 2);
-    dx->put("world", 5, "11", 2);
-    dx->put("how", 3, "12", 2);
-    dx->put("are", 3, "13", 2);
-    dx->put("you", 3, "14", 2);
-    dx->put("hundred", 7, "100", 3);
-    dx->put("boy", 3, "15", 2);
-    dx->put("boat", 4, "16", 2);
-    dx->put("thousand", 8, "1000", 4);
-    dx->put("buoy", 4, "17", 2);
-    dx->put("boast", 5, "18", 2);
-    dx->put("January", 7, "first", 5);
-    dx->put("February", 8, "second", 6);
-    dx->put("March", 5, "third", 5);
-    dx->put("April", 5, "forth", 5);
-    dx->put("May", 3, "fifth", 5);
-    dx->put("June", 4, "sixth", 5);
-    dx->put("July", 4, "seventh", 7);
-    dx->put("August", 6, "eighth", 6);
-    dx->put("September", 9, "ninth", 5);
-    dx->put("October", 7, "tenth", 5);
-    dx->put("November", 8, "eleventh", 8);
-    dx->put("December", 8, "twelfth", 7);
-    dx->put("Sunday", 6, "one", 3);
-    dx->put("Monday", 6, "two", 3);
-    dx->put("Tuesday", 7, "three", 5);
-    dx->put("Wednesday", 9, "four", 4);
-    dx->put("Thursday", 8, "five", 4);
-    dx->put("Friday", 6, "six", 3);
-    dx->put("Saturday", 8, "seven", 7);
-    dx->put("casa", 4, "nova", 4);
-    dx->put("young", 5, "19", 2);
-    dx->put("youth", 5, "20", 2);
-
-    print(dx, "hello", 5);
-    print(dx, "world", 5);
-
-    print(dx, "resin", 5);
-    print(dx, "rinse", 5);
-    print(dx, "rickshaw", 8);
-    print(dx, "ride", 4);
-    print(dx, "rider", 5);
-    print(dx, "rid", 3);
-    print(dx, "rice", 4);
-    print(dx, "rick", 4);
-    print(dx, "aruna", 5);
-    print(dx, "hello", 5);
-    print(dx, "world", 5);
-    print(dx, "how", 3);
-    print(dx, "are", 3);
-    print(dx, "you", 3);
-    print(dx, "hundred", 7);
-    print(dx, "boy", 3);
-    print(dx, "boat", 4);
-    print(dx, "thousand", 8);
-    print(dx, "buoy", 4);
-    print(dx, "boast", 5);
-    print(dx, "January", 7);
-    print(dx, "February", 8);
-    print(dx, "March", 5);
-    print(dx, "April", 5);
-    print(dx, "May", 3);
-    print(dx, "June", 4);
-    print(dx, "July", 4);
-    print(dx, "August", 6);
-    print(dx, "September", 9);
-    print(dx, "October", 7);
-    print(dx, "November", 8);
-    print(dx, "December", 8);
-    print(dx, "Sunday", 6);
-    print(dx, "Monday", 6);
-    print(dx, "Tuesday", 7);
-    print(dx, "Wednesday", 9);
-    print(dx, "Thursday", 8);
-    print(dx, "Friday", 6);
-    print(dx, "Saturday", 8);
-    print(dx, "casa", 4);
-    print(dx, "young", 5);
-    print(dx, "youth", 5);
+    print(dx, "Hello", 5);
+    print(dx, "Nice", 4);
 
     delete dx;
 
@@ -1293,7 +1212,7 @@ void checkValue(const char *key, int key_len, const char *val, int val_len,
     }
 }
 
-int main7(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 
     if (argc > 1) {
         if (argv[1][0] >= '0' && argv[1][0] <= '9')
@@ -1306,12 +1225,30 @@ int main7(int argc, char *argv[]) {
                 USE_HASHTABLE = atoi(argv[3]);
         }
     }
-    if (argc > 2 && IMPORT_FILE == null)
-        CHAR_SET = atoi(argv[2]);
-    if (argc > 3 && IMPORT_FILE == null)
-        KEY_LEN = atoi(argv[3]);
-    if (argc > 4 && IMPORT_FILE == null)
-        VALUE_LEN = atoi(argv[4]);
+    char out_file1[100];
+    char out_file2[100];
+    if (IMPORT_FILE == NULL) {
+        if (argc > 2)
+            CHAR_SET = atoi(argv[2]);
+        if (argc > 3)
+            KEY_LEN = atoi(argv[3]);
+        if (argc > 4)
+            VALUE_LEN = atoi(argv[4]);
+        if (argc > 5)
+            LEAF_PAGE_SIZE = atoi(argv[5]);
+        if (argc > 6)
+            PARENT_PAGE_SIZE = atoi(argv[6]);
+        if (argc > 7)
+            CACHE_SIZE = atoi(argv[7]);
+        if (argc > 8) {
+            OUT_FILE1 = out_file1;
+            strcpy(OUT_FILE1, "f1_");
+            strcat(OUT_FILE1, argv[8]);
+            OUT_FILE2 = out_file2;
+            strcpy(OUT_FILE2, "f2_");
+            strcat(OUT_FILE2, argv[8]);
+        }
+    }
 
     int64_t data_alloc_sz = (IMPORT_FILE == NULL ? (KEY_LEN + VALUE_LEN + 3) * NUM_ENTRIES // including \0 at end of key
             : getImportFileSize() + 110000000); // extra 30mb for 7 + key_len + value_len + \0 for max 11 mil entries
@@ -1440,7 +1377,7 @@ int main7(int argc, char *argv[]) {
 
     ctr = 0;
     //linex *lx = new linex();
-    basix *lx = new basix();
+    basix *lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //rb_tree *lx = new rb_tree();
     //bft *lx = new bft();
     //dft *lx = new dft();
@@ -1478,7 +1415,7 @@ int main7(int argc, char *argv[]) {
     //linex *dx = new linex();
     //basix *dx = new basix();
     //bft *dx = new bft();
-    bfos *dx = new bfos();
+    bfos *dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //bfqs *dx = new bfqs();
     //dft *dx = new dft();
     //dfqx *dx = new dfqx();
@@ -1643,6 +1580,9 @@ int main7(int argc, char *argv[]) {
                     << "\"," << endl;
         }
     }
+
+    delete lx;
+    delete dx;
 
     free(data_buf);
     return 0;
