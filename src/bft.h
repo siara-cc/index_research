@@ -39,8 +39,8 @@ public:
     byte to_pick_leaf;
     bft(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL) :
-        bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+            const char *fname = NULL, byte *block = NULL) :
+        bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
         split_buf = (byte *) util::alignedAlloc(leaf_block_size > parent_block_size ?
                 leaf_block_size : parent_block_size);
     }
@@ -347,17 +347,13 @@ public:
         int16_t orig_filled_size = filledSize();
         const uint16_t BFT_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         byte *b = allocateBlock(BFT_NODE_SIZE);
-        bft new_block;
-        new_block.setCurrentBlock(b);
-        new_block.initCurrentBlock();
+        bft new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
         new_block.setKVLastPos(BFT_NODE_SIZE);
         if (!isLeaf())
             new_block.setLeaf(0);
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
-        bft old_block;
-        old_block.setCurrentBlock(split_buf);
-        old_block.initCurrentBlock();
+        bft old_block(this->leaf_block_size, this->parent_block_size, 0, NULL, split_buf);
         if (!isLeaf())
             old_block.setLeaf(0);
         old_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;

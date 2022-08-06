@@ -22,8 +22,8 @@ public:
     int16_t pos;
     basix(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL) :
-        bplus_tree_handler<basix>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+            const char *fname = NULL, byte *block = NULL) :
+        bplus_tree_handler<basix>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
     }
 
     inline void setCurrentBlockRoot() {
@@ -94,9 +94,7 @@ public:
         int16_t orig_filled_size = filledSize();
         const uint16_t BASIX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         byte *b = allocateBlock(BASIX_NODE_SIZE);
-        basix new_block;
-        new_block.setCurrentBlock(b);
-        new_block.initCurrentBlock();
+        basix new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
         //new_block.setKVLastPos(BASIX_NODE_SIZE);
         if (!isLeaf())
             new_block.setLeaf(false);

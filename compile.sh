@@ -1,4 +1,4 @@
-export COMPILE_OPTS=-g
+export COMPILE_OPTS=-O3
 g++ -I./hdr -I./src $COMPILE_OPTS -Wall -c -fmessage-length=0 -o Release/src/huge_db.o ./src/huge_db.cpp
 g++ -I./hdr -I./src $COMPILE_OPTS -Wall -c -fmessage-length=0 -o Release/src/art.o ./src/art.cpp
 g++ -I./hdr -I./src $COMPILE_OPTS -Wall -c -fmessage-length=0 -o Release/src/rb_tree.o ./src/rb_tree.cpp

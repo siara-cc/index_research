@@ -186,7 +186,7 @@ public:
         return 0;
     }
 
-    static void *alignedAlloc(uint16_t blockSize) {
+    static void *alignedAlloc(unsigned int blockSize) {
 #if defined(ARDUINO)
         return malloc ((unsigned int)blockSize);
 #elif defined(_MSC_VER)

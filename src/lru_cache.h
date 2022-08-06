@@ -27,6 +27,7 @@ protected:
     dbl_lnklst *lnklst_first_entry;
     dbl_lnklst *lnklst_last_entry;
     unordered_map<int, dbl_lnklst*> disk_to_cache_map;
+    dbl_lnklst *llarr;
     const char *filename;
     FILE *fp;
     int file_page_count;
@@ -40,6 +41,8 @@ public:
         filename = fname;
         page_cache = (byte *) util::alignedAlloc(pg_size * page_count);
         root_block = (byte *) util::alignedAlloc(pg_size);
+        llarr = (dbl_lnklst *) util::alignedAlloc(page_count * sizeof(dbl_lnklst));
+        disk_to_cache_map.reserve(page_count);
         file_page_count = 0;
         fp = fopen(fname, "rb+");
         if (fp == NULL) {
@@ -69,7 +72,7 @@ public:
             int write_count = fwrite(&page_cache[page_size * it->second->cache_loc], 1, page_size, fp);
             if (write_count != page_size) {}
                 //cout << "0:Only " << write_count << " bytes written at position: " << page_size * it->first << endl;
-            delete disk_to_cache_map[it->first];
+            //delete disk_to_cache_map[it->first];
         }
         free(page_cache);
         fseek(fp, 0, SEEK_SET);
@@ -77,6 +80,7 @@ public:
         if (write_count != page_size) {}
             //cout << "1:Only " << write_count << " bytes written at position: 0" << endl;
         free(root_block);
+        free(llarr);
     }
     void move_to_front(dbl_lnklst *entry_to_move) {
         if (entry_to_move != lnklst_first_entry) {
@@ -98,7 +102,7 @@ public:
         int removed_disk_page = 0;
         if (disk_to_cache_map.find(disk_page) == disk_to_cache_map.end()) {
             if (cache_occupied_size < cache_size_in_pages) {
-                dbl_lnklst *new_entry = new dbl_lnklst();
+                dbl_lnklst *new_entry = &llarr[cache_occupied_size]; // new dbl_lnklst();
                 new_entry->disk_page = disk_page;
                 new_entry->cache_loc = cache_occupied_size;
                 new_entry->prev = lnklst_last_entry;
@@ -121,10 +125,14 @@ public:
                     entry_to_move = lnklst_last_entry->prev;
                 removed_disk_page = entry_to_move->disk_page;
                 cache_pos = entry_to_move->cache_loc;
-                fseek(fp, page_size * removed_disk_page, SEEK_SET);
-                int write_count = fwrite(&page_cache[page_size * cache_pos], 1, page_size, fp);
-                if (write_count != page_size) {}
-                    //cout << "3:Only " << write_count << "bytes written at position: " << page_size * removed_disk_page << endl;
+                byte *block = &page_cache[page_size * cache_pos];
+                if (block[0] & 0x02) { // is it changed
+                    block[0] &= 0xFD; // unchange it
+                    fseek(fp, page_size * removed_disk_page, SEEK_SET);
+                    int write_count = fwrite(&page_cache[page_size * cache_pos], 1, page_size, fp);
+                    if (write_count != page_size) {}
+                        //cout << "3:Only " << write_count << "bytes written at position: " << page_size * removed_disk_page << endl;
+                }
                 move_to_front(entry_to_move);
                 entry_to_move->disk_page = disk_page;
                 disk_to_cache_map.erase(removed_disk_page);

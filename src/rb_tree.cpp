@@ -76,9 +76,7 @@ byte *rb_tree::split(byte *first_key, int16_t *first_len_ptr) {
     int16_t filled_upto = filledUpto();
     const uint16_t RB_TREE_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
     byte *b = allocateBlock(RB_TREE_NODE_SIZE);
-    rb_tree new_block;
-    new_block.setCurrentBlock(b);
-    new_block.initCurrentBlock();
+    rb_tree new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
     new_block.setKVLastPos(RB_TREE_NODE_SIZE);
     if (!isLeaf())
         new_block.setLeaf(false);

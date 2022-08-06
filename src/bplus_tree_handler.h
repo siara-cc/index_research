@@ -14,7 +14,7 @@
 
 using namespace std;
 
-#define BPT_IS_LEAF_BYTE current_block[0]
+#define BPT_IS_LEAF_BYTE current_block[0] & 0x01
 #define BPT_FILLED_SIZE current_block + 1
 #define BPT_LAST_DATA_PTR current_block + 3
 #define BPT_MAX_KEY_LEN current_block[5]
@@ -57,7 +57,9 @@ protected:
     int blockCountNode;
     int blockCountLeaf;
     long count1, count2;
+    int max_key_len;
     lru_cache *cache;
+    int is_block_given;
 
 public:
     byte *root_block;
@@ -82,7 +84,7 @@ public:
     const char *filename;
     bplus_tree_handler(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL) :
+            const char *fname = NULL, byte *block = NULL) :
             leaf_block_size (leaf_block_sz), parent_block_size (parent_block_sz),
             cache_size (cache_sz), filename (fname) {
         init_stats();
@@ -93,14 +95,19 @@ public:
                 static_cast<T*>(this)->initCurrentBlock();
             }
         } else {
-            root_block = current_block = (byte *) util::alignedAlloc(leaf_block_size);
+            root_block = current_block = (block == NULL ? (byte *) util::alignedAlloc(leaf_block_size) : block);
+            if (block != NULL)
+                static_cast<T*>(this)->setCurrentBlock(block);
             static_cast<T*>(this)->initCurrentBlock();
         }
+        is_block_given = block == NULL ? 0 : 1;
     }
 
     ~bplus_tree_handler() {
         if (cache_size > 0)
             delete cache;
+        else if (!is_block_given)
+            free(root_block);
     }
 
     void initCurrentBlock() {
@@ -116,6 +123,7 @@ public:
         total_size = maxKeyCountLeaf = maxKeyCountNode = blockCountNode = 0;
         numLevels = blockCountLeaf = 1;
         count1 = count2 = 0;
+        max_key_len = 0;
     }
 
     inline char *getValueAt(int16_t *vlen) {
@@ -212,18 +220,24 @@ public:
     }
 
     byte *allocateBlock(int size) {
-        if (cache_size > 0)
-            return cache->writeNewPage(current_block);
+        if (cache_size > 0) {
+            byte *new_page = cache->writeNewPage(current_block);
+            *new_page = 0x02; // Set changed so it gets written next time
+            return new_page;
+        }
         return (byte *) util::alignedAlloc(size);
     }
 
-    void put(const char *key, uint8_t key_len, const char *value,
-            int16_t value_len) {
+    char *put(const char *key, uint8_t key_len, const char *value,
+            int16_t value_len, int16_t *pValueLen = NULL) {
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
         this->key_len = key_len;
+        if (max_key_len < key_len)
+            max_key_len = key_len;
         this->value = value;
         this->value_len = value_len;
+        setChanged(1);
         if (filledSize() == 0) {
             static_cast<T*>(this)->addFirstData();
         } else {
@@ -232,9 +246,12 @@ public:
             int16_t search_result = isLeaf() ?
                     static_cast<T*>(this)->searchCurrentBlock() :
                     traverseToLeaf(&level_count, node_paths);
+            if (search_result >= 0 && pValueLen != NULL)
+                return getValueAt(pValueLen);
             recursiveUpdate(search_result, node_paths, level_count - 1);
         }
         total_size++;
+        return NULL;
     }
 
     void recursiveUpdate(int16_t search_result, byte *node_paths[], byte level) {
@@ -247,6 +264,7 @@ public:
                 int16_t first_len;
                 byte *old_block = current_block;
                 byte *new_block = static_cast<T*>(this)->split(first_key, &first_len);
+                setChanged(1);
                 int new_page = 0;
                 if (cache_size > 0)
                     new_page = cache->get_page_count() - 1;
@@ -265,10 +283,11 @@ public:
                         memcpy(old_block, root_block, parent_block_size);
                         old_page = cache->get_page_count() - 1;
                     } else
-                    root_block = (byte *) util::alignedAlloc(parent_block_size);
+                        root_block = (byte *) util::alignedAlloc(parent_block_size);
                     static_cast<T*>(this)->setCurrentBlock(root_block);
                     static_cast<T*>(this)->initCurrentBlock();
                     setLeaf(0);
+                    setChanged(1);
                     if (getKVLastPos() == leaf_block_size)
                         setKVLastPos(parent_block_size);
                     byte addr[9];
@@ -296,8 +315,10 @@ public:
                     search_result = static_cast<T*>(this)->searchCurrentBlock();
                     recursiveUpdate(search_result, node_paths, prev_level);
                 }
-            } else
+            } else {
                 static_cast<T*>(this)->addData(search_result);
+                setChanged(1);
+            }
         } else {
             //if (isLeaf()) {
             //    this->key_at += this->key_at_len;
@@ -383,7 +404,21 @@ public:
     }
 
     inline void setLeaf(char isLeaf) {
-        BPT_IS_LEAF_BYTE = isLeaf;
+        if (isLeaf)
+            current_block[0] |= 0x01;
+        else
+            current_block[0] &= 0xFE;
+    }
+
+    inline void setChanged(char isChanged) {
+        if (isChanged)
+            current_block[0] |= 0x02;
+        else
+            current_block[0] &= 0xFD;
+    }
+
+    inline byte isChanged() {
+        return current_block[0] & 0x02;
     }
 
     inline void setKVLastPos(uint16_t val) {
@@ -424,6 +459,8 @@ public:
         util::print((long) (maxKeyCountNode / (blockCountNode ? blockCountNode : 1)));
         util::print(", ");
         util::print((long) (maxKeyCountLeaf / blockCountLeaf));
+        util::print(", ");
+        util::print((long) max_key_len);
         util::endl();
     }
     void printNumLevels() {
@@ -442,6 +479,9 @@ public:
     long size() {
         return total_size;
     }
+    int get_max_key_len() {
+        return max_key_len;
+    }
 
 };
 
@@ -454,8 +494,8 @@ protected:
 
     bpt_trie_handler<T>(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL) :
-       bplus_tree_handler<T>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+            const char *fname = NULL, byte *block = NULL) :
+       bplus_tree_handler<T>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
         init_stats();
     }
 
