@@ -181,16 +181,17 @@ public:
     byte *getPtrPos();
 
     int16_t traverseToLeaf(int8_t *plevel_count = NULL, byte *node_paths[] = NULL) {
+        unsigned long child_page = 0;
         while (!isLeaf()) {
             if (node_paths) {
-                *node_paths++ = current_block;
+                *node_paths++ = cache_size > 0 ? (byte *) child_page : current_block;
                 (*plevel_count)++;
             }
             int16_t search_result = static_cast<T*>(this)->searchCurrentBlock();
             byte *child_ptr_loc = static_cast<T*>(this)->getChildPtrPos(search_result);
             byte *child_ptr;
             if (cache_size > 0) {
-                int child_page = getChildPage(child_ptr_loc);
+                child_page = getChildPage(child_ptr_loc);
                 child_ptr = cache->get_disk_page_in_cache(child_page);
             } else
                 child_ptr = getChildPtr(child_ptr_loc);
@@ -241,11 +242,12 @@ public:
         if (filledSize() == 0) {
             static_cast<T*>(this)->addFirstData();
         } else {
-            byte *node_paths[7];
+            byte *node_paths[9];
             int8_t level_count = 1;
             int16_t search_result = isLeaf() ?
                     static_cast<T*>(this)->searchCurrentBlock() :
                     traverseToLeaf(&level_count, node_paths);
+            numLevels = level_count;
             if (search_result >= 0 && pValueLen != NULL)
                 return getValueAt(pValueLen);
             recursiveUpdate(search_result, node_paths, level_count - 1);
@@ -280,8 +282,9 @@ public:
                     int old_page = 0;
                     if (cache_size > 0) {
                         old_block = cache->writeNewPage(NULL);
-                        memcpy(old_block, root_block, parent_block_size);
                         old_page = cache->get_page_count() - 1;
+                        memcpy(old_block, root_block, parent_block_size);
+                        *old_block |= 0x02;
                     } else
                         root_block = (byte *) util::alignedAlloc(parent_block_size);
                     static_cast<T*>(this)->setCurrentBlock(root_block);
@@ -305,7 +308,7 @@ public:
                     numLevels++;
                 } else {
                     int16_t prev_level = level - 1;
-                    byte *parent_data = node_paths[prev_level];
+                    byte *parent_data = cache_size > 0 ? cache->get_disk_page_in_cache((unsigned long)node_paths[prev_level]) : node_paths[prev_level];
                     static_cast<T*>(this)->setCurrentBlock(parent_data);
                     byte addr[9];
                     key = (char *) first_key;
@@ -446,6 +449,10 @@ public:
     }
 #endif
 
+    int getNumLevels() {
+        return numLevels;
+    }
+
     void printStats(long num_entries) {
         util::print("Block Count:");
         util::print((long) blockCountNode);
@@ -481,6 +488,9 @@ public:
     }
     int get_max_key_len() {
         return max_key_len;
+    }
+    int get_max_cache_misses_since() {
+        return cache->get_max_cache_misses_since();
     }
 
 };

@@ -1,5 +1,6 @@
 #ifndef LRUCACHE_H
 #define LRUCACHE_H
+#include <map>
 #include <unordered_map>
 #include <iostream>
 #include <stdio.h>
@@ -32,6 +33,10 @@ protected:
     FILE *fp;
     int file_page_count;
     byte empty;
+    int cache_misses_since;
+    int max_cache_misses_since;
+    int total_cache_misses;
+    int cache_flush_count;
 public:
     lru_cache(int pg_size, int page_count, const char *fname) {
         page_size = pg_size;
@@ -65,13 +70,21 @@ public:
             fwrite(root_block, 1, page_size, fp);
             empty = 1;
         }
+        cache_misses_since = 0;
+        max_cache_misses_since = 0;
+        total_cache_misses = 0;
+        cache_flush_count = 0;
     }
     ~lru_cache() {
         for (unordered_map<int, dbl_lnklst*>::iterator it = disk_to_cache_map.begin(); it != disk_to_cache_map.end(); it++) {
-            fseek(fp, page_size * it->first, SEEK_SET);
-            int write_count = fwrite(&page_cache[page_size * it->second->cache_loc], 1, page_size, fp);
-            if (write_count != page_size) {}
-                //cout << "0:Only " << write_count << " bytes written at position: " << page_size * it->first << endl;
+            byte *block = &page_cache[page_size * it->second->cache_loc];
+            if (block[0] & 0x02) { // is it changed
+                block[0] &= 0xFD; // unchange it
+                fseek(fp, page_size * it->first, SEEK_SET);
+                int write_count = fwrite(block, 1, page_size, fp);
+                if (write_count != page_size) {}
+                    //cout << "0:Only " << write_count << " bytes written at position: " << page_size * it->first << endl;
+            }
             //delete disk_to_cache_map[it->first];
         }
         free(page_cache);
@@ -79,8 +92,14 @@ public:
         int write_count = fwrite(root_block, 1, page_size, fp);
         if (write_count != page_size) {}
             //cout << "1:Only " << write_count << " bytes written at position: 0" << endl;
+        fclose(fp);
         free(root_block);
         free(llarr);
+        cout << "max_cache_misses_since: " << " " << max_cache_misses_since << endl;
+        cout << "total_cache_misses: " << " " << total_cache_misses << endl;
+        cout << "cache_flush_count: " << " " << cache_flush_count << endl;
+        cout << "cache_misses_since: " << " " << cache_misses_since << endl;
+        cout << "Avg. cache misses: " << " " << total_cache_misses / cache_flush_count << endl;
     }
     void move_to_front(dbl_lnklst *entry_to_move) {
         if (entry_to_move != lnklst_first_entry) {
@@ -129,7 +148,7 @@ public:
                 if (block[0] & 0x02) { // is it changed
                     block[0] &= 0xFD; // unchange it
                     fseek(fp, page_size * removed_disk_page, SEEK_SET);
-                    int write_count = fwrite(&page_cache[page_size * cache_pos], 1, page_size, fp);
+                    int write_count = fwrite(block, 1, page_size, fp);
                     if (write_count != page_size) {}
                         //cout << "3:Only " << write_count << "bytes written at position: " << page_size * removed_disk_page << endl;
                 }
@@ -142,6 +161,8 @@ public:
                     if (read_count != page_size) {}
                         //cout << "4:Only " << read_count << " bytes read at position: " << page_size * disk_page << endl;
                 }
+                cache_misses_since++;
+                total_cache_misses++;
             }
         } else {
             dbl_lnklst *current_entry = disk_to_cache_map[disk_page];
@@ -152,11 +173,37 @@ public:
     }
     byte *writeNewPage(byte *block_to_keep) {
         byte *new_page = get_disk_page_in_cache(file_page_count, block_to_keep);
-        if (fseek(fp, file_page_count * page_size, SEEK_SET))
-            fseek(fp, 0, SEEK_END);
-        int write_count = fwrite(new_page, 1, page_size, fp);
-        if (write_count != page_size) {}
-            //cout << "5:Only " << write_count << "bytes written at position: " << file_page_count << endl;
+        if (block_to_keep != NULL && cache_occupied_size == cache_size_in_pages) {
+            cache_flush_count++;
+            if (cache_misses_since > max_cache_misses_since)
+                max_cache_misses_since = cache_misses_since;
+            cache_misses_since += 2;
+            map<int, byte *> pages_to_write;
+            dbl_lnklst *cur_entry = lnklst_last_entry;
+            pages_to_write[file_page_count] = new_page;
+            do {
+                pages_to_write[cur_entry->disk_page] = &page_cache[cur_entry->cache_loc * page_size];
+                cur_entry = cur_entry->prev;
+            } while (--cache_misses_since && cur_entry);
+            for (map<int, byte*>::iterator it = pages_to_write.begin(); it != pages_to_write.end(); it++) {
+                byte *block = it->second;
+                if (block[0] & 0x02) { // is it changed
+                    block[0] &= 0xFD; // unchange it
+                    fseek(fp, page_size * it->first, SEEK_SET);
+                    int write_count = fwrite(block, 1, page_size, fp);
+                    if (write_count != page_size) {}
+                        //cout << "0:Only " << write_count << " bytes written at position: " << page_size * it->first << endl;
+                }
+            }
+        } else {
+            if (fseek(fp, file_page_count * page_size, SEEK_SET))
+                fseek(fp, 0, SEEK_END);
+            int write_count = fwrite(new_page, 1, page_size, fp);
+            if (write_count != page_size) {}
+                //cout << "5:Only " << write_count << "bytes written at position: " << file_page_count << endl;
+        }
+        fflush(fp);
+        cache_misses_since = 0;
         file_page_count++;
         return new_page;
     }
@@ -165,6 +212,9 @@ public:
     }
     byte is_empty() {
         return empty;
+    }
+    int get_max_cache_misses_since() {
+        return max_cache_misses_since;
     }
 };
 #endif

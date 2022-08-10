@@ -130,7 +130,7 @@ public:
             // octet with bitmap kkkkk 00x, x=terminator
             // only bitmap kkkkk 010
             // letter range kkkkk 011
-            // prefix: lllll 10x, x = terminator
+            // prefix: lllly 10x, x = terminator, y = end with key
             // leaf & child: lllll 110
             // key change: lllll 111
             switch (*t & 0x07) {
