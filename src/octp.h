@@ -127,6 +127,11 @@ public:
         keyPos = 1;
         do {
             origPos = t;
+
+            // kkkkk t00 - octet with bitmap, t = terminator
+            // lllll x01 - letter range or letter set, l = length, x = 0 (letter range), x = 1 (letter set)
+            // llllx y10 - prefix - x = 
+
             // octet with bitmap kkkkk 00x, x=terminator
             // only bitmap kkkkk 010
             // letter range kkkkk 011

@@ -89,7 +89,7 @@ public:
             cache_size (cache_sz), filename (fname) {
         init_stats();
         if (cache_size > 0) {
-            cache = new lru_cache(leaf_block_size, cache_size, filename);
+            cache = new lru_cache(leaf_block_size, cache_size, filename, 0, util::alignedAlloc);
             root_block = current_block = cache->get_disk_page_in_cache(0);
             if (cache->is_empty()) {
                 static_cast<T*>(this)->initCurrentBlock();
@@ -489,8 +489,8 @@ public:
     int get_max_key_len() {
         return max_key_len;
     }
-    int get_max_cache_misses_since() {
-        return cache->get_max_cache_misses_since();
+    cache_stats get_cache_stats() {
+        return cache->get_cache_stats();
     }
 
 };
