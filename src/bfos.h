@@ -16,7 +16,7 @@ using namespace std;
 #if (defined(__AVR_ATmega328P__))
 #define BS_CHILD_PTR_SIZE 1
 #else
-#define BS_CHILD_PTR_SIZE 1
+#define BS_CHILD_PTR_SIZE 2
 #endif
 #if BS_CHILD_PTR_SIZE == 1
 #define BS_BIT_COUNT_CH(x) BIT_COUNT(x)
@@ -481,7 +481,7 @@ public:
                 byte len = *t_reader >> 1;
                 if (count + len > 127)
                     break;
-                memcpy(t_writer, ++t_reader, len);
+                memmove(t_writer, ++t_reader, len);
                 t_writer += len;
                 t_reader += len;
                 count += len;
