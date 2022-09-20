@@ -24,6 +24,7 @@ typedef struct {
     int max_cache_misses_since;
     int total_cache_misses;
     int cache_flush_count;
+    int pages_written;
 } cache_stats;
 
 class lru_cache {
@@ -152,6 +153,8 @@ public:
                 dbl_lnklst *entry_to_move = lnklst_last_entry;
                 if (block_to_keep == &page_cache[page_size * entry_to_move->cache_loc])
                     entry_to_move = lnklst_last_entry->prev;
+                //while (((&page_cache[entry_to_move->cache_loc * page_size])[0] & 0x01) == 0x00)
+                //    entry_to_move = lnklst_last_entry->prev;
                 removed_disk_page = entry_to_move->disk_page;
                 cache_pos = entry_to_move->cache_loc;
                 byte *block = &page_cache[page_size * cache_pos];
@@ -161,6 +164,7 @@ public:
                     int write_count = fwrite(block, 1, page_size, fp);
                     if (write_count != page_size)
                         throw EIO;
+                    stats.pages_written++;
                 }
                 move_to_front(entry_to_move);
                 entry_to_move->disk_page = disk_page;
@@ -192,8 +196,8 @@ public:
             pages_to_check *= 2;
             if (pages_to_check > 200)
                 pages_to_check = 200;
-            if (pages_to_check < 30)
-                pages_to_check = 30;
+            if (pages_to_check < 40)
+                pages_to_check = 40;
             set<int> pages_to_write;
             dbl_lnklst *cur_entry = lnklst_last_entry;
             pages_to_write.insert(file_page_count);
@@ -210,6 +214,7 @@ public:
                 int write_count = fwrite(block, 1, page_size, fp);
                 if (write_count != page_size)
                     throw EIO;
+                stats.pages_written++;
             }
         } else {
             if (fseek(fp, file_page_count * page_size, SEEK_SET))
@@ -217,6 +222,7 @@ public:
             int write_count = fwrite(new_page, 1, page_size, fp);
             if (write_count != page_size)
                 throw EIO;
+            stats.pages_written++;
         }
         fflush(fp);
         stats.cache_misses_since = 0;

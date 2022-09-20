@@ -191,13 +191,13 @@ void rb_tree::setCurrentBlock(byte *m) {
 }
 
 int16_t rb_tree::binarySearch(const char *key, int16_t key_len) {
-    register int middle;
-    register int new_middle = getRoot();
+    int middle;
+    int new_middle = getRoot();
     do {
         middle = new_middle;
-        register int16_t middle_key_len;
-        register char *middle_key = (char *) getKey(middle, &middle_key_len);
-        register int16_t cmp = util::compare(middle_key, middle_key_len, key,
+        int16_t middle_key_len;
+        char *middle_key = (char *) getKey(middle, &middle_key_len);
+        int16_t cmp = util::compare(middle_key, middle_key_len, key,
                 key_len);
         if (cmp > 0) {
             new_middle = getLeft(middle);

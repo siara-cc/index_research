@@ -238,9 +238,9 @@ public:
             max_key_len = key_len;
         this->value = value;
         this->value_len = value_len;
-        setChanged(1);
         if (filledSize() == 0) {
             static_cast<T*>(this)->addFirstData();
+            setChanged(1);
         } else {
             byte *node_paths[9];
             int8_t level_count = 1;
