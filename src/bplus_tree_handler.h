@@ -222,7 +222,7 @@ public:
 
     byte *allocateBlock(int size) {
         if (cache_size > 0) {
-            byte *new_page = cache->writeNewPage(current_block);
+            byte *new_page = cache->get_new_page(current_block);
             *new_page = 0x02; // Set changed so it gets written next time
             return new_page;
         }
@@ -281,7 +281,7 @@ public:
                     blockCountNode++;
                     int old_page = 0;
                     if (cache_size > 0) {
-                        old_block = cache->writeNewPage(NULL);
+                        old_block = cache->get_new_page(NULL);
                         old_page = cache->get_page_count() - 1;
                         memcpy(old_block, root_block, parent_block_size);
                         *old_block |= 0x02;

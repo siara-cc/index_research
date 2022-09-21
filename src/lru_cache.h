@@ -39,11 +39,10 @@ protected:
     set<int> new_pages;
     const char *filename;
     FILE *fp;
-    int file_page_count;
+    size_t file_page_count;
+    size_t last_pages_to_flush;
     byte empty;
     cache_stats stats;
-    const int last_pages_to_check;
-    const int last_pages_to_flush;
     void write_page(byte *block, size_t file_pos, size_t bytes) {
         fseek(fp, file_pos, SEEK_SET);
         int write_count = fwrite(block, 1, bytes, fp);
@@ -58,17 +57,25 @@ protected:
             stats.pages_written++;
         }
     }
+    void calc_flush_count() {
+        last_pages_to_flush = file_page_count / cache_size_in_pages * 40;
+        if (last_pages_to_flush < 20)
+            last_pages_to_flush = 20;
+        if (last_pages_to_flush > 50)
+           last_pages_to_flush = 50;
+    }
     void flush_pages_in_seq() {
         stats.cache_flush_count++;
         set<int> pages_to_write(new_pages);
         new_pages.clear();
-        int pages_to_check = last_pages_to_check;
+        calc_flush_count();
+        int pages_to_check = last_pages_to_flush * 3;
         dbl_lnklst *cur_entry = lnklst_last_entry;
         do {
             byte *block = &page_cache[cur_entry->cache_loc * page_size];
             if (block[0] & 0x02) // is it changed
                 pages_to_write.insert(cur_entry->disk_page);
-            if ((pages_to_write.size() - last_pages_to_flush) > last_pages_to_flush)
+            if (pages_to_write.size() < last_pages_to_flush)
                 break;
             cur_entry = cur_entry->prev;
         } while (--pages_to_check && cur_entry);
@@ -90,8 +97,7 @@ protected:
     }
 
 public:
-    lru_cache(int pg_size, int page_count, const char *fname, int init_page_count = 0, void *(*alloc_fn)(size_t) = NULL) throw(std::exception)
-                : last_pages_to_check (40), last_pages_to_flush (20) {
+    lru_cache(int pg_size, int page_count, const char *fname, int init_page_count = 0, void *(*alloc_fn)(size_t) = NULL) throw(std::exception) {
         if (alloc_fn == NULL)
             alloc_fn = malloc;
         page_size = pg_size;
@@ -171,7 +177,8 @@ public:
                 dbl_lnklst *entry_to_move = lnklst_last_entry;
                 if (block_to_keep == &page_cache[page_size * entry_to_move->cache_loc])
                     entry_to_move = lnklst_last_entry->prev;
-                int check_count = last_pages_to_check;
+                calc_flush_count();
+                int check_count = last_pages_to_flush;
                 byte *block;
                 while (check_count--) { // find block which is not changed
                     block = &page_cache[entry_to_move->cache_loc * page_size];
@@ -183,7 +190,8 @@ public:
                   flush_pages_in_seq();
                 removed_disk_page = entry_to_move->disk_page;
                 cache_pos = entry_to_move->cache_loc;
-                move_to_front(entry_to_move);
+                if (!is_new)
+                  move_to_front(entry_to_move);
                 entry_to_move->disk_page = disk_page;
                 disk_to_cache_map.erase(removed_disk_page);
                 disk_to_cache_map[disk_page] = entry_to_move;
@@ -203,7 +211,7 @@ public:
         }
         return &page_cache[page_size * cache_pos];
     }
-    byte *writeNewPage(byte *block_to_keep) {
+    byte *get_new_page(byte *block_to_keep) {
         if (new_pages.size() > last_pages_to_flush)
             flush_pages_in_seq();
         byte *new_page = get_disk_page_in_cache(file_page_count, block_to_keep, true);
