@@ -178,7 +178,7 @@ public:
                 if (block_to_keep == &page_cache[page_size * entry_to_move->cache_loc])
                     entry_to_move = lnklst_last_entry->prev;
                 calc_flush_count();
-                int check_count = last_pages_to_flush;
+                int check_count = last_pages_to_flush * 5;
                 byte *block;
                 while (check_count--) { // find block which is not changed
                     block = &page_cache[entry_to_move->cache_loc * page_size];

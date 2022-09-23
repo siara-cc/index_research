@@ -56,8 +56,8 @@ int PARENT_PAGE_SIZE = DEFAULT_PARENT_BLOCK_SIZE;
 int CACHE_SIZE = 0;
 char *OUT_FILE1 = NULL;
 char *OUT_FILE2 = NULL;
-int USE_HASHTABLE = 0;
-int TEST_HASHTABLE = 1;
+int USE_HASHTABLE = 1;
+int TEST_HASHTABLE = 0;
 int ctr = 0;
 
 int64_t insert(unordered_map<string, string>& m, byte *data_buf) {
@@ -188,6 +188,7 @@ int64_t loadFile(unordered_map<string, string>& m, byte *data_buf) {
                         data_buf[ret++] = len;
                         memcpy(data_buf + ret, value, len);
                         ret += len;
+                        data_buf[ret - 1] = '\0';
                     }
                 }
                 if (NUM_ENTRIES % 100000 == 0)
