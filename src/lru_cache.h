@@ -251,11 +251,11 @@ public:
         //if (new_pages.size() > last_pages_to_flush)
         //    flush_pages_in_seq(block_to_keep);
         byte *new_page = get_disk_page_in_cache(file_page_count, block_to_keep, true);
-        //new_pages.insert(file_page_count);
-            new_page[0] &= 0xFD; // unchange it
-            write_page(new_page, file_page_count * page_size, page_size, true);
-            fflush(fp);
-            new_page[0] |= 0x02; // change it
+        new_pages.insert(file_page_count);
+            //new_page[0] &= 0xFD; // unchange it
+            //write_page(new_page, file_page_count * page_size, page_size, true);
+            //fflush(fp);
+            //new_page[0] |= 0x02; // change it
             //printf("file_page_count:%ld\n", file_page_count);
         file_page_count++;
         return new_page;
