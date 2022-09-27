@@ -281,7 +281,7 @@ public:
                     blockCountNode++;
                     int old_page = 0;
                     if (cache_size > 0) {
-                        old_block = cache->get_new_page(NULL);
+                        old_block = cache->get_new_page(new_block);
                         old_page = cache->get_page_count() - 1;
                         memcpy(old_block, root_block, parent_block_size);
                         *old_block |= 0x02;
@@ -298,11 +298,13 @@ public:
                     key_len = 1;
                     value = (char *) addr;
                     value_len = util::ptrToBytes(cache_size > 0 ? (unsigned long) old_page : (unsigned long) old_block, addr);
+                    //printf("value: %d, value_len1:%d\n", old_page, value_len);
                     static_cast<T*>(this)->addFirstData();
                     key = (char *) first_key;
                     key_len = first_len;
                     value = (char *) addr;
                     value_len = util::ptrToBytes(cache_size > 0 ? (unsigned long) new_page : (unsigned long) new_block, addr);
+                    //printf("value: %d, value_len2:%d\n", new_page, value_len);
                     search_result = ~static_cast<T*>(this)->searchCurrentBlock();
                     static_cast<T*>(this)->addData(search_result);
                     numLevels++;
@@ -315,6 +317,7 @@ public:
                     key_len = first_len;
                     value = (char *) addr;
                     value_len = util::ptrToBytes(cache_size > 0 ? (unsigned long) new_page : (unsigned long) new_block, addr);
+                    //printf("value: %d, value_len3:%d\n", new_page, value_len);
                     search_result = static_cast<T*>(this)->searchCurrentBlock();
                     recursiveUpdate(search_result, node_paths, prev_level);
                 }
