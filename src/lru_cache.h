@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <cstring>
 
 #define USE_FOPEN 1
 

@@ -21,20 +21,11 @@
 #include "rb_tree.h"
 #ifdef _MSC_VER
 #include <windows.h>
-#include <unordered_map>
-#else
-#ifdef __APPLE__
-#include <unordered_map>
-#else
-#include <tr1/unordered_map>
 #endif
+#include <unordered_map>
 #include <sys/time.h>
 #include <sys/stat.h>
-#endif
 
-#ifndef __APPLE__
-using namespace std::tr1;
-#endif
 using namespace std;
 
 #define CS_PRINTABLE 1
