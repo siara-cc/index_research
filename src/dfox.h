@@ -33,11 +33,11 @@ using namespace std;
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class dfox : public bpt_trie_handler<dfox> {
 public:
-    const static byte need_counts[10];
-    byte *last_t;
+    const static uint8_t need_counts[10];
+    uint8_t *last_t;
     dfox(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL, byte *block = NULL) :
+            const char *fname = NULL, uint8_t *block = NULL) :
         bpt_trie_handler<dfox>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
     }
 
@@ -46,14 +46,14 @@ public:
         trie = current_block + DFOX_HDR_SIZE;
     }
 
-    inline void setCurrentBlock(byte *m) {
+    inline void setCurrentBlock(uint8_t *m) {
         current_block = m;
         trie = current_block + DFOX_HDR_SIZE;
     }
 
-    inline byte *skipChildren(byte *t, byte count) {
+    inline uint8_t *skipChildren(uint8_t *t, uint8_t count) {
         while (count) {
-            byte tc = *t++;
+            uint8_t tc = *t++;
             switch (tc & x03) {
             case x03:
                 count--;
@@ -79,9 +79,9 @@ public:
     }
 
     inline int16_t searchCurrentBlock() {
-        byte key_char = *key;
-        byte *t = trie;
-        byte trie_char = *t;
+        uint8_t key_char = *key;
+        uint8_t *t = trie;
+        uint8_t trie_char = *t;
         keyPos = 1;
         origPos = t++;
         do {
@@ -98,9 +98,9 @@ public:
             case 1:
                 if (trie_char & x02) {
                     t += DX_SIBLING_PTR_SIZE;
-                    byte r_children = *t++;
-                    byte r_leaves = *t++;
-                    byte r_mask = x01 << (key_char & x07);
+                    uint8_t r_children = *t++;
+                    uint8_t r_leaves = *t++;
+                    uint8_t r_mask = x01 << (key_char & x07);
                     trie_char = (r_leaves & r_mask ? x02 : x00) |
                             ((r_children & r_mask) && keyPos != key_len ? x01 : x00);
                     //key_char = (r_leaves & r_mask ? x01 : x00)
@@ -109,8 +109,8 @@ public:
                     r_mask--;
                     t = skipChildren(t, BIT_COUNT(r_children & r_mask) + BIT_COUNT(r_leaves & r_mask));
                 } else {
-                    byte r_leaves = *t++;
-                    byte r_mask = x01 << (key_char & x07);
+                    uint8_t r_leaves = *t++;
+                    uint8_t r_mask = x01 << (key_char & x07);
                     trie_char = (r_leaves & r_mask ? x02 : x00);
                     t = skipChildren(t, BIT_COUNT(r_leaves & (r_mask - 1)));
                 }
@@ -149,7 +149,7 @@ public:
                 break;
 #if DX_MIDDLE_PREFIX == 1
             case 3:
-                byte pfx_len;
+                uint8_t pfx_len;
                 pfx_len = (trie_char >> 2);
                 while (pfx_len && key_char == *t && keyPos < key_len) {
                     key_char = key[keyPos++];
@@ -173,12 +173,12 @@ public:
         return -1;
     }
 
-    inline uint16_t getPtr(byte *t) {
+    inline uint16_t getPtr(uint8_t *t) {
         return ((*t >> 2) << 8) + t[1];
     }
 
-    inline byte *getKey(byte *t, byte *plen) {
-        byte *kvIdx = current_block + getPtr(t);
+    inline uint8_t *getKey(uint8_t *t, uint8_t *plen) {
+        uint8_t *kvIdx = current_block + getPtr(t);
         *plen = kvIdx[0];
         kvIdx++;
         return kvIdx;
@@ -188,18 +188,18 @@ public:
         return DFOX_HDR_SIZE;
     }
 
-    inline byte *getPtrPos() {
+    inline uint8_t *getPtrPos() {
         return NULL;
     }
 
-    inline byte *getChildPtrPos(int16_t search_result) {
+    inline uint8_t *getChildPtrPos(int16_t search_result) {
         return current_block + getPtr(last_t);
     }
 
 #if DX_SIBLING_PTR_SIZE == 1
-    byte *nextKey(byte *first_key, byte *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf) {
+    uint8_t *nextKey(uint8_t *first_key, uint8_t *tp, uint8_t *t, char& ctr, uint8_t& tc, uint8_t& child, uint8_t& leaf) {
 #else
-    byte *nextKey(byte *first_key, int16_t *tp, byte *t, char& ctr, byte& tc, byte& child, byte& leaf) {
+    uint8_t *nextKey(uint8_t *first_key, int16_t *tp, uint8_t *t, char& ctr, uint8_t& tc, uint8_t& child, uint8_t& leaf) {
 #endif
         do {
             while (ctr > x07) {
@@ -218,7 +218,7 @@ public:
                     tp[keyPos] = t - trie;
                     tc = *t++;
                     while (x01 == (tc & x03)) {
-                        byte len = tc >> 2;
+                        uint8_t len = tc >> 2;
                         for (int i = 0; i < len; i++)
                             tp[keyPos + i] = t - trie - 1;
                         memcpy(first_key + keyPos, t, len);
@@ -234,7 +234,7 @@ public:
                 }
             }
             first_key[keyPos] = (tc & xF8) | ctr;
-            byte mask = x01 << ctr;
+            uint8_t mask = x01 << ctr;
             if (leaf & mask) {
                 leaf &= ~mask;
                 if (0 == (child & mask))
@@ -252,8 +252,8 @@ public:
         return t;
     }
 
-    byte *nextPtr(byte *t) {
-        byte tc = *t & x03;
+    uint8_t *nextPtr(uint8_t *t) {
+        uint8_t tc = *t & x03;
         while (x03 != tc) {
             while (x01 == tc) {
                 t += (*t >> 2);
@@ -271,30 +271,30 @@ public:
     }
 
 #if DX_SIBLING_PTR_SIZE == 1
-    void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
+    void deleteTrieLastHalf(int16_t brk_key_len, uint8_t *first_key, uint8_t *tp) {
 #else
-    void deleteTrieLastHalf(int16_t brk_key_len, byte *first_key, int16_t *tp) {
+    void deleteTrieLastHalf(int16_t brk_key_len, uint8_t *first_key, int16_t *tp) {
 #endif
         for (int idx = brk_key_len; idx >= 0; idx--) {
-            byte *t = trie + tp[idx];
-            byte tc = *t;
+            uint8_t *t = trie + tp[idx];
+            uint8_t tc = *t;
             if (x01 == (tc & x03))
                 continue;
-            byte offset = first_key[idx] & x07;
+            uint8_t offset = first_key[idx] & x07;
             *t++ = (tc | x04);
             if (tc & x02) {
-                byte children = t[DX_SIBLING_PTR_SIZE];
+                uint8_t children = t[DX_SIBLING_PTR_SIZE];
                 children &= ~((idx == brk_key_len ? xFF : xFE) << offset);
                                 // ryte_mask[offset] : ryte_incl_mask[offset]);
                 t[DX_SIBLING_PTR_SIZE] = children;
-                byte leaves = t[1 + DX_SIBLING_PTR_SIZE] & ~(xFE << offset);
+                uint8_t leaves = t[1 + DX_SIBLING_PTR_SIZE] & ~(xFE << offset);
                 t[DX_SIBLING_PTR_SIZE + 1] = leaves; // ryte_incl_mask[offset];
-                byte *new_t = skipChildren(t + 2 + DX_SIBLING_PTR_SIZE,
+                uint8_t *new_t = skipChildren(t + 2 + DX_SIBLING_PTR_SIZE,
                         BIT_COUNT(children) + BIT_COUNT(leaves));
                 DX_SET_SIBLING_OFFSET(t, new_t - t);
                 t = new_t;
             } else {
-                byte leaves = *t;
+                uint8_t leaves = *t;
                 leaves &= ~(xFE << offset); // ryte_incl_mask[offset];
                 *t++ = leaves;
                 t += BIT_COUNT2(leaves);
@@ -304,7 +304,7 @@ public:
         }
     }
 
-    int deleteSegment(byte *delete_end, byte *delete_start) {
+    int deleteSegment(uint8_t *delete_end, uint8_t *delete_start) {
         int count = delete_end - delete_start;
         if (count) {
             DX_SET_TRIE_LEN(DX_GET_TRIE_LEN - count);
@@ -314,38 +314,38 @@ public:
     }
 
 #if DX_SIBLING_PTR_SIZE == 1
-    void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, byte *tp) {
+    void deleteTrieFirstHalf(int16_t brk_key_len, uint8_t *first_key, uint8_t *tp) {
 #else
-    void deleteTrieFirstHalf(int16_t brk_key_len, byte *first_key, int16_t *tp) {
+    void deleteTrieFirstHalf(int16_t brk_key_len, uint8_t *first_key, int16_t *tp) {
 #endif
         for (int idx = brk_key_len; idx >= 0; idx--) {
-            byte *t = trie + tp[idx];
-            byte tc = *t++;
+            uint8_t *t = trie + tp[idx];
+            uint8_t tc = *t++;
             if (x01 == (tc & x03)) {
-                byte len = (tc >> 2);
+                uint8_t len = (tc >> 2);
                 deleteSegment(trie + tp[idx + 1], t + len);
                 idx -= len;
                 idx++;
                 continue;
             }
-            byte offset = first_key[idx] & 0x07;
+            uint8_t offset = first_key[idx] & 0x07;
             if (tc & x02) {
-                byte children = t[DX_SIBLING_PTR_SIZE];
-                byte leaves = t[1 + DX_SIBLING_PTR_SIZE];
-                byte mask = (xFF << offset);
+                uint8_t children = t[DX_SIBLING_PTR_SIZE];
+                uint8_t leaves = t[1 + DX_SIBLING_PTR_SIZE];
+                uint8_t mask = (xFF << offset);
                 children &= mask; // left_incl_mask[offset];
                 leaves &= ((idx == brk_key_len ? xFF : xFE) << offset); // left_incl_mask[offset] : left_mask[offset]);
-                byte count = BIT_COUNT(t[DX_SIBLING_PTR_SIZE]) - BIT_COUNT(children)
+                uint8_t count = BIT_COUNT(t[DX_SIBLING_PTR_SIZE]) - BIT_COUNT(children)
                         + BIT_COUNT(t[1 + DX_SIBLING_PTR_SIZE]) - BIT_COUNT(leaves); // ryte_mask[offset];
                 t[DX_SIBLING_PTR_SIZE] = children;
                 t[1 + DX_SIBLING_PTR_SIZE] = leaves;
-                byte *child_ptr = t + 2 + DX_SIBLING_PTR_SIZE;
-                byte *new_t = skipChildren(child_ptr, count);
+                uint8_t *child_ptr = t + 2 + DX_SIBLING_PTR_SIZE;
+                uint8_t *new_t = skipChildren(child_ptr, count);
                 deleteSegment((idx < brk_key_len) ? (trie + tp[idx + 1]) : new_t, child_ptr);
                 new_t = skipChildren(child_ptr, BIT_COUNT(children) + BIT_COUNT(leaves));
                 DX_SET_SIBLING_OFFSET(t, new_t - t);
             } else {
-                byte leaves = *t;
+                uint8_t leaves = *t;
                 leaves &= ((idx == brk_key_len ? xFF : xFE) << offset); // left_incl_mask[offset] : left_mask[offset]);
                 deleteSegment(t + 1 + BIT_COUNT2(*t) - BIT_COUNT2(leaves), t + 1);
                 *t = leaves;
@@ -354,10 +354,10 @@ public:
         deleteSegment(trie + tp[0], trie);
     }
 
-    void updateSkipLens(byte *loop_upto, int8_t diff) {
-        byte *t = trie;
+    void updateSkipLens(uint8_t *loop_upto, int8_t diff) {
+        uint8_t *t = trie;
         while (t < loop_upto) {
-            byte tc = *t++;
+            uint8_t tc = *t++;
             switch (tc & x03) {
             case x02:
                 unsigned int s;
@@ -390,7 +390,7 @@ public:
 
         insertState = search_result + 1;
 
-        byte *ptr = insertCurrent();
+        uint8_t *ptr = insertCurrent();
 
         uint16_t key_left = key_len - keyPos;
         uint16_t kv_last_pos = getKVLastPos() - (key_left + value_len + 2);
@@ -418,15 +418,15 @@ public:
         return false;
     }
 
-    void setPtr(byte *t, uint16_t ptr) {
+    void setPtr(uint8_t *t, uint16_t ptr) {
         *t++ = ((ptr >> 8) << 2) | x03;
         *t = ptr & xFF;
     }
 
-    byte *split(byte *first_key, int16_t *first_len_ptr) {
+    uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filledSize();
         const uint16_t DFOX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        byte *b = allocateBlock(DFOX_NODE_SIZE);
+        uint8_t *b = allocateBlock(DFOX_NODE_SIZE);
         dfox new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
         new_block.setKVLastPos(DFOX_NODE_SIZE);
         if (!isLeaf())
@@ -439,17 +439,17 @@ public:
 
         int16_t brk_idx = -1;
         uint16_t brk_kv_pos;
-        byte *brk_trie_pos = trie;
+        uint8_t *brk_trie_pos = trie;
         uint16_t tot_len;
         brk_kv_pos = tot_len = 0;
         char ctr = x08;
 #if DX_SIBLING_PTR_SIZE == 1
-        byte tp[BPT_MAX_PFX_LEN + 1];
+        uint8_t tp[BPT_MAX_PFX_LEN + 1];
 #else
         int16_t tp[BPT_MAX_PFX_LEN + 1];
 #endif
-        byte *t = trie;
-        byte tc, child, leaf;
+        uint8_t *t = trie;
+        uint8_t tc, child, leaf;
         tc = child = leaf = 0;
         //if (!isLeaf())
         //   cout << "Trie len:" << (int) DX_GET_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DX_MAX_KEY_LEN << endl;
@@ -512,7 +512,7 @@ public:
 #endif
         {
             int16_t last_key_len = keyPos + 1;
-            byte last_key[last_key_len + 1];
+            uint8_t last_key[last_key_len + 1];
             memcpy(last_key, first_key, last_key_len);
             deleteTrieLastHalf(keyPos, first_key, tp);
             new_block.keyPos = keyPos;
@@ -561,22 +561,22 @@ public:
 
     }
 
-    void consolidateInitialPrefix(byte *t) {
+    void consolidateInitialPrefix(uint8_t *t) {
         t += DFOX_HDR_SIZE;
-        byte *t_reader = t;
-        byte count = 0;
+        uint8_t *t_reader = t;
+        uint8_t count = 0;
         if ((*t & x03) == 1) {
             count = (*t >> 2);
             t_reader += count;
             t_reader++;
         }
-        byte *t_writer = t_reader + (((*t & x03) == 1) ? 0 : 1);
-        byte trie_len_diff = 0;
+        uint8_t *t_writer = t_reader + (((*t & x03) == 1) ? 0 : 1);
+        uint8_t trie_len_diff = 0;
         while (((*t_reader & x03) == 1) || ((*t_reader & x02) && (*t_reader & x04)
                 && BIT_COUNT(t_reader[2 + DX_SIBLING_PTR_SIZE]) == 1
                 && BIT_COUNT(t_reader[3 + DX_SIBLING_PTR_SIZE]) == 0)) {
             if ((*t_reader & x03) == 1) {
-                byte len = *t_reader >> 2;
+                uint8_t len = *t_reader >> 2;
                 if (count + len > 63)
                     break;
                 memcpy(t_writer, ++t_reader, len);
@@ -603,10 +603,10 @@ public:
         }
     }
 
-    byte *insertCurrent() {
-        byte key_char, mask;
+    uint8_t *insertCurrent() {
+        uint8_t key_char, mask;
         uint16_t diff;
-        byte *ret;
+        uint8_t *ret;
 
         key_char = key[keyPos - 1];
         mask = x01 << (key_char & x07);
@@ -636,7 +636,7 @@ public:
             break;
     #if DX_MIDDLE_PREFIX == 1
         case INSERT_CONVERT:
-            byte b, c;
+            uint8_t b, c;
             char cmp_rel;
             diff = triePos - origPos;
             // 3 possible relationships between key_char and *triePos, 4 possible positions of triePos
@@ -697,8 +697,8 @@ public:
     #endif
         case INSERT_THREAD:
             uint16_t p, min, ptr;
-            byte c1, c2;
-            byte *ptrPos;
+            uint8_t c1, c2;
+            uint8_t *ptrPos;
             ret = ptrPos = 0;
             if (*origPos & x02) {
                 origPos[1 + DX_SIBLING_PTR_SIZE] |= mask;
@@ -774,7 +774,7 @@ public:
                 c1 = key[p];
                 c2 = key_at[p - keyPos];
                 if (c1 > c2) {
-                    byte swap = c1;
+                    uint8_t swap = c1;
                     c1 = c2;
                     c2 = swap;
                 }
@@ -879,7 +879,7 @@ public:
 
     }
 
-    inline int16_t insAt(byte *ptr, byte b1, byte b2) {
+    inline int16_t insAt(uint8_t *ptr, uint8_t b1, uint8_t b2) {
         int16_t trie_len = DX_GET_TRIE_LEN;
         memmove(ptr + 2, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
@@ -888,7 +888,7 @@ public:
         return 2;
     }
 
-    inline int16_t insAt(byte *ptr, byte b1, byte b2, byte b3) {
+    inline int16_t insAt(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3) {
         int16_t trie_len = DX_GET_TRIE_LEN;
         memmove(ptr + 3, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
@@ -898,7 +898,7 @@ public:
         return 3;
     }
 
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
+    inline uint8_t insAt(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4) {
         int16_t trie_len = DX_GET_TRIE_LEN;
         memmove(ptr + 4, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
@@ -909,7 +909,7 @@ public:
         return 4;
     }
 
-    void insBytes(byte *ptr, uint16_t len) {
+    void insBytes(uint8_t *ptr, uint16_t len) {
         uint16_t trie_len = DX_GET_TRIE_LEN;
         memmove(ptr + len, ptr, trie + trie_len - ptr);
         DX_SET_TRIE_LEN(trie_len + len);

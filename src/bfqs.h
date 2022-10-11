@@ -29,15 +29,15 @@ using namespace std;
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class bfqs: public bpt_trie_handler<bfqs> {
 public:
-    const static byte need_counts[10];
-    const static byte switch_map[8];
-    const static byte shift_mask[8];
-    byte *last_t;
-    byte last_leaf_child;
+    const static uint8_t need_counts[10];
+    const static uint8_t switch_map[8];
+    const static uint8_t shift_mask[8];
+    uint8_t *last_t;
+    uint8_t last_leaf_child;
 
     bfqs(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL, byte *block = NULL) :
+            const char *fname = NULL, uint8_t *block = NULL) :
         bpt_trie_handler<bfqs>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
     }
 
@@ -46,12 +46,12 @@ public:
         trie = current_block + BFQS_HDR_SIZE;
     }
 
-    inline void setCurrentBlock(byte *m) {
+    inline void setCurrentBlock(uint8_t *m) {
         current_block = m;
         trie = current_block + BFQS_HDR_SIZE;
     }
 
-    inline byte *getLastPtr() {
+    inline uint8_t *getLastPtr() {
         //keyPos = 0;
         while ((last_leaf_child & xAA) > (last_leaf_child & x55)) {
                 last_t += BIT_COUNT_LF_CH(last_leaf_child & xAA) + 1;
@@ -87,7 +87,7 @@ public:
         return 0;
     }
 
-    inline void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len) {
+    inline void setPrefixLast(uint8_t key_char, uint8_t *t, uint8_t pfx_rem_len) {
         if (key_char > *t) {
             t += pfx_rem_len;
             while (!(*t & x02))
@@ -98,13 +98,13 @@ public:
     }
 
     inline int16_t searchCurrentBlock() {
-        byte *t = trie;
-        byte trie_char = *t;
+        uint8_t *t = trie;
+        uint8_t trie_char = *t;
         origPos = t++;
         //if (keyPos) {
         //    if (trie_char & x01) {
         //        keyPos--;
-        //        byte pfx_len = trie_char >> 1;
+        //        uint8_t pfx_len = trie_char >> 1;
         //        if (keyPos < pfx_len) {
         //            trie_char = ((pfx_len - keyPos) << 1) + 1;
         //            t += keyPos;
@@ -117,7 +117,7 @@ public:
         //    } else
         //        keyPos = 0;
         //}
-        byte key_char = *key; //[keyPos++];
+        uint8_t key_char = *key; //[keyPos++];
         keyPos = 1;
         do {
     #if BQ_MIDDLE_PREFIX == 1
@@ -139,7 +139,7 @@ public:
                 }
                 break;
             case 1:
-                byte r_shft, r_leaves_children;
+                uint8_t r_shft, r_leaves_children;
                 r_leaves_children = *t++;
                 key_char = (key_char & x03) << 1;
                 r_shft = ~(xFF << key_char); //shift_mask[key_char];
@@ -202,7 +202,7 @@ public:
                 return -1;
     #if BQ_MIDDLE_PREFIX == 1
             case 3:
-                byte pfx_len;
+                uint8_t pfx_len;
                 pfx_len = (trie_char >> 1);
                 while (pfx_len && key_char == *t && keyPos < key_len) {
                     key_char = key[keyPos++];
@@ -226,11 +226,11 @@ public:
         return -1;
     }
 
-    inline byte *getChildPtrPos(int16_t search_result) {
+    inline uint8_t *getChildPtrPos(int16_t search_result) {
         return last_t - current_block < getKVLastPos() ? getLastPtr() : last_t;
     }
 
-    inline byte *getPtrPos() {
+    inline uint8_t *getPtrPos() {
         return trie + BPT_TRIE_LEN;
     }
 
@@ -238,19 +238,19 @@ public:
         return BFQS_HDR_SIZE;
     }
 
-    byte copyKary(byte *t, byte *dest, int lvl, byte *tp,
-            byte *brk_key, int16_t brk_key_len, byte whichHalf) {
-        byte *orig_dest = dest;
+    uint8_t copyKary(uint8_t *t, uint8_t *dest, int lvl, uint8_t *tp,
+            uint8_t *brk_key, int16_t brk_key_len, uint8_t whichHalf) {
+        uint8_t *orig_dest = dest;
         if (*t & x01) {
-            byte len = (*t >> 1) + 1;
+            uint8_t len = (*t >> 1) + 1;
             memcpy(dest, t, len);
             dest += len;
             t += len;
         }
-        byte *dest_after_prefix = dest;
-        byte *limit = trie + (lvl < brk_key_len ? tp[lvl] : 0);
-        byte tc;
-        byte is_limit = 0;
+        uint8_t *dest_after_prefix = dest;
+        uint8_t *limit = trie + (lvl < brk_key_len ? tp[lvl] : 0);
+        uint8_t tc;
+        uint8_t is_limit = 0;
         do {
             is_limit = (limit == t ? 1 : 0); // && is_limit == 0 ? 1 : 0);
             if (limit == t && whichHalf == 2)
@@ -258,10 +258,10 @@ public:
             tc = *t;
             if (is_limit) {
                 *dest = tc;
-                byte offset = (lvl < brk_key_len ? (brk_key[lvl] & x03) << 1 : x03);
+                uint8_t offset = (lvl < brk_key_len ? (brk_key[lvl] & x03) << 1 : x03);
                 t++;
-                byte leaves_children = *t++;
-                byte orig_leaves_children = leaves_children;
+                uint8_t leaves_children = *t++;
+                uint8_t orig_leaves_children = leaves_children;
                 if (whichHalf == 1) {
                     leaves_children &= ~(((brk_key_len - lvl) == 1 ? xFE : xFC) << offset);
                     *dest++ |= x02;
@@ -286,7 +286,7 @@ public:
                 }
                 t += BIT_COUNT_LF_CH(orig_leaves_children & x55);
             } else {
-                byte len = BIT_COUNT_LF_CH(t[1]) + 2;
+                uint8_t len = BIT_COUNT_LF_CH(t[1]) + 2;
                 memcpy(dest, t, len);
                 t += len;
                 dest += len;
@@ -295,37 +295,37 @@ public:
         return dest - orig_dest;
     }
 
-    byte copyTrieHalf(byte *tp, byte *brk_key, int16_t brk_key_len, byte *dest, byte whichHalf) {
-        byte *d;
-        byte *t = trie;
-        byte *new_trie = dest;
-        byte tp_child[BPT_MAX_PFX_LEN];
-        byte child_num[BPT_MAX_PFX_LEN];
+    uint8_t copyTrieHalf(uint8_t *tp, uint8_t *brk_key, int16_t brk_key_len, uint8_t *dest, uint8_t whichHalf) {
+        uint8_t *d;
+        uint8_t *t = trie;
+        uint8_t *new_trie = dest;
+        uint8_t tp_child[BPT_MAX_PFX_LEN];
+        uint8_t child_num[BPT_MAX_PFX_LEN];
         int lvl = 0;
         if (*t & x01) {
-            byte len = (*t >> 1);
+            uint8_t len = (*t >> 1);
             memset(tp_child, dest - new_trie, len);
             lvl = len;
         }
-        byte last_len = copyKary(t, dest, lvl, tp, brk_key, brk_key_len, whichHalf);
+        uint8_t last_len = copyKary(t, dest, lvl, tp, brk_key, brk_key_len, whichHalf);
         d = dest;
         dest += last_len;
         do {
-            byte tc = *d++;
+            uint8_t tc = *d++;
             if (tc & x01) {
                 d += (tc >> 1);
                 tc = *d++;
             }
-            byte len = BIT_COUNT_LF_CH(xAA & *d);
+            uint8_t len = BIT_COUNT_LF_CH(xAA & *d);
             if (len) {
                 d++;
                 tp_child[lvl] = d - new_trie - 2;
-                byte *child = trie + *d;
+                uint8_t *child = trie + *d;
                 *d = dest - d;
                 child_num[lvl++] = 0;
                 t = child;
                 if (*t & x01) {
-                    byte len = (*t >> 1);
+                    uint8_t len = (*t >> 1);
                     memset(tp_child + lvl, dest - new_trie, len);
                     lvl += len;
                 }
@@ -344,17 +344,17 @@ public:
                 if (lvl < 0)
                     return dest - new_trie;
                 d = new_trie + tp_child[lvl];
-                byte len = BIT_COUNT_LF_CH(xAA & d[1]);
-                byte i = child_num[lvl];
+                uint8_t len = BIT_COUNT_LF_CH(xAA & d[1]);
+                uint8_t i = child_num[lvl];
                 i++;
                 if (i < len) {
                     d += (i + 2);
-                    byte *child = trie + *d;
+                    uint8_t *child = trie + *d;
                     *d = dest - d;
                     child_num[lvl++] = i;
                     t = child;
                     if (*t & x01) {
-                        byte len = (*t >> 1);
+                        uint8_t len = (*t >> 1);
                         memset(tp_child + lvl, dest - new_trie, len);
                         lvl += len;
                     }
@@ -374,15 +374,15 @@ public:
     }
 
     void setPtrDiff(int16_t diff) {
-        byte *t = trie;
-        byte *t_end = trie + BPT_TRIE_LEN;
+        uint8_t *t = trie;
+        uint8_t *t_end = trie + BPT_TRIE_LEN;
         while (t < t_end) {
-            byte tc = *t++;
+            uint8_t tc = *t++;
             if (tc & x01) {
                 t += (tc >> 1);
                 continue;
             }
-            byte leaves_count = BIT_COUNT_LF_CH(*t & x55);
+            uint8_t leaves_count = BIT_COUNT_LF_CH(*t & x55);
             t += BIT_COUNT_LF_CH(*t & xAA);
             t++;
             for (int i = 0; i < leaves_count; i += 2) {
@@ -392,19 +392,19 @@ public:
         }
     }
 
-    void consolidateInitialPrefix(byte *t) {
+    void consolidateInitialPrefix(uint8_t *t) {
         t += BFQS_HDR_SIZE;
-        byte *t1 = t;
+        uint8_t *t1 = t;
         if (*t & x01) {
             t1 += (*t >> 1);
             t1++;
         }
-        byte *t2 = t1 + (*t & x01 ? 0 : 1);
-        byte count = 0;
-        byte trie_len_diff = 0;
+        uint8_t *t2 = t1 + (*t & x01 ? 0 : 1);
+        uint8_t count = 0;
+        uint8_t trie_len_diff = 0;
         while ((*t1 & x01) || ((*t1 & x02) && BIT_COUNT_LF_CH(t1[1]) == 1 && t1[2] == 1)) {
             if (*t1 & x01) {
-                byte len = *t1++ >> 1;
+                uint8_t len = *t1++ >> 1;
                 memcpy(t2, t1, len);
                 t2 += len;
                 t1 += len;
@@ -431,8 +431,8 @@ public:
     }
 
     int16_t insertAfter() {
-        byte key_char;
-        byte mask;
+        uint8_t key_char;
+        uint8_t mask;
         key_char = key[keyPos - 1];
         mask = x01 << ((key_char & x03) << 1);
         *origPos &= xFC;
@@ -443,8 +443,8 @@ public:
     }
 
     int16_t insertBefore() {
-        byte key_char;
-        byte mask;
+        uint8_t key_char;
+        uint8_t mask;
         key_char = key[keyPos - 1];
         mask = x01 << ((key_char & x03) << 1);
         updatePtrs(origPos, 4);
@@ -453,8 +453,8 @@ public:
     }
 
     int16_t insertLeaf() {
-        byte key_char;
-        byte mask;
+        uint8_t key_char;
+        uint8_t mask;
         key_char = key[keyPos - 1];
         mask = x01 << ((key_char & x03) << 1);
         triePos = origPos + 1;
@@ -468,12 +468,12 @@ public:
 
     #if BQ_MIDDLE_PREFIX == 1
     int16_t insertConvert() {
-        byte key_char;
-        byte mask;
+        uint8_t key_char;
+        uint8_t mask;
         int16_t ret = 0;
         key_char = key[keyPos - 1];
         mask = x01 << ((key_char & x03) << 1);
-        byte b, c;
+        uint8_t b, c;
         char cmp_rel;
         int16_t diff;
         diff = triePos - origPos;
@@ -526,10 +526,10 @@ public:
     #endif
 
     int16_t insertThread() {
-        byte key_char;
-        byte mask;
+        uint8_t key_char;
+        uint8_t mask;
         int16_t p, min;
-        byte c1, c2;
+        uint8_t c1, c2;
         int16_t diff;
         int16_t ret, ptr, pos;
         ret = pos = 0;
@@ -539,7 +539,7 @@ public:
         c1 = c2 = key_char;
         {
             triePos = origPos + 2 + BIT_COUNT_LF_CH(origPos[1] & xAA & (mask - 1));
-            insAt(triePos, (byte) (BPT_TRIE_LEN - (triePos - trie) + 1));
+            insAt(triePos, (uint8_t) (BPT_TRIE_LEN - (triePos - trie) + 1));
             updatePtrs(triePos, 1);
             origPos[1] |= (mask << 1);
         }
@@ -575,7 +575,7 @@ public:
             c1 = key[p];
             c2 = key_at[p - keyPos];
             if (c1 > c2) {
-                byte swap = c1;
+                uint8_t swap = c1;
                 c1 = c2;
                 c2 = swap;
                 isSwapped = true;
@@ -693,10 +693,10 @@ public:
         return false;
     }
 
-    byte *split(byte *first_key, int16_t *first_len_ptr) {
+    uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filledSize();
         const uint16_t BFQS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        byte *b = allocateBlock(BFQS_NODE_SIZE);
+        uint8_t *b = allocateBlock(BFQS_NODE_SIZE);
         bfqs new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
         new_block.setKVLastPos(BFQS_NODE_SIZE);
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
@@ -708,20 +708,20 @@ public:
         brk_idx = brk_kv_pos = 0;
         // (1) move all data to new_block in order
         int16_t idx = 0;
-        byte alloc_size = BPT_MAX_PFX_LEN + 1;
-        byte curr_key[alloc_size];
-        byte tp[alloc_size];
-        byte tp_cpy[alloc_size];
+        uint8_t alloc_size = BPT_MAX_PFX_LEN + 1;
+        uint8_t curr_key[alloc_size];
+        uint8_t tp[alloc_size];
+        uint8_t tp_cpy[alloc_size];
         int16_t tp_cpy_len = 0;
-        byte *t = new_block.trie;
+        uint8_t *t = new_block.trie;
         //if (!isLeaf())
         //   cout << "Trie len:" << (int) BPT_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DX_MAX_KEY_LEN << endl;
         new_block.keyPos = 0;
         memcpy(new_block.trie, trie, BPT_TRIE_LEN);
         new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
-        byte tc, leaf_child;
+        uint8_t tc, leaf_child;
         tc = leaf_child = 0;
-        byte ctr = 5;
+        uint8_t ctr = 5;
         do {
             while (ctr == x04) {
                 if (tc & x02) {
@@ -746,7 +746,7 @@ public:
                 tp[new_block.keyPos] = t - new_block.trie;
                 tc = *t++;
                 if (tc & x01) {
-                    byte len = tc >> 1;
+                    uint8_t len = tc >> 1;
                     memset(tp + new_block.keyPos, t - new_block.trie - 1, len);
                     memcpy(curr_key + new_block.keyPos, t, len);
                     t += len;
@@ -758,9 +758,9 @@ public:
                 ctr = FIRST_BIT_OFFSET_FROM_RIGHT(leaf_child) >> 1;
             }
             curr_key[new_block.keyPos] = (tc & xFC) | ctr;
-            byte mask = x01 << (ctr * 2);
+            uint8_t mask = x01 << (ctr * 2);
             if (leaf_child & mask) {
-                byte *leaf_ptr = t + BIT_COUNT_LF_CH(*(t - 1) & ((mask - 1) | xAA));
+                uint8_t *leaf_ptr = t + BIT_COUNT_LF_CH(*(t - 1) & ((mask - 1) | xAA));
                 int16_t src_idx = util::getInt(leaf_ptr);
                 int16_t kv_len = current_block[src_idx];
                 kv_len++;
@@ -812,7 +812,7 @@ public:
             }
             if (leaf_child & (x02 << (ctr * 2))) {
                 t += BIT_COUNT_LF_CH(*(t - 1) & xAA & (mask - 1));
-                byte child_offset = *t;
+                uint8_t child_offset = *t;
                 *t = t - new_block.trie + child_offset;
                 t += child_offset;
                 new_block.keyPos++;
@@ -893,9 +893,9 @@ public:
 
         return ret;
     }
-    void updatePtrs(byte *upto, int diff) {
-        byte *t = trie;
-        byte tc = *t++;
+    void updatePtrs(uint8_t *upto, int diff) {
+        uint8_t *t = trie;
+        uint8_t tc = *t++;
         while (t <= upto) {
             if (tc & x01) {
                 t += (tc >> 1);

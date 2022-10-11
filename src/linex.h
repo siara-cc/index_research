@@ -26,7 +26,7 @@ private:
             int16_t cmp;
             key_at_len = *(key_at + 1);
     #if LX_PREFIX_CODING == 1
-            byte *p_cur_prefix_len = key_at;
+            uint8_t *p_cur_prefix_len = key_at;
             for (int16_t pctr = 0; prefix_len < (*p_cur_prefix_len & 0x7F); pctr++)
                 prefix[prefix_len++] = prev_key_at[pctr + 2];
             if (prefix_len > *key_at)
@@ -39,7 +39,7 @@ private:
     #if LX_DATA_AREA == 1
             if (cmp == 0) {
                 int16_t partial_key_len = prefix_len + key_at_len;
-                byte *data_key_at = current_block + key_at_len + *key_at + 1;
+                uint8_t *data_key_at = current_block + key_at_len + *key_at + 1;
                 if (*p_cur_prefix_len & 0x80)
                     data_key_at += 256;
                 cmp = util::compare((char *) data_key_at + 1, *data_key_at,
@@ -70,14 +70,14 @@ private:
     }
 public:
     int16_t pos;
-    byte *prev_key_at;
-    byte prefix[60];
+    uint8_t *prev_key_at;
+    uint8_t prefix[60];
     int16_t prefix_len;
     int16_t prev_prefix_len;
 
     linex(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL, byte *block = NULL) :
+            const char *fname = NULL, uint8_t *block = NULL) :
        bplus_tree_handler<linex>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
         initCurrentBlock();
     }
@@ -146,10 +146,10 @@ public:
 
     }
 
-    byte *split(byte *first_key, int16_t *first_len_ptr) {
+    uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t filled_size = filledSize();
         const uint16_t LINEX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        byte *b = allocateBlock(LINEX_NODE_SIZE);
+        uint8_t *b = allocateBlock(LINEX_NODE_SIZE);
         linex new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
         new_block.setKVLastPos(LX_BLK_HDR_SIZE);
         if (!isLeaf())
@@ -235,7 +235,7 @@ public:
 
         int16_t new_size = filled_size - brk_idx;
         // Move index of second half to first half in new block
-        byte *new_kv_idx = new_block.current_block + brk_kv_pos;
+        uint8_t *new_kv_idx = new_block.current_block + brk_kv_pos;
         memmove(new_block.current_block + LX_BLK_HDR_SIZE, new_kv_idx,
                 kv_last_pos - brk_kv_pos); // Move first block to front
         // Set KV Last pos for new block
@@ -258,7 +258,7 @@ public:
         return pos;
     }
 
-    byte *getChildPtrPos(int16_t search_result) {
+    uint8_t *getChildPtrPos(int16_t search_result) {
         if (search_result >= 0)
             key_at -= 2;
         if (search_result < 0)
@@ -270,7 +270,7 @@ public:
         return LX_BLK_HDR_SIZE;
     }
 
-    inline byte *getPtrPos() {
+    inline uint8_t *getPtrPos() {
         return NULL;
     }
 
@@ -280,7 +280,7 @@ public:
         prefix_len = 0;
     }
 
-    void setCurrentBlock(byte *m) {
+    void setCurrentBlock(uint8_t *m) {
         current_block = m;
         key_at = m + LX_BLK_HDR_SIZE;
         prefix_len = 0;

@@ -22,7 +22,7 @@ public:
     int16_t pos;
     basix(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL, byte *block = NULL) :
+            const char *fname = NULL, uint8_t *block = NULL) :
         bplus_tree_handler<basix>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
     }
 
@@ -30,7 +30,7 @@ public:
         setCurrentBlock(root_block);
     }
 
-    inline void setCurrentBlock(byte *m) {
+    inline void setCurrentBlock(uint8_t *m) {
         current_block = m;
 #if BPT_9_BIT_PTR == 1
 #if BPT_INT64MAP == 1
@@ -60,7 +60,7 @@ public:
         return ~filled_size;
     }
 
-    inline byte *getChildPtrPos(int16_t search_result) {
+    inline uint8_t *getChildPtrPos(int16_t search_result) {
         if (search_result < 0) {
             search_result++;
             search_result = ~search_result;
@@ -68,7 +68,7 @@ public:
         return current_block + getPtr(search_result);
     }
 
-    inline byte *getPtrPos() {
+    inline uint8_t *getPtrPos() {
         return current_block + BLK_HDR_SIZE;
     }
 
@@ -90,10 +90,10 @@ public:
         return false;
     }
 
-    byte *split(byte *first_key, int16_t *first_len_ptr) {
+    uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filledSize();
         const uint16_t BASIX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        byte *b = allocateBlock(BASIX_NODE_SIZE);
+        uint8_t *b = allocateBlock(BASIX_NODE_SIZE);
         basix new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
         //new_block.setKVLastPos(BASIX_NODE_SIZE);
         if (!isLeaf())
@@ -170,7 +170,7 @@ public:
     #endif
     #endif
             int16_t new_size = orig_filled_size - brk_idx;
-            byte *block_ptrs = new_block.current_block + BLK_HDR_SIZE;
+            uint8_t *block_ptrs = new_block.current_block + BLK_HDR_SIZE;
     #if BPT_9_BIT_PTR == 1
             memmove(block_ptrs, block_ptrs + brk_idx, new_size);
     #else

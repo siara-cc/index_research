@@ -72,10 +72,10 @@ void rb_tree::addData(int16_t search_result) {
 
 }
 
-byte *rb_tree::split(byte *first_key, int16_t *first_len_ptr) {
+uint8_t *rb_tree::split(uint8_t *first_key, int16_t *first_len_ptr) {
     int16_t filled_upto = filledUpto();
     const uint16_t RB_TREE_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-    byte *b = allocateBlock(RB_TREE_NODE_SIZE);
+    uint8_t *b = allocateBlock(RB_TREE_NODE_SIZE);
     rb_tree new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
     new_block.setKVLastPos(RB_TREE_NODE_SIZE);
     if (!isLeaf())
@@ -160,7 +160,7 @@ byte *rb_tree::split(byte *first_key, int16_t *first_len_ptr) {
     new_block.setRoot(getRoot() - brk_kv_pos);
     setRoot(new_block_root1);
     new_block.setDataEndPos(pos);
-    //byte *nb_first_key = new_block.getFirstKey(first_len_ptr);
+    //uint8_t *nb_first_key = new_block.getFirstKey(first_len_ptr);
     //memcpy(first_key, nb_first_key, *first_len_ptr);
 
     return new_block.current_block;
@@ -178,7 +178,7 @@ void rb_tree::setCurrentBlockRoot() {
     setCurrentBlock(root_block);
 }
 
-void rb_tree::setCurrentBlock(byte *m) {
+void rb_tree::setCurrentBlock(uint8_t *m) {
     current_block = m;
 #if BPT_9_BIT_PTR == 1
 #if BPT_INT64MAP == 1
@@ -243,7 +243,7 @@ int16_t rb_tree::filledUpto() {
 }
 
 bool rb_tree::isFull(int16_t search_result) {
-    int16_t kv_len = key_len + value_len + 9; // 3 int16_t pointer, 1 byte key len, 1 byte value len, 1 flag
+    int16_t kv_len = key_len + value_len + 9; // 3 int16_t pointer, 1 uint8_t key len, 1 uint8_t value len, 1 flag
     uint16_t RB_TREE_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
     int16_t spaceLeft = RB_TREE_NODE_SIZE - util::getInt(current_block + DATA_END_POS);
     spaceLeft -= RB_TREE_HDR_SIZE;
@@ -252,17 +252,17 @@ bool rb_tree::isFull(int16_t search_result) {
     return false;
 }
 
-byte *rb_tree::getChildPtr(int16_t pos) {
-    byte *kvIdx = current_block + pos + KEY_LEN_POS;
+uint8_t *rb_tree::getChildPtr(int16_t pos) {
+    uint8_t *kvIdx = current_block + pos + KEY_LEN_POS;
     kvIdx += kvIdx[0];
     kvIdx += 2;
     unsigned long addr_num = util::bytesToPtr(kvIdx);
-    byte *ret = (byte *) addr_num;
+    uint8_t *ret = (uint8_t *) addr_num;
     return ret;
 }
 
-byte *rb_tree::getKey(int16_t pos, int16_t *plen) {
-    byte *kvIdx = current_block + pos + KEY_LEN_POS;
+uint8_t *rb_tree::getKey(int16_t pos, int16_t *plen) {
+    uint8_t *kvIdx = current_block + pos + KEY_LEN_POS;
     *plen = kvIdx[0];
     kvIdx++;
     return kvIdx;
@@ -281,7 +281,7 @@ int16_t rb_tree::getFirst() {
     return stack[--level];
 }
 
-byte *rb_tree::getFirstKey(int16_t *plen) {
+uint8_t *rb_tree::getFirstKey(int16_t *plen) {
     int16_t filled_upto = filledUpto();
     int16_t stack[filled_upto]; //(int) log2(filled_upto) + 1];
     int16_t level = 0;
@@ -291,7 +291,7 @@ byte *rb_tree::getFirstKey(int16_t *plen) {
         node = getLeft(node);
     }
     //assert(level > 0);
-    byte *kvIdx = current_block + stack[--level] + KEY_LEN_POS;
+    uint8_t *kvIdx = current_block + stack[--level] + KEY_LEN_POS;
     *plen = kvIdx[0];
     kvIdx++;
     return kvIdx;
@@ -523,7 +523,7 @@ void rb_tree::setRoot(int16_t n) {
     util::setInt(current_block + ROOT_NODE_POS, n);
 }
 
-void rb_tree::setColor(int16_t n, byte c) {
+void rb_tree::setColor(int16_t n, uint8_t c) {
 #if RB_TREE_NODE_SIZE == 512
     if (c)
         current_block[n + RBT_BITMAP_POS] |= 0x01;
@@ -534,7 +534,7 @@ void rb_tree::setColor(int16_t n, byte c) {
 #endif
 }
 
-byte *rb_tree::getChildPtrPos(int16_t search_result) {
+uint8_t *rb_tree::getChildPtrPos(int16_t search_result) {
     if (search_result < 0) {
         search_result = ~search_result;
         if (last_direction == 'l') {
@@ -546,6 +546,6 @@ byte *rb_tree::getChildPtrPos(int16_t search_result) {
     return current_block + pos + KEY_LEN_POS;
 }
 
-byte *rb_tree::getPtrPos() {
+uint8_t *rb_tree::getPtrPos() {
     return NULL;
 }

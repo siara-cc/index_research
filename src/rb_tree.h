@@ -51,7 +51,7 @@ private:
     inline void setRight(int16_t n, int16_t r);
     inline void setParent(int16_t n, int16_t p);
     inline void setRoot(int16_t n);
-    inline void setColor(int16_t n, byte c);
+    inline void setColor(int16_t n, uint8_t c);
     void rotateLeft(int16_t n);
     void rotateRight(int16_t n);
     void replaceNode(int16_t oldn, int16_t newn);
@@ -62,11 +62,11 @@ private:
     void insertCase5(int16_t n);
 public:
     int16_t pos;
-    byte last_direction;
+    uint8_t last_direction;
 
     rb_tree(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL, byte *block = NULL) :
+            const char *fname = NULL, uint8_t *block = NULL) :
        bplus_tree_handler<rb_tree>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
         GenTree::generateLists();
         initBuf();
@@ -80,22 +80,22 @@ public:
     void setPtr(int16_t pos, int16_t ptr);
     bool isFull(int16_t search_result);
     void setCurrentBlockRoot();
-    void setCurrentBlock(byte *m);
+    void setCurrentBlock(uint8_t *m);
     int16_t searchCurrentBlock();
     void addData(int16_t search_result);
     void addFirstData();
-    byte *getKey(int16_t pos, int16_t *plen);
-    byte *getFirstKey(int16_t *plen);
+    uint8_t *getKey(int16_t pos, int16_t *plen);
+    uint8_t *getFirstKey(int16_t *plen);
     int16_t getFirst();
     int16_t getNext(int16_t n);
     int16_t getPrevious(int16_t n);
-    byte *split(byte *first_key, int16_t *first_len_ptr);
+    uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr);
     void initVars();
-    byte *getChildPtrPos(int16_t search_result);
+    uint8_t *getChildPtrPos(int16_t search_result);
     char *getValueAt(int16_t *vlen);
     using bplus_tree_handler::getChildPtr;
-    byte *getChildPtr(int16_t pos);
-    byte *getPtrPos();
+    uint8_t *getChildPtr(int16_t pos);
+    uint8_t *getPtrPos();
     int getHeaderSize();
     void initBuf();
 };

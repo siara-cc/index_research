@@ -60,7 +60,7 @@ int USE_HASHTABLE = 1;
 int TEST_HASHTABLE = 0;
 int ctr = 0;
 
-int64_t insert(unordered_map<string, string>& m, byte *data_buf) {
+int64_t insert(unordered_map<string, string>& m, uint8_t *data_buf) {
     char k[KEY_LEN + 1];
     char v[VALUE_LEN + 1];
     int64_t ret = 0;
@@ -137,7 +137,7 @@ int64_t getImportFileSize() {
     return st.st_size;
 }
 
-int64_t loadFile(unordered_map<string, string>& m, byte *data_buf) {
+int64_t loadFile(unordered_map<string, string>& m, uint8_t *data_buf) {
     FILE *fp;
     char key[2000];
     char value[255];
@@ -175,7 +175,7 @@ int64_t loadFile(unordered_map<string, string>& m, byte *data_buf) {
                     }
                 } else {
                     sprintf(value, "%ld", NUM_ENTRIES);
-                    //util::ptrToBytes(NUM_ENTRIES, (byte *) value);
+                    //util::ptrToBytes(NUM_ENTRIES, (uint8_t *) value);
                     //value[4] = 0;
                     if (USE_HASHTABLE)
                         m.insert(pair<string, string>(key, value));
@@ -1160,13 +1160,13 @@ int main4() {
 int main6() {
     art_tree at;
     art_tree_init(&at);
-    art_insert(&at, (const byte *) "arun", 5, (void *) "Hello", 5);
-    art_insert(&at, (const byte *) "aruna", 6, (void *) "World", 5);
-    //art_insert(&at, (const byte *) "absorb", 6, (void *) "ART", 5);
+    art_insert(&at, (const uint8_t *) "arun", 5, (void *) "Hello", 5);
+    art_insert(&at, (const uint8_t *) "aruna", 6, (void *) "World", 5);
+    //art_insert(&at, (const uint8_t *) "absorb", 6, (void *) "ART", 5);
     int len;
-    cout << (char*) art_search(&at, (byte *) "arun", 5, &len) << endl;
-    cout << (char*) art_search(&at, (byte *) "aruna", 6, &len) << endl;
-    //art_search(&at, (byte *) "absorb", 6, &len);
+    cout << (char*) art_search(&at, (uint8_t *) "arun", 5, &len) << endl;
+    cout << (char*) art_search(&at, (uint8_t *) "aruna", 6, &len) << endl;
+    //art_search(&at, (uint8_t *) "absorb", 6, &len);
     return 1;
 }
 
@@ -1253,7 +1253,7 @@ int main(int argc, char *argv[]) {
 
     int64_t data_alloc_sz = (IMPORT_FILE == NULL ? (KEY_LEN + VALUE_LEN + 3) * NUM_ENTRIES // including \0 at end of key
             : getImportFileSize() + 110000000); // extra 30mb for 7 + key_len + value_len + \0 for max 11 mil entries
-    byte *data_buf = (byte *) malloc(data_alloc_sz);
+    uint8_t *data_buf = (uint8_t *) malloc(data_alloc_sz);
     int64_t data_sz = 0;
 
     unordered_map<string, string> m;
@@ -1349,8 +1349,8 @@ int main(int argc, char *argv[]) {
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            byte key_len = data_buf[pos++];
-            byte value_len = data_buf[pos + key_len + 1];
+            uint8_t key_len = data_buf[pos++];
+            uint8_t value_len = data_buf[pos + key_len + 1];
             art_insert(&at, data_buf + pos, key_len + 1, data_buf + pos + key_len + 2, value_len);
             pos += key_len + value_len + 1;
             ctr++;
@@ -1363,8 +1363,8 @@ int main(int argc, char *argv[]) {
     if (TEST_HASHTABLE) {
         start = getTimeVal();
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            byte key_len = data_buf[pos++];
-            byte value_len = data_buf[pos + key_len + 1];
+            uint8_t key_len = data_buf[pos++];
+            uint8_t value_len = data_buf[pos + key_len + 1];
             m.insert(pair<string, string>((char *) data_buf + pos, (char *) data_buf + pos + key_len + 2));
             pos += key_len + value_len + 1;
             ctr++;
@@ -1389,7 +1389,7 @@ int main(int argc, char *argv[]) {
     //dfos *lx = new dfos();
     it1 = m.begin();
     start = getTimeVal();
-    byte dummy[9];
+    uint8_t dummy[9];
     cout << "Ptr size:" << util::ptrToBytes((unsigned long) lx->root_block, dummy) << endl;
     if (USE_HASHTABLE) {
         it1 = m.begin();
@@ -1401,8 +1401,8 @@ int main(int argc, char *argv[]) {
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            byte key_len = data_buf[pos++];
-            byte value_len = data_buf[pos + key_len + 1];
+            uint8_t key_len = data_buf[pos++];
+            uint8_t value_len = data_buf[pos + key_len + 1];
             lx->put((char *) data_buf + pos, key_len, (char *) data_buf + pos + key_len + 2, value_len);
             pos += key_len + value_len + 1;
             ctr++;
@@ -1435,8 +1435,8 @@ int main(int argc, char *argv[]) {
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            byte key_len = data_buf[pos++];
-            byte value_len = data_buf[pos + key_len + 1];
+            uint8_t key_len = data_buf[pos++];
+            uint8_t value_len = data_buf[pos + key_len + 1];
             dx->put((char *) data_buf + pos, key_len, (char *) data_buf + pos + key_len + 2, value_len);
             pos += key_len + value_len + 1;
             ctr++;
@@ -1464,8 +1464,8 @@ int main(int argc, char *argv[]) {
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
             int len;
-            byte key_len = data_buf[pos++];
-            byte value_len = data_buf[pos + key_len + 1];
+            uint8_t key_len = data_buf[pos++];
+            uint8_t value_len = data_buf[pos + key_len + 1];
             char *value = (char *) art_search(&at, data_buf + pos, key_len + 1, &len);
             checkValue((char *) data_buf + pos, key_len + 1,
                     (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
@@ -1486,8 +1486,8 @@ int main(int argc, char *argv[]) {
         start = getTimeVal();
         for (int64_t pos = 0; pos < data_sz; pos++) {
             int16_t len;
-            byte key_len = data_buf[pos++];
-            byte value_len = data_buf[pos + key_len + 1];
+            uint8_t key_len = data_buf[pos++];
+            uint8_t value_len = data_buf[pos + key_len + 1];
             it = m.find((char *) (data_buf + pos));
             char *value = (char *) it->second.c_str();
             len = value_len;
@@ -1518,8 +1518,8 @@ int main(int argc, char *argv[]) {
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
             int16_t len;
-            byte key_len = data_buf[pos++];
-            byte value_len = data_buf[pos + key_len + 1];
+            uint8_t key_len = data_buf[pos++];
+            uint8_t value_len = data_buf[pos + key_len + 1];
             const char *value = lx->get((char *) data_buf + pos, key_len, &len);
             checkValue((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
@@ -1556,8 +1556,8 @@ int main(int argc, char *argv[]) {
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
             int16_t len;
-            byte key_len = data_buf[pos++];
-            byte value_len = data_buf[pos + key_len + 1];
+            uint8_t key_len = data_buf[pos++];
+            uint8_t value_len = data_buf[pos + key_len + 1];
             const char *value = dx->get((char *) data_buf + pos, key_len, &len);
             checkValue((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);

@@ -17,12 +17,12 @@ using namespace std;
 
 class bft_iterator_status {
 public:
-    byte *t;
+    uint8_t *t;
     int keyPos;
-    byte is_next;
-    byte is_child_pending;
-    byte tp[BFT_MAX_KEY_PREFIX_LEN];
-    bft_iterator_status(byte *trie, byte prefix_len) {
+    uint8_t is_next;
+    uint8_t is_child_pending;
+    uint8_t tp[BFT_MAX_KEY_PREFIX_LEN];
+    bft_iterator_status(uint8_t *trie, uint8_t prefix_len) {
         t = trie + 1;
         keyPos = prefix_len;
         is_child_pending = is_next = 0;
@@ -32,16 +32,16 @@ public:
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class bft : public bpt_trie_handler<bft> {
 public:
-    byte *last_t;
-    byte *split_buf;
-    const static byte need_counts[10];
-    byte last_child_pos;
-    byte to_pick_leaf;
+    uint8_t *last_t;
+    uint8_t *split_buf;
+    const static uint8_t need_counts[10];
+    uint8_t last_child_pos;
+    uint8_t to_pick_leaf;
     bft(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL, byte *block = NULL) :
+            const char *fname = NULL, uint8_t *block = NULL) :
         bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
-        split_buf = (byte *) util::alignedAlloc(leaf_block_size > parent_block_size ?
+        split_buf = (uint8_t *) util::alignedAlloc(leaf_block_size > parent_block_size ?
                 leaf_block_size : parent_block_size);
     }
     ~bft() {
@@ -53,17 +53,17 @@ public:
         trie = current_block + BFT_HDR_SIZE;
     }
 
-    inline void setCurrentBlock(byte *m) {
+    inline void setCurrentBlock(uint8_t *m) {
         current_block = m;
         trie = current_block + BFT_HDR_SIZE;
     }
 
     inline int16_t searchCurrentBlock() {
-        byte *t;
+        uint8_t *t;
         t = trie;
         last_t = trie + 1;
         keyPos = 0;
-        byte key_char = key[keyPos++];
+        uint8_t key_char = key[keyPos++];
         last_child_pos = 0;
         do {
             origPos = t;
@@ -71,7 +71,7 @@ public:
                 last_t = ++t;
     #if BFT_UNIT_SIZE == 3
                 if (*t & x40) {
-                    byte r_children = *t & x3F;
+                    uint8_t r_children = *t & x3F;
                     if (r_children)
                         last_t = current_block + getLastPtrOfChild(t + r_children * 3);
                     else
@@ -84,7 +84,7 @@ public:
                 t += 2;
     #else
                 if (*t & x80) {
-                    byte r_children = *t & x7F;
+                    uint8_t r_children = *t & x7F;
                     if (r_children)
                         last_t = current_block + getLastPtrOfChild(t + r_children * 4);
                     else
@@ -106,7 +106,7 @@ public:
                     insertState = INSERT_BEFORE;
                 return -1;
             }
-            byte r_children;
+            uint8_t r_children;
             int16_t ptr;
             last_child_pos = 0;
 #if BFT_UNIT_SIZE == 3
@@ -159,11 +159,11 @@ public:
         return -1;
     }
 
-    inline byte *getPtrPos() {
+    inline uint8_t *getPtrPos() {
         return NULL;
     }
 
-    inline byte *getChildPtrPos(int16_t search_result) {
+    inline uint8_t *getChildPtrPos(int16_t search_result) {
         return last_t;
     }
 
@@ -202,11 +202,11 @@ public:
         return 0;
     }
 
-    int16_t getLastPtrOfChild(byte *t) {
+    int16_t getLastPtrOfChild(uint8_t *t) {
         do {
     #if BFT_UNIT_SIZE == 3
             if (*t & x40) {
-                byte children = (*t & x3F);
+                uint8_t children = (*t & x3F);
                 if (children)
                     t += (children * 3);
                 else
@@ -215,7 +215,7 @@ public:
                 t += 3;
     #else
             if (*t & x80) {
-                byte children = (*t & x7F);
+                uint8_t children = (*t & x7F);
                 if (children)
                     t += (children * 4);
                 else
@@ -227,14 +227,14 @@ public:
         return -1;
     }
 
-    byte *getLastPtr(byte *last_t) {
+    uint8_t *getLastPtr(uint8_t *last_t) {
     #if BFT_UNIT_SIZE == 3
-        byte last_child = (*last_t & x3F);
+        uint8_t last_child = (*last_t & x3F);
         if (!last_child || to_pick_leaf)
             return current_block + get9bitPtr(last_t);
         return current_block + getLastPtrOfChild(last_t + (last_child * 3));
     #else
-        byte last_child = (*last_t & x7F);
+        uint8_t last_child = (*last_t & x7F);
         if (!last_child || to_pick_leaf)
             return current_block + util::getInt(last_t + 1);
         return current_block + getLastPtrOfChild(last_t + (last_child * 4));
@@ -255,13 +255,13 @@ public:
     #endif
     }
 
-    int16_t get9bitPtr(byte *t) {
+    int16_t get9bitPtr(uint8_t *t) {
         int16_t ptr = (*t++ & x80 ? 256 : 0);
         ptr |= *t;
         return ptr;
     }
 
-    void set9bitPtr(byte *t, int16_t p) {
+    void set9bitPtr(uint8_t *t, int16_t p) {
         *t-- = p;
         if (p & x100)
             *t |= x80;
@@ -270,9 +270,9 @@ public:
     }
 
     int16_t deletePrefix(int16_t prefix_len) {
-        byte *t = trie;
+        uint8_t *t = trie;
         while (prefix_len--) {
-            byte *delete_start = t++;
+            uint8_t *delete_start = t++;
     #if BFT_UNIT_SIZE == 3
             if (get9bitPtr(t)) {
     #else
@@ -343,10 +343,10 @@ public:
         return false;
     }
 
-    byte *split(byte *first_key, int16_t *first_len_ptr) {
+    uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filledSize();
         const uint16_t BFT_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        byte *b = allocateBlock(BFT_NODE_SIZE);
+        uint8_t *b = allocateBlock(BFT_NODE_SIZE);
         bft new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
         new_block.setKVLastPos(BFT_NODE_SIZE);
         if (!isLeaf())
@@ -367,7 +367,7 @@ public:
         int16_t tot_len = 0;
         // (1) move all data to new_block in order
         int16_t idx;
-        byte ins_key[BPT_MAX_PFX_LEN], old_first_key[BPT_MAX_PFX_LEN];
+        uint8_t ins_key[BPT_MAX_PFX_LEN], old_first_key[BPT_MAX_PFX_LEN];
         int16_t ins_key_len, old_first_len;
         bft_iterator_status s(trie, 0); //BPT_MAX_PFX_LEN);
         for (idx = 0; idx < orig_filled_size; idx++) {
@@ -453,7 +453,7 @@ public:
     }
 
     int16_t insertCurrent() {
-        byte key_char;
+        uint8_t key_char;
         int16_t ret, ptr, pos;
         ret = pos = 0;
 
@@ -488,7 +488,7 @@ public:
             break;
         case INSERT_THREAD:
             int16_t p, min;
-            byte c1, c2;
+            uint8_t c1, c2;
             key_char = key[keyPos - 1];
             c1 = c2 = key_char;
             p = keyPos;
@@ -517,7 +517,7 @@ public:
                 ret = pos;
             }
             while (p < min) {
-                byte swap = 0;
+                uint8_t swap = 0;
                 c1 = key[p];
                 c2 = key_at[p - keyPos];
                 if (c1 > c2) {
@@ -618,16 +618,16 @@ public:
         return ret;
     }
 
-    void updatePtrs(byte *upto, int diff) {
-        byte *t = trie + 1;
+    void updatePtrs(uint8_t *upto, int diff) {
+        uint8_t *t = trie + 1;
         while (t <= upto) {
     #if BFT_UNIT_SIZE == 3
-            byte child = (*t & x3F);
+            uint8_t child = (*t & x3F);
             if (child && (t + child * 3) >= upto)
                 *t += diff;
             t += 3;
     #else
-            byte child = (*t & x7F);
+            uint8_t child = (*t & x7F);
             if (child && (t + child * 4) >= upto)
                 *t += diff;
             t += 4;

@@ -25,7 +25,7 @@
 
 using namespace std;
 
-typedef unsigned char byte;
+typedef unsigned char uint8_t;
 #define null 0
 
 #define USE_POP_CNT 0
@@ -58,9 +58,9 @@ typedef unsigned char byte;
 class util {
 public:
 #if (defined(__AVR_ATmega328P__))
-    static const byte bit_count[256] PROGMEM;
-    static const byte bit_count2x[256] PROGMEM;
-    static const byte bit_count_lf_ch[256] PROGMEM;
+    static const uint8_t bit_count[256] PROGMEM;
+    static const uint8_t bit_count2x[256] PROGMEM;
+    static const uint8_t bit_count_lf_ch[256] PROGMEM;
     static const uint32_t left_mask32[32] PROGMEM;
     static const uint32_t ryte_mask32[32] PROGMEM;
     static const uint32_t mask32[32] PROGMEM;
@@ -68,9 +68,9 @@ public:
     static const uint64_t ryte_mask64[64] PROGMEM;
     static const uint64_t mask64[64] PROGMEM;
 #else
-    static const byte bit_count[256];
-    static const byte bit_count2x[256];
-    static const byte bit_count_lf_ch[256];
+    static const uint8_t bit_count[256];
+    static const uint8_t bit_count2x[256];
+    static const uint8_t bit_count_lf_ch[256];
     static const uint32_t left_mask32[32];
     static const uint32_t ryte_mask32[32];
     static const uint32_t mask32[32];
@@ -80,19 +80,19 @@ public:
 
 #endif
 
-    static inline uint16_t getInt(byte *pos) {
+    static inline uint16_t getInt(uint8_t *pos) {
 //        return (uint16_t *) pos; // fast endian-dependent
         uint16_t ret = ((*pos << 8) | *(pos + 1));
         return ret; // slow endian independent
     }
 
-    static inline void setInt(byte *pos, uint16_t val) {
+    static inline void setInt(uint8_t *pos, uint16_t val) {
 //        *((int16_t *) pos) = val; // fast endian-dependent
         *pos++ = val >> 8; // slow endian independent
         *pos = val % 256;
     }
 
-    static int ptrToBytes(unsigned long addr_num, byte *addr) {
+    static int ptrToBytes(unsigned long addr_num, uint8_t *addr) {
         int i = 0;
         while (addr_num) {
             addr[i++] = addr_num;
@@ -101,7 +101,7 @@ public:
         return i;
     }
 
-    static unsigned long bytesToPtr(const byte *addr) {
+    static unsigned long bytesToPtr(const uint8_t *addr) {
         unsigned long ret = 0;
         int len = *addr;
         do {
@@ -111,12 +111,12 @@ public:
         return ret;
     }
 
-    static int compare(const char *v1, byte len1, const char *v2,
-            byte len2, int k = 0) {
+    static int compare(const char *v1, uint8_t len1, const char *v2,
+            uint8_t len2, int k = 0) {
         int lim = (len2 < len1 ? len2 : len1);
         while (k < lim) {
-            byte c1 = v1[k];
-            byte c2 = v2[k];
+            uint8_t c1 = v1[k];
+            uint8_t c2 = v2[k];
             k++;
             if (c1 < c2)
                 return -k;
@@ -133,8 +133,8 @@ public:
 //            int16_t len2, int k = 0) {
 //        int lim = (len2 < len1 ? len2 : len1);
 //        while (k < lim) {
-//            byte c1 = v1[k];
-//            byte c2 = v2[k];
+//            uint8_t c1 = v1[k];
+//            uint8_t c2 = v2[k];
 //            k++;
 //            if (c1 < c2)
 //                return -k;
@@ -147,7 +147,7 @@ public:
 //        return (len1 < len2 ? -k : k);
 //    }
 
-    static inline int16_t min_b(byte x, byte y) {
+    static inline int16_t min_b(uint8_t x, uint8_t y) {
         return (x > y ? y : x);
     }
 
@@ -159,7 +159,7 @@ public:
         /* simple optimization */
         if (src1 == src2)
             return 0;
-        /* Convert char pointers to 4 byte integers */
+        /* Convert char pointers to 4 uint8_t integers */
         int32_t *src1_as_int = (int32_t*) src1;
         int32_t *src2_as_int = (int32_t*) src2;
         int major_passes = len >> 2; /* Number of passes at 4 bytes at a time */
@@ -359,35 +359,35 @@ public:
 
     // Function to get no of set bits in binary
     // representation of passed binary no.
-    inline static byte countSetBits(int16_t n) {
-        byte count = 0;
+    inline static uint8_t countSetBits(int16_t n) {
+        uint8_t count = 0;
         while (n > 0) {
             n &= (n - 1);
             count++;
         }
-        return (byte) count;
+        return (uint8_t) count;
     }
 
-    inline static byte firstBitMask(int16_t n) {
-        byte mask = 0x80;
+    inline static uint8_t firstBitMask(int16_t n) {
+        uint8_t mask = 0x80;
         while (0 == (n & mask) && mask) {
             mask >>= 1;
         }
         return mask;
     }
 
-    inline static byte lastBitMask(int16_t n) {
-        byte mask = 0x01;
+    inline static uint8_t lastBitMask(int16_t n) {
+        uint8_t mask = 0x01;
         while (0 == (n & mask) && mask) {
             mask <<= 1;
         }
         return mask;
     }
 
-    inline static byte firstBitOffset(int16_t n) {
+    inline static uint8_t firstBitOffset(int16_t n) {
         int offset = 0;
         do {
-            byte mask = 0x01 << offset;
+            uint8_t mask = 0x01 << offset;
             if (n & mask)
                 return offset;
             offset++;
@@ -396,7 +396,7 @@ public:
     }
 
     // SWAR algorithm
-    static int bitcount (byte x)  {
+    static int bitcount (uint8_t x)  {
         x -= ((x >> 1) & 0x55);
         x = (((x >> 2) & 0x33) + (x & 0x33));
         return (((x >> 4) + x) & 0x0f);

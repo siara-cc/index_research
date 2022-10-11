@@ -3,9 +3,7 @@
 #include <set>
 #include <unordered_map>
 #include <iostream>
-#ifndef _FILE_OFFSET_BITS
 #define _FILE_OFFSET_BITS 64
-#endif
 #ifndef _LARGEFILE64_SOURCE
 #define _LARGEFILE64_SOURCE
 #endif
@@ -18,8 +16,6 @@
 #include <errno.h>
 
 #define USE_FOPEN 1
-
-typedef unsigned char byte;
 
 using namespace std;
 
@@ -39,8 +35,8 @@ typedef struct {
 class lru_cache {
 protected:
     int page_size;
-    byte *page_cache;
-    byte *root_block;
+    uint8_t *page_cache;
+    uint8_t *root_block;
     int cache_size_in_pages;
     int cache_occupied_size;
     int skip_page_count;
@@ -57,19 +53,19 @@ protected:
 #endif
     size_t file_page_count;
     size_t last_pages_to_flush;
-    byte empty;
+    uint8_t empty;
     cache_stats stats;
-    void write_page(byte *block, off64_t file_pos, size_t bytes, bool is_new = true) {
+    void write_page(uint8_t *block, off_t file_pos, size_t bytes, bool is_new = true) {
         //if (is_new)
         //  fseek(fp, 0, SEEK_END);
         //else
 #if USE_FOPEN == 1
-        if (fseeko64(fp, file_pos, SEEK_SET))
-            fseeko64(fp, 0, SEEK_END);
+        if (fseek(fp, file_pos, SEEK_SET))
+            fseek(fp, 0, SEEK_END);
         int write_count = fwrite(block, 1, bytes, fp);
 #else
-        if (lseek64(fd, file_pos, SEEK_SET) == -1)
-            lseek64(fd, 0, SEEK_END);
+        if (lseek(fd, file_pos, SEEK_SET) == -1)
+            lseek(fd, 0, SEEK_END);
         int write_count = write(fd, block, bytes);
 #endif
         if (write_count != bytes) {
@@ -79,9 +75,9 @@ protected:
     }
     void write_pages(set<int>& pages_to_write) {
         for (int it : pages_to_write) {
-            byte *block = &page_cache[page_size * disk_to_cache_map[it]->cache_loc];
+            uint8_t *block = &page_cache[page_size * disk_to_cache_map[it]->cache_loc];
             block[0] &= 0xFD; // unchange it
-            off64_t file_pos = page_size;
+            off_t file_pos = page_size;
             file_pos *= it;
             write_page(block, file_pos, page_size);
             stats.pages_written++;
@@ -96,7 +92,7 @@ protected:
         if (last_pages_to_flush > 50)
            last_pages_to_flush = 50;
     }
-    void flush_pages_in_seq(byte *block_to_keep) {
+    void flush_pages_in_seq(uint8_t *block_to_keep) {
         stats.cache_flush_count++;
         set<int> pages_to_write(new_pages);
         new_pages.clear();
@@ -104,7 +100,7 @@ protected:
         int pages_to_check = last_pages_to_flush * 3;
         dbl_lnklst *cur_entry = lnklst_last_entry;
         do {
-            byte *block = &page_cache[cur_entry->cache_loc * page_size];
+            uint8_t *block = &page_cache[cur_entry->cache_loc * page_size];
             if (block_to_keep != block) {
               if (block[0] & 0x02) // is it changed
                 pages_to_write.insert(cur_entry->disk_page);
@@ -138,8 +134,8 @@ public:
         cache_occupied_size = 0;
         lnklst_first_entry = lnklst_last_entry = NULL;
         filename = fname;
-        page_cache = (byte *) alloc_fn(pg_size * page_count);
-        root_block = (byte *) alloc_fn(pg_size);
+        page_cache = (uint8_t *) alloc_fn(pg_size * page_count);
+        root_block = (uint8_t *) alloc_fn(pg_size);
         llarr = (dbl_lnklst *) alloc_fn(page_count * sizeof(dbl_lnklst));
         disk_to_cache_map.reserve(page_count);
         skip_page_count = init_page_count;
@@ -172,7 +168,7 @@ public:
 #if USE_FOPEN == 1
         if (fread(root_block, 1, page_size, fp) != page_size) {
             file_page_count = 1;
-            fseeko64(fp, 0, SEEK_SET);
+            fseek(fp, 0, SEEK_SET);
             if (fwrite(root_block, 1, page_size, fp) != page_size)
               throw EIO;
             empty = 1;
@@ -180,7 +176,7 @@ public:
 #else
         if (read(fd, root_block, page_size) != page_size) {
             file_page_count = 1;
-            lseek64(fd, 0, SEEK_SET);
+            lseek(fd, 0, SEEK_SET);
             if (write(fd, root_block, page_size) != page_size)
               throw EIO;
             empty = 1;
@@ -192,7 +188,7 @@ public:
     ~lru_cache() {
         set<int> pages_to_write;
         for (unordered_map<int, dbl_lnklst*>::iterator it = disk_to_cache_map.begin(); it != disk_to_cache_map.end(); it++) {
-            byte *block = &page_cache[page_size * it->second->cache_loc];
+            uint8_t *block = &page_cache[page_size * it->second->cache_loc];
             if (block[0] & 0x02) // is it changed
                 pages_to_write.insert(it->first);
         }
@@ -209,7 +205,7 @@ public:
         cout << "total_cache_misses: " << " " << stats.total_cache_misses << endl;
         cout << "cache_flush_count: " << " " << stats.cache_flush_count << endl;
     }
-    byte *get_disk_page_in_cache(int disk_page, byte *block_to_keep = NULL, bool is_new = false) {
+    uint8_t *get_disk_page_in_cache(int disk_page, uint8_t *block_to_keep = NULL, bool is_new = false) {
         if (disk_page == skip_page_count)
             return root_block;
         int cache_pos = 0;
@@ -230,7 +226,7 @@ public:
                 cache_pos = cache_occupied_size++;
             } else {
                 dbl_lnklst *entry_to_move = lnklst_last_entry;
-                    //byte *block;
+                    //uint8_t *block;
                     //while (1) {
                     //  block = &page_cache[entry_to_move->cache_loc * page_size];
                     //  if (block != block_to_keep) {
@@ -240,7 +236,7 @@ public:
                     //}
                 calc_flush_count();
                 int check_count = last_pages_to_flush * 5;
-                byte *block;
+                uint8_t *block;
                 while (check_count--) { // find block which is not changed
                     block = &page_cache[entry_to_move->cache_loc * page_size];
                     if ((block[0] & 0x02) == 0x00 && block_to_keep != block)
@@ -277,10 +273,10 @@ public:
                 stats.total_cache_misses++;
             }
             if (!is_new && new_pages.find(disk_page) == new_pages.end()) {
-                off64_t file_pos = page_size;
+                off_t file_pos = page_size;
                 file_pos *= disk_page;
 #if USE_FOPEN == 1
-                if (!fseeko64(fp, file_pos, SEEK_SET)) {
+                if (!fseek(fp, file_pos, SEEK_SET)) {
                     int read_count = fread(&page_cache[page_size * cache_pos], 1, page_size, fp);
                     //printf("read_count: %d, %d, %d, %d, %ld\n", read_count, page_size, disk_page, (int) page_cache[page_size * cache_pos], ftell(fp));
                     if (read_count != page_size) {
@@ -290,7 +286,7 @@ public:
                   printf("disk_page: %d, %d\n", disk_page, errno);
                 }
 #else
-                if (lseek64(fd, file_pos, SEEK_SET) != -1) {
+                if (lseek(fd, file_pos, SEEK_SET) != -1) {
                     int read_count = read(fd, &page_cache[page_size * cache_pos], page_size);
                     //printf("read_count: %d, %d, %d, %d, %ld\n", read_count, page_size, disk_page, (int) page_cache[page_size * cache_pos], ftell(fp));
                     if (read_count != page_size) {
@@ -308,10 +304,10 @@ public:
         }
         return &page_cache[page_size * cache_pos];
     }
-    byte *get_new_page(byte *block_to_keep) {
+    uint8_t *get_new_page(uint8_t *block_to_keep) {
         if (new_pages.size() > last_pages_to_flush)
             flush_pages_in_seq(block_to_keep);
-        byte *new_page = get_disk_page_in_cache(file_page_count, block_to_keep, true);
+        uint8_t *new_page = get_disk_page_in_cache(file_page_count, block_to_keep, true);
         new_pages.insert(file_page_count);
             //new_page[0] &= 0xFD; // unchange it
             //write_page(new_page, file_page_count * page_size, page_size, true);
@@ -324,7 +320,7 @@ public:
     int get_page_count() {
         return file_page_count;
     }
-    byte is_empty() {
+    uint8_t is_empty() {
         return empty;
     }
     cache_stats get_cache_stats() {

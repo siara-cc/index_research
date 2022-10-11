@@ -62,12 +62,12 @@ protected:
     int is_block_given;
 
 public:
-    byte *root_block;
-    byte *current_block;
+    uint8_t *root_block;
+    uint8_t *current_block;
     const char *key;
-    byte key_len;
-    byte *key_at;
-    byte key_at_len;
+    uint8_t key_len;
+    uint8_t *key_at;
+    uint8_t key_at_len;
     const char *value;
     int16_t value_len;
 #if BPT_9_BIT_PTR == 1
@@ -84,7 +84,7 @@ public:
     const char *filename;
     bplus_tree_handler(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL, byte *block = NULL) :
+            const char *fname = NULL, uint8_t *block = NULL) :
             leaf_block_size (leaf_block_sz), parent_block_size (parent_block_sz),
             cache_size (cache_sz), filename (fname) {
         init_stats();
@@ -95,7 +95,7 @@ public:
                 static_cast<T*>(this)->initCurrentBlock();
             }
         } else {
-            root_block = current_block = (block == NULL ? (byte *) util::alignedAlloc(leaf_block_size) : block);
+            root_block = current_block = (block == NULL ? (uint8_t *) util::alignedAlloc(leaf_block_size) : block);
             if (block != NULL)
                 static_cast<T*>(this)->setCurrentBlock(block);
             static_cast<T*>(this)->initCurrentBlock();
@@ -133,7 +133,7 @@ public:
     }
 
     void setCurrentBlockRoot();
-    void setCurrentBlock(byte *m);
+    void setCurrentBlock(uint8_t *m);
     char *get(const char *key, uint8_t key_len, int16_t *pValueLen) {
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
@@ -147,16 +147,16 @@ public:
         return BPT_IS_LEAF_BYTE;
     }
 
-    byte *skipChildren(byte *t, byte count);
+    uint8_t *skipChildren(uint8_t *t, uint8_t count);
     int16_t searchCurrentBlock();
-    void setPrefixLast(byte key_char, byte *t, byte pfx_rem_len);
+    void setPrefixLast(uint8_t key_char, uint8_t *t, uint8_t pfx_rem_len);
 
-    inline byte *getKey(int16_t pos, byte *plen) {
-        byte *kvIdx = current_block + getPtr(pos);
+    inline uint8_t *getKey(int16_t pos, uint8_t *plen) {
+        uint8_t *kvIdx = current_block + getPtr(pos);
         *plen = *kvIdx;
         return kvIdx + 1;
     }
-    byte *getKey(byte *t, byte *plen);
+    uint8_t *getKey(uint8_t *t, uint8_t *plen);
 
     inline int getPtr(int16_t pos) {
 #if BPT_9_BIT_PTR == 1
@@ -178,18 +178,18 @@ public:
         return util::getInt(static_cast<T*>(this)->getPtrPos() + (pos << 1));
 #endif
     }
-    byte *getPtrPos();
+    uint8_t *getPtrPos();
 
-    int16_t traverseToLeaf(int8_t *plevel_count = NULL, byte *node_paths[] = NULL) {
+    int16_t traverseToLeaf(int8_t *plevel_count = NULL, uint8_t *node_paths[] = NULL) {
         unsigned long child_page = 0;
         while (!isLeaf()) {
             if (node_paths) {
-                *node_paths++ = cache_size > 0 ? (byte *) child_page : current_block;
+                *node_paths++ = cache_size > 0 ? (uint8_t *) child_page : current_block;
                 (*plevel_count)++;
             }
             int16_t search_result = static_cast<T*>(this)->searchCurrentBlock();
-            byte *child_ptr_loc = static_cast<T*>(this)->getChildPtrPos(search_result);
-            byte *child_ptr;
+            uint8_t *child_ptr_loc = static_cast<T*>(this)->getChildPtrPos(search_result);
+            uint8_t *child_ptr;
             if (cache_size > 0) {
                 child_page = getChildPage(child_ptr_loc);
                 child_ptr = cache->get_disk_page_in_cache(child_page);
@@ -200,14 +200,14 @@ public:
         return static_cast<T*>(this)->searchCurrentBlock();
     }
 
-    byte *getLastPtr();
-    byte *getChildPtrPos(int16_t search_result);
-    inline byte *getChildPtr(byte *ptr) {
+    uint8_t *getLastPtr();
+    uint8_t *getChildPtrPos(int16_t search_result);
+    inline uint8_t *getChildPtr(uint8_t *ptr) {
         ptr += (*ptr + 1);
-        return (byte *) util::bytesToPtr(ptr);
+        return (uint8_t *) util::bytesToPtr(ptr);
     }
 
-    inline int getChildPage(byte *ptr) {
+    inline int getChildPage(uint8_t *ptr) {
         ptr += (*ptr + 1);
         return util::bytesToPtr(ptr);
     }
@@ -220,13 +220,13 @@ public:
         return util::getInt(BPT_LAST_DATA_PTR);
     }
 
-    byte *allocateBlock(int size) {
+    uint8_t *allocateBlock(int size) {
         if (cache_size > 0) {
-            byte *new_page = cache->get_new_page(current_block);
+            uint8_t *new_page = cache->get_new_page(current_block);
             *new_page = 0x02; // Set changed so it gets written next time
             return new_page;
         }
-        return (byte *) util::alignedAlloc(size);
+        return (uint8_t *) util::alignedAlloc(size);
     }
 
     char *put(const char *key, uint8_t key_len, const char *value,
@@ -242,7 +242,7 @@ public:
             static_cast<T*>(this)->addFirstData();
             setChanged(1);
         } else {
-            byte *node_paths[9];
+            uint8_t *node_paths[9];
             int8_t level_count = 1;
             int16_t search_result = isLeaf() ?
                     static_cast<T*>(this)->searchCurrentBlock() :
@@ -256,16 +256,16 @@ public:
         return NULL;
     }
 
-    void recursiveUpdate(int16_t search_result, byte *node_paths[], byte level) {
+    void recursiveUpdate(int16_t search_result, uint8_t *node_paths[], uint8_t level) {
         //int16_t search_result = pos; // lastSearchPos[level];
         if (search_result < 0) {
             search_result = ~search_result;
             if (static_cast<T*>(this)->isFull(search_result)) {
                 updateSplitStats();
-                byte first_key[BPT_MAX_KEY_LEN]; // is max_pfx_len sufficient?
+                uint8_t first_key[BPT_MAX_KEY_LEN]; // is max_pfx_len sufficient?
                 int16_t first_len;
-                byte *old_block = current_block;
-                byte *new_block = static_cast<T*>(this)->split(first_key, &first_len);
+                uint8_t *old_block = current_block;
+                uint8_t *new_block = static_cast<T*>(this)->split(first_key, &first_len);
                 setChanged(1);
                 int new_page = 0;
                 if (cache_size > 0)
@@ -286,14 +286,14 @@ public:
                         memcpy(old_block, root_block, parent_block_size);
                         *old_block |= 0x02;
                     } else
-                        root_block = (byte *) util::alignedAlloc(parent_block_size);
+                        root_block = (uint8_t *) util::alignedAlloc(parent_block_size);
                     static_cast<T*>(this)->setCurrentBlock(root_block);
                     static_cast<T*>(this)->initCurrentBlock();
                     setLeaf(0);
                     setChanged(1);
                     if (getKVLastPos() == leaf_block_size)
                         setKVLastPos(parent_block_size);
-                    byte addr[9];
+                    uint8_t addr[9];
                     key = "";
                     key_len = 1;
                     value = (char *) addr;
@@ -310,9 +310,9 @@ public:
                     numLevels++;
                 } else {
                     int16_t prev_level = level - 1;
-                    byte *parent_data = cache_size > 0 ? cache->get_disk_page_in_cache((unsigned long)node_paths[prev_level]) : node_paths[prev_level];
+                    uint8_t *parent_data = cache_size > 0 ? cache->get_disk_page_in_cache((unsigned long)node_paths[prev_level]) : node_paths[prev_level];
                     static_cast<T*>(this)->setCurrentBlock(parent_data);
-                    byte addr[9];
+                    uint8_t addr[9];
                     key = (char *) first_key;
                     key_len = first_len;
                     value = (char *) addr;
@@ -346,7 +346,7 @@ public:
     inline void insPtr(int16_t pos, uint16_t kv_pos) {
         int16_t filledSz = filledSize();
 #if BPT_9_BIT_PTR == 1
-        byte *kvIdx = static_cast<T*>(this)->getPtrPos() + pos;
+        uint8_t *kvIdx = static_cast<T*>(this)->getPtrPos() + pos;
         memmove(kvIdx + 1, kvIdx, filledSz - pos);
         *kvIdx = kv_pos;
 #if BPT_INT64MAP == 1
@@ -355,7 +355,7 @@ public:
         if (pos & 0xFFE0) {
             insBit(bitmap2, pos - 32, kv_pos);
         } else {
-            byte last_bit = (*bitmap1 & 0x01);
+            uint8_t last_bit = (*bitmap1 & 0x01);
             insBit(bitmap1, pos, kv_pos);
             *bitmap2 >>= 1;
             if (last_bit)
@@ -363,7 +363,7 @@ public:
         }
 #endif
 #else
-        byte *kvIdx = static_cast<T*>(this)->getPtrPos() + (pos << 1);
+        uint8_t *kvIdx = static_cast<T*>(this)->getPtrPos() + (pos << 1);
         memmove(kvIdx + 2, kvIdx, (filledSz - pos) * 2);
         util::setInt(kvIdx, kv_pos);
 #endif
@@ -394,7 +394,7 @@ public:
         }
 #endif
 #else
-        byte *kvIdx = static_cast<T*>(this)->getPtrPos() + (pos << 1);
+        uint8_t *kvIdx = static_cast<T*>(this)->getPtrPos() + (pos << 1);
         return util::setInt(kvIdx, ptr);
 #endif
     }
@@ -423,7 +423,7 @@ public:
             current_block[0] &= 0xFD;
     }
 
-    inline byte isChanged() {
+    inline uint8_t isChanged() {
         return current_block[0] & 0x02;
     }
 
@@ -440,7 +440,7 @@ public:
 
     }
 
-    byte *split(byte *first_key, int16_t *first_len_ptr);
+    uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr);
 #if BPT_INT64MAP == 1
     inline void insBit(uint64_t *ui64, int pos, uint16_t kv_pos) {
         uint64_t ryte_part = (*ui64) & RYTE_MASK64(pos);
@@ -507,7 +507,7 @@ protected:
 
     bpt_trie_handler<T>(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL, byte *block = NULL) :
+            const char *fname = NULL, uint8_t *block = NULL) :
        bplus_tree_handler<T>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
         init_stats();
     }
@@ -528,24 +528,24 @@ protected:
         }
     }
 
-    inline void delAt(byte *ptr) {
+    inline void delAt(uint8_t *ptr) {
         bplus_tree_handler<T>::BPT_TRIE_LEN--;
         memmove(ptr, ptr + 1, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
     }
 
-    inline void delAt(byte *ptr, int16_t count) {
+    inline void delAt(uint8_t *ptr, int16_t count) {
         bplus_tree_handler<T>::BPT_TRIE_LEN -= count;
         memmove(ptr, ptr + count, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
     }
 
-    inline byte insAt(byte *ptr, byte b) {
+    inline uint8_t insAt(uint8_t *ptr, uint8_t b) {
         memmove(ptr + 1, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         *ptr = b;
         bplus_tree_handler<T>::BPT_TRIE_LEN++;
         return 1;
     }
 
-    inline byte insAt(byte *ptr, byte b1, byte b2) {
+    inline uint8_t insAt(uint8_t *ptr, uint8_t b1, uint8_t b2) {
         memmove(ptr + 2, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         *ptr++ = b1;
         *ptr = b2;
@@ -553,7 +553,7 @@ protected:
         return 2;
     }
 
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3) {
+    inline uint8_t insAt(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3) {
         memmove(ptr + 3, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
@@ -562,7 +562,7 @@ protected:
         return 3;
     }
 
-    inline byte insAt(byte *ptr, byte b1, byte b2, byte b3, byte b4) {
+    inline uint8_t insAt(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4) {
         memmove(ptr + 4, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
@@ -572,7 +572,7 @@ protected:
         return 4;
     }
 
-    inline void insAt(byte *ptr, byte b, const char *s, byte len) {
+    inline void insAt(uint8_t *ptr, uint8_t b, const char *s, uint8_t len) {
         memmove(ptr + 1 + len, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         *ptr++ = b;
         memcpy(ptr, s, len);
@@ -580,22 +580,22 @@ protected:
         bplus_tree_handler<T>::BPT_TRIE_LEN++;
     }
 
-    inline void insAt(byte *ptr, const char *s, byte len) {
+    inline void insAt(uint8_t *ptr, const char *s, uint8_t len) {
         memmove(ptr + len, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         memcpy(ptr, s, len);
         bplus_tree_handler<T>::BPT_TRIE_LEN += len;
     }
 
-    void insBytes(byte *ptr, int16_t len) {
+    void insBytes(uint8_t *ptr, int16_t len) {
         memmove(ptr + len, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         bplus_tree_handler<T>::BPT_TRIE_LEN += len;
     }
 
-    inline void setAt(byte pos, byte b) {
+    inline void setAt(uint8_t pos, uint8_t b) {
         trie[pos] = b;
     }
 
-    inline void append(byte b) {
+    inline void append(uint8_t b) {
         trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b;
     }
 
@@ -610,40 +610,40 @@ protected:
     }
 
 public:
-    byte *trie;
-    byte *triePos;
-    byte *origPos;
-    byte need_count;
+    uint8_t *trie;
+    uint8_t *triePos;
+    uint8_t *origPos;
+    uint8_t need_count;
     int16_t insertState;
-    byte keyPos;
-    static const byte x00 = 0;
-    static const byte x01 = 1;
-    static const byte x02 = 2;
-    static const byte x03 = 3;
-    static const byte x04 = 4;
-    static const byte x05 = 5;
-    static const byte x06 = 6;
-    static const byte x07 = 7;
-    static const byte x08 = 8;
-    static const byte x0F = 0x0F;
-    static const byte x10 = 0x10;
-    static const byte x11 = 0x11;
-    static const byte x3F = 0x3F;
-    static const byte x40 = 0x40;
-    static const byte x41 = 0x41;
-    static const byte x55 = 0x55;
-    static const byte x7F = 0x7F;
-    static const byte x80 = 0x80;
-    static const byte x81 = 0x81;
-    static const byte xAA = 0xAA;
-    static const byte xBF = 0xBF;
-    static const byte xC0 = 0xC0;
-    static const byte xF8 = 0xF8;
-    static const byte xFB = 0xFB;
-    static const byte xFC = 0xFC;
-    static const byte xFD = 0xFD;
-    static const byte xFE = 0xFE;
-    static const byte xFF = 0xFF;
+    uint8_t keyPos;
+    static const uint8_t x00 = 0;
+    static const uint8_t x01 = 1;
+    static const uint8_t x02 = 2;
+    static const uint8_t x03 = 3;
+    static const uint8_t x04 = 4;
+    static const uint8_t x05 = 5;
+    static const uint8_t x06 = 6;
+    static const uint8_t x07 = 7;
+    static const uint8_t x08 = 8;
+    static const uint8_t x0F = 0x0F;
+    static const uint8_t x10 = 0x10;
+    static const uint8_t x11 = 0x11;
+    static const uint8_t x3F = 0x3F;
+    static const uint8_t x40 = 0x40;
+    static const uint8_t x41 = 0x41;
+    static const uint8_t x55 = 0x55;
+    static const uint8_t x7F = 0x7F;
+    static const uint8_t x80 = 0x80;
+    static const uint8_t x81 = 0x81;
+    static const uint8_t xAA = 0xAA;
+    static const uint8_t xBF = 0xBF;
+    static const uint8_t xC0 = 0xC0;
+    static const uint8_t xF8 = 0xF8;
+    static const uint8_t xFB = 0xFB;
+    static const uint8_t xFC = 0xFC;
+    static const uint8_t xFD = 0xFD;
+    static const uint8_t xFE = 0xFE;
+    static const uint8_t xFF = 0xFF;
     static const int16_t x100 = 0x100;
     ~bpt_trie_handler() {}
     void printStats(long num_entries) {

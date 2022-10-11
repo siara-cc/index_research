@@ -16,13 +16,13 @@ using namespace std;
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class dft : public bpt_trie_handler<dft> {
 public:
-    const static byte need_counts[10];
+    const static uint8_t need_counts[10];
     int16_t last_sibling_pos;
     int16_t pos, key_at_pos;
 
     dft(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL, byte *block = NULL) :
+            const char *fname = NULL, uint8_t *block = NULL) :
         bpt_trie_handler<dft>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
     }
 
@@ -31,15 +31,15 @@ public:
         trie = current_block + DFT_HDR_SIZE;
     }
 
-    inline void setCurrentBlock(byte *m) {
+    inline void setCurrentBlock(uint8_t *m) {
         current_block = m;
         trie = current_block + DFT_HDR_SIZE;
     }
 
     inline int16_t searchCurrentBlock() {
-        byte *t = trie;
+        uint8_t *t = trie;
         keyPos = 0;
-        byte key_char = key[keyPos++];
+        uint8_t key_char = key[keyPos++];
         triePos = 0;
         do {
             origPos = t;
@@ -89,10 +89,10 @@ public:
                 return -1;
             }
 #if DFT_UNIT_SIZE == 3
-            byte r_children = *t & x40;
+            uint8_t r_children = *t & x40;
             int16_t ptr = get9bitPtr(t);
 #else
-            byte r_children = *t & x80;
+            uint8_t r_children = *t & x80;
             int16_t ptr = util::getInt(t + 1);
 #endif
             switch ((ptr ? 2 : 0) | ((r_children && keyPos != key_len) ? 1 : 0)) {
@@ -132,11 +132,11 @@ public:
         return DFT_HDR_SIZE;
     }
 
-    inline byte *getPtrPos() {
+    inline uint8_t *getPtrPos() {
         return NULL;
     }
 
-    inline byte *getChildPtrPos(int16_t search_result) {
+    inline uint8_t *getChildPtrPos(int16_t search_result) {
         if (triePos++) {
             while (triePos > trie) {
                 triePos -= DFT_UNIT_SIZE;
@@ -151,13 +151,13 @@ public:
         return key_at;
     }
 
-    void updatePtrs(byte *upto, int diff) {
-        byte *t = trie + 1;
+    void updatePtrs(uint8_t *upto, int diff) {
+        uint8_t *t = trie + 1;
         while (t <= upto) {
     #if DFT_UNIT_SIZE == 3
-            byte sibling = (*t & x3F);
+            uint8_t sibling = (*t & x3F);
     #else
-            byte sibling = (*t & x7F);
+            uint8_t sibling = (*t & x7F);
     #endif
             if (sibling && (t + sibling * DFT_UNIT_SIZE) >= upto)
                 *t += diff;
@@ -165,7 +165,7 @@ public:
         }
     }
 
-    byte insertUnit(byte *t, byte c1, byte s1, int16_t ptr1) {
+    uint8_t insertUnit(uint8_t *t, uint8_t c1, uint8_t s1, int16_t ptr1) {
         memmove(t + DFT_UNIT_SIZE, t, trie + BPT_TRIE_LEN- t);
         t[0] = c1;
         t[1] = s1;
@@ -180,9 +180,9 @@ public:
                 return DFT_UNIT_SIZE;
             }
 
-    byte insert2Units(byte *t, byte c1, byte s1, int16_t ptr1,
-            byte c2, byte s2, int16_t ptr2) {
-        byte size = DFT_UNIT_SIZE * 2;
+    uint8_t insert2Units(uint8_t *t, uint8_t c1, uint8_t s1, int16_t ptr1,
+            uint8_t c2, uint8_t s2, int16_t ptr2) {
+        uint8_t size = DFT_UNIT_SIZE * 2;
         memmove(t + size, t, trie + BPT_TRIE_LEN- t);
         t[0] = c1;
         t[1] = s1;
@@ -205,7 +205,7 @@ public:
         return size;
     }
 
-    void append(byte b) {
+    void append(uint8_t b) {
         trie[BPT_TRIE_LEN++] = b;
     }
 
@@ -223,13 +223,13 @@ public:
     #endif
     }
 
-    int16_t get9bitPtr(byte *t) {
+    int16_t get9bitPtr(uint8_t *t) {
         int16_t ptr = (*t++ & x80 ? 256 : 0);
         ptr |= *t;
         return ptr;
     }
 
-    void set9bitPtr(byte *t, int16_t p) {
+    void set9bitPtr(uint8_t *t, int16_t p) {
         *t-- = p;
         if (p & x100)
             *t |= x80;
@@ -237,10 +237,10 @@ public:
             *t &= x7F;
     }
 
-    byte *split(byte *first_key, int16_t *first_len_ptr) {
+    uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filledSize();
         const uint16_t DFT_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        byte *b = allocateBlock(DFT_NODE_SIZE);
+        uint8_t *b = allocateBlock(DFT_NODE_SIZE);
         dft new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
         //new_block.setKVLastPos(DFT_NODE_SIZE);
         if (!isLeaf())
@@ -261,17 +261,17 @@ public:
         // (1) move all data to new_block in order
         int16_t idx = 0;
         keyPos = 0;
-        byte tp[BPT_MAX_PFX_LEN + 1];
-        byte brk_tp_old[BPT_MAX_PFX_LEN + 1];
-        byte brk_tp_new[BPT_MAX_PFX_LEN + 1];
-        byte *t_end = trie + BPT_TRIE_LEN;
-        for (byte *t = trie + 1; t < t_end; t += DFT_UNIT_SIZE) {
+        uint8_t tp[BPT_MAX_PFX_LEN + 1];
+        uint8_t brk_tp_old[BPT_MAX_PFX_LEN + 1];
+        uint8_t brk_tp_new[BPT_MAX_PFX_LEN + 1];
+        uint8_t *t_end = trie + BPT_TRIE_LEN;
+        for (uint8_t *t = trie + 1; t < t_end; t += DFT_UNIT_SIZE) {
     #if DFT_UNIT_SIZE == 3
             int16_t src_idx = get9bitPtr(t);
-            byte child = *t & x40;
+            uint8_t child = *t & x40;
     #else
             int16_t src_idx = util::getInt(t + 1);
-            byte child = *t & x80;
+            uint8_t child = *t & x80;
     #endif
             tp[keyPos] = t - trie;
             if (child) {
@@ -312,9 +312,9 @@ public:
             }
             if (!child) {
     #if DFT_UNIT_SIZE == 3
-                byte p = *t & x3F;
+                uint8_t p = *t & x3F;
     #else
-                byte p = *t & x7F;
+                uint8_t p = *t & x7F;
     #endif
                 while (p == 0) {
                     keyPos--;
@@ -384,7 +384,7 @@ public:
             setFilledSize(brk_idx);
             int16_t diff = DFT_NODE_SIZE - brk_kv_pos;
             t_end = trie + BPT_TRIE_LEN;
-            for (byte *t = trie + 1; t < t_end; t += DFT_UNIT_SIZE) {
+            for (uint8_t *t = trie + 1; t < t_end; t += DFT_UNIT_SIZE) {
     #if DFT_UNIT_SIZE == 3
                 int16_t ptr = get9bitPtr(t);
     #else
@@ -456,7 +456,7 @@ public:
     }
 
     int16_t insertCurrent() {
-        byte key_char;
+        uint8_t key_char;
         int16_t ret, ptr, pos;
         ret = pos = 0;
 
@@ -490,7 +490,7 @@ public:
             break;
         case INSERT_THREAD:
             int16_t p, min, unit_ctr;
-            byte c1, c2;
+            uint8_t c1, c2;
             unit_ctr = 0;
             key_char = key[keyPos - 1];
             c1 = c2 = key_char;
@@ -527,7 +527,7 @@ public:
             origPos++;
             triePos = origPos;
             while (p < min) {
-                byte swap = 0;
+                uint8_t swap = 0;
                 c1 = key[p];
                 c2 = key_at[p - keyPos];
                 if (c1 > c2) {
