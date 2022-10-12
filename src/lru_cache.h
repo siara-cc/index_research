@@ -28,6 +28,7 @@ typedef struct dbl_lnklst_st {
 } dbl_lnklst;
 
 typedef struct {
+    int total_cache_req;
     int total_cache_misses;
     int cache_flush_count;
     int pages_written;
@@ -86,13 +87,17 @@ protected:
         }
     }
     void calc_flush_count() {
-        last_pages_to_flush = file_page_count / 50;
+        if (stats.total_cache_req == 0) {
+          last_pages_to_flush = 20;
+          return;
+        }
+        last_pages_to_flush = cache_size_in_pages * stats.total_cache_misses / stats.total_cache_req;
         if (last_pages_to_flush < cache_size_in_pages / 2000)
             last_pages_to_flush = cache_size_in_pages / 2000;
-        if (last_pages_to_flush > 10000)
-           last_pages_to_flush = 10000;
-        if (last_pages_to_flush < 10)
-           last_pages_to_flush = 10;
+        if (last_pages_to_flush > cache_size_in_pages / 5)
+           last_pages_to_flush = cache_size_in_pages / 5;
+        if (last_pages_to_flush < 20)
+           last_pages_to_flush = 20;
     }
     void flush_pages_in_seq(uint8_t *block_to_keep) {
         stats.cache_flush_count++;
@@ -208,6 +213,7 @@ public:
 #endif
         free(root_block);
         free(llarr);
+        cout << "total_cache_requests: " << " " << stats.total_cache_req << endl;
         cout << "total_cache_misses: " << " " << stats.total_cache_misses << endl;
         cout << "cache_flush_count: " << " " << stats.cache_flush_count << endl;
     }
@@ -246,7 +252,7 @@ public:
                   entry_to_move = lnklst_last_free;
                   if (entry_to_move == NULL)
                     entry_to_move = lnklst_last_entry;
-                  int check_count = 10;
+                  int check_count = 50;
                   while (check_count--) { // find block which is not changed
                     block = &page_cache[entry_to_move->cache_loc * page_size];
                     if ((block[0] & 0x02) == 0x00 && block_to_keep != block)
@@ -257,6 +263,7 @@ public:
                              || new_pages.find(disk_page) != new_pages.end())
                     flush_pages_in_seq(block_to_keep);
                 } while (block[0] & 0x02);
+                lnklst_last_free = entry_to_move->prev;
                     //if (block[0] & 0x02) {
                     //  block[0] &= 0xFD; // unchange it
                     //  write_page(block, entry_to_move->disk_page * page_size, page_size);
@@ -270,6 +277,7 @@ public:
                 disk_to_cache_map.erase(removed_disk_page);
                 disk_to_cache_map[disk_page] = entry_to_move;
                 stats.total_cache_misses++;
+                stats.total_cache_req++;
             }
             if (!is_new && new_pages.find(disk_page) == new_pages.end()) {
                 off_t file_pos = page_size;
@@ -300,6 +308,8 @@ public:
             dbl_lnklst *current_entry = disk_to_cache_map[disk_page];
             move_to_front(current_entry);
             cache_pos = current_entry->cache_loc;
+            if (cache_occupied_size >= cache_size_in_pages)
+              stats.total_cache_req++;
         }
         return &page_cache[page_size * cache_pos];
     }
