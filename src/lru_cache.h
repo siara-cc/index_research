@@ -43,6 +43,7 @@ protected:
     int skip_page_count;
     dbl_lnklst *lnklst_first_entry;
     dbl_lnklst *lnklst_last_entry;
+    dbl_lnklst *lnklst_last_free;
     unordered_map<int, dbl_lnklst*> disk_to_cache_map;
     dbl_lnklst *llarr;
     set<int> new_pages;
@@ -85,13 +86,13 @@ protected:
         }
     }
     void calc_flush_count() {
-        last_pages_to_flush = 10;
-        return;
-        //file_page_count / cache_size_in_pages * 40;
+        last_pages_to_flush = file_page_count / 50;
+        if (last_pages_to_flush < cache_size_in_pages / 2000)
+            last_pages_to_flush = cache_size_in_pages / 2000;
+        if (last_pages_to_flush > 10000)
+           last_pages_to_flush = 10000;
         if (last_pages_to_flush < 10)
-            last_pages_to_flush = 10;
-        if (last_pages_to_flush > 50)
-           last_pages_to_flush = 50;
+           last_pages_to_flush = 10;
     }
     void flush_pages_in_seq(uint8_t *block_to_keep) {
         stats.cache_flush_count++;
@@ -111,8 +112,11 @@ protected:
             cur_entry = cur_entry->prev;
         } while (--pages_to_check && cur_entry);
         write_pages(pages_to_write);
+        lnklst_last_free = lnklst_last_entry;
     }
     void move_to_front(dbl_lnklst *entry_to_move) {
+        if (entry_to_move == lnklst_last_free)
+          lnklst_last_free = lnklst_last_free->prev;
         if (entry_to_move != lnklst_first_entry) {
             if (entry_to_move == lnklst_last_entry)
                 lnklst_last_entry = lnklst_last_entry->prev;
@@ -183,6 +187,7 @@ public:
             empty = 1;
         }
 #endif
+        lnklst_last_free = NULL;
         memset(&stats, '\0', sizeof(stats));
         calc_flush_count();
     }
@@ -226,7 +231,6 @@ public:
                 disk_to_cache_map[disk_page] = new_entry;
                 cache_pos = cache_occupied_size++;
             } else {
-                dbl_lnklst *entry_to_move = lnklst_last_entry;
                     //uint8_t *block;
                     //while (1) {
                     //  block = &page_cache[entry_to_move->cache_loc * page_size];
@@ -236,29 +240,23 @@ public:
                     //  entry_to_move = entry_to_move->prev;
                     //}
                 calc_flush_count();
-                int check_count = last_pages_to_flush * 5;
                 uint8_t *block;
-                while (check_count--) { // find block which is not changed
+                dbl_lnklst *entry_to_move;
+                do {
+                  entry_to_move = lnklst_last_free;
+                  if (entry_to_move == NULL)
+                    entry_to_move = lnklst_last_entry;
+                  int check_count = 10;
+                  while (check_count--) { // find block which is not changed
                     block = &page_cache[entry_to_move->cache_loc * page_size];
                     if ((block[0] & 0x02) == 0x00 && block_to_keep != block)
                       break;
                     entry_to_move = entry_to_move->prev;
-                }
-                if ((block[0] & 0x02) || new_pages.size() > last_pages_to_flush
-                       || new_pages.find(disk_page) != new_pages.end())
-                  flush_pages_in_seq(block_to_keep);
-                if (block[0] & 0x02) {
-                  check_count = last_pages_to_flush;
-                  while (check_count--) { // find block which is not changed
-                      block = &page_cache[entry_to_move->cache_loc * page_size];
-                      if (block != block_to_keep) {
-                        if ((block[0] & 0x02) == 0x00)
-                          break;
-                      }
-                      entry_to_move = entry_to_move->prev;
                   }
-                }
-
+                  if ((block[0] & 0x02) || new_pages.size() > last_pages_to_flush
+                             || new_pages.find(disk_page) != new_pages.end())
+                    flush_pages_in_seq(block_to_keep);
+                } while (block[0] & 0x02);
                     //if (block[0] & 0x02) {
                     //  block[0] &= 0xFD; // unchange it
                     //  write_page(block, entry_to_move->disk_page * page_size, page_size);
