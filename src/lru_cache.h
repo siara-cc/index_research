@@ -28,10 +28,10 @@ typedef struct dbl_lnklst_st {
 } dbl_lnklst;
 
 typedef struct {
-    int total_cache_req;
-    int total_cache_misses;
-    int cache_flush_count;
-    int pages_written;
+    long total_cache_req;
+    long total_cache_misses;
+    long cache_flush_count;
+    long pages_written;
 } cache_stats;
 
 class lru_cache {
