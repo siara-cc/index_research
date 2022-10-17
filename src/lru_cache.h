@@ -77,11 +77,11 @@ protected:
         }
     }
     void write_pages(set<int>& pages_to_write) {
-        for (int it : pages_to_write) {
-            uint8_t *block = &page_cache[page_size * disk_to_cache_map[it]->cache_loc];
+        for (set<int>::iterator it = pages_to_write.begin(); it != pages_to_write.end(); it++) {
+            uint8_t *block = &page_cache[page_size * disk_to_cache_map[*it]->cache_loc];
             block[0] &= 0xFD; // unchange it
             off_t file_pos = page_size;
-            file_pos *= it;
+            file_pos *= *it;
             write_page(block, file_pos, page_size);
             stats.pages_written++;
         }
@@ -102,20 +102,20 @@ protected:
     void flush_pages_in_seq(uint8_t *block_to_keep) {
         stats.cache_flush_count++;
         set<int> pages_to_write(new_pages);
-        new_pages.clear();
         calc_flush_count();
-        int pages_to_check = last_pages_to_flush * 3;
+        int pages_to_check = last_pages_to_flush * 2;
         dbl_lnklst *cur_entry = lnklst_last_entry;
         do {
             uint8_t *block = &page_cache[cur_entry->cache_loc * page_size];
             if (block_to_keep != block) {
               if (block[0] & 0x02) // is it changed
                 pages_to_write.insert(cur_entry->disk_page);
-              if (pages_to_write.size() > (last_pages_to_flush * 2))
+              if (pages_to_write.size() > (last_pages_to_flush + new_pages.size()))
                 break;
             }
             cur_entry = cur_entry->prev;
         } while (--pages_to_check && cur_entry);
+        new_pages.clear();
         write_pages(pages_to_write);
         lnklst_last_free = lnklst_last_entry;
     }
@@ -249,10 +249,10 @@ public:
                 uint8_t *block;
                 dbl_lnklst *entry_to_move;
                 do {
-                  entry_to_move = lnklst_last_free;
+                  entry_to_move = NULL; //lnklst_last_free;
                   if (entry_to_move == NULL)
                     entry_to_move = lnklst_last_entry;
-                  int check_count = 50;
+                  int check_count = last_pages_to_flush * 2;
                   while (check_count--) { // find block which is not changed
                     block = &page_cache[entry_to_move->cache_loc * page_size];
                     if ((block[0] & 0x02) == 0x00 && block_to_keep != block)
