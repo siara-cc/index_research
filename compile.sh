@@ -1,25 +1,22 @@
-if [ ! -d "Release" ]; then
-    mkdir Release
-fi
-if [ ! -d "Release/src" ]; then
-    mkdir Release/src
+if [ ! -d "build" ]; then
+    mkdir build
 fi
 export COMPILE_OPTS="-O3 -I./hdr -I./src"
-g++ $COMPILE_OPTS -c -o Release/src/huge_db.o ./src/huge_db.cpp
-g++ $COMPILE_OPTS -c -o Release/src/art.o ./src/art.cpp
-g++ $COMPILE_OPTS -c -o Release/src/rb_tree.o ./src/rb_tree.cpp
-g++ $COMPILE_OPTS -c -o Release/src/dfox.o ./src/dfox.cpp
-g++ $COMPILE_OPTS -c -o Release/src/dfos.o ./src/dfos.cpp
-g++ $COMPILE_OPTS -c -o Release/src/dfqx.o ./src/dfqx.cpp
-g++ $COMPILE_OPTS -c -o Release/src/bfos.o ./src/bfos.cpp
-g++ $COMPILE_OPTS -c -o Release/src/octp.o ./src/octp.cpp
-g++ $COMPILE_OPTS -c -o Release/src/bfqs.o ./src/bfqs.cpp
-g++ $COMPILE_OPTS -c -o Release/src/bft.o ./src/bft.cpp
-g++ $COMPILE_OPTS -c -o Release/src/dft.o ./src/dft.cpp
-g++ $COMPILE_OPTS -c -o Release/src/GenTree.o ./src/GenTree.cpp
-g++ $COMPILE_OPTS -c -o Release/src/linex.o ./src/linex.cpp
-g++ $COMPILE_OPTS -c -o Release/src/basix.o ./src/basix.cpp
-g++ $COMPILE_OPTS -c -o Release/src/univix_util.o ./src/univix_util.cpp
-g++ $COMPILE_OPTS -c -o Release/src/lru_cache.o ./src/lru_cache.cpp
-cd Release
-g++ $COMPILE_OPTS -o ../huge_db src/rb_tree.o src/basix.o src/huge_db.o src/dfox.o src/dfos.o src/dfqx.o src/linex.o src/bfos.o src/octp.o src/bfqs.o src/dft.o src/bft.o src/art.o src/GenTree.o src/univix_util.o src/lru_cache.o
+g++ $COMPILE_OPTS -c -o build/huge_db.o ./huge_db.cpp
+g++ $COMPILE_OPTS -c -o build/art.o ./art.cpp
+g++ $COMPILE_OPTS -c -o build/rb_tree.o ./rb_tree.cpp
+g++ $COMPILE_OPTS -c -o build/dfox.o ./dfox.cpp
+g++ $COMPILE_OPTS -c -o build/dfos.o ./dfos.cpp
+g++ $COMPILE_OPTS -c -o build/dfqx.o ./dfqx.cpp
+g++ $COMPILE_OPTS -c -o build/bfos.o ./bfos.cpp
+g++ $COMPILE_OPTS -c -o build/octp.o ./octp.cpp
+g++ $COMPILE_OPTS -c -o build/bfqs.o ./bfqs.cpp
+g++ $COMPILE_OPTS -c -o build/bft.o ./bft.cpp
+g++ $COMPILE_OPTS -c -o build/dft.o ./dft.cpp
+g++ $COMPILE_OPTS -c -o build/GenTree.o ./GenTree.cpp
+g++ $COMPILE_OPTS -c -o build/linex.o ./linex.cpp
+g++ $COMPILE_OPTS -c -o build/basix.o ./basix.cpp
+g++ $COMPILE_OPTS -c -o build/univix_util.o ./univix_util.cpp
+g++ $COMPILE_OPTS -c -o build/lru_cache.o ./lru_cache.cpp
+cd build
+g++ $COMPILE_OPTS -o ../huge_db rb_tree.o basix.o huge_db.o dfox.o dfos.o dfqx.o linex.o bfos.o octp.o bfqs.o dft.o bft.o art.o GenTree.o univix_util.o lru_cache.o
