@@ -78,11 +78,11 @@ protected:
         }
     }
     void write_pages(set<int>& pages_to_write) {
-        for (int it : pages_to_write) {
-            uint8_t *block = &page_cache[page_size * disk_to_cache_map[it]->cache_loc];
+        for (set<int>::iterator it = pages_to_write.begin(); it != pages_to_write.end(); it++) {
+            uint8_t *block = &page_cache[page_size * disk_to_cache_map[*it]->cache_loc];
             block[0] &= 0xFD; // unchange it
             off_t file_pos = page_size;
-            file_pos *= it;
+            file_pos *= *it;
             write_page(block, file_pos, page_size);
             stats.pages_written++;
         }
