@@ -6,4 +6,4 @@
 *.ix
 *.txt
 /build
-
+/bfos_stats*

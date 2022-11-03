@@ -134,6 +134,9 @@ public:
 
     void setCurrentBlockRoot();
     void setCurrentBlock(uint8_t *m);
+    uint8_t *getCurrentBlock() {
+        return current_block;
+    }
     char *get(const char *key, uint8_t key_len, int16_t *pValueLen) {
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
