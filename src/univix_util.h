@@ -93,20 +93,25 @@ public:
     }
 
     static int ptrToBytes(unsigned long addr_num, uint8_t *addr) {
-        int i = 0;
+        int l = 0;
         while (addr_num) {
-            addr[i++] = addr_num;
+            addr[l++] = addr_num;
             addr_num >>= 8;
         }
-        return i;
+        for (int i = 0; i < l / 2; i++) {
+          uint8_t b = addr[1];
+          addr[i] = addr[l - i - 1];
+          addr[l - i - 1] = b;
+        }
+        return l;
     }
 
     static unsigned long bytesToPtr(const uint8_t *addr) {
         unsigned long ret = 0;
         int len = *addr;
         do {
-            ret <<= 8;
             ret |= addr[len];
+            ret <<= 8;
         } while (--len);
         return ret;
     }
