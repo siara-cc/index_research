@@ -154,7 +154,14 @@ void process_block(uint8_t *buf, int page_size, all_stats& stats, bfos *ix) {
             child_ptr_pos += (*child_ptr_pos);
             child_ptr_pos++;
             int key_len = (int) *child_ptr_pos++;
-            ix->put((const char *) child_ptr_pos, key_len, "_", 1);
+            uint8_t val[8];
+            int zero_count = 4 - key_len;
+            memcpy(val + zero_count, child_ptr_pos, key_len);
+            while (zero_count--)
+              val[zero_count] = 0;
+            //unsigned long val = util::bytesToPtr(child_ptr_pos-1);
+            //printf("%d %4lx\n", key_len, val);
+            ix->put((const char *) val, 4, "", 0);
             t += 2;
           }
         }

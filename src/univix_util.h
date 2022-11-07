@@ -99,7 +99,7 @@ public:
             addr_num >>= 8;
         }
         for (int i = 0; i < l / 2; i++) {
-          uint8_t b = addr[1];
+          uint8_t b = addr[i];
           addr[i] = addr[l - i - 1];
           addr[l - i - 1] = b;
         }
@@ -108,10 +108,10 @@ public:
 
     static unsigned long bytesToPtr(const uint8_t *addr) {
         unsigned long ret = 0;
-        int len = *addr;
+        int len = *addr++;
         do {
-            ret |= addr[len];
             ret <<= 8;
+            ret |= *addr++;
         } while (--len);
         return ret;
     }
