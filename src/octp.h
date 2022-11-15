@@ -130,7 +130,8 @@ public:
 
             // kkkkk t00 - octet with bitmap, t = terminator
             // lllll x01 - letter range or letter set, l = length, x = 0 (letter range), x = 1 (letter set)
-            // llllx y10 - prefix - x = 
+            // llllx x10 - prefix with xx (00 - leaf and child, 01 - end with key, 10 - end with key & value, 11 - ?)
+            // llllx x11 - other with xx (00 - leaf and child, 01 - key change, 10 - pointer set, 11 - ?)
 
             // octet with bitmap kkkkk 00x, x=terminator
             // only bitmap kkkkk 010

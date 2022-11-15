@@ -22,9 +22,15 @@ typedef struct {
   long parent_prefix_count;
   long parent_prefix_len;
   long leaf_trie_len;
+  long leaf_count;
+  long leaf_node_count;
+  long leaf_both_count;
   long leaf_filled_size;
   long leaf_data_size;
   long parent_trie_len;
+  long parent_count;
+  long parent_node_count;
+  long parent_both_count;
   long parent_filled_size;
   long parent_data_size;
 } stats;
@@ -38,6 +44,9 @@ void print_block_stats(stats& stat, stats& ptr_stat, bool is_leaf, const char *p
     if (is_leaf) {
       cout << endl << prefix << "Leaf Trie len: " << stat.leaf_trie_len << ", " <<
                       prefix << "Leaf Filled size: " << stat.leaf_filled_size << ", " <<
+                      prefix << "Leaf count: " << stat.leaf_count;
+      cout << endl << prefix << "Leaf node count: " << stat.leaf_node_count << ", " <<
+                      prefix << "Leaf both count: " << stat.leaf_both_count << ", " <<
                       prefix << "Leaf Data size: " << stat.leaf_data_size << endl;
       cout << prefix << "Leaf Leaf counts: ";
       for (int i = 0; i < 9; i++) {
@@ -52,6 +61,9 @@ void print_block_stats(stats& stat, stats& ptr_stat, bool is_leaf, const char *p
     } else {
       cout << endl << prefix << "Parent Trie len: " << stat.parent_trie_len << ", " <<
                       prefix << "Parent Filled size: " << stat.parent_filled_size << ", " <<
+                      prefix << "Parent count: " << stat.parent_count;
+      cout << endl << prefix << "Parent node count: " << stat.parent_node_count << ", " <<
+                      prefix << "Parent both count: " << stat.parent_both_count << ", " <<
                       prefix << "Parent Data size: " << stat.parent_data_size << endl;
       cout << prefix << "Ptr Trie len: " << ptr_stat.leaf_trie_len << ", " <<
               prefix << "Ptr Filled size: " << ptr_stat.leaf_filled_size << ", " <<
@@ -89,14 +101,20 @@ void process_block(uint8_t *buf, int page_size, all_stats& stats, bfos *ix) {
       stats.block_stats.leaf_trie_len = getInt(TRIE_LEN_PTR);
       stats.block_stats.leaf_filled_size = getInt(buf+1);
       stats.block_stats.leaf_data_size = (page_size - getInt(buf+3));
+      stats.total_block_stats.leaf_count++;
       stats.total_block_stats.leaf_trie_len += stats.block_stats.leaf_trie_len;
+      stats.total_block_stats.leaf_node_count += stats.block_stats.leaf_node_count;
+      stats.total_block_stats.leaf_both_count += stats.block_stats.leaf_both_count;
       stats.total_block_stats.leaf_filled_size += stats.block_stats.leaf_filled_size;
       stats.total_block_stats.leaf_data_size += stats.block_stats.leaf_data_size;
     } else {
       stats.block_stats.parent_trie_len = getInt(TRIE_LEN_PTR);
       stats.block_stats.parent_filled_size = getInt(buf+1);
       stats.block_stats.parent_data_size = (page_size - getInt(buf+3));
+      stats.total_block_stats.parent_count++;
       stats.total_block_stats.parent_trie_len += stats.block_stats.parent_trie_len;
+      stats.total_block_stats.parent_node_count += stats.block_stats.parent_node_count;
+      stats.total_block_stats.parent_both_count += stats.block_stats.parent_both_count;
       stats.total_block_stats.parent_filled_size += stats.block_stats.parent_filled_size;
       stats.total_block_stats.parent_data_size += stats.block_stats.parent_data_size;
     }
@@ -104,6 +122,10 @@ void process_block(uint8_t *buf, int page_size, all_stats& stats, bfos *ix) {
     uint8_t *upto = t + getInt(TRIE_LEN_PTR);
     while (t < upto) {
         uint8_t tc = *t++;
+        if (*buf & 0x01)
+            stats.block_stats.leaf_node_count++;
+        else
+            stats.block_stats.parent_node_count++;
         if (tc & 0x01) {
             if (*buf & 0x01) {
               stats.block_stats.leaf_prefix_len += (tc >> 1);
@@ -137,9 +159,13 @@ void process_block(uint8_t *buf, int page_size, all_stats& stats, bfos *ix) {
         }
         uint8_t leaves = *t++;
         if (*buf & 0x01) {
+          if (child > 0 && leaves > 0)
+            stats.block_stats.leaf_both_count++;
           stats.block_stats.leaf_leaf_counts[bit_count[leaves]]++;
           stats.total_block_stats.leaf_leaf_counts[bit_count[leaves]]++;
         } else {
+          if (child > 0 && leaves > 0)
+            stats.block_stats.parent_both_count++;
           stats.block_stats.parent_leaf_counts[bit_count[leaves]]++;
           stats.total_block_stats.parent_leaf_counts[bit_count[leaves]]++;
         }

@@ -708,11 +708,61 @@ public:
 
     }
 
+    void makeSpace() {
+        const int block_size = (isLeaf() ? leaf_block_size : parent_block_size);
+        const uint16_t data_size = block_size - getKVLastPos();
+        uint8_t data_buf[data_size];
+        uint16_t new_data_len = 0;
+        uint8_t *t = current_block + BFOS_HDR_SIZE;
+        uint8_t *upto = t + BS_GET_TRIE_LEN;
+        while (t < upto) {
+            uint8_t tc = *t++;
+            if (tc & 0x01) {
+                t += (tc >> 1);
+                continue;
+            }
+            uint8_t child = 0;
+            if (tc & 0x02)
+                child = *t++;
+            uint8_t leaves = *t++;
+            t += BS_BIT_COUNT_CH(child);
+            int leaf_count = BIT_COUNT(leaves);
+            while (leaf_count--) {
+                int leaf_pos = util::getInt(t);
+                uint8_t *child_ptr_pos = current_block + leaf_pos;
+                uint16_t data_len = *child_ptr_pos;
+                data_len++;
+                data_len += child_ptr_pos[data_len];
+                data_len++;
+                new_data_len += data_len;
+                // if (child_ptr_pos == key_at - 1) {
+                //     if (last_t == key_at)
+                //       last_t = 0;
+                //     key_at = current_block + (block_size - new_data_len) + 1;
+                //     if (!last_t)
+                //       last_t = key_at;
+                // }
+                memcpy(data_buf + data_size - new_data_len, child_ptr_pos, data_len);
+                util::setInt(t, block_size - new_data_len);
+                t += 2;
+            }
+        }
+        uint16_t new_kv_last_pos = block_size - new_data_len;
+        memcpy(current_block + new_kv_last_pos, data_buf + data_size - new_data_len, new_data_len);
+        //printf("%d, %d\n", data_size, new_data_len);
+        setKVLastPos(new_kv_last_pos);
+        searchCurrentBlock();
+    }
+
     bool isFull(int16_t search_result) {
         decodeNeedCount(search_result);
         if (getKVLastPos() < (BFOS_HDR_SIZE + BS_GET_TRIE_LEN
+                + need_count + key_len - keyPos + value_len + 3)) {
+            makeSpace();
+            if (getKVLastPos() < (BFOS_HDR_SIZE + BS_GET_TRIE_LEN
                 + need_count + key_len - keyPos + value_len + 3))
-            return true;
+              return true;
+        }
 #if BS_CHILD_PTR_SIZE == 1
         if (BS_GET_TRIE_LEN > 254 - need_count)
             return true;

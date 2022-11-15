@@ -1,7 +1,8 @@
 /Debug/
 /Release
 /index.pdf
-/huge_db
+/imain
+/src/imain
 .DS_Store
 *.ix
 *.txt

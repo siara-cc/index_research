@@ -13,8 +13,11 @@
 using namespace std;
 
 #define HAS_CHILD_MASK 0x01
-#define LAST_CHILD_MASK 0x02
-#define IS_LEAF_MASK 0x04
+#define IS_LEAF_MASK 0x02
+#define CHILD_LEAF_MASK 0x03
+#define LAST_CHILD_MASK 0x04
+
+#define SUCCIX_HDR_SIZE 9
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class succix : public bpt_trie_handler<succix> {
@@ -55,7 +58,7 @@ public:
         uint8_t key_char = key[0];
         do {
             uint8_t trie_char = nodes_ptr[cur_node];
-            uint8_t flags = elouds_bm[cur_node >> 1] >> (cur_node & 0x01 ? 0 : 4);
+            uint8_t flags = elouds_bm[cur_node >> 1] << (cur_node & 0x01 ? 0 : 4);
             has_child_count += (flags & HAS_CHILD_MASK);
             if (key_char == trie_char) {
                 int sw = (flags & IS_LEAF_MASK ? 2 : 0) | (flags & HAS_CHILD_MASK && keyPos != key_len ? 1 : 0);
@@ -66,8 +69,10 @@ public:
                     case 2:
                         int16_t cmp;
                         int16_t ptr = nodes_ptr[++cur_node];
-                        if (ptr & 0x80)
-                          ptr = (ptr & 0x7F) + (nodes_ptr[++cur_node] << 7);
+                        uint8_t ptr_flags = elouds_bm[cur_node >> 1] << (cur_node & 0x01 ? 0 : 4);
+                        cur_node++;
+                        if ((ptr_flags & CHILD_LEAF_MASK) == 0)
+                          ptr += nodes_ptr[cur_node];
                         key_at = current_block + ptr;
                         key_at_len = *key_at++;
                         cmp = util::compare(key + keyPos, key_len - keyPos,
@@ -102,7 +107,7 @@ public:
                     return -1;
                 }
             }
-            last_child_count += flags & HAS_CHILD_MASK;
+            last_child_count += flags & LAST_CHILD_MASK ? 1 : 0;
         } while (++cur_node < node_count);
         return -1;
     }
