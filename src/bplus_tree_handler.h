@@ -14,13 +14,19 @@
 
 using namespace std;
 
-#define BPT_IS_LEAF_BYTE current_block[0] & 0x01
+#define BPT_IS_LEAF_BYTE current_block[0] & 0x80
+#define BPT_IS_CHANGED current_block[0] & 0x40
+#define BPT_LEVEL (current_block[0] & 0x1F)
 #define BPT_FILLED_SIZE current_block + 1
 #define BPT_LAST_DATA_PTR current_block + 3
 #define BPT_MAX_KEY_LEN current_block[5]
 #define BPT_TRIE_LEN_PTR current_block + 6
 #define BPT_TRIE_LEN current_block[7]
 #define BPT_MAX_PFX_LEN current_block[8]
+
+#define BPT_LEAF0_LVL 14
+#define BPT_STAGING_LVL 15
+#define BPT_PARENT0_LVL 16
 
 #define INSERT_AFTER 1
 #define INSERT_BEFORE 2
@@ -226,7 +232,7 @@ public:
     uint8_t *allocateBlock(int size) {
         if (cache_size > 0) {
             uint8_t *new_page = cache->get_new_page(current_block);
-            *new_page = 0x02; // Set changed so it gets written next time
+            *new_page = 0x40; // Set changed so it gets written next time
             return new_page;
         }
         return (uint8_t *) util::alignedAlloc(size);
@@ -270,6 +276,7 @@ public:
                 uint8_t *old_block = current_block;
                 uint8_t *new_block = static_cast<T*>(this)->split(first_key, &first_len);
                 setChanged(1);
+                new_block[0] = (new_block[0] & 0xE0) + (old_block[0] & 0x1F);
                 int new_page = 0;
                 if (cache_size > 0)
                     new_page = cache->get_page_count() - 1;
@@ -281,19 +288,25 @@ public:
                 static_cast<T*>(this)->addData(search_result);
                 //cout << "FK:" << level << ":" << first_key << endl;
                 if (root_block == old_block) {
+                    int new_lvl = old_block[0] & 0x1F;
+                    if (new_lvl == BPT_LEAF0_LVL)
+                      new_lvl = BPT_PARENT0_LVL;
+                    else if (new_lvl >= BPT_PARENT0_LVL)
+                      new_lvl++;
                     blockCountNode++;
                     int old_page = 0;
                     if (cache_size > 0) {
                         old_block = cache->get_new_page(new_block);
                         old_page = cache->get_page_count() - 1;
                         memcpy(old_block, root_block, parent_block_size);
-                        *old_block |= 0x02;
+                        *old_block |= 0x40;
                     } else
                         root_block = (uint8_t *) util::alignedAlloc(parent_block_size);
                     static_cast<T*>(this)->setCurrentBlock(root_block);
                     static_cast<T*>(this)->initCurrentBlock();
                     setLeaf(0);
                     setChanged(1);
+                    root_block[0] = (root_block[0] & 0xE0) + new_lvl;
                     if (getKVLastPos() == leaf_block_size)
                         setKVLastPos(parent_block_size);
                     uint8_t addr[9];
@@ -413,21 +426,21 @@ public:
     }
 
     inline void setLeaf(char isLeaf) {
-        if (isLeaf)
-            current_block[0] |= 0x01;
-        else
-            current_block[0] &= 0xFE;
+        if (isLeaf) {
+            current_block[0] = (current_block[0] & 0x60) | BPT_LEAF0_LVL | 0x80;
+        } else
+            current_block[0] &= 0x7F;
     }
 
     inline void setChanged(char isChanged) {
         if (isChanged)
-            current_block[0] |= 0x02;
+            current_block[0] |= 0x40;
         else
-            current_block[0] &= 0xFD;
+            current_block[0] &= 0xBF;
     }
 
     inline uint8_t isChanged() {
-        return current_block[0] & 0x02;
+        return current_block[0] & 0x40;
     }
 
     inline void setKVLastPos(uint16_t val) {
