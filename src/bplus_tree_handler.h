@@ -238,14 +238,13 @@ public:
             *new_page = 0x40; // Set changed so it gets written next time
         } else
             new_page = (uint8_t *) util::alignedAlloc(size);
-        if (lvl == BPT_PARENT0_LVL && cache_size > 0)
-            util::setInt(new_page + 3, parent_block_size - 8);
-        else
-            util::setInt(new_page + 3, is_leaf ? leaf_block_size : parent_block_size);
+        util::setInt(new_page + 3, size);
+        util::setInt(new_page + 1, 0);
         if (is_leaf)
             *new_page = 0xC0 + lvl;
         else
             *new_page = 0x40 + lvl;
+        new_page[5] = 1;
         return new_page;
     }
 
