@@ -696,9 +696,8 @@ public:
     uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filledSize();
         const uint16_t BFQS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        uint8_t *b = allocateBlock(BFQS_NODE_SIZE);
+        uint8_t *b = allocateBlock(BFQS_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
         bfqs new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
-        new_block.setKVLastPos(BFQS_NODE_SIZE);
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
         int16_t kv_last_pos = getKVLastPos();

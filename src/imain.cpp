@@ -1284,6 +1284,7 @@ void checkValue(const char *key, int key_len, const char *val, int val_len,
     }
 }
 
+/// ./build/imain 1000000 2 16 8 4096 4096 10000 out.ix
 int main(int argc, char *argv[]) {
 
     if (argc > 1) {
@@ -1448,16 +1449,16 @@ int main(int argc, char *argv[]) {
     }
 
     ctr = 0;
-    //linex *lx = new linex();
-    basix *lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    //rb_tree *lx = new rb_tree();
-    //bft *lx = new bft();
-    //dft *lx = new dft();
-    //bfos *lx = new bfos();
-    //bfqs *lx = new bfqs();
-    //dfqx *lx = new dfqx();
-    //dfox *lx = new dfox();
-    //dfos *lx = new dfos();
+    //linex *lx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
+    //basix *lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //bft *lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
+    //dft *lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //bfos *lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //bfqs *lx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //dfqx *lx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    dfox *lx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //dfos *lx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //rb_tree *lx = new rb_tree(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);  // not working
     it1 = m.begin();
     start = getTimeVal();
     uint8_t dummy[9];
@@ -1480,20 +1481,20 @@ int main(int argc, char *argv[]) {
         }
     }
     stop = getTimeVal();
-    cout << "B+Tree insert time:" << timedifference(start, stop) << endl;
+    cout << "Index1 insert time:" << timedifference(start, stop) << endl;
     //getchar();
 
     ctr = 0;
-    //linex *dx = new linex();
-    //basix *dx = new basix();
-    //bft *dx = new bft();
+    //linex *dx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //basix *dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //bft *dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //dft *dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     bfos *dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //bfqs *dx = new bfqs();
-    //dft *dx = new dft();
-    //dfqx *dx = new dfqx();
-    //dfox *dx = new dfox();
-    //dfos *dx = new dfos();
-    //rb_tree *dx = new rb_tree();
+    //bfqs *dx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //dfqx *dx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //dfox *dx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //dfos *dx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //rb_tree *dx = new rb_tree(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     it1 = m.begin();
     start = getTimeVal();
     if (USE_HASHTABLE) {
@@ -1514,7 +1515,7 @@ int main(int argc, char *argv[]) {
         }
     }
     stop = getTimeVal();
-    cout << "DFox+Tree insert time:" << timedifference(start, stop) << endl;
+    cout << "Index2 insert time:" << timedifference(start, stop) << endl;
     //getchar();
 
     cmp = 0;
@@ -1599,7 +1600,7 @@ int main(int argc, char *argv[]) {
         }
     }
     stop = getTimeVal();
-    cout << "B+Tree Get Time:" << timedifference(start, stop) << ", ";
+    cout << "Index1 Get Time:" << timedifference(start, stop) << ", ";
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
     lx->printStats(NUM_ENTRIES);
     lx->printNumLevels();
@@ -1637,7 +1638,7 @@ int main(int argc, char *argv[]) {
         }
     }
     stop = getTimeVal();
-    cout << "DFox+Tree get time:" << timedifference(start, stop) << ", ";
+    cout << "Index2 get time:" << timedifference(start, stop) << ", ";
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
     dx->printStats(NUM_ENTRIES);
     dx->printNumLevels();

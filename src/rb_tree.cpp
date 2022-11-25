@@ -75,11 +75,8 @@ void rb_tree::addData(int16_t search_result) {
 uint8_t *rb_tree::split(uint8_t *first_key, int16_t *first_len_ptr) {
     int16_t filled_upto = filledUpto();
     const uint16_t RB_TREE_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-    uint8_t *b = allocateBlock(RB_TREE_NODE_SIZE);
+    uint8_t *b = allocateBlock(RB_TREE_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
     rb_tree new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
-    new_block.setKVLastPos(RB_TREE_NODE_SIZE);
-    if (!isLeaf())
-        new_block.setLeaf(false);
     int16_t data_end_pos = util::getInt(current_block + DATA_END_POS);
     int16_t halfKVLen = data_end_pos;
     halfKVLen /= 2;

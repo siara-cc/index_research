@@ -346,16 +346,14 @@ public:
     uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filledSize();
         const uint16_t BFT_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        uint8_t *b = allocateBlock(BFT_NODE_SIZE);
+        uint8_t *b = allocateBlock(BFT_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
         bft new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
-        new_block.setKVLastPos(BFT_NODE_SIZE);
-        if (!isLeaf())
-            new_block.setLeaf(0);
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
         bft old_block(this->leaf_block_size, this->parent_block_size, 0, NULL, split_buf);
-        if (!isLeaf())
-            old_block.setLeaf(0);
+        old_block.setLeaf(isLeaf());
+        old_block.setFilledSize(0);
+        old_block.setKVLastPos(new_block.getKVLastPos());
         old_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         old_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
         bft *ins_block = &old_block;

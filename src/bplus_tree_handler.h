@@ -94,6 +94,7 @@ public:
             leaf_block_size (leaf_block_sz), parent_block_size (parent_block_sz),
             cache_size (cache_sz), filename (fname) {
         init_stats();
+        is_block_given = block == NULL ? 0 : 1;
         if (cache_size > 0) {
             cache = new lru_cache(leaf_block_size, cache_size, filename, 0, util::alignedAlloc);
             root_block = current_block = cache->get_disk_page_in_cache(0);
@@ -106,7 +107,6 @@ public:
                 static_cast<T*>(this)->setCurrentBlock(block);
             static_cast<T*>(this)->initCurrentBlock();
         }
-        is_block_given = block == NULL ? 0 : 1;
     }
 
     ~bplus_tree_handler() {
@@ -119,10 +119,12 @@ public:
     void initCurrentBlock() {
         //memset(current_block, '\0', BFOS_NODE_SIZE);
         //cout << "Tree init block" << endl;
-        setLeaf(1);
-        setFilledSize(0);
-        BPT_MAX_KEY_LEN = 1;
-        setKVLastPos(leaf_block_size);
+        if (!is_block_given) {
+            setLeaf(1);
+            setFilledSize(0);
+            BPT_MAX_KEY_LEN = 1;
+            setKVLastPos(leaf_block_size);
+        }
     }
 
     void init_stats() {
@@ -229,13 +231,22 @@ public:
         return util::getInt(BPT_LAST_DATA_PTR);
     }
 
-    uint8_t *allocateBlock(int size) {
+    uint8_t *allocateBlock(int size, int is_leaf, int lvl) {
+        uint8_t *new_page;
         if (cache_size > 0) {
-            uint8_t *new_page = cache->get_new_page(current_block);
+            new_page = cache->get_new_page(current_block);
             *new_page = 0x40; // Set changed so it gets written next time
-            return new_page;
-        }
-        return (uint8_t *) util::alignedAlloc(size);
+        } else
+            new_page = (uint8_t *) util::alignedAlloc(size);
+        if (lvl == BPT_PARENT0_LVL && cache_size > 0)
+            util::setInt(new_page + 3, parent_block_size - 8);
+        else
+            util::setInt(new_page + 3, is_leaf ? leaf_block_size : parent_block_size);
+        if (is_leaf)
+            *new_page = 0xC0 + lvl;
+        else
+            *new_page = 0x40 + lvl;
+        return new_page;
     }
 
     char *put(const char *key, uint8_t key_len, const char *value,
@@ -276,7 +287,8 @@ public:
                 uint8_t *old_block = current_block;
                 uint8_t *new_block = static_cast<T*>(this)->split(first_key, &first_len);
                 setChanged(1);
-                new_block[0] = (new_block[0] & 0xE0) + (old_block[0] & 0x1F);
+                int lvl = old_block[0] & 0x1F;
+                new_block[0] = (new_block[0] & 0xE0) + lvl;
                 int new_page = 0;
                 if (cache_size > 0)
                     new_page = cache->get_page_count() - 1;
@@ -307,8 +319,7 @@ public:
                     setLeaf(0);
                     setChanged(1);
                     root_block[0] = (root_block[0] & 0xE0) + new_lvl;
-                    if (getKVLastPos() == leaf_block_size)
-                        setKVLastPos(parent_block_size);
+                    setKVLastPos(parent_block_size);
                     uint8_t addr[9];
                     key = "";
                     key_len = 1;
