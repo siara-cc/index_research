@@ -581,11 +581,14 @@ public:
 
     uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filledSize();
-        const uint16_t BFOS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        uint8_t *b = allocateBlock(BFOS_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
+        uint16_t BFOS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
+        int lvl = current_block[0] & 0x1F;
+        uint8_t *b = allocateBlock(BFOS_NODE_SIZE, isLeaf(), lvl);
         bfos new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
+        if (lvl == BPT_PARENT0_LVL && cache_size > 0)
+            BFOS_NODE_SIZE -= 8;
         uint16_t kv_last_pos = getKVLastPos();
         uint16_t halfKVPos = kv_last_pos + (BFOS_NODE_SIZE - kv_last_pos) / 2;
 
@@ -708,7 +711,10 @@ public:
     }
 
     void makeSpace() {
-        const int block_size = (isLeaf() ? leaf_block_size : parent_block_size);
+        int block_size = (isLeaf() ? leaf_block_size : parent_block_size);
+        int lvl = current_block[0] & 0x1F;
+        if (lvl == BPT_PARENT0_LVL && cache_size > 0)
+            block_size -= 8;
         const uint16_t data_size = block_size - getKVLastPos();
         uint8_t data_buf[data_size];
         uint16_t new_data_len = 0;

@@ -238,7 +238,10 @@ public:
             *new_page = 0x40; // Set changed so it gets written next time
         } else
             new_page = (uint8_t *) util::alignedAlloc(size);
-        util::setInt(new_page + 3, size);
+        if (lvl == BPT_PARENT0_LVL && cache_size > 0)
+            util::setInt(new_page + 3, parent_block_size - 8);
+        else
+            util::setInt(new_page + 3, size);
         util::setInt(new_page + 1, 0);
         if (is_leaf)
             *new_page = 0xC0 + lvl;
@@ -275,6 +278,14 @@ public:
         return NULL;
     }
 
+    void createStagingBlock(uint8_t *parent_block) {
+        uint8_t *staging_block = allocateBlock(parent_block_size, 1, BPT_STAGING_LVL);
+        int staging_page = cache->get_page_count() - 1;
+        *staging_block |= 0x20;
+        int addr_size = util::ptrToBytes(staging_page, parent_block + parent_block_size - 7);
+        parent_block[parent_block_size - 8] = addr_size;
+    }
+
     void recursiveUpdate(int16_t search_result, uint8_t *node_paths[], uint8_t level) {
         //int16_t search_result = pos; // lastSearchPos[level];
         if (search_result < 0) {
@@ -291,6 +302,8 @@ public:
                 int new_page = 0;
                 if (cache_size > 0)
                     new_page = cache->get_page_count() - 1;
+                if (lvl == BPT_PARENT0_LVL && cache_size > 0)
+                    createStagingBlock(new_block);
                 int16_t cmp = util::compare((char *) first_key, first_len,
                         key, key_len);
                 if (cmp <= 0)
@@ -318,7 +331,11 @@ public:
                     setLeaf(0);
                     setChanged(1);
                     root_block[0] = (root_block[0] & 0xE0) + new_lvl;
-                    setKVLastPos(parent_block_size);
+                    if (new_lvl == BPT_PARENT0_LVL && cache_size > 0) {
+                        setKVLastPos(parent_block_size - 8);
+                        createStagingBlock(root_block);
+                    } else
+                        setKVLastPos(parent_block_size);
                     uint8_t addr[9];
                     key = "";
                     key_len = 1;
