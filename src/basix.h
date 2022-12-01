@@ -186,11 +186,19 @@ public:
     void addData(int16_t search_result) {
 
         uint16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
+        if ((*current_block & 0x1F) == BPT_STAGING_LVL)
+            kv_last_pos--;
         setKVLastPos(kv_last_pos);
-        current_block[kv_last_pos] = key_len & 0xFF;
-        memcpy(current_block + kv_last_pos + 1, key, key_len);
-        current_block[kv_last_pos + key_len + 1] = value_len & 0xFF;
-        memcpy(current_block + kv_last_pos + key_len + 2, value, value_len);
+        uint8_t *ptr = current_block + kv_last_pos;
+        *ptr++ = key_len;
+        memcpy(ptr, key, key_len);
+        ptr += key_len;
+        *ptr++ = value_len;
+        memcpy(ptr, value, value_len);
+        if ((*current_block & 0x1F) == BPT_STAGING_LVL) {
+            ptr += value_len;
+            *ptr = 1;
+        }
         insPtr(search_result, kv_last_pos);
         if (BPT_MAX_KEY_LEN < key_len)
             BPT_MAX_KEY_LEN = key_len;

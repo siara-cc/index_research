@@ -47,7 +47,8 @@ protected:
     dbl_lnklst *lnklst_first_entry;
     dbl_lnklst *lnklst_last_entry;
     dbl_lnklst *lnklst_last_free;
-    unordered_map<int, dbl_lnklst*> disk_to_cache_map;
+    dbl_lnklst **disk_to_cache_map;
+    size_t disk_to_cache_map_size;
     dbl_lnklst *llarr;
     set<int> new_pages;
     const char *filename;
@@ -59,6 +60,7 @@ protected:
     size_t file_page_count;
     uint8_t empty;
     cache_stats stats;
+    void *(*malloc_fn)(size_t);
     void write_page(uint8_t *block, off_t file_pos, size_t bytes, bool is_new = true) {
         //if (is_new)
         //  fseek(fp, 0, SEEK_END);
@@ -135,11 +137,23 @@ protected:
             lnklst_first_entry = entry_to_move;
         }
     }
+    void check_map_size() {
+        if (disk_to_cache_map_size <= file_page_count) {
+            dbl_lnklst **temp = disk_to_cache_map;
+            size_t old_size = disk_to_cache_map_size;
+            disk_to_cache_map_size = file_page_count + 1000;
+            disk_to_cache_map = (dbl_lnklst **) malloc_fn(disk_to_cache_map_size * sizeof(dbl_lnklst *));
+            memset(disk_to_cache_map, '\0', disk_to_cache_map_size * sizeof(dbl_lnklst *));
+            memcpy(disk_to_cache_map, temp, old_size * sizeof(dbl_lnklst*));
+            free(temp);
+        }
+    }
 
 public:
     lru_cache(int pg_size, int page_count, const char *fname, int init_page_count = 0, void *(*alloc_fn)(size_t) = NULL) {
         if (alloc_fn == NULL)
             alloc_fn = malloc;
+        malloc_fn = alloc_fn;
         page_size = pg_size;
         cache_size_in_pages = page_count;
         cache_occupied_size = 0;
@@ -148,7 +162,7 @@ public:
         page_cache = (uint8_t *) alloc_fn(pg_size * page_count);
         root_block = (uint8_t *) alloc_fn(pg_size);
         llarr = (dbl_lnklst *) alloc_fn(page_count * sizeof(dbl_lnklst));
-        disk_to_cache_map.reserve(page_count);
+        memset(llarr, '\0', page_count * sizeof(dbl_lnklst));
         skip_page_count = init_page_count;
         file_page_count = init_page_count;
         struct stat file_stat;
@@ -175,6 +189,9 @@ public:
         if (file_page_count > 0)
            file_page_count /= page_size;
         cout << "File page count: " << file_page_count << endl;
+        disk_to_cache_map_size = max(file_page_count + 1000, (size_t) page_count);
+        disk_to_cache_map = (dbl_lnklst **) alloc_fn(disk_to_cache_map_size * sizeof(dbl_lnklst *));
+        memset(disk_to_cache_map, '\0', disk_to_cache_map_size * sizeof(dbl_lnklst *));
         empty = 0;
 #if USE_FOPEN == 1
         if (fread(root_block, 1, page_size, fp) != page_size) {
@@ -200,10 +217,12 @@ public:
     }
     ~lru_cache() {
         set<int> pages_to_write;
-        for (unordered_map<int, dbl_lnklst*>::iterator it = disk_to_cache_map.begin(); it != disk_to_cache_map.end(); it++) {
-            uint8_t *block = &page_cache[page_size * it->second->cache_loc];
+        for (size_t ll = 0; ll < cache_size_in_pages; ll++) {
+            if (llarr[ll].disk_page == 0)
+              continue;
+            uint8_t *block = &page_cache[page_size * llarr[ll].cache_loc];
             if (block[0] & 0x40) // is it changed
-                pages_to_write.insert(it->first);
+                pages_to_write.insert(llarr[ll].disk_page);
         }
         write_pages(pages_to_write);
         free(page_cache);
@@ -215,6 +234,7 @@ public:
 #endif
         free(root_block);
         free(llarr);
+        free(disk_to_cache_map);
         cout << "total_cache_requests: " << " " << stats.total_cache_req << endl;
         cout << "total_cache_misses: " << " " << stats.total_cache_misses << endl;
         cout << "cache_flush_count: " << " " << stats.cache_flush_count << endl;
@@ -224,7 +244,7 @@ public:
             return root_block;
         int cache_pos = 0;
         int removed_disk_page = 0;
-        if (disk_to_cache_map.find(disk_page) == disk_to_cache_map.end()) {
+        if (disk_to_cache_map[disk_page] == NULL) {
             if (cache_occupied_size < cache_size_in_pages) {
                 dbl_lnklst *new_entry = &llarr[cache_occupied_size]; // new dbl_lnklst();
                 new_entry->disk_page = disk_page;
@@ -278,7 +298,7 @@ public:
                 //if (!is_new)
                   move_to_front(entry_to_move);
                 entry_to_move->disk_page = disk_page;
-                disk_to_cache_map.erase(removed_disk_page);
+                disk_to_cache_map[removed_disk_page] = NULL;
                 disk_to_cache_map[disk_page] = entry_to_move;
                 stats.total_cache_misses++;
                 stats.total_cache_req++;
@@ -321,6 +341,7 @@ public:
     uint8_t *get_new_page(uint8_t *block_to_keep) {
         if (new_pages.size() > stats.last_pages_to_flush)
             flush_pages_in_seq(block_to_keep);
+        check_map_size();
         uint8_t *new_page = get_disk_page_in_cache(file_page_count, block_to_keep, true);
         new_pages.insert(file_page_count);
             //new_page[0] &= 0xBF; // unchange it

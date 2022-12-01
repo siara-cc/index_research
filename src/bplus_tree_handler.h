@@ -191,6 +191,8 @@ public:
     }
     uint8_t *getPtrPos();
 
+    uint8_t *cur_staging_block;
+    uint8_t *last_parent_block;
     int16_t traverseToLeaf(int8_t *plevel_count = NULL, uint8_t *node_paths[] = NULL) {
         unsigned long child_page = 0;
         while (!isLeaf()) {
@@ -198,7 +200,19 @@ public:
                 *node_paths++ = cache_size > 0 ? (uint8_t *) child_page : current_block;
                 (*plevel_count)++;
             }
-            int16_t search_result = static_cast<T*>(this)->searchCurrentBlock();
+            int16_t search_result;
+            // int lvl = current_block[0] & 0x1F;
+            // if (lvl == BPT_PARENT0_LVL && cache_size > 0) {
+            //     int staging_page = util::bytesToPtr(current_block + parent_block_size - 8);
+            //     last_parent_block = current_block;
+            //     current_block = cache->get_disk_page_in_cache(staging_page);
+            //     cur_staging_block = current_block;
+            //     search_result = static_cast<T*>(this)->searchCurrentBlock();
+            //     if (search_result == 0)
+            //        return search_result;
+            //     current_block = last_parent_block;
+            // }
+            search_result = static_cast<T*>(this)->searchCurrentBlock();
             uint8_t *child_ptr_loc = static_cast<T*>(this)->getChildPtrPos(search_result);
             uint8_t *child_ptr;
             if (cache_size > 0) {
@@ -251,6 +265,9 @@ public:
         return new_page;
     }
 
+    void distributeStagingValues() {
+    }
+
     char *put(const char *key, uint8_t key_len, const char *value,
             int16_t value_len, int16_t *pValueLen = NULL) {
         static_cast<T*>(this)->setCurrentBlockRoot();
@@ -272,6 +289,33 @@ public:
             numLevels = level_count;
             if (search_result >= 0 && pValueLen != NULL)
                 return getValueAt(pValueLen);
+            /*int lvl = current_block[0] & 0x1F;
+            if (search_result >= 0 && pValueLen != NULL && lvl == BPT_STAGING_LVL) {
+                char *ret = getValueAt(pValueLen);
+                uint8_t *count_ptr = (uint8_t *) ret + pValueLen;
+                if (*count_ptr < 255)
+                   (*count_ptr)++;
+                return ret;
+            }
+            if (cur_staging_block != NULL) {
+                if (search_result >= 0 && lvl == BPT_LEAF0_LVL) {
+                    int16_t cur_val_len;
+                    this->value = getValueAt(&cur_val_len);
+                    char cur_val[cur_val_len];
+                    memcpy(cur_val, this->value, cur_val_len);
+                    this->value--;
+                    this->value[0] = 0; // delete from leaf
+                }
+                current_block = cur_staging_block;
+                search_result = searchCurrentBlock();
+                if (isFull(search_result)) {
+                    distributeStagingValues();
+                    search_result = searchCurrentBlock();
+                }
+                insertCurrent();
+            }*/
+            // if it does not exist, insert into staging
+            // in either case if it becomes full, insert into actual leaves in LRU order
             recursiveUpdate(search_result, node_paths, level_count - 1);
         }
         total_size++;
@@ -302,8 +346,8 @@ public:
                 int new_page = 0;
                 if (cache_size > 0)
                     new_page = cache->get_page_count() - 1;
-                if (lvl == BPT_PARENT0_LVL && cache_size > 0)
-                    createStagingBlock(new_block);
+                //if (lvl == BPT_PARENT0_LVL && cache_size > 0)
+                //    createStagingBlock(new_block);
                 int16_t cmp = util::compare((char *) first_key, first_len,
                         key, key_len);
                 if (cmp <= 0)
@@ -333,7 +377,7 @@ public:
                     root_block[0] = (root_block[0] & 0xE0) + new_lvl;
                     if (new_lvl == BPT_PARENT0_LVL && cache_size > 0) {
                         setKVLastPos(parent_block_size - 8);
-                        createStagingBlock(root_block);
+                        //createStagingBlock(root_block);
                     } else
                         setKVLastPos(parent_block_size);
                     uint8_t addr[9];
