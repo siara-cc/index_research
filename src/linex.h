@@ -83,6 +83,7 @@ public:
     }
 
     void addFirstData() {
+        setKVLastPos(LX_BLK_HDR_SIZE);
         addData(0);
     }
 
@@ -151,6 +152,7 @@ public:
         const uint16_t LINEX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         uint8_t *b = allocateBlock(LINEX_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
         linex new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
+        new_block.setKVLastPos(LX_BLK_HDR_SIZE);
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         int16_t kv_last_pos = getKVLastPos();
         int16_t halfKVLen = kv_last_pos / 2;
@@ -247,7 +249,7 @@ public:
         uint16_t LINEX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         if ((current_block[0] & 0x1F) == BPT_PARENT0_LVL && cache_size > 0)
             LINEX_NODE_SIZE -= 8;
-        if ((getKVLastPos() + key_len + value_len + 3) >= LINEX_NODE_SIZE)
+        if ((getKVLastPos() + key_len + value_len + 5) >= LINEX_NODE_SIZE)
             return true;
         return false;
     }

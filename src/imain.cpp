@@ -1287,6 +1287,8 @@ void checkValue(const char *key, int key_len, const char *val, int val_len,
 /// ./build/imain 1000000 2 16 8 4096 4096 10000 out.ix
 int main(int argc, char *argv[]) {
 
+    char out_file1[100];
+    char out_file2[100];
     if (argc > 1) {
         if (argv[1][0] >= '0' && argv[1][0] <= '9')
             NUM_ENTRIES = atol(argv[1]);
@@ -1296,10 +1298,16 @@ int main(int argc, char *argv[]) {
                 KEY_LEN = atoi(argv[2]);
             if (argc > 3 && (argv[3][0] == '0' || argv[3][0] == '1'))
                 USE_HASHTABLE = atoi(argv[3]);
+            if (argc > 4) {
+                OUT_FILE1 = out_file1;
+                strcpy(OUT_FILE1, "f1_");
+                strcat(OUT_FILE1, argv[4]);
+                OUT_FILE2 = out_file2;
+                strcpy(OUT_FILE2, "f2_");
+                strcat(OUT_FILE2, argv[4]);
+            }
         }
     }
-    char out_file1[100];
-    char out_file2[100];
     if (IMPORT_FILE == NULL) {
         if (argc > 2)
             CHAR_SET = atoi(argv[2]);
@@ -1485,14 +1493,14 @@ int main(int argc, char *argv[]) {
     //getchar();
 
     ctr = 0;
-    //linex *dx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    linex *dx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //basix *dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //bft *dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dft *dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //bfos *dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //bfqs *dx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dfqx *dx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    dfox *dx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //dfox *dx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dfos *dx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //rb_tree *dx = new rb_tree(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     it1 = m.begin();
