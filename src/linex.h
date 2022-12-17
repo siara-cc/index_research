@@ -33,8 +33,7 @@ private:
                 prefix_len = *key_at;
             cmp = memcmp(prefix, key, prefix_len);
             if (cmp == 0) {
-                cmp = util::compare((char *) key_at + 2, key_at_len,
-                        key + prefix_len, key_len - prefix_len);
+                cmp = util::compare(key_at + 2, key_at_len, key + prefix_len, key_len - prefix_len);
             }
     #if LX_DATA_AREA == 1
             if (cmp == 0) {
@@ -42,12 +41,11 @@ private:
                 uint8_t *data_key_at = current_block + key_at_len + *key_at + 1;
                 if (*p_cur_prefix_len & 0x80)
                     data_key_at += 256;
-                cmp = util::compare((char *) data_key_at + 1, *data_key_at,
-                        key + partial_key_len, key_len - partial_key_len);
+                cmp = util::compare(data_key_at + 1, *data_key_at, key + partial_key_len, key_len - partial_key_len);
             }
     #endif
     #else
-            cmp = util::compare((char *) key_at + 2, key_at_len, key, key_len);
+            cmp = util::compare(key_at + 2, key_at_len, key, key_len);
     #endif
             if (cmp > 0)
                 return ~idx;

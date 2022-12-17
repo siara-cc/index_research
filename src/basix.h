@@ -49,7 +49,7 @@ public:
         while (first < filled_size) {
             middle = (first + filled_size) >> 1;
             key_at = getKey(middle, &key_at_len);
-            int16_t cmp = util::compare((char *) key_at, key_at_len, key, key_len);
+            int16_t cmp = util::compare(key_at, key_at_len, key, key_len);
             if (cmp < 0)
                 first = middle + 1;
             else if (cmp > 0)
@@ -76,13 +76,47 @@ public:
         return BLK_HDR_SIZE;
     }
 
+    void remove_entry(int16_t pos) {
+        delPtr(pos);
+    }
+
+    void makeSpace() {
+        int block_size = (isLeaf() ? leaf_block_size : parent_block_size);
+        int lvl = current_block[0] & 0x1F;
+        if (lvl == BPT_PARENT0_LVL && cache_size > 0)
+            block_size -= 8;
+        const uint16_t data_size = block_size - getKVLastPos();
+        uint8_t data_buf[data_size];
+        uint16_t new_data_len = 0;
+        int16_t new_idx;
+        int16_t orig_filled_size = filledSize();
+        for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
+            uint16_t src_idx = getPtr(new_idx);
+            uint16_t kv_len = current_block[src_idx];
+            kv_len++;
+            kv_len += current_block[src_idx + kv_len];
+            kv_len++;
+            new_data_len += kv_len;
+            memcpy(data_buf + data_size - new_data_len, current_block + src_idx, kv_len);
+            setPtr(new_idx, block_size - new_data_len);
+        }
+        uint16_t new_kv_last_pos = block_size - new_data_len;
+        memcpy(current_block + new_kv_last_pos, data_buf + data_size - new_data_len, new_data_len);
+        //printf("%d, %d\n", data_size, new_data_len);
+        setKVLastPos(new_kv_last_pos);
+        searchCurrentBlock();
+    }
+
     bool isFull(int16_t search_result) {
         int16_t ptr_size = filledSize() + 1;
     #if BPT_9_BIT_PTR == 0
         ptr_size <<= 1;
     #endif
-        if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
-            return true;
+        if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2)) {
+            //makeSpace();
+            //if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
+                return true;
+        }
     #if BPT_9_BIT_PTR == 1
         if (filledSize() > 62)
         return true;

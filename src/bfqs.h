@@ -165,8 +165,7 @@ public:
                     t += BIT_COUNT_LF_CH(r_leaves_children & (r_shft | xAA));
                     key_at = current_block + util::getInt(t);
                     key_at_len = *key_at++;
-                    cmp = util::compare(key + keyPos, key_len - keyPos,
-                            (char *) key_at, key_at_len);
+                    cmp = util::compare(key + keyPos, key_len - keyPos, key_at, key_at_len);
                     if (cmp == 0) {
                         last_t = key_at - 1;
                         return 1;
@@ -776,8 +775,7 @@ public:
                     tp_cpy_len = new_block.keyPos;
                     if (isLeaf()) {
                         //*first_len_ptr = s.keyPos;
-                        *first_len_ptr = util::compare((const char *) curr_key, new_block.keyPos,
-                                (const char *) first_key, *first_len_ptr);
+                        *first_len_ptr = util::compare(curr_key, new_block.keyPos, first_key, *first_len_ptr);
                         memcpy(first_key, curr_key, tp_cpy_len);
                     } else {
                         memcpy(first_key, curr_key, new_block.keyPos);

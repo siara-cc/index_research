@@ -39,7 +39,7 @@ void rb_tree::addData(int16_t search_result) {
             n = getRoot();
             while (1) {
                 int16_t key_at_len;
-                char *key_at = (char *) getKey(n, &key_at_len);
+                uint8_t *key_at = getKey(n, &key_at_len);
                 int16_t comp_result = util::compare(key, key_len, key_at,
                         key_at_len);
                 if (comp_result == 0) {
@@ -96,13 +96,13 @@ uint8_t *rb_tree::split(uint8_t *first_key, int16_t *first_len_ptr) {
             src_idx += KEY_LEN_POS;
             int16_t key_len = current_block[src_idx];
             src_idx++;
-            new_block.key = (char *) current_block + src_idx;
+            new_block.key = current_block + src_idx;
             new_block.key_len = key_len;
             src_idx += key_len;
             key_len++;
             int16_t value_len = current_block[src_idx];
             src_idx++;
-            new_block.value = (char *) current_block + src_idx;
+            new_block.value = current_block + src_idx;
             new_block.value_len = value_len;
             value_len++;
             int16_t kv_len = key_len;
@@ -187,13 +187,13 @@ void rb_tree::setCurrentBlock(uint8_t *m) {
 #endif
 }
 
-int16_t rb_tree::binarySearch(const char *key, int16_t key_len) {
+int16_t rb_tree::binarySearch(const uint8_t *key, int16_t key_len) {
     int middle;
     int new_middle = getRoot();
     do {
         middle = new_middle;
         int16_t middle_key_len;
-        char *middle_key = (char *) getKey(middle, &middle_key_len);
+        uint8_t *middle_key = getKey(middle, &middle_key_len);
         int16_t cmp = util::compare(middle_key, middle_key_len, key,
                 key_len);
         if (cmp > 0) {

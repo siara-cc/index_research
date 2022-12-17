@@ -109,8 +109,7 @@ public:
                 int16_t cmp;
                 key_at = current_block + ptr;
                 key_at_len = *key_at++;
-                cmp = util::compare(key + keyPos, key_len - keyPos,
-                        (char *) key_at, key_at_len);
+                cmp = util::compare(key + keyPos, key_len - keyPos, key_at, key_at_len);
                 if (cmp == 0)
                     return ptr;
                 if (cmp < 0) {

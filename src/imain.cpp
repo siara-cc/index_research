@@ -1272,7 +1272,7 @@ void checkValue(const char *key, int key_len, const char *val, int val_len,
     if (returned_value == null) {
         null_ctr++;
     } else {
-        int16_t d = util::compare(val, val_len, returned_value, returned_len);
+        int16_t d = util::compare((const uint8_t *) val, val_len, (const uint8_t *) returned_value, returned_len);
         if (d != 0) {
             cmp++;
             char value[256];

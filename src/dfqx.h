@@ -106,8 +106,7 @@ public:
                     int16_t cmp;
                     pos = to_skip >> 8;
                     key_at = getKey(pos, &key_at_len);
-                    cmp = util::compare(key + keyPos, key_len - keyPos,
-                            (char *) key_at, key_at_len);
+                    cmp = util::compare(key + keyPos, key_len - keyPos, key_at, key_at_len);
                     if (cmp == 0)
                         return pos;
                     key_at_pos = pos;
@@ -319,7 +318,7 @@ public:
         BPT_TRIE_LEN += len;
     }
 
-    void insAtWithPtrs(uint8_t *ptr, const char *s, uint8_t len) {
+    void insAtWithPtrs(uint8_t *ptr, const uint8_t *s, uint8_t len) {
     #if BPT_9_BIT_PTR == 1
         memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
     #else
@@ -329,7 +328,7 @@ public:
         BPT_TRIE_LEN += len;
     }
 
-    void insAtWithPtrs(uint8_t *ptr, uint8_t b, const char *s, uint8_t len) {
+    void insAtWithPtrs(uint8_t *ptr, uint8_t b, const uint8_t *s, uint8_t len) {
     #if BPT_9_BIT_PTR == 1
         memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filledSize() - ptr);
     #else

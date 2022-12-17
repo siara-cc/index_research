@@ -123,8 +123,7 @@ public:
                 case 2:
                     int16_t cmp;
                     key_at = getKey(t, &key_at_len);
-                    cmp = util::compare(key + keyPos, key_len - keyPos,
-                            (char *) key_at, key_at_len);
+                    cmp = util::compare(key + keyPos, key_len - keyPos, key_at, key_at_len);
                     if (cmp == 0) {
                         last_t = t;
                         return 0;
@@ -522,7 +521,7 @@ public:
             //cout << first_key << endl;
             if (isLeaf()) {
                 // *first_len_ptr = keyPos + 1;
-                *first_len_ptr = util::compare((const char *) first_key, keyPos + 1, (const char *) last_key, last_key_len);
+                *first_len_ptr = util::compare(first_key, keyPos + 1, last_key, last_key_len);
             } else {
                 new_block.key_at = new_block.getKey(t, &new_block.key_at_len);
                 keyPos++;

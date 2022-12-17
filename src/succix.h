@@ -75,8 +75,7 @@ public:
                           ptr += nodes_ptr[cur_node];
                         key_at = current_block + ptr;
                         key_at_len = *key_at++;
-                        cmp = util::compare(key + keyPos, key_len - keyPos,
-                                (char *) key_at, key_at_len);
+                        cmp = util::compare(key + keyPos, key_len - keyPos, key_at, key_at_len);
                         if (cmp == 0) {
                             last_t = key_at - 1;
                             return ptr;
@@ -219,7 +218,7 @@ public:
             kv_len++;
             ins_block->value_len = current_block[src_idx + kv_len];
             kv_len++;
-            ins_block->value = (const char *) current_block + src_idx + kv_len;
+            ins_block->value = current_block + src_idx + kv_len;
             kv_len += ins_block->value_len;
             tot_len += kv_len;
             for (int i = 0; i <= s.keyPos; i++)
@@ -234,7 +233,7 @@ public:
             }
             //ins_key[ins_key_len] = 0;
             //cout << ins_key << endl;
-            ins_block->key = (char *) ins_key;
+            ins_block->key = ins_key;
             ins_block->key_len = ins_key_len;
             if (idx && brk_idx >= 0)
                 ins_block->searchCurrentBlock();

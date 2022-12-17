@@ -38,7 +38,7 @@ using namespace std;
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class rb_tree : public bplus_tree_handler<rb_tree> {
 private:
-    int16_t binarySearch(const char *key, int16_t key_len);
+    int16_t binarySearch(const uint8_t *key, int16_t key_len);
     inline int16_t getLeft(int16_t n);
     inline int16_t getRight(int16_t n);
     inline int16_t getParent(int16_t n);
@@ -92,7 +92,7 @@ public:
     uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr);
     void initVars();
     uint8_t *getChildPtrPos(int16_t search_result);
-    char *getValueAt(int16_t *vlen);
+    uint8_t *getValueAt(int16_t *vlen);
     using bplus_tree_handler::getChildPtr;
     uint8_t *getChildPtr(int16_t pos);
     uint8_t *getPtrPos();

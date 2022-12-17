@@ -94,7 +94,7 @@ protected:
           stats.last_pages_to_flush = 20;
           return;
         }
-        stats.last_pages_to_flush = cache_size_in_pages * stats.total_cache_misses / stats.total_cache_req;
+        stats.last_pages_to_flush = 500; //cache_size_in_pages * stats.total_cache_misses / stats.total_cache_req;
         if (stats.last_pages_to_flush < cache_size_in_pages / 2000)
             stats.last_pages_to_flush = cache_size_in_pages / 2000;
         if (stats.last_pages_to_flush > cache_size_in_pages / 5)

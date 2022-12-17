@@ -83,11 +83,11 @@ public:
     uint8_t *root_block;
     uint8_t *current_block;
     unsigned long current_page;
-    const char *key;
+    const uint8_t *key;
     uint8_t key_len;
     uint8_t *key_at;
     uint8_t key_at_len;
-    const char *value;
+    const uint8_t *value;
     int16_t value_len;
 #if BPT_9_BIT_PTR == 1
 #if BPT_INT64MAP == 1
@@ -155,10 +155,16 @@ public:
         max_key_len = 0;
     }
 
-    inline char *getValueAt(int16_t *vlen) {
+    inline uint8_t *getValueAt(uint8_t *key_ptr, int16_t *vlen) {
+        key_ptr += *(key_ptr - 1);
+        *vlen = *key_ptr;
+        return (uint8_t *) key_ptr + 1;
+    }
+
+    inline uint8_t *getValueAt(int16_t *vlen) {
         key_at += key_at_len;
         *vlen = *key_at;
-        return (char *) key_at + 1;
+        return (uint8_t *) key_at + 1;
     }
 
     void setCurrentBlockRoot();
@@ -166,7 +172,11 @@ public:
     uint8_t *getCurrentBlock() {
         return current_block;
     }
+
     char *get(const char *key, uint8_t key_len, int16_t *pValueLen) {
+        return (char *) get((uint8_t *) key, key_len, pValueLen);
+    }
+    uint8_t *get(const uint8_t *key, uint8_t key_len, int16_t *pValueLen) {
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
         this->key_len = key_len;
@@ -174,7 +184,7 @@ public:
         cur_staging_entry_map = NULL;
         current_page = 0;
         if ((isLeaf() ? static_cast<T*>(this)->searchCurrentBlock() : traverseToLeaf()) < 0)
-            return null;
+            return NULL;
         if (cur_entry != NULL && pValueLen != NULL) {
             *pValueLen = cur_entry->value_len;
             return cur_entry->value;
@@ -248,7 +258,7 @@ public:
                 current_page = getChildPage(child_ptr_loc);
                 if (!toInsUpdLeaf) {
                     int lvl = current_block[0] & 0x1F;
-                    if (lvl == BPT_PARENT0_LVL) {
+                    if (lvl == BPT_PARENT0_LVL + 1) {
                         cur_staging_entry_map = &staging_blocks[current_page];
                         if (cur_staging_entry_map == NULL)
                             cout << "." << endl;
@@ -315,6 +325,10 @@ public:
 
     staging_entry *cur_entry;
     char *put(const char *key, uint8_t key_len, const char *value,
+            int16_t value_len, int16_t *pValueLen = NULL, bool toInsUpdLeaf = false) {
+        return (char *) put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len, pValueLen, toInsUpdLeaf);
+    }
+    uint8_t *put(const uint8_t *key, uint8_t key_len, const uint8_t *value,
             int16_t value_len, int16_t *pValueLen = NULL, bool toInsUpdLeaf = false) {
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
@@ -387,7 +401,7 @@ public:
                 return getValueAt(pValueLen);
             /*int lvl = current_block[0] & 0x1F;
             if (search_result >= 0 && pValueLen != NULL && lvl == BPT_STAGING_LVL) {
-                char *ret = getValueAt(pValueLen);
+                uint8_t *ret = getValueAt(pValueLen);
                 uint8_t *count_ptr = (uint8_t *) ret + pValueLen;
                 if (*count_ptr < 255)
                    (*count_ptr)++;
@@ -433,8 +447,8 @@ public:
                     it = old_map->erase(it);
                 } else
                     ++it;
+                }
             }
-        }
         staging_blocks.insert(pair<int, staging_entry_map>(parent_page, new_map));
         // uint8_t *staging_block = allocateBlock(parent_block_size, 1, BPT_STAGING_LVL);
         // int staging_page = cache->get_page_count() - 1;
@@ -462,8 +476,7 @@ public:
                 if (lvl == BPT_PARENT0_LVL && cache_size > 0) {
                     createStagingBlock(new_block, new_page, first_key, first_len);
                 }
-                int16_t cmp = util::compare((char *) first_key, first_len,
-                        key, key_len);
+                int16_t cmp = util::compare(first_key, first_len, key, key_len);
                 if (cmp <= 0)
                     static_cast<T*>(this)->setCurrentBlock(new_block);
                 search_result = ~static_cast<T*>(this)->searchCurrentBlock();
@@ -489,21 +502,22 @@ public:
                     setLeaf(0);
                     setChanged(1);
                     root_block[0] = (root_block[0] & 0xE0) + new_lvl;
-                    if (new_lvl == BPT_PARENT0_LVL + 1 && cache_size > 0) {
+                    if (new_lvl == BPT_PARENT0_LVL && cache_size > 0) {
                         setKVLastPos(parent_block_size - 8);
-                        createStagingBlock(old_block, old_page, NULL, 0);
                     } else
                         setKVLastPos(parent_block_size);
+                    if (new_lvl == BPT_PARENT0_LVL + 1 && cache_size > 0)
+                        createStagingBlock(old_block, old_page, NULL, 0);
                     uint8_t addr[9];
-                    key = "";
+                    key = (uint8_t *) "";
                     key_len = 1;
-                    value = (char *) addr;
+                    value = (uint8_t *) addr;
                     value_len = util::ptrToBytes(cache_size > 0 ? (unsigned long) old_page : (unsigned long) old_block, addr);
                     //printf("value: %d, value_len1:%d\n", old_page, value_len);
                     static_cast<T*>(this)->addFirstData();
-                    key = (char *) first_key;
+                    key = (uint8_t *) first_key;
                     key_len = first_len;
-                    value = (char *) addr;
+                    value = (uint8_t *) addr;
                     value_len = util::ptrToBytes(cache_size > 0 ? (unsigned long) new_page : (unsigned long) new_block, addr);
                     //printf("value: %d, value_len2:%d\n", new_page, value_len);
                     search_result = ~static_cast<T*>(this)->searchCurrentBlock();
@@ -514,9 +528,9 @@ public:
                     uint8_t *parent_data = cache_size > 0 ? cache->get_disk_page_in_cache((unsigned long)node_paths[prev_level]) : node_paths[prev_level];
                     static_cast<T*>(this)->setCurrentBlock(parent_data);
                     uint8_t addr[9];
-                    key = (char *) first_key;
+                    key = (uint8_t *) first_key;
                     key_len = first_len;
-                    value = (char *) addr;
+                    value = (uint8_t *) addr;
                     value_len = util::ptrToBytes(cache_size > 0 ? (unsigned long) new_page : (unsigned long) new_block, addr);
                     //printf("value: %d, value_len3:%d\n", new_page, value_len);
                     search_result = static_cast<T*>(this)->searchCurrentBlock();
@@ -527,11 +541,11 @@ public:
                 setChanged(1);
             }
         } else {
-            //if (isLeaf()) {
-            //    this->key_at += this->key_at_len;
-            //    if (*key_at == this->value_len) {
-            //        memcpy((char *) key_at + 1, this->value, this->value_len);
-            //}
+            if (isLeaf()) {
+                this->key_at += this->key_at_len;
+                if (*key_at == this->value_len)
+                    memcpy((uint8_t *) key_at + 1, this->value, this->value_len);
+            }
         }
     }
 
@@ -569,6 +583,32 @@ public:
         util::setInt(kvIdx, kv_pos);
 #endif
         setFilledSize(filledSz + 1);
+
+    }
+
+    inline void delPtr(int16_t pos) {
+        int16_t filledSz = filledSize();
+#if BPT_9_BIT_PTR == 1
+        uint8_t *kvIdx = static_cast<T*>(this)->getPtrPos() + pos;
+        memmove(kvIdx, kvIdx + 1, filledSz - pos);
+#if BPT_INT64MAP == 1
+        delBit(bitmap, pos);
+#else
+        if (pos & 0xFFE0) {
+            delBit(bitmap2, pos - 32);
+        } else {
+            uint8_t first_bit = (*bitmap2 >> 7);
+            delBit(bitmap1, pos);
+            *bitmap2 <<= 1;
+            if (first_bit)
+                *bitmap1 |= 0x01;
+        }
+#endif
+#else
+        uint8_t *kvIdx = static_cast<T*>(this)->getPtrPos() + (pos << 1);
+        memmove(kvIdx, kvIdx + 2, (filledSz - pos) * 2);
+#endif
+        setFilledSize(filledSz - 1);
 
     }
 
@@ -641,13 +681,26 @@ public:
 
     }
 
+    inline void delBit(uint32_t *ui32, int pos) {
+        uint32_t ryte_part = (*ui32) & RYTE_MASK32(pos);
+        ryte_part <<= 1;
+        (*ui32) = (ryte_part | ((*ui32) & LEFT_MASK32(pos)));
+    }
+
     uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr);
+
 #if BPT_INT64MAP == 1
     inline void insBit(uint64_t *ui64, int pos, uint16_t kv_pos) {
         uint64_t ryte_part = (*ui64) & RYTE_MASK64(pos);
         ryte_part >>= 1;
         if (kv_pos >= 256)
             ryte_part |= MASK64(pos);
+        (*ui64) = (ryte_part | ((*ui64) & LEFT_MASK64(pos)));
+
+    }
+    inline void delBit(uint64_t *ui64, int pos) {
+        uint64_t ryte_part = (*ui64) & RYTE_MASK64(pos);
+        ryte_part <<= 1;
         (*ui64) = (ryte_part | ((*ui64) & LEFT_MASK64(pos)));
 
     }
@@ -773,7 +826,7 @@ protected:
         return 4;
     }
 
-    inline void insAt(uint8_t *ptr, uint8_t b, const char *s, uint8_t len) {
+    inline void insAt(uint8_t *ptr, uint8_t b, const uint8_t *s, uint8_t len) {
         memmove(ptr + 1 + len, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         *ptr++ = b;
         memcpy(ptr, s, len);
@@ -781,7 +834,7 @@ protected:
         bplus_tree_handler<T>::BPT_TRIE_LEN++;
     }
 
-    inline void insAt(uint8_t *ptr, const char *s, uint8_t len) {
+    inline void insAt(uint8_t *ptr, const uint8_t *s, uint8_t len) {
         memmove(ptr + len, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         memcpy(ptr, s, len);
         bplus_tree_handler<T>::BPT_TRIE_LEN += len;
@@ -805,7 +858,7 @@ protected:
         bplus_tree_handler<T>::BPT_TRIE_LEN += 2;
     }
 
-    void append(const char *s, int16_t need_count) {
+    void append(const uint8_t *s, int16_t need_count) {
         memcpy(trie + bplus_tree_handler<T>::BPT_TRIE_LEN, s, need_count);
         bplus_tree_handler<T>::BPT_TRIE_LEN += need_count;
     }

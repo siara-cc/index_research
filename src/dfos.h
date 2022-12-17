@@ -150,8 +150,7 @@ public:
                 case 2:
                     int16_t cmp;
                     key_at = getKey(pos, &key_at_len);
-                    cmp = util::compare(key + keyPos, key_len - keyPos,
-                            (char *) key_at, key_at_len);
+                    cmp = util::compare(key + keyPos, key_len - keyPos, key_at, key_at_len);
                     if (cmp == 0)
                         return pos;
                     key_at_pos = pos;
@@ -520,7 +519,7 @@ public:
         {
             if (isLeaf()) {
                 // *first_len_ptr = keyPos + 1;
-                *first_len_ptr = util::compare((const char *) first_key, keyPos + 1, (const char *) last_key, last_key_len);
+                *first_len_ptr = util::compare(first_key, keyPos + 1, last_key, last_key_len);
             } else {
                 new_block.key_at = new_block.getKey(brk_idx, &new_block.key_at_len);
                 keyPos++;
@@ -760,7 +759,7 @@ public:
                 p++;
             }
             p = keyPos;
-            insAtWithPtrs(triePos, (const char *) current_block, need_count);
+            insAtWithPtrs(triePos, current_block, need_count);
 #endif
             while (p < min) {
                 c1 = key[p];
@@ -854,7 +853,7 @@ public:
 
     }
 
-    void insAtWithPtrs(uint8_t *ptr, const char *s, uint8_t len) {
+    void insAtWithPtrs(uint8_t *ptr, const uint8_t *s, uint8_t len) {
     #if BPT_9_BIT_PTR == 1
         memmove(ptr + len, ptr, trie + DS_GET_TRIE_LEN + filledSize() - ptr);
     #else

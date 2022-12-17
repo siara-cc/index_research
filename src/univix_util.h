@@ -116,7 +116,7 @@ public:
         return ret;
     }
 
-    static int compare(const char *v1, uint8_t len1, const char *v2,
+    static int compare(const uint8_t *v1, uint8_t len1, const uint8_t *v2,
             uint8_t len2, int k = 0) {
         int lim = (len2 < len1 ? len2 : len1);
         while (k < lim) {
