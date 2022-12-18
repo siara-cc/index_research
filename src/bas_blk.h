@@ -308,9 +308,8 @@ public:
     }
 
     inline uint8_t *getValueAt(int16_t *vlen) {
-        key_at += key_at_len;
-        *vlen = *key_at;
-        return (uint8_t *) key_at + 1;
+        *vlen = key_at[key_at_len];
+        return (uint8_t *) key_at + key_at_len + 1;
     }
 
     uint8_t *put(const uint8_t *key, uint8_t key_len, const uint8_t *value,
