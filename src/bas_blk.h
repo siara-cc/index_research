@@ -229,7 +229,7 @@ public:
     }
 
     inline void delPtr(int16_t pos) {
-        int16_t filledSz = filledSize();
+        int16_t filledSz = filledSize() - 1;
 #if BPT_9_BIT_PTR == 1
         uint8_t *kvIdx = getPtrPos() + pos;
         memmove(kvIdx, kvIdx + 1, filledSz - pos);
@@ -250,7 +250,7 @@ public:
         uint8_t *kvIdx = getPtrPos() + (pos << 1);
         memmove(kvIdx, kvIdx + 2, (filledSz - pos) * 2);
 #endif
-        setFilledSize(filledSz - 1);
+        setFilledSize(filledSz);
 
     }
 
@@ -303,12 +303,14 @@ public:
 
     inline uint8_t *getValueAt(uint8_t *key_ptr, int16_t *vlen) {
         key_ptr += *(key_ptr - 1);
-        *vlen = *key_ptr;
+        if (vlen != NULL)
+          *vlen = *key_ptr;
         return (uint8_t *) key_ptr + 1;
     }
 
     inline uint8_t *getValueAt(int16_t *vlen) {
-        *vlen = key_at[key_at_len];
+        if (vlen != NULL)
+          *vlen = key_at[key_at_len];
         return (uint8_t *) key_at + key_at_len + 1;
     }
 
@@ -322,10 +324,12 @@ public:
             addFirstData();
         } else {
             int16_t search_result = searchCurrentBlock();
-            if (search_result >= 0 && pValueLen != NULL)
+            if (search_result >= 0)
                 return getValueAt(pValueLen);
             if (!isFull(search_result))
                 addData(~search_result);
+            else
+                cout << "Full" << endl;
         }
         return NULL;
     }
