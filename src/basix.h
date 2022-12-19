@@ -113,8 +113,8 @@ public:
         ptr_size <<= 1;
     #endif
         if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2)) {
-            //makeSpace();
-            //if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
+            makeSpace();
+            if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
                 return true;
         }
     #if BPT_9_BIT_PTR == 1
@@ -238,29 +238,6 @@ public:
             BPT_MAX_KEY_LEN = key_len;
 
     }
-
-    // void distributeStagingValues() {
-    //     int filled_size = filledSize();
-    //     int target_free = parent_block_size * 2 / 3;
-    //     int cur_free = getKVLastPos() - BLK_HDR_SIZE + filled_size * 2;
-    //     int cur_count = 1;
-    //     int next_min = 255;
-    //     while (cur_free > target_free) {
-    //         for (int i = 0; i < filled_size; i++) {
-    //             int entry_count = 0; // find entry count6
-    //             if (entry_count == cur_count) {
-    //                 // find leaf - insert
-    //                 // delete entry
-    //                 filled_size--;
-    //                 i--;
-    //             } else {
-    //                 if (entry_count < next_min)
-    //                     next_min = entry_count;
-    //             }
-    //         }
-    //         cur_count = next_min;
-    //     }
-    // }
 
     void addFirstData() {
         addData(0);

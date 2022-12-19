@@ -69,11 +69,11 @@ protected:
     int blockCountLeaf;
     long count1, count2;
     int max_key_len;
-    lru_cache *cache;
     int is_block_given;
     staging_map staging_blocks;
 
 public:
+    lru_cache *cache;
     uint8_t *root_block;
     uint8_t *current_block;
     unsigned long current_page;
@@ -92,7 +92,7 @@ public:
 #endif
 #endif
 
-    const uint16_t leaf_block_size, parent_block_size;
+    size_t leaf_block_size, parent_block_size;
     const int cache_size;
     const char *filename;
     bplus_tree_handler(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
@@ -100,9 +100,11 @@ public:
             const char *fname = NULL, uint8_t *block = NULL) :
             leaf_block_size (leaf_block_sz), parent_block_size (parent_block_sz),
             cache_size (cache_sz), filename (fname) {
+        if (!leaf_block_size)
+            leaf_block_size = 65536;
+        if (!parent_block_size)
+            parent_block_size = 65536;
         init_stats();
-        cur_entry = NULL;
-        cur_staging_map = NULL;
         is_block_given = block == NULL ? 0 : 1;
         if (cache_size > 0) {
             cache = new lru_cache(leaf_block_size, cache_size, filename, 0, util::alignedAlloc);
@@ -119,34 +121,10 @@ public:
     }
 
     ~bplus_tree_handler() {
-        for (staging_map::iterator it = staging_blocks.begin(); it != staging_blocks.end(); ++it) {
-                cur_entry = NULL;
-                cur_staging_map = it->second;
-		for (int i = 0; i < cur_staging_map->filledSize(); i++) {
-		    uint16_t src_idx = cur_staging_map->getPtr(i);
-		    int16_t k_len = cur_staging_map->current_block[src_idx];
-		    uint8_t *k = cur_staging_map->current_block + src_idx + 1;
-		    int16_t v_len = cur_staging_map->current_block[src_idx + k_len + 1];
-		    uint8_t *v = cur_staging_map->current_block + src_idx + k_len + 2;
-		    if (v_len != 5)
-		        cout << "src_idx: " << src_idx << ", vlen: " << v_len << " ";
-		    int entry_count = v[v_len - 1];
-		    if (v_len != 5) {
-		        cout << entry_count << endl;
-		        printf("k: %.*s, len: %d\n", k_len, k, k_len);
-		    }
-		        int16_t ret_len = 0;
-		        uint8_t *p = put(k, k_len, v, v_len - 1, &ret_len, true);
-		        //cout << "put success: " << (unsigned long) p << ", len: " << ret_len << endl;
-		}
-        }
         if (cache_size > 0)
             delete cache;
         else if (!is_block_given)
             free(root_block);
-        for (staging_map::iterator it = staging_blocks.begin(); it != staging_blocks.end(); ++it) {
-           free(it->second);
-        }
     }
 
     void initCurrentBlock() {
@@ -170,14 +148,14 @@ public:
     inline uint8_t *getValueAt(uint8_t *key_ptr, int16_t *vlen) {
         key_ptr += *(key_ptr - 1);
         if (vlen != NULL)
-          *vlen = *key_ptr;
+            *vlen = *key_ptr;
         return (uint8_t *) key_ptr + 1;
     }
 
     inline uint8_t *getValueAt(int16_t *vlen) {
         key_at += key_at_len;
         if (vlen != NULL)
-          *vlen = *key_at;
+            *vlen = *key_at;
         return (uint8_t *) key_at + 1;
     }
 
@@ -194,16 +172,9 @@ public:
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
         this->key_len = key_len;
-        cur_entry = NULL;
-        cur_staging_map = NULL;
         current_page = 0;
         if ((isLeaf() ? static_cast<T*>(this)->searchCurrentBlock() : traverseToLeaf()) < 0)
             return NULL;
-        if (cur_entry != NULL) {
-            if (pValueLen != NULL)
-              *pValueLen = *cur_entry;
-            return cur_entry + 1;
-        }
         return getValueAt(pValueLen);
     }
 
@@ -244,10 +215,7 @@ public:
     }
     uint8_t *getPtrPos();
 
-    uint8_t *cur_staging_block;
-    bas_blk *cur_staging_map;
-    uint8_t *last_parent_block;
-    int16_t traverseToLeaf(int8_t *plevel_count = NULL, uint8_t *node_paths[] = NULL, bool toInsUpdLeaf = false) {
+    int16_t traverseToLeaf(int8_t *plevel_count = NULL, uint8_t *node_paths[] = NULL) {
         current_page = 0;
         while (!isLeaf()) {
             if (node_paths) {
@@ -255,43 +223,11 @@ public:
                 (*plevel_count)++;
             }
             int16_t search_result;
-            // int lvl = current_block[0] & 0x1F;
-            // if (lvl == BPT_PARENT0_LVL && cache_size > 0) {
-            //     int staging_page = util::bytesToPtr(current_block + parent_block_size - 8);
-            //     last_parent_block = current_block;
-            //     current_block = cache->get_disk_page_in_cache(staging_page);
-            //     cur_staging_block = current_block;
-            //     search_result = static_cast<T*>(this)->searchCurrentBlock();
-            //     if (search_result == 0)
-            //        return search_result;
-            //     current_block = last_parent_block;
-            // }
             search_result = static_cast<T*>(this)->searchCurrentBlock();
             uint8_t *child_ptr_loc = static_cast<T*>(this)->getChildPtrPos(search_result);
             uint8_t *child_ptr;
             if (cache_size > 0) {
                 current_page = getChildPage(child_ptr_loc);
-                if (!toInsUpdLeaf) {
-                    int lvl = current_block[0] & 0x1F;
-                    if (lvl == BPT_PARENT0_LVL + 1) {
-                        staging_map::iterator smit = staging_blocks.find(current_page);
-                        if (smit == staging_blocks.end()) {
-                            //cout << "." << current_page << " " << endl;
-                        } else {
-                            cur_staging_map = smit->second;
-                            int16_t find_len = 0;
-                            uint8_t *find = cur_staging_map->get(key, key_len, &find_len);
-                            if (find != NULL) {
-                                if (find_len != 5)
-                                    cout << "Find len: " << find_len << endl;
-                                if (find[find_len - 1] < 255)
-                                    find[find_len - 1]++;
-                                cur_entry = cur_staging_map->key_at + cur_staging_map->key_at_len;
-                                return 0;
-                            }
-                        }
-                    }
-                }
                 child_ptr = cache->get_disk_page_in_cache(current_page);
             } else
                 child_ptr = getChildPtr(child_ptr_loc);
@@ -340,13 +276,12 @@ public:
         return new_page;
     }
 
-    uint8_t *cur_entry;
     char *put(const char *key, uint8_t key_len, const char *value,
-            int16_t value_len, int16_t *pValueLen = NULL, bool toInsUpdLeaf = false) {
-        return (char *) put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len, pValueLen, toInsUpdLeaf);
+            int16_t value_len, int16_t *pValueLen = NULL) {
+        return (char *) put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len, pValueLen);
     }
     uint8_t *put(const uint8_t *key, uint8_t key_len, const uint8_t *value,
-            int16_t value_len, int16_t *pValueLen = NULL, bool toInsUpdLeaf = false) {
+            int16_t value_len, int16_t *pValueLen = NULL) {
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
         this->key_len = key_len;
@@ -358,138 +293,19 @@ public:
             static_cast<T*>(this)->addFirstData();
             setChanged(1);
         } else {
-            if (!toInsUpdLeaf) {
-                cur_entry = NULL;
-                cur_staging_map = NULL;
-            }
             current_page = 0;
             uint8_t *node_paths[9];
             int8_t level_count = 1;
             int16_t search_result = isLeaf() ?
                     static_cast<T*>(this)->searchCurrentBlock() :
-                    traverseToLeaf(&level_count, node_paths, toInsUpdLeaf);
-            if (toInsUpdLeaf)
-                numLevels = level_count;
-            if (!toInsUpdLeaf && cur_entry != NULL) {
-                return cur_staging_map->getValueAt(pValueLen);
-            }
-            if (cache_size > 0 && !toInsUpdLeaf && cur_staging_map != NULL) {
-                bas_blk *entry_map = cur_staging_map;
-                int16_t new_value_len = 0;
-                uint8_t new_value[value_len + 1];
-                const uint8_t *new_key = key;
-                uint8_t new_key_len = key_len;
-                if (search_result >= 0) {
-                    uint8_t *val = getValueAt(pValueLen);
-                    memcpy(new_value, val, value_len);
-                    new_value_len = value_len; // TODO: should be *pValueLen
-                } else {
-                    memcpy(new_value, value, value_len);
-                    new_value_len = value_len;
-                }
-                new_value[new_value_len] = 1;
-                new_value_len++;
-                if (cur_staging_map->isFull(0)) {
-                    int target_size = cur_staging_map->filledSize() / 3;
-                    int cur_count = 1;
-                    int next_min = 255;
-                    while (cur_staging_map->filledSize() > target_size) {
-                        for (int i = 0; i < cur_staging_map->filledSize(); i++) {
-                            uint16_t src_idx = cur_staging_map->getPtr(i);
-                            int16_t k_len = cur_staging_map->current_block[src_idx];
-                            uint8_t *k = cur_staging_map->current_block + src_idx + 1;
-                            int16_t v_len = cur_staging_map->current_block[src_idx + k_len + 1];
-                            uint8_t *v = cur_staging_map->current_block + src_idx + k_len + 2;
-                            if (v_len != 5)
-                                cout << "src_idx: " << src_idx << ", vlen: " << v_len << " ";
-                            int entry_count = v[v_len - 1];
-                            if (v_len != 5) {
-                                cout << entry_count << endl;
-                                printf("k: %.*s, len: %d\n", k_len, k, k_len);
-                            }
-                            if (entry_count <= cur_count) {
-                                int16_t ret_len = 0;
-                                uint8_t *p = put(k, k_len, v, v_len - 1, &ret_len, true);
-                                //cout << "put success: " << (unsigned long) p << ", len: " << ret_len << endl;
-                                cur_staging_map->remove_entry(i);
-                                i--;
-                            } else {
-                                if (entry_count < next_min)
-                                    next_min = entry_count;
-                                if (entry_count > 0)
-                                    v[v_len - 1]--;
-                            }
-                        }
-                        cur_count = (cur_count == next_min ? 255 : next_min);
-                    }
-                    //cout << "nfz: " << cur_staging_map->filledSize() << ", next_min: " << next_min << endl;
-                }
-                return cur_staging_map->put(new_key, new_key_len, new_value, new_value_len, pValueLen);
-            }
+                    traverseToLeaf(&level_count, node_paths);
+            numLevels = level_count;
             if (search_result >= 0)
                 return getValueAt(pValueLen);
-            /*int lvl = current_block[0] & 0x1F;
-            if (search_result >= 0 && lvl == BPT_STAGING_LVL) {
-                uint8_t *ret = getValueAt(pValueLen);
-                uint8_t *count_ptr = (uint8_t *) ret + pValueLen;
-                if (*count_ptr < 255)
-                   (*count_ptr)++;
-                return ret;
-            }
-            if (cur_staging_block != NULL) {
-                if (search_result >= 0 && lvl == BPT_LEAF0_LVL) {
-                    int16_t cur_val_len;
-                    this->value = getValueAt(&cur_val_len);
-                    char cur_val[cur_val_len];
-                    memcpy(cur_val, this->value, cur_val_len);
-                    this->value--;
-                    this->value[0] = 0; // delete from leaf
-                }
-                current_block = cur_staging_block;
-                search_result = searchCurrentBlock();
-                if (isFull(search_result)) {
-                    static_cast<T*>(this)->distributeStagingValues();
-                    search_result = searchCurrentBlock();
-                }
-                insertCurrent();
-            }*/
-            // if it does not exist, insert into staging
-            // in either case if it becomes full, insert into actual leaves in LRU order
             recursiveUpdate(search_result, node_paths, level_count - 1);
         }
         total_size++;
         return NULL;
-    }
-
-    void createStagingBlock(uint8_t *parent_block, int parent_page, uint8_t *first_key, int16_t first_len) {
-        bas_blk *new_map = new bas_blk(65535);
-        bas_blk *old_map = NULL;
-        if (current_page != 0) {
-            staging_map::iterator smit = staging_blocks.find(current_page);
-            if (smit != staging_blocks.end())
-              old_map = smit->second;
-        }
-        if (old_map != NULL) { // split old_map as well
-            for (int i = 0; i < old_map->filledSize(); i++) {
-                uint8_t key_at_i_len = 0;
-                uint8_t *key_at_i = getKey(i, &key_at_i_len);
-                int16_t cmp = util::compare(first_key, first_len, key_at_i, key_at_i_len);
-                if (cmp >= 0) {
-                    int16_t val_at_i_len = 0;
-                    uint8_t *val_at_i = getValueAt(key_at_i, &val_at_i_len);
-                    new_map->put(key_at_i, key_at_i_len, val_at_i, val_at_i_len);
-                    old_map->remove_entry(i);
-                    i--;
-                }
-            }
-        }
-        //cout << "n" << parent_page << " " << endl;
-        staging_blocks.insert(pair<int, bas_blk*>(parent_page, new_map));
-        // uint8_t *staging_block = allocateBlock(parent_block_size, 1, BPT_STAGING_LVL);
-        // int staging_page = cache->get_page_count() - 1;
-        // *staging_block |= 0x20;
-        // int addr_size = util::ptrToBytes(staging_page, parent_block + parent_block_size - 7);
-        // parent_block[parent_block_size - 8] = addr_size;
     }
 
     void recursiveUpdate(int16_t search_result, uint8_t *node_paths[], uint8_t level) {
@@ -508,9 +324,6 @@ public:
                 int new_page = 0;
                 if (cache_size > 0)
                     new_page = cache->get_page_count() - 1;
-                if (lvl == BPT_PARENT0_LVL && cache_size > 0) {
-                    createStagingBlock(new_block, new_page, first_key, first_len);
-                }
                 int16_t cmp = util::compare(first_key, first_len, key, key_len);
                 if (cmp <= 0)
                     static_cast<T*>(this)->setCurrentBlock(new_block);
@@ -541,8 +354,6 @@ public:
                         setKVLastPos(parent_block_size - 8);
                     } else
                         setKVLastPos(parent_block_size);
-                    if (new_lvl == BPT_PARENT0_LVL + 1 && cache_size > 0)
-                        createStagingBlock(old_block, old_page, NULL, 0);
                     uint8_t addr[9];
                     key = (uint8_t *) "";
                     key_len = 1;
@@ -623,7 +434,7 @@ public:
     }
 
     inline void delPtr(int16_t pos) {
-        int16_t filledSz = filledSize();
+        int16_t filledSz = filledSize() - 1;
 #if BPT_9_BIT_PTR == 1
         uint8_t *kvIdx = static_cast<T*>(this)->getPtrPos() + pos;
         memmove(kvIdx, kvIdx + 1, filledSz - pos);
@@ -644,7 +455,7 @@ public:
         uint8_t *kvIdx = static_cast<T*>(this)->getPtrPos() + (pos << 1);
         memmove(kvIdx, kvIdx + 2, (filledSz - pos) * 2);
 #endif
-        setFilledSize(filledSz - 1);
+        setFilledSize(filledSz);
 
     }
 
@@ -705,6 +516,8 @@ public:
     }
 
     inline void setKVLastPos(uint16_t val) {
+        if (val == 0)
+           val = 65535;
         util::setInt(BPT_LAST_DATA_PTR, val);
     }
 

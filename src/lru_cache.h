@@ -41,7 +41,6 @@ protected:
     int page_size;
     uint8_t *page_cache;
     uint8_t *root_block;
-    int cache_size_in_pages;
     int cache_occupied_size;
     int skip_page_count;
     dbl_lnklst *lnklst_first_entry;
@@ -57,7 +56,6 @@ protected:
 #else
     int fd;
 #endif
-    size_t file_page_count;
     uint8_t empty;
     cache_stats stats;
     void *(*malloc_fn)(size_t);
@@ -94,7 +92,7 @@ protected:
           stats.last_pages_to_flush = 20;
           return;
         }
-        stats.last_pages_to_flush = 1000; //cache_size_in_pages * stats.total_cache_misses / stats.total_cache_req;
+        stats.last_pages_to_flush = 500; //cache_size_in_pages * stats.total_cache_misses / stats.total_cache_req;
         if (stats.last_pages_to_flush < cache_size_in_pages / 2000)
             stats.last_pages_to_flush = cache_size_in_pages / 2000;
         if (stats.last_pages_to_flush > cache_size_in_pages / 5)
@@ -150,6 +148,8 @@ protected:
     }
 
 public:
+    size_t file_page_count;
+    int cache_size_in_pages;
     lru_cache(int pg_size, int page_count, const char *fname, int init_page_count = 0, void *(*alloc_fn)(size_t) = NULL) {
         if (alloc_fn == NULL)
             alloc_fn = malloc;
