@@ -580,7 +580,7 @@ public:
 
     uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filledSize();
-        uint16_t BFOS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
+        uint32_t BFOS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         int lvl = current_block[0] & 0x1F;
         uint8_t *b = allocateBlock(BFOS_NODE_SIZE, isLeaf(), lvl);
         bfos new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);

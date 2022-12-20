@@ -20,8 +20,8 @@ class stager {
             strcat(fname0, ".ix0");
             strcat(fname1, ".ix1");
             int cache0_size = cache_size;
-            int cache1_size = cache_size * 4;
-            idx0 = new basix(32768, 32768, cache0_size, fname0);
+            int cache1_size = cache_size;
+            idx0 = new basix(0, 0, cache0_size, fname0);
             idx1 = new basix(4096, 4096, cache1_size, fname1);
             is_cache0_full = false;
         }
@@ -41,14 +41,16 @@ class stager {
             uint8_t *val = idx0->get(key, key_len, pValueLen);
             if (val == NULL) {
                 val = idx1->get(key, key_len, pValueLen);
-                int new_val_len = (val == NULL ? value_len : *pValueLen) + 1;
-                uint8_t new_val[new_val_len];
-                if (val == NULL)
-                    memcpy(new_val, value, value_len);
-                else
-                    memcpy(new_val, val, new_val_len);
-                new_val[new_val_len - 1] = 1;
-                if (idx0->isFull(-1) && is_cache0_full) {
+                if (val != NULL && idx1->isChanged())
+                    return val;
+                int new_val_len = (val == NULL ? value_len : *pValueLen);
+                uint8_t new_val[new_val_len + 1];
+                memcpy(new_val, val == NULL ? value : val, new_val_len);
+                new_val[new_val_len] = 1;
+                new_val_len++;
+                bool is_full = idx0->isFull(0);
+                bool is_first_iter = true;
+                if (is_full && is_cache0_full) {
                     int target_size = idx0->filledSize() / 3;
                     int cur_count = 1;
                     int next_min = 255;
@@ -67,16 +69,38 @@ class stager {
                                 printf("k: %.*s, len: %d\n", k_len, k, k_len);
                             }
                             if (entry_count <= cur_count) {
-                                idx1->put(k, k_len, v, v_len - 1, NULL);
-                                //cout << "put success" << endl;
-                                idx0->remove_entry(i);
-                                i--;
+                                if (is_first_iter) {
+                                    int16_t v1_len = 0;
+                                    uint8_t *v1 = idx1->get(k, k_len, &v1_len);
+                                    if (v1 != NULL && idx1->isChanged()) {
+                                        v1 = idx1->put(k, k_len, v, v_len - 1, NULL);
+                                        if (v1 != NULL)
+                                            memcpy(v1, v, v_len - 1);
+                                        idx0->remove_entry(i);
+                                        i--;
+                                    }
+                                } else {
+                                    int16_t v1_len = 0;
+                                    uint8_t *v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
+                                    if (v1 != NULL)
+                                        memcpy(v1, v, v_len - 1);
+                                    idx0->remove_entry(i);
+                                    i--;
+                                }
                             } else {
                                 if (entry_count < next_min)
                                     next_min = entry_count;
+                                if (entry_count > 0)
+                                    v[v_len - 1]--;
                             }
                         }
-                        cur_count = (cur_count == next_min ? 255 : next_min);
+                        if (is_first_iter) {
+                            if (idx0->filledSize() < target_size * 2)
+                                break;
+                            cur_count = 1;
+                            is_first_iter = false;
+                        } else
+                            cur_count = (cur_count == next_min ? 255 : next_min);
                         //cout << "next_min: " << next_min << endl;
                     }
                 }

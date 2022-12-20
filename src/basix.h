@@ -126,7 +126,7 @@ public:
 
     uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filledSize();
-        uint16_t BASIX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
+        uint32_t BASIX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         int lvl = current_block[0] & 0x1F;
         uint8_t *b = allocateBlock(BASIX_NODE_SIZE, isLeaf(), lvl);
         basix new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
@@ -183,7 +183,7 @@ public:
         } // Set index of copied first half in old block
 
         {
-            int16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
+            uint16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
             memcpy(current_block + BASIX_NODE_SIZE - old_blk_new_len,
                     new_block.current_block + kv_last_pos, old_blk_new_len); // Copy back first half to old block
             setKVLastPos(BASIX_NODE_SIZE - old_blk_new_len);

@@ -153,10 +153,9 @@ public:
     }
 
     inline uint8_t *getValueAt(int16_t *vlen) {
-        key_at += key_at_len;
         if (vlen != NULL)
-            *vlen = *key_at;
-        return (uint8_t *) key_at + 1;
+            *vlen = key_at[key_at_len];
+        return (uint8_t *) key_at + key_at_len + 1;
     }
 
     void setCurrentBlockRoot();
@@ -266,7 +265,7 @@ public:
         if (lvl == BPT_PARENT0_LVL && cache_size > 0)
             util::setInt(new_page + 3, parent_block_size - 8);
         else
-            util::setInt(new_page + 3, size);
+            util::setInt(new_page + 3, size - (size == 65536 ? 1 : 0));
         util::setInt(new_page + 1, 0);
         if (is_leaf)
             *new_page = 0xC0 + lvl;
@@ -387,12 +386,12 @@ public:
                 setChanged(1);
             }
         } else {
-            if (isLeaf()) {
-                this->key_at += this->key_at_len;
-                if (*key_at == this->value_len)
-                    memcpy((uint8_t *) key_at + 1, this->value, this->value_len);
-                setChanged(1);
-            }
+            //if (isLeaf()) {
+            //    this->key_at += this->key_at_len;
+            //    if (*key_at == this->value_len)
+            //        memcpy((uint8_t *) key_at + 1, this->value, this->value_len);
+            //    setChanged(1);
+            //}
         }
     }
 
