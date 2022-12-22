@@ -25,7 +25,7 @@ class stager {
             strcat(fname2, ".ix2");
             int cache0_size = cache_size;
             int cache1_size = cache_size * 2;
-            int cache2_size = cache_size * 2;
+            int cache2_size = cache_size * 16;
             idx0 = new basix(0, 0, cache0_size, fname0);
             idx1 = new basix(4096, 4096, cache1_size, fname1);
             idx2 = new basix(4096, 4096, cache2_size, fname2);
@@ -55,11 +55,15 @@ class stager {
                     val = idx2->get(key, key_len, pValueLen);
                     //if (val != NULL && idx2->isChanged())
                     //    return val;
+                    if (val == NULL && idx2->isChanged()) {
+                        idx2->put(key, key_len, value, value_len);
+                        return NULL;
+                    }
                 }
                 int new_val_len = (val == NULL ? value_len : *pValueLen);
                 uint8_t new_val[new_val_len + 1];
                 memcpy(new_val, val == NULL ? value : val, new_val_len);
-                new_val[new_val_len] = 1;
+                new_val[new_val_len] = start_count;
                 new_val_len++;
                 bool is_full = idx0->isFull(0);
                 bool is_first_iter = true;
@@ -84,9 +88,9 @@ class stager {
                             if (entry_count <= cur_count) {
                                 if (is_first_iter) {
                                     int16_t v1_len = 0;
-                                    uint8_t *v1 = idx2->get(k, k_len, &v1_len);
-                                    if (v1 != NULL && idx2->isChanged()) {
-                                        v1 = idx2->put(k, k_len, v, v_len - 1, NULL);
+                                    uint8_t *v1 = idx1->get(k, k_len, &v1_len);
+                                    if (v1 != NULL && idx1->isChanged()) {
+                                        v1 = idx1->put(k, k_len, v, v_len - 1, NULL);
                                         if (v1 != NULL)
                                             memcpy(v1, v, v_len - 1);
                                         idx0->remove_entry(i);
@@ -147,13 +151,13 @@ class stager {
         }
 
         cache_stats get_cache_stats() {
-            return idx2->get_cache_stats();
+            return idx1->get_cache_stats();
         }
         int get_max_key_len() {
             return max(max(idx0->get_max_key_len(), idx1->get_max_key_len()), idx2->get_max_key_len());
         }
         int getNumLevels() {
-            return idx2->getNumLevels();
+            return idx1->getNumLevels();
         }
         void printStats(long sz) {
             idx0->printStats(idx0->size());
@@ -166,8 +170,9 @@ class stager {
             idx2->printNumLevels();
         }
         long size() {
-            return idx0->size() + idx1->size() + idx2->size();
+            return idx0->size() + idx1->size(); // + idx2->size();
         }
 
 };
 #endif // STAGER_H
+
