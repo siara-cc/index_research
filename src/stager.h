@@ -53,6 +53,8 @@ class stager {
                 uint8_t start_count = (val == NULL ? 1 : 2);
                 if (val == NULL) {
                     val = idx2->get(key, key_len, pValueLen);
+                    //if (val != NULL && idx2->isChanged())
+                    //    return val;
                     if (val == NULL && idx2->isChanged()) {
                         idx2->put(key, key_len, value, value_len);
                         return NULL;
@@ -130,13 +132,13 @@ class stager {
         }
 
         cache_stats get_cache_stats() {
-            return idx2->get_cache_stats();
+            return idx1->get_cache_stats();
         }
         int get_max_key_len() {
             return max(max(idx0->get_max_key_len(), idx1->get_max_key_len()), idx2->get_max_key_len());
         }
         int getNumLevels() {
-            return idx2->getNumLevels();
+            return idx1->getNumLevels();
         }
         void printStats(long sz) {
             idx0->printStats(idx0->size());
@@ -149,8 +151,9 @@ class stager {
             idx2->printNumLevels();
         }
         long size() {
-            return idx0->size() + idx1->size() + idx2->size();
+            return idx0->size() + idx1->size(); // + idx2->size();
         }
 
 };
 #endif // STAGER_H
+
