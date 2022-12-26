@@ -37,8 +37,8 @@ public:
     const static uint8_t need_counts[10];
     uint8_t last_child_pos;
     uint8_t to_pick_leaf;
-    bft(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
-            uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
+    bft(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
+            uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL, uint8_t *block = NULL) :
         bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
         split_buf = (uint8_t *) util::alignedAlloc(leaf_block_size > parent_block_size ?

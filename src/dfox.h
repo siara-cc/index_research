@@ -35,8 +35,8 @@ class dfox : public bpt_trie_handler<dfox> {
 public:
     const static uint8_t need_counts[10];
     uint8_t *last_t;
-    dfox(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
-            uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
+    dfox(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
+            uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL, uint8_t *block = NULL) :
         bpt_trie_handler<dfox>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
     }

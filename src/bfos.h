@@ -65,8 +65,8 @@ public:
     uint8_t last_child;
     uint8_t last_leaf;
 
-    bfos(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
-            uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
+    bfos(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
+            uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL, uint8_t *block = NULL) :
         bpt_trie_handler<bfos>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
     }
@@ -586,8 +586,6 @@ public:
         bfos new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
-        if (lvl == BPT_PARENT0_LVL && cache_size > 0)
-            BFOS_NODE_SIZE -= 8;
         uint16_t kv_last_pos = getKVLastPos();
         uint16_t halfKVPos = kv_last_pos + (BFOS_NODE_SIZE - kv_last_pos) / 2;
 
@@ -711,8 +709,6 @@ public:
     void makeSpace() {
         int block_size = (isLeaf() ? leaf_block_size : parent_block_size);
         int lvl = current_block[0] & 0x1F;
-        if (lvl == BPT_PARENT0_LVL && cache_size > 0)
-            block_size -= 8;
         const uint16_t data_size = block_size - getKVLastPos();
         uint8_t data_buf[data_size];
         uint16_t new_data_len = 0;

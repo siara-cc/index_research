@@ -73,8 +73,8 @@ public:
     int16_t prefix_len;
     int16_t prev_prefix_len;
 
-    linex(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
-            uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
+    linex(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
+            uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL, uint8_t *block = NULL) :
        bplus_tree_handler<linex>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
         initCurrentBlock();
@@ -245,8 +245,6 @@ public:
 
     bool isFull(int16_t search_result) {
         uint16_t LINEX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        if ((current_block[0] & 0x1F) == BPT_PARENT0_LVL && cache_size > 0)
-            LINEX_NODE_SIZE -= 8;
         if ((getKVLastPos() + key_len + value_len + 5) >= LINEX_NODE_SIZE)
             return true;
         return false;

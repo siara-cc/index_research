@@ -95,15 +95,11 @@ public:
     size_t leaf_block_size, parent_block_size;
     const int cache_size;
     const char *filename;
-    bplus_tree_handler(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
-            uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
+    bplus_tree_handler(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
+            uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL, uint8_t *block = NULL) :
             leaf_block_size (leaf_block_sz), parent_block_size (parent_block_sz),
             cache_size (cache_sz), filename (fname) {
-        if (!leaf_block_size)
-            leaf_block_size = 65536;
-        if (!parent_block_size)
-            parent_block_size = 65536;
         init_stats();
         is_block_given = block == NULL ? 0 : 1;
         if (cache_size > 0) {
@@ -263,7 +259,7 @@ public:
         } else
             new_page = (uint8_t *) util::alignedAlloc(size);
         if (lvl == BPT_PARENT0_LVL && cache_size > 0)
-            util::setInt(new_page + 3, parent_block_size - 8);
+            util::setInt(new_page + 3, parent_block_size);
         else
             util::setInt(new_page + 3, size - (size == 65536 ? 1 : 0));
         util::setInt(new_page + 1, 0);
@@ -349,10 +345,7 @@ public:
                     setLeaf(0);
                     setChanged(1);
                     root_block[0] = (root_block[0] & 0xE0) + new_lvl;
-                    if (new_lvl == BPT_PARENT0_LVL && cache_size > 0) {
-                        setKVLastPos(parent_block_size - 8);
-                    } else
-                        setKVLastPos(parent_block_size);
+                    setKVLastPos(parent_block_size);
                     uint8_t addr[9];
                     key = (uint8_t *) "";
                     key_len = 1;
@@ -607,8 +600,8 @@ protected:
     int maxTrieLenNode;
     int maxTrieLenLeaf;
 
-    bpt_trie_handler<T>(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
-            uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
+    bpt_trie_handler<T>(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
+            uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL, uint8_t *block = NULL) :
        bplus_tree_handler<T>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
         init_stats();

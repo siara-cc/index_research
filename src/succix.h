@@ -27,8 +27,8 @@ public:
     const static uint8_t need_counts[10];
     uint8_t last_child_pos;
     uint8_t to_pick_leaf;
-    succix(uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
-            uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
+    succix(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
+            uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL, uint8_t *block = NULL) :
         bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
         split_buf = (uint8_t *) util::alignedAlloc(leaf_block_size > parent_block_size ?
@@ -209,7 +209,7 @@ public:
         int16_t idx;
         uint8_t ins_key[BPT_MAX_PFX_LEN], old_first_key[BPT_MAX_PFX_LEN];
         int16_t ins_key_len, old_first_len;
-        SUCCIX_iterator_status s(trie, 0); //BPT_MAX_PFX_LEN);
+        succix_iterator_status s(trie, 0); //BPT_MAX_PFX_LEN);
         for (idx = 0; idx < orig_filled_size; idx++) {
             int16_t src_idx = nextPtr(s);
             int16_t kv_len = current_block[src_idx];
@@ -288,7 +288,7 @@ public:
     }
 
     int16_t getFirstPtr() {
-        SUCCIX_iterator_status s(trie, 0);
+        succix_iterator_status s(trie, 0);
         return nextPtr(s);
     }
 

@@ -92,6 +92,17 @@ public:
         *pos = val % 256;
     }
 
+    static inline uint32_t getInt3(uint8_t *pos) {
+        uint32_t ret = ((*pos << 16) + (pos[1] << 8) + pos[2]);
+        return ret; // slow endian independent
+    }
+
+    static inline void setInt3(uint8_t *pos, uint32_t val) {
+        *pos++ = val >> 16; // slow endian independent
+        *pos++ = (val >> 8) & 0xFF;
+        *pos = val & 0xFF;
+    }
+
     static int ptrToBytes(unsigned long addr_num, uint8_t *addr) {
         int l = 0;
         while (addr_num) {
