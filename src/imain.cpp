@@ -20,6 +20,7 @@
 #include "bfqs.h"
 #include "bfos.h"
 #include "rb_tree.h"
+#include "stager.h"
 #ifdef _MSC_VER
 #include <windows.h>
 #endif
@@ -1279,8 +1280,9 @@ void checkValue(const char *key, int key_len, const char *val, int val_len,
             char value[256];
             strncpy(value, returned_value, returned_len);
             value[returned_len] = 0;
-            cout << cmp << ":" << (char *) key << "=========="
-                    << val << "----------->" << returned_value << endl;
+            printf("cmp: %.*s==========%.*s--------->%.*s\n", key_len, key, val_len, val, returned_len, returned_value);
+            //cout << cmp << ":" << (char *) key << "=========="
+            //        << val << "----------->" << returned_value << endl;
         }
     }
 }
@@ -1497,7 +1499,7 @@ int main(int argc, char *argv[]) {
     ctr = 0;
     //linex *dx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //basix *dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    basix3 *dx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    stager *dx = new stager(OUT_FILE2, CACHE_SIZE);
     //bft *dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dft *dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //bfos *dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
@@ -1641,7 +1643,7 @@ int main(int argc, char *argv[]) {
             int16_t len;
             uint8_t key_len = data_buf[pos++];
             uint8_t value_len = data_buf[pos + key_len + 1];
-            const char *value = dx->get((char *) data_buf + pos, key_len, &len);
+            const char *value = (const char *) dx->get(data_buf + pos, key_len, &len);
             checkValue((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
             pos += key_len + value_len + 1;

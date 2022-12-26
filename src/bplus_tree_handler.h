@@ -258,10 +258,7 @@ public:
             *new_page = 0x40; // Set changed so it gets written next time
         } else
             new_page = (uint8_t *) util::alignedAlloc(size);
-        if (lvl == BPT_PARENT0_LVL && cache_size > 0)
-            util::setInt(new_page + 3, parent_block_size);
-        else
-            util::setInt(new_page + 3, size - (size == 65536 ? 1 : 0));
+        util::setInt(new_page + 3, size - (size == 65536 ? 1 : 0));
         util::setInt(new_page + 1, 0);
         if (is_leaf)
             *new_page = 0xC0 + lvl;
@@ -385,6 +382,7 @@ public:
             //        memcpy((uint8_t *) key_at + 1, this->value, this->value_len);
             //    setChanged(1);
             //}
+            setChanged(1);
         }
     }
 

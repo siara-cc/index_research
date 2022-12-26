@@ -74,7 +74,7 @@ public:
     void makeSpace() {
         int block_size = (isLeaf() ? leaf_block_size : parent_block_size);
         const uint32_t data_size = block_size - getKVLastPos();
-        uint8_t data_buf[data_size];
+        uint8_t *data_buf = (uint8_t *) malloc(data_size);
         uint32_t new_data_len = 0;
         int16_t new_idx;
         int16_t orig_filled_size = filledSize();
@@ -91,6 +91,7 @@ public:
         uint32_t new_kv_last_pos = block_size - new_data_len;
         memcpy(current_block + new_kv_last_pos, data_buf + data_size - new_data_len, new_data_len);
         //printf("%d, %d\n", data_size, new_data_len);
+        free(data_buf);
         setKVLastPos(new_kv_last_pos);
         searchCurrentBlock();
     }

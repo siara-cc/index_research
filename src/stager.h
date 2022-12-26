@@ -7,12 +7,13 @@
 #include "basix.h"
 #include "basix3.h"
 
-#define STAGING_BLOCK_SIZE 262144
+//#define STAGING_BLOCK_SIZE 262144
+#define STAGING_BLOCK_SIZE 32768
 #define BUCKET_BLOCK_SIZE 4096
 
 class stager {
     protected:
-      basix3 *idx0;
+      basix *idx0;
       basix *idx1;
       basix *idx2;
       bool is_cache0_full;
@@ -31,7 +32,7 @@ class stager {
             int cache0_size = cache_size;
             int cache1_size = cache_size * (STAGING_BLOCK_SIZE / BUCKET_BLOCK_SIZE) / 8;
             int cache2_size = cache_size * (STAGING_BLOCK_SIZE / BUCKET_BLOCK_SIZE) / 3;
-            idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
+            idx0 = new basix(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
             idx2 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
             is_cache0_full = false;
@@ -43,9 +44,9 @@ class stager {
             delete idx2;
         }
 
-        uint8_t *put(const char *key, uint8_t key_len, const char *value,
+        char *put(const char *key, uint8_t key_len, const char *value,
                 int16_t value_len, int16_t *pValueLen = NULL) {
-            return put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len, pValueLen);
+            return (char *) put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len, pValueLen);
         }
 
         uint8_t *put(const uint8_t *key, uint8_t key_len, const uint8_t *value,
@@ -60,10 +61,10 @@ class stager {
                     val = idx2->get(key, key_len, pValueLen);
                     //if (val != NULL && idx2->isChanged())
                     //    return val;
-                    if (val == NULL && idx2->isChanged()) {
-                        idx2->put(key, key_len, value, value_len);
-                        return NULL;
-                    }
+                    //if (val == NULL && idx2->isChanged()) {
+                    //    idx2->put(key, key_len, value, value_len);
+                    //    return NULL;
+                    //}
                 }
                 int new_val_len = (val == NULL ? value_len : *pValueLen);
                 uint8_t new_val[new_val_len + 1];
@@ -82,10 +83,10 @@ class stager {
                             uint8_t *k = idx0->current_block + src_idx + 1;
                             int16_t v_len = idx0->current_block[src_idx + k_len + 1];
                             uint8_t *v = idx0->current_block + src_idx + k_len + 2;
-                            if (v_len != 5)
+                            if (v_len != value_len + 1)
                                 cout << "src_idx: " << src_idx << ", vlen: " << v_len << " ";
                             int entry_count = v[v_len - 1];
-                            if (v_len != 5) {
+                            if (v_len != value_len + 1) {
                                 cout << entry_count << endl;
                                 printf("k: %.*s, len: %d\n", k_len, k, k_len);
                             }
@@ -123,16 +124,18 @@ class stager {
             return val;
         }
 
-        uint8_t *get(const char *key, uint8_t key_len, int16_t *pValueLen) {
-            return get((const uint8_t *) key, key_len, pValueLen);
+        char *get(const char *key, uint8_t key_len, int16_t *pValueLen) {
+            return (char *) get((const uint8_t *) key, key_len, pValueLen);
         }
 
         uint8_t *get(const uint8_t *key, uint8_t key_len, int16_t *pValueLen) {
             uint8_t *val = idx0->get(key, key_len, pValueLen);
+            if (val != NULL)
+                (*pValueLen)--;
             if (val == NULL)
-                return idx1->get(key, key_len, pValueLen);
+                val = idx1->get(key, key_len, pValueLen);
             if (val == NULL)
-                return idx2->get(key, key_len, pValueLen);
+                val = idx2->get(key, key_len, pValueLen);
             return val;
         }
 
