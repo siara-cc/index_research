@@ -99,8 +99,8 @@ public:
         uint32_t ptr_size = filledSize() + 1;
         ptr_size *= 3;
         if (getKVLastPos() <= (BASIX3_HDR_SIZE + ptr_size + key_len + value_len + 2)) {
-            //makeSpace();
-            //if (getKVLastPos() <= (BASIX3_HDR_SIZE + ptr_size + key_len + value_len + 2))
+            makeSpace();
+            if (getKVLastPos() <= (BASIX3_HDR_SIZE + ptr_size + key_len + value_len + 2))
                 return true;
         }
         return false;

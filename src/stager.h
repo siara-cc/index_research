@@ -77,7 +77,7 @@ class stager {
                     int next_min = 255;
                     while (idx0->filledSize() > target_size) {
                         for (int i = 0; i < idx0->filledSize(); i++) {
-                            uint16_t src_idx = idx0->getPtr(i);
+                            uint32_t src_idx = idx0->getPtr(i);
                             int16_t k_len = idx0->current_block[src_idx];
                             uint8_t *k = idx0->current_block + src_idx + 1;
                             int16_t v_len = idx0->current_block[src_idx + k_len + 1];
@@ -137,7 +137,7 @@ class stager {
         }
 
         cache_stats get_cache_stats() {
-            return idx1->get_cache_stats();
+            return idx2->get_cache_stats();
         }
         int get_max_key_len() {
             return max(max(idx0->get_max_key_len(), idx1->get_max_key_len()), idx2->get_max_key_len());
