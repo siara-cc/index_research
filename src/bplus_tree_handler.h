@@ -286,7 +286,7 @@ public:
             setChanged(1);
         } else {
             current_page = 0;
-            uint8_t *node_paths[9];
+            uint8_t **node_paths = (uint8_t **) malloc(8 * sizeof(void *));
             int8_t level_count = 1;
             int16_t search_result = isLeaf() ?
                     static_cast<T*>(this)->searchCurrentBlock() :
@@ -295,6 +295,7 @@ public:
             if (search_result >= 0)
                 return getValueAt(pValueLen);
             recursiveUpdate(search_result, node_paths, level_count - 1);
+            free(node_paths);
         }
         total_size++;
         return NULL;
@@ -306,7 +307,7 @@ public:
             search_result = ~search_result;
             if (static_cast<T*>(this)->isFull(search_result)) {
                 updateSplitStats();
-                uint8_t first_key[BPT_MAX_KEY_LEN]; // is max_pfx_len sufficient?
+                uint8_t first_key[200]; // is max_pfx_len sufficient?
                 int16_t first_len;
                 uint8_t *old_block = current_block;
                 uint8_t *new_block = static_cast<T*>(this)->split(first_key, &first_len);

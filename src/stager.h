@@ -7,7 +7,8 @@
 #include "basix.h"
 #include "basix3.h"
 
-#define STAGING_BLOCK_SIZE 262144
+#define STAGING_BLOCK_SIZE 524288
+//#define STAGING_BLOCK_SIZE 262144
 //#define STAGING_BLOCK_SIZE 32768
 #define BUCKET_BLOCK_SIZE 4096
 
@@ -31,7 +32,7 @@ class stager {
             strcat(fname0, ".ix0");
             strcat(fname1, ".ix1");
             int cache0_size = cache_size;
-            int cache1_size = cache_size * (STAGING_BLOCK_SIZE / BUCKET_BLOCK_SIZE) / 3;
+            int cache1_size = cache_size * (STAGING_BLOCK_SIZE / BUCKET_BLOCK_SIZE);
             idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
 #if BUCKET_COUNT == 2
@@ -144,7 +145,7 @@ class stager {
             uint8_t entry_count = val[*pValueLen - 1];
             if (entry_count < 255)
                 val[*pValueLen - 1]++;
-            cout << "Found in idx0: " << entry_count << endl;
+            //cout << "Found in idx0: " << entry_count << endl;
             return val;
         }
 

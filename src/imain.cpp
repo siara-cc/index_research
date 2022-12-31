@@ -49,7 +49,7 @@ int PARENT_PAGE_SIZE = DEFAULT_PARENT_BLOCK_SIZE;
 int CACHE_SIZE = 0;
 char *OUT_FILE1 = NULL;
 char *OUT_FILE2 = NULL;
-int USE_HASHTABLE = 1;
+int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int ctr = 0;
 
@@ -1426,7 +1426,7 @@ int main(int argc, char *argv[]) {
         for (; it1 != m.end(); ++it1) {
             //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
             art_insert(&at, (unsigned char*) it1->first.c_str(),
-                    it1->first.length() + 1, (void *) it1->second.c_str(),
+                    it1->first.length(), (void *) it1->second.c_str(),
                     it1->second.length());
             ctr++;
         }
@@ -1434,7 +1434,7 @@ int main(int argc, char *argv[]) {
         for (int64_t pos = 0; pos < data_sz; pos++) {
             uint8_t key_len = data_buf[pos++];
             uint8_t value_len = data_buf[pos + key_len + 1];
-            art_insert(&at, data_buf + pos, key_len + 1, data_buf + pos + key_len + 2, value_len);
+            art_insert(&at, data_buf + pos, key_len, data_buf + pos + key_len + 2, value_len);
             pos += key_len + value_len + 1;
             ctr++;
         }
@@ -1500,6 +1500,7 @@ int main(int argc, char *argv[]) {
     ctr = 0;
     //linex *dx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //basix *dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //basix3 *dx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     stager *dx = new stager(OUT_FILE2, CACHE_SIZE);
     //bft *dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dft *dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
@@ -1541,7 +1542,7 @@ int main(int argc, char *argv[]) {
         for (; it1 != m.end(); ++it1) {
             int len;
             char *value = (char *) art_search(&at,
-                    (unsigned char*) it1->first.c_str(), it1->first.length() + 1,
+                    (unsigned char*) it1->first.c_str(), it1->first.length(),
                     &len);
             checkValue(it1->first.c_str(), it1->first.length() + 1,
                     it1->second.c_str(), it1->second.length(), value, len, null_ctr, cmp);
@@ -1552,7 +1553,7 @@ int main(int argc, char *argv[]) {
             int len;
             uint8_t key_len = data_buf[pos++];
             uint8_t value_len = data_buf[pos + key_len + 1];
-            char *value = (char *) art_search(&at, data_buf + pos, key_len + 1, &len);
+            char *value = (char *) art_search(&at, data_buf + pos, key_len, &len);
             checkValue((char *) data_buf + pos, key_len + 1,
                     (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
             pos += key_len + value_len + 1;
