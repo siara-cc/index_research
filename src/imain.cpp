@@ -1462,7 +1462,8 @@ int main(int argc, char *argv[]) {
     ctr = 0;
     //linex *lx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //basix *lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    basix3 *lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //basix3 *lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    stager *lx = new stager(OUT_FILE1, CACHE_SIZE);
     //bft *lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //dft *lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //bfos *lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
@@ -1474,7 +1475,7 @@ int main(int argc, char *argv[]) {
     it1 = m.begin();
     start = getTimeVal();
     uint8_t dummy[9];
-    cout << "Ptr size:" << util::ptrToBytes((unsigned long) lx->root_block, dummy) << endl;
+    //cout << "Ptr size:" << util::ptrToBytes((unsigned long) lx->root_block, dummy) << endl;
     if (USE_HASHTABLE) {
         it1 = m.begin();
         for (; it1 != m.end(); ++it1) {

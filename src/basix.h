@@ -84,7 +84,7 @@ public:
         int block_size = (isLeaf() ? leaf_block_size : parent_block_size);
         int lvl = current_block[0] & 0x1F;
         const uint16_t data_size = block_size - getKVLastPos();
-        uint8_t data_buf[data_size];
+        uint8_t *data_buf = (uint8_t *) malloc(data_size);
         uint16_t new_data_len = 0;
         int16_t new_idx;
         int16_t orig_filled_size = filledSize();
@@ -101,6 +101,7 @@ public:
         uint16_t new_kv_last_pos = block_size - new_data_len;
         memcpy(current_block + new_kv_last_pos, data_buf + data_size - new_data_len, new_data_len);
         //printf("%d, %d\n", data_size, new_data_len);
+        free(data_buf);
         setKVLastPos(new_kv_last_pos);
         searchCurrentBlock();
     }
@@ -111,8 +112,8 @@ public:
         ptr_size <<= 1;
     #endif
         if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2)) {
-            makeSpace();
-            if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
+            //makeSpace();
+            //if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
                 return true;
         }
     #if BPT_9_BIT_PTR == 1
@@ -213,7 +214,7 @@ public:
         return b;
     }
 
-    void addData(int16_t search_result) {
+    uint8_t *addData(int16_t search_result) {
 
         uint16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
         setKVLastPos(kv_last_pos);
@@ -226,6 +227,7 @@ public:
         insPtr(search_result, kv_last_pos);
         if (BPT_MAX_KEY_LEN < key_len)
             BPT_MAX_KEY_LEN = key_len;
+        return ptr;
 
     }
 

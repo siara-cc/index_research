@@ -235,9 +235,9 @@ public:
         free(root_block);
         free(llarr);
         free(disk_to_cache_map);
-        cout << "total_cache_requests: " << " " << stats.total_cache_req << endl;
-        cout << "total_cache_misses: " << " " << stats.total_cache_misses << endl;
-        cout << "cache_flush_count: " << " " << stats.cache_flush_count << endl;
+        cout << "cache requests: " << " " << stats.total_cache_req 
+             << ", Misses: " << stats.total_cache_misses
+             << ", Flush#: " << stats.cache_flush_count << endl;
     }
     uint8_t *get_disk_page_in_cache(int disk_page, uint8_t *block_to_keep = NULL, bool is_new = false) {
         if (disk_page == skip_page_count)

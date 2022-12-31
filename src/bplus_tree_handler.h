@@ -391,6 +391,11 @@ public:
     void addData(int16_t search_result);
     void insertCurrent();
 
+    void setValue(uint8_t *val, int16_t len) {
+        value = val;
+        value_len = len;
+    }
+
     inline void setFilledSize(int16_t filledSize) {
         util::setInt(BPT_FILLED_SIZE, filledSize);
     }

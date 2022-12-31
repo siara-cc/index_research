@@ -7,41 +7,49 @@
 #include "basix.h"
 #include "basix3.h"
 
-//#define STAGING_BLOCK_SIZE 262144
-#define STAGING_BLOCK_SIZE 32768
+#define STAGING_BLOCK_SIZE 262144
+//#define STAGING_BLOCK_SIZE 32768
 #define BUCKET_BLOCK_SIZE 4096
+
+#define BUCKET_COUNT 1
 
 class stager {
     protected:
-      basix *idx0;
+      basix3 *idx0;
       basix *idx1;
+#if BUCKET_COUNT == 2
       basix *idx2;
+#endif
       bool is_cache0_full;
 
     public:
         stager(const char *fname, size_t cache_size) {
             char fname0[strlen(fname) + 5];
             char fname1[strlen(fname) + 5];
-            char fname2[strlen(fname) + 5];
             strcpy(fname0, fname);
             strcpy(fname1, fname);
-            strcpy(fname2, fname);
             strcat(fname0, ".ix0");
             strcat(fname1, ".ix1");
-            strcat(fname2, ".ix2");
             int cache0_size = cache_size;
-            int cache1_size = cache_size * (STAGING_BLOCK_SIZE / BUCKET_BLOCK_SIZE) / 8;
-            int cache2_size = cache_size * (STAGING_BLOCK_SIZE / BUCKET_BLOCK_SIZE) / 3;
-            idx0 = new basix(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
+            int cache1_size = cache_size * (STAGING_BLOCK_SIZE / BUCKET_BLOCK_SIZE) / 3;
+            idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
+#if BUCKET_COUNT == 2
+            char fname2[strlen(fname) + 5];
+            strcpy(fname2, fname);
+            strcat(fname2, ".ix2");
+            int cache2_size = cache_size * (STAGING_BLOCK_SIZE / BUCKET_BLOCK_SIZE) / 8;
             idx2 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
+#endif
             is_cache0_full = false;
         }
 
         ~stager() {
             delete idx0;
             delete idx1;
+#if BUCKET_COUNT == 2
             delete idx2;
+#endif
         }
 
         char *put(const char *key, uint8_t key_len, const char *value,
@@ -51,18 +59,27 @@ class stager {
 
         uint8_t *put(const uint8_t *key, uint8_t key_len, const uint8_t *value,
                 int16_t value_len, int16_t *pValueLen = NULL) {
+            if (idx0->cache->cache_size_in_pages <= idx0->cache->file_page_count) {
+                is_cache0_full = true;
+            }
             uint8_t *val = idx0->get(key, key_len, pValueLen);
             if (val == NULL) {
-                val = idx1->get(key, key_len, pValueLen);
-                if (val != NULL && idx1->isChanged())
+#if BUCKET_COUNT == 2
+                val = idx2->get(key, key_len, pValueLen);
+                if (val != NULL && idx2->isChanged())
                     return val;
                 uint8_t start_count = (val == NULL ? 1 : 2);
+#else
+                uint8_t start_count = 1;
+#endif
                 if (val == NULL) {
-                    val = idx2->get(key, key_len, pValueLen);
-                    //if (val != NULL && idx2->isChanged())
-                    //    return val;
-                    //if (val == NULL && idx2->isChanged()) {
-                    //    idx2->put(key, key_len, value, value_len);
+                    val = idx1->get(key, key_len, pValueLen);
+                    if (val != NULL && idx1->isChanged()) {
+                        //cout << "Found in idx1 " << endl;
+                        return val;
+                    }
+                    //if (val == NULL && idx1->isChanged()) {
+                    //    idx1->put(key, key_len, value, value_len);
                     //    return NULL;
                     //}
                 }
@@ -93,10 +110,14 @@ class stager {
                             if (entry_count <= cur_count) {
                                 int16_t v1_len = 0;
                                 uint8_t *v1;
-                                if (entry_count == 1)
-                                    v1 = idx2->put(k, k_len, v, v_len - 1, &v1_len);
-                                else
+#if BUCKET_COUNT == 2
+                                if (entry_count <= 1)
                                     v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
+                                else
+                                    v1 = idx2->put(k, k_len, v, v_len - 1, &v1_len);
+#else
+                                v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
+#endif
                                 if (v1 != NULL)
                                     memcpy(v1, v, v_len - 1);
                                 idx0->remove_entry(i);
@@ -107,20 +128,23 @@ class stager {
                                 if (entry_count > 2)
                                     v[v_len - 1]--;
                             }
+                            if (idx0->filledSize() <= target_size)
+                                break;
                         }
                         cur_count = (cur_count == next_min ? 255 : next_min);
                         //cout << "next_min: " << next_min << endl;
                     }
+                    //if (idx0->filledSize() > 0)
+                    //    cout << "Not emptied" << endl;
+                    idx0->makeSpace();
                 }
                 val = idx0->put(key, key_len, new_val, new_val_len);
-                if (idx0->cache->cache_size_in_pages <= idx0->cache->file_page_count) {
-                    is_cache0_full = true;
-                }
                 return val;
             }
             uint8_t entry_count = val[*pValueLen - 1];
             if (entry_count < 255)
                 val[*pValueLen - 1]++;
+            cout << "Found in idx0: " << entry_count << endl;
             return val;
         }
 
@@ -132,18 +156,24 @@ class stager {
             uint8_t *val = idx0->get(key, key_len, pValueLen);
             if (val != NULL)
                 (*pValueLen)--;
-            if (val == NULL)
-                val = idx1->get(key, key_len, pValueLen);
+#if BUCKET_COUNT == 2
             if (val == NULL)
                 val = idx2->get(key, key_len, pValueLen);
+#endif
+            if (val == NULL)
+                val = idx1->get(key, key_len, pValueLen);
             return val;
         }
 
         cache_stats get_cache_stats() {
-            return idx2->get_cache_stats();
+            return idx1->get_cache_stats();
         }
         int get_max_key_len() {
+#if BUCKET_COUNT == 2
             return max(max(idx0->get_max_key_len(), idx1->get_max_key_len()), idx2->get_max_key_len());
+#else
+            return max(idx0->get_max_key_len(), idx1->get_max_key_len());
+#endif
         }
         int getNumLevels() {
             return idx1->getNumLevels();
@@ -151,17 +181,31 @@ class stager {
         void printStats(long sz) {
             idx0->printStats(idx0->size());
             idx1->printStats(idx1->size());
+#if BUCKET_COUNT == 2
             idx2->printStats(idx2->size());
+#endif
         }
         void printNumLevels() {
             idx0->printNumLevels();
             idx1->printNumLevels();
+#if BUCKET_COUNT == 2
             idx2->printNumLevels();
+#endif
         }
         long size() {
-            return idx0->size() + idx1->size(); // + idx2->size();
+#if BUCKET_COUNT == 2
+            return idx0->size() + idx1->size() + idx2->size();
+#else
+            return idx0->size() + idx1->size();
+#endif
+        }
+        long filledSize() {
+#if BUCKET_COUNT == 2
+            return idx0->filledSize() + idx1->filledSize() + idx2->size();
+#else
+            return idx0->filledSize() + idx1->filledSize();
+#endif
         }
 
 };
 #endif // STAGER_H
-
