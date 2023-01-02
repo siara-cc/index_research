@@ -79,10 +79,10 @@ class stager {
                         //cout << "Found in idx1 " << endl;
                         return val;
                     }
-                    //if (val == NULL && idx1->isChanged()) {
-                    //    idx1->put(key, key_len, value, value_len);
-                    //    return NULL;
-                    //}
+                    if (val == NULL && idx1->isChanged()) {
+                        idx1->put(key, key_len, value, value_len);
+                        return NULL;
+                    }
                 }
                 int new_val_len = (val == NULL ? value_len : *pValueLen);
                 uint8_t new_val[new_val_len + 1];
