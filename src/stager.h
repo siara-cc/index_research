@@ -7,8 +7,8 @@
 #include "basix.h"
 #include "basix3.h"
 
-#define STAGING_BLOCK_SIZE 524288
-//#define STAGING_BLOCK_SIZE 262144
+//#define STAGING_BLOCK_SIZE 524288
+#define STAGING_BLOCK_SIZE 262144
 //#define STAGING_BLOCK_SIZE 32768
 #define BUCKET_BLOCK_SIZE 4096
 
@@ -24,15 +24,15 @@ class stager {
       bool is_cache0_full;
 
     public:
-        stager(const char *fname, size_t cache_size) {
+        stager(const char *fname, size_t cache_size_mb) {
             char fname0[strlen(fname) + 5];
             char fname1[strlen(fname) + 5];
             strcpy(fname0, fname);
             strcpy(fname1, fname);
             strcat(fname0, ".ix0");
             strcat(fname1, ".ix1");
-            int cache0_size = cache_size;
-            int cache1_size = cache_size * (STAGING_BLOCK_SIZE / BUCKET_BLOCK_SIZE);
+            int cache0_size = cache_size_mb > 0xFFFF ? cache_size_mb & 0xFFFF : cache_size_mb;
+            int cache1_size = cache_size_mb > 0xFFFF ? cache_size_mb >> 16 : cache_size_mb;
             idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
 #if BUCKET_COUNT == 2
@@ -129,8 +129,8 @@ class stager {
                                 if (entry_count > 2)
                                     v[v_len - 1]--;
                             }
-                            if (idx0->filledSize() <= target_size)
-                                break;
+                            //if (idx0->filledSize() <= target_size)
+                            //    break;
                         }
                         cur_count = (cur_count == next_min ? 255 : next_min);
                         //cout << "next_min: " << next_min << endl;

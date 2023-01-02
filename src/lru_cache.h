@@ -150,19 +150,19 @@ protected:
 public:
     size_t file_page_count;
     int cache_size_in_pages;
-    lru_cache(int pg_size, int page_count, const char *fname, int init_page_count = 0, void *(*alloc_fn)(size_t) = NULL) {
+    lru_cache(int pg_size, int cache_size_mb, const char *fname, int init_page_count = 0, void *(*alloc_fn)(size_t) = NULL) {
         if (alloc_fn == NULL)
             alloc_fn = malloc;
         malloc_fn = alloc_fn;
         page_size = pg_size;
-        cache_size_in_pages = page_count;
+        cache_size_in_pages = cache_size_mb * 1024 * 1024 / page_size;
         cache_occupied_size = 0;
         lnklst_first_entry = lnklst_last_entry = NULL;
         filename = fname;
-        page_cache = (uint8_t *) alloc_fn(pg_size * page_count);
+        page_cache = (uint8_t *) alloc_fn(pg_size * cache_size_in_pages);
         root_block = (uint8_t *) alloc_fn(pg_size);
-        llarr = (dbl_lnklst *) alloc_fn(page_count * sizeof(dbl_lnklst));
-        memset(llarr, '\0', page_count * sizeof(dbl_lnklst));
+        llarr = (dbl_lnklst *) alloc_fn(cache_size_in_pages * sizeof(dbl_lnklst));
+        memset(llarr, '\0', cache_size_in_pages * sizeof(dbl_lnklst));
         skip_page_count = init_page_count;
         file_page_count = init_page_count;
         struct stat file_stat;
@@ -189,7 +189,7 @@ public:
         if (file_page_count > 0)
            file_page_count /= page_size;
         cout << "File page count: " << file_page_count << endl;
-        disk_to_cache_map_size = max(file_page_count + 1000, (size_t) page_count);
+        disk_to_cache_map_size = max(file_page_count + 1000, (size_t) cache_size_in_pages);
         disk_to_cache_map = (dbl_lnklst **) alloc_fn(disk_to_cache_map_size * sizeof(dbl_lnklst *));
         memset(disk_to_cache_map, '\0', disk_to_cache_map_size * sizeof(dbl_lnklst *));
         empty = 0;
@@ -284,8 +284,11 @@ public:
                     entry_to_move = entry_to_move->prev;
                   }
                   if ((block[0] & 0x40) || new_pages.size() > stats.last_pages_to_flush
-                             || new_pages.find(disk_page) != new_pages.end())
-                    flush_pages_in_seq(block_to_keep);
+                             || new_pages.find(disk_page) != new_pages.end()) {
+                      flush_pages_in_seq(block_to_keep);
+                      entry_to_move = lnklst_last_entry;
+                      break;
+                  }
                 } while (block[0] & 0x40);
                 lnklst_last_free = entry_to_move->prev;
                     //if (block[0] & 0x40) {
@@ -331,6 +334,8 @@ public:
             }
         } else {
             dbl_lnklst *current_entry = disk_to_cache_map[disk_page];
+            if (lnklst_last_free == current_entry)
+                lnklst_last_free = lnklst_last_free->prev;
             move_to_front(current_entry);
             cache_pos = current_entry->cache_loc;
             if (cache_occupied_size >= cache_size_in_pages)

@@ -96,10 +96,10 @@ public:
     const int cache_size;
     const char *filename;
     bplus_tree_handler(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
-            uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
+            uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz_mb = 0,
             const char *fname = NULL, uint8_t *block = NULL) :
             leaf_block_size (leaf_block_sz), parent_block_size (parent_block_sz),
-            cache_size (cache_sz), filename (fname) {
+            cache_size (cache_sz_mb & 0xFFFF), filename (fname) {
         init_stats();
         is_block_given = block == NULL ? 0 : 1;
         if (cache_size > 0) {
@@ -292,8 +292,11 @@ public:
                     static_cast<T*>(this)->searchCurrentBlock() :
                     traverseToLeaf(&level_count, node_paths);
             numLevels = level_count;
-            if (search_result >= 0)
+            if (search_result >= 0) {
+                free(node_paths);
+                setChanged(1);
                 return getValueAt(pValueLen);
+            }
             recursiveUpdate(search_result, node_paths, level_count - 1);
             free(node_paths);
         }

@@ -82,12 +82,20 @@ public:
 
     void makeSpace() {
         int block_size = (isLeaf() ? leaf_block_size : parent_block_size);
+        int16_t orig_filled_size = filledSize();
+        if (orig_filled_size == 0) {
+            setKVLastPos(block_size == 65536 ? 65535 : block_size);
+            return;
+        }
         int lvl = current_block[0] & 0x1F;
         const uint16_t data_size = block_size - getKVLastPos();
+        if (data_size < 3) {
+            cout << "data size 0" << endl;
+            return;
+        }
         uint8_t *data_buf = (uint8_t *) malloc(data_size);
         uint16_t new_data_len = 0;
         int16_t new_idx;
-        int16_t orig_filled_size = filledSize();
         for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
             uint16_t src_idx = getPtr(new_idx);
             uint16_t kv_len = current_block[src_idx];
