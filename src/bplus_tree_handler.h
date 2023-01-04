@@ -129,7 +129,7 @@ public:
         if (!is_block_given) {
             setLeaf(1);
             setFilledSize(0);
-            BPT_MAX_KEY_LEN = 1;
+            BPT_MAX_KEY_LEN = 0;
             setKVLastPos(leaf_block_size);
         }
     }
