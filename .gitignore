@@ -8,5 +8,6 @@
 *.txt
 /build
 /bfos_stats*
+/basix_stats*
 f?_*
 

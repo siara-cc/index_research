@@ -12,16 +12,31 @@
 //#define STAGING_BLOCK_SIZE 32768
 #define BUCKET_BLOCK_SIZE 4096
 
-#define BUCKET_COUNT 1
+#define BUCKET_COUNT 2
+
+#define IDX1_SIZE_LIMIT_MB 1024
+
+typedef vector<basix *> cache_more;
 
 class stager {
     protected:
       basix3 *idx0;
       basix *idx1;
+      cache_more idx1_more;
 #if BUCKET_COUNT == 2
       basix *idx2;
 #endif
       bool is_cache0_full;
+      int cache0_size;
+      int cache0_page_count;
+      int cache1_size;
+      int cache2_size;
+      int cache_more_size;
+      string idx1_name;
+
+      int *flush_counts;
+      long no_of_inserts;
+      int zero_count;
 
     public:
         stager(const char *fname, size_t cache_size_mb) {
@@ -31,18 +46,25 @@ class stager {
             strcpy(fname1, fname);
             strcat(fname0, ".ix0");
             strcat(fname1, ".ix1");
-            int cache0_size = cache_size_mb > 0xFFFF ? cache_size_mb & 0xFFFF : cache_size_mb;
-            int cache1_size = cache_size_mb > 0xFFFF ? cache_size_mb >> 16 : cache_size_mb;
+            idx1_name = fname1;
+            cache0_size = cache_size_mb > 0xFFFF ? cache_size_mb & 0xFFFF : cache_size_mb;
+            cache1_size = cache_size_mb > 0xFFFF ? cache_size_mb >> 16 : cache_size_mb;
+            cache_more_size = (cache_size_mb > 0xFFFF ? cache_size_mb >> 16 : cache_size_mb) / 4;
             idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
 #if BUCKET_COUNT == 2
             char fname2[strlen(fname) + 5];
             strcpy(fname2, fname);
             strcat(fname2, ".ix2");
-            int cache2_size = cache_size * (STAGING_BLOCK_SIZE / BUCKET_BLOCK_SIZE) / 8;
+            cache2_size = (cache_size_mb > 0xFFFF ? cache_size_mb >> 16 : cache_size_mb) / 4;
             idx2 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
 #endif
             is_cache0_full = false;
+            cache0_page_count = cache0_size * 1024 * 1024 / STAGING_BLOCK_SIZE;
+            flush_counts = new int[cache0_page_count];
+            memset(flush_counts, '\0', sizeof(int) * cache0_page_count);
+            no_of_inserts = 0;
+            zero_count = cache0_page_count;
         }
 
         ~stager() {
@@ -51,6 +73,23 @@ class stager {
 #if BUCKET_COUNT == 2
             delete idx2;
 #endif
+            for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++)
+                delete *it;
+            delete flush_counts;
+        }
+
+        void spawn_more_idx1_if_full() {
+            if (idx1->cache->file_page_count * BUCKET_BLOCK_SIZE == IDX1_SIZE_LIMIT_MB * 1024 * 1024) {
+                delete idx1;
+                char new_name[idx1_name.length() + 10];
+                sprintf(new_name, "%s.%lu", idx1_name.c_str(), idx1_more.size() + 1);
+                if (rename(idx1_name.c_str(), new_name))
+                    cout << "Error renaming file from: " << idx1_name << " to: " << new_name << endl;
+                else {
+                    idx1_more.push_back(new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
+                    idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, idx1_name.c_str());
+                }
+            }
         }
 
         char *put(const char *key, uint8_t key_len, const char *value,
@@ -60,6 +99,14 @@ class stager {
 
         uint8_t *put(const uint8_t *key, uint8_t key_len, const uint8_t *value,
                 int16_t value_len, int16_t *pValueLen = NULL) {
+            // no_of_inserts++;
+            // if (no_of_inserts % 10000000 == 0) {
+            //     for (int i = 0; i < cache0_page_count; i++)
+            //         printf("%2x", flush_counts[i]);
+            //     cout << endl;
+            //     memset(flush_counts, '\0', sizeof(int) * cache0_page_count);
+            //     zero_count = cache0_page_count;
+            // }
             if (idx0->cache->cache_size_in_pages <= idx0->cache->file_page_count) {
                 is_cache0_full = true;
             }
@@ -79,8 +126,14 @@ class stager {
                         //cout << "Found in idx1 " << endl;
                         return val;
                     }
+                    for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
+                        val = (*it)->get(key, key_len, pValueLen);
+                        if (val != NULL)
+                            break;
+                    }
                     if (val == NULL && idx1->isChanged()) {
                         idx1->put(key, key_len, value, value_len);
+                        spawn_more_idx1_if_full();
                         return NULL;
                     }
                 }
@@ -112,12 +165,14 @@ class stager {
                                 int16_t v1_len = 0;
                                 uint8_t *v1;
 #if BUCKET_COUNT == 2
-                                if (entry_count <= 1)
+                                if (entry_count <= 1) {
                                     v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
-                                else
+                                    spawn_more_idx1_if_full();
+                                } else
                                     v1 = idx2->put(k, k_len, v, v_len - 1, &v1_len);
 #else
                                 v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
+                                spawn_more_idx1_if_full();
 #endif
                                 if (v1 != NULL)
                                     memcpy(v1, v, v_len - 1);
@@ -138,6 +193,13 @@ class stager {
                     //if (idx0->filledSize() > 0)
                     //    cout << "Not emptied" << endl;
                     idx0->makeSpace();
+                    // if (idx0->current_block != idx0->root_block) {
+                    //     int idx = (idx0->current_block - idx0->cache->page_cache)/STAGING_BLOCK_SIZE;
+                    //     if (idx < cache0_page_count && flush_counts[idx] == 0 && zero_count)
+                    //         zero_count--;
+                    //     if (flush_counts[idx] < 255)
+                    //         flush_counts[idx]++;
+                    // }
                 }
                 val = idx0->put(key, key_len, new_val, new_val_len);
                 return val;

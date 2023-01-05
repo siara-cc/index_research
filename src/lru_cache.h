@@ -39,7 +39,6 @@ typedef struct {
 class lru_cache {
 protected:
     int page_size;
-    uint8_t *page_cache;
     uint8_t *root_block;
     int cache_occupied_size;
     int skip_page_count;
@@ -81,8 +80,8 @@ protected:
         for (set<int>::iterator it = pages_to_write.begin(); it != pages_to_write.end(); it++) {
             uint8_t *block = &page_cache[page_size * disk_to_cache_map[*it]->cache_loc];
             block[0] &= 0xBF; // unchange it
-            if (page_size < 65537 && block[5] < 255)
-                block[5]++;
+            //if (page_size < 65537 && block[5] < 255)
+            //    block[5]++;
             off_t file_pos = page_size;
             file_pos *= *it;
             write_page(block, file_pos, page_size);
@@ -94,7 +93,7 @@ protected:
           stats.last_pages_to_flush = 20;
           return;
         }
-        stats.last_pages_to_flush = 2000; //cache_size_in_pages * stats.total_cache_misses / stats.total_cache_req;
+        stats.last_pages_to_flush = 500; //cache_size_in_pages * stats.total_cache_misses / stats.total_cache_req;
         if (stats.last_pages_to_flush < cache_size_in_pages / 2000)
             stats.last_pages_to_flush = cache_size_in_pages / 2000;
         if (stats.last_pages_to_flush > cache_size_in_pages / 5)
@@ -152,6 +151,7 @@ protected:
 public:
     size_t file_page_count;
     int cache_size_in_pages;
+    uint8_t *page_cache;
     lru_cache(int pg_size, int cache_size_mb, const char *fname, int init_page_count = 0, void *(*alloc_fn)(size_t) = NULL) {
         if (alloc_fn == NULL)
             alloc_fn = malloc;
@@ -272,7 +272,7 @@ public:
                 calc_flush_count();
                 uint8_t *block;
                 dbl_lnklst *entry_to_move;
-                /*do {
+                do {
                   entry_to_move = lnklst_last_free;
                   if (entry_to_move == NULL)
                     entry_to_move = lnklst_last_entry;
@@ -292,16 +292,16 @@ public:
                       break;
                   }
                 } while (block[0] & 0x40);
-                lnklst_last_free = entry_to_move->prev;*/
-                  entry_to_move = lnklst_last_entry;
+                lnklst_last_free = entry_to_move->prev;
+                  /*entry_to_move = lnklst_last_entry;
                   int check_count = 40;
                   while (check_count-- && entry_to_move != NULL) { // find block which is not changed
                     block = &page_cache[entry_to_move->cache_loc * page_size];
                     if (block_to_keep != block) {
                       if (block[0] & 0x40) {
                         block[0] &= 0xBF; // unchange it
-                        if (page_size < 65537 && block[5] < 255)
-                            block[5]++;
+                        //if (page_size < 65537 && block[5] < 255)
+                        //    block[5]++;
                         write_page(block, entry_to_move->disk_page * page_size, page_size);
                         //fflush(fp);
                       }
@@ -316,7 +316,7 @@ public:
                   if (entry_to_move == NULL) {
                     cout << "Could not satisfy cache miss" << endl;
                     exit(1);
-                  }
+                  }*/
                 removed_disk_page = entry_to_move->disk_page;
                 cache_pos = entry_to_move->cache_loc;
                 //if (!is_new)

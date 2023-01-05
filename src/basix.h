@@ -137,7 +137,9 @@ public:
         int lvl = current_block[0] & 0x1F;
         uint8_t *b = allocateBlock(BASIX_NODE_SIZE, isLeaf(), lvl);
         basix new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
-        //new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
+        if (BPT_MAX_KEY_LEN < 255)
+            BPT_MAX_KEY_LEN++;
+        new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         uint16_t kv_last_pos = getKVLastPos();
         uint16_t halfKVLen = BASIX_NODE_SIZE - kv_last_pos + 1;
         halfKVLen /= 2;
