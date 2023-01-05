@@ -51,6 +51,9 @@ char *OUT_FILE1 = NULL;
 char *OUT_FILE2 = NULL;
 int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
+int TEST_IDX1 = 1;
+int TEST_IDX2 = 0;
+
 int ctr = 0;
 
 int64_t insert(unordered_map<string, string>& m, uint8_t *data_buf) {
@@ -1459,11 +1462,14 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
+    stager *lx;
+    if (TEST_IDX1)
+    {
     ctr = 0;
     //linex *lx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //basix *lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //basix3 *lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    stager *lx = new stager(OUT_FILE1, CACHE_SIZE);
+    lx = new stager(OUT_FILE1, CACHE_SIZE);
     //bft *lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //dft *lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //bfos *lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
@@ -1496,10 +1502,14 @@ int main(int argc, char *argv[]) {
     stop = getTimeVal();
     cout << "Index1 insert time:" << timedifference(start, stop) << endl;
     //getchar();
+    }
 
+    basix *dx;
+    if (TEST_IDX2)
+    {
     ctr = 0;
     //linex *dx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    basix *dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //basix3 *dx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //stager *dx = new stager(OUT_FILE2, CACHE_SIZE);
     //bft *dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
@@ -1532,6 +1542,7 @@ int main(int argc, char *argv[]) {
     stop = getTimeVal();
     cout << "Index2 insert time:" << timedifference(start, stop) << endl;
     //getchar();
+    }
 
     cmp = 0;
     ctr = 0;
@@ -1589,6 +1600,8 @@ int main(int argc, char *argv[]) {
         cout << "Size:" << ctr << endl;
     }
 
+    if (TEST_IDX1)
+    {
     cmp = 0;
     ctr = 0;
     null_ctr = 0;
@@ -1621,7 +1634,10 @@ int main(int argc, char *argv[]) {
     lx->printNumLevels();
     //lx->printCounts();
     cout << "Root filled size:" << lx->filledSize() << endl;
+    }
 
+    if (TEST_IDX2)
+    {
     cmp = 0;
     ctr = 0;
     null_ctr = 0;
@@ -1660,6 +1676,7 @@ int main(int argc, char *argv[]) {
     //dx->printCounts();
     //cout << "Root filled size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES+2] << endl;
     //getchar();
+    }
 
     if (NUM_ENTRIES <= 1000 && (null_ctr > 0 || cmp > 0)) {
         it = m.begin();
@@ -1669,8 +1686,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    delete lx;
-    delete dx;
+    if (TEST_IDX1)
+        delete lx;
+    if (TEST_IDX2)
+        delete dx;
 
     free(data_buf);
     return 0;

@@ -1,6 +1,7 @@
 #ifndef STAGER_H
 #define STAGER_H
 
+#include <sys/stat.h>
 #include <iostream>
 
 #include "bfos.h"
@@ -52,6 +53,18 @@ class stager {
             cache_more_size = (cache_size_mb > 0xFFFF ? cache_size_mb >> 16 : cache_size_mb) / 4;
             idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
+            bool more_files = true;
+            size_t more_count = 0;
+            while (more_files) {
+                char new_name[idx1_name.length() + 10];
+                sprintf(new_name, "%s.%lu", idx1_name.c_str(), more_count + 1);
+                if (file_exists(new_name))
+                    idx1_more.push_back(new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
+                else
+                    break;
+                more_files = false;
+                more_count++;
+            }
 #if BUCKET_COUNT == 2
             char fname2[strlen(fname) + 5];
             strcpy(fname2, fname);
@@ -76,6 +89,11 @@ class stager {
             for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++)
                 delete *it;
             delete flush_counts;
+        }
+
+        bool file_exists (char *filename) {
+          struct stat   buffer;   
+          return (stat (filename, &buffer) == 0);
         }
 
         void spawn_more_idx1_if_full() {
@@ -225,6 +243,13 @@ class stager {
 #endif
             if (val == NULL)
                 val = idx1->get(key, key_len, pValueLen);
+            if (val == NULL) {
+                for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
+                    val = (*it)->get(key, key_len, pValueLen);
+                    if (val != NULL)
+                        break;
+                }
+            }
             return val;
         }
 
