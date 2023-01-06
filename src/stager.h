@@ -9,7 +9,7 @@
 #include "basix3.h"
 
 //#define STAGING_BLOCK_SIZE 524288
-#define STAGING_BLOCK_SIZE 262144
+#define STAGING_BLOCK_SIZE 65536
 //#define STAGING_BLOCK_SIZE 32768
 #define BUCKET_BLOCK_SIZE 4096
 
@@ -21,7 +21,7 @@ typedef vector<basix *> cache_more;
 
 class stager {
     protected:
-      basix3 *idx0;
+      basix *idx0;
       basix *idx1;
       cache_more idx1_more;
 #if BUCKET_COUNT == 2
@@ -33,6 +33,7 @@ class stager {
       int cache1_size;
       int cache2_size;
       int cache_more_size;
+      int idx1_size_limit_mb;
       string idx1_name;
 
       int *flush_counts;
@@ -48,10 +49,11 @@ class stager {
             strcat(fname0, ".ix0");
             strcat(fname1, ".ix1");
             idx1_name = fname1;
-            cache0_size = cache_size_mb > 0xFFFF ? cache_size_mb & 0xFFFF : cache_size_mb;
-            cache1_size = cache_size_mb > 0xFFFF ? cache_size_mb >> 16 : cache_size_mb;
-            cache_more_size = (cache_size_mb > 0xFFFF ? cache_size_mb >> 16 : cache_size_mb) / 4;
-            idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
+            cache0_size = (cache_size_mb > 0xFF ? cache_size_mb & 0xFF : cache_size_mb) * 16;
+            idx1_size_limit_mb = (cache_size_mb > 0xFF ? (cache_size_mb >> 8) & 0xFF : 64) * 16;
+            cache1_size = (cache_size_mb > 0xFFFF ? (cache_size_mb >> 16) & 0xFF : cache_size_mb & 0xFF) * 16;
+            cache_more_size = (cache_size_mb > 0xFFFFFF ? (cache_size_mb >> 24) & 0x0F : (cache_size_mb & 0xFF) / 4) * 16;
+            idx0 = new basix(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
             bool more_files = true;
             size_t more_count = 0;
@@ -65,12 +67,17 @@ class stager {
                 more_files = false;
                 more_count++;
             }
+            cout << "Stg buf: " << cache0_size << "mb, Idx1 buf: " << cache1_size << "mb, Idx1+ buf: " << cache_more_size << "mb" << endl;
+            cout << "Idx1 size limit: " << idx1_size_limit_mb << "mb";
 #if BUCKET_COUNT == 2
             char fname2[strlen(fname) + 5];
             strcpy(fname2, fname);
             strcat(fname2, ".ix2");
-            cache2_size = (cache_size_mb > 0xFFFF ? cache_size_mb >> 16 : cache_size_mb) / 4;
+            cache2_size = (cache_size_mb > 0xFFFFFFF ? (cache_size_mb >> 28) & 0x0F : (cache_size_mb & 0xFF) / 4) * 16;
+            cout << ", Idx2 buf: " << cache2_size << "mb" << endl;
             idx2 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
+#else
+            cout << endl;
 #endif
             is_cache0_full = false;
             cache0_page_count = cache0_size * 1024 * 1024 / STAGING_BLOCK_SIZE;
@@ -97,7 +104,7 @@ class stager {
         }
 
         void spawn_more_idx1_if_full() {
-            if (idx1->cache->file_page_count * BUCKET_BLOCK_SIZE == IDX1_SIZE_LIMIT_MB * 1024 * 1024) {
+            if (idx1->cache->file_page_count * BUCKET_BLOCK_SIZE >= IDX1_SIZE_LIMIT_MB * 1024 * 1024) {
                 delete idx1;
                 char new_name[idx1_name.length() + 10];
                 sprintf(new_name, "%s.%lu", idx1_name.c_str(), idx1_more.size() + 1);
@@ -202,8 +209,8 @@ class stager {
                                 if (entry_count > 2)
                                     v[v_len - 1]--;
                             }
-                            //if (idx0->filledSize() <= target_size)
-                            //    break;
+                            if (idx0->filledSize() <= target_size && cur_count > 1)
+                                break;
                         }
                         cur_count = (cur_count == next_min ? 255 : next_min);
                         //cout << "next_min: " << next_min << endl;
@@ -269,6 +276,8 @@ class stager {
         void printStats(long sz) {
             idx0->printStats(idx0->size());
             idx1->printStats(idx1->size());
+            for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++)
+            	(*it)->printStats((*it)->size());
 #if BUCKET_COUNT == 2
             idx2->printStats(idx2->size());
 #endif
@@ -276,6 +285,8 @@ class stager {
         void printNumLevels() {
             idx0->printNumLevels();
             idx1->printNumLevels();
+            for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++)
+            	(*it)->printNumLevels();
 #if BUCKET_COUNT == 2
             idx2->printNumLevels();
 #endif
