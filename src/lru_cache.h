@@ -15,10 +15,14 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <cstring>
+#include <time.h>
+#include <chrono>
+//#include <snappy.h>
 
 #define USE_FOPEN 1
 
 using namespace std;
+using namespace chrono;
 
 typedef struct dbl_lnklst_st {
     int disk_page;
@@ -49,7 +53,7 @@ protected:
     size_t disk_to_cache_map_size;
     dbl_lnklst *llarr;
     set<int> new_pages;
-    const char *filename;
+    char filename[100];
 #if USE_FOPEN == 1
     FILE *fp;
 #else
@@ -77,6 +81,8 @@ protected:
         }
     }
     void write_pages(set<int>& pages_to_write) {
+        time_point<steady_clock> start;
+        start = steady_clock::now();
         for (set<int>::iterator it = pages_to_write.begin(); it != pages_to_write.end(); it++) {
             uint8_t *block = &page_cache[page_size * disk_to_cache_map[*it]->cache_loc];
             block[0] &= 0xBF; // unchange it
@@ -87,6 +93,51 @@ protected:
             write_page(block, file_pos, page_size);
             stats.pages_written++;
         }
+/*
+if (page_size == 4096) {
+        cout << "Block write: " << duration<double>(steady_clock::now()-start).count() << endl;
+        char new_filename[strlen(filename) + 15];
+        sprintf(new_filename, "%s.f%ld", filename, stats.cache_flush_count);
+        start = steady_clock::now();
+        uint8_t *append_buf = (uint8_t *) malloc(pages_to_write.size() * page_size);
+        int block_loc = 0;
+        string compressed_str;
+        for (set<int>::iterator it = pages_to_write.begin(); it != pages_to_write.end(); it++) {
+            uint8_t *block = &page_cache[page_size * disk_to_cache_map[*it]->cache_loc];
+            int first_part_size = 6 + util::getInt(block + 1) * 2;
+            util::setInt(append_buf + block_loc, first_part_size);
+            memcpy(append_buf + block_loc + 2, block, first_part_size);
+            int kv_last_pos = util::getInt(block + 3);
+            int second_part_size = page_size - kv_last_pos;
+            util::setInt(append_buf + block_loc + first_part_size + 2, second_part_size);
+            memcpy(append_buf + block_loc + first_part_size + 4, block + kv_last_pos, second_part_size);
+            //snappy::Compress((char *) append_buf + block_loc, first_part_size + second_part_size + 4, &compressed_str);
+            //memcpy(append_buf + block_loc, compressed_str.c_str(), compressed_str.length());
+            //block_loc += compressed_str.size();
+            block_loc += first_part_size + second_part_size + 4;
+        }
+
+ #if USE_FOPEN == 1
+        FILE *file_appender = fopen(new_filename, "a");
+ #else
+        int file_appender = open(fname, O_APPEND | O_CREAT | O_LARGEFILE, 0644);
+        if (file_appender == -1)
+          throw errno;
+ #endif
+ #if USE_FOPEN == 1
+            int write_count = fwrite(append_buf, 1, block_loc, file_appender);
+ #else
+            int write_count = write(file_appender, pages_to_write.size() * page_size, bytes);
+ #endif
+            if (write_count != block_loc) {
+                printf("Short write a: %d\n", write_count);
+                throw EIO;
+            }
+        fclose(file_appender);
+        free(append_buf);
+        cout << "Append write: " << duration<double>(steady_clock::now()-start).count() << ", orig: " << pages_to_write.size() * page_size << ", cmprsd: " << block_loc << endl;
+}
+*/
     }
     void calc_flush_count() {
         if (stats.total_cache_req == 0) {
@@ -160,7 +211,7 @@ public:
         cache_size_in_pages = cache_size_mb * 1024 * 1024 / page_size;
         cache_occupied_size = 0;
         lnklst_first_entry = lnklst_last_entry = NULL;
-        filename = fname;
+        strcpy(filename, fname);
         page_cache = (uint8_t *) alloc_fn(pg_size * cache_size_in_pages);
         root_block = (uint8_t *) alloc_fn(pg_size);
         llarr = (dbl_lnklst *) alloc_fn(cache_size_in_pages * sizeof(dbl_lnklst));
