@@ -15,8 +15,6 @@
 
 #define BUCKET_COUNT 2
 
-#define IDX1_SIZE_LIMIT_MB 1024
-
 typedef vector<basix *> cache_more;
 
 class stager {
@@ -33,7 +31,7 @@ class stager {
       int cache1_size;
       int cache2_size;
       int cache_more_size;
-      int idx1_size_limit_mb;
+      long idx1_size_limit_mb;
       string idx1_name;
 
       int *flush_counts;
@@ -50,7 +48,7 @@ class stager {
             strcat(fname1, ".ix1");
             idx1_name = fname1;
             cache0_size = (cache_size_mb > 0xFF ? cache_size_mb & 0xFF : cache_size_mb) * 16;
-            idx1_size_limit_mb = (cache_size_mb > 0xFF ? (cache_size_mb >> 8) & 0xFF : 64) * 16;
+            idx1_size_limit_mb = (cache_size_mb > 0xFF ? (cache_size_mb >> 8) & 0xFF : 128) * 16;
             cache1_size = (cache_size_mb > 0xFFFF ? (cache_size_mb >> 16) & 0xFF : cache_size_mb & 0xFF) * 16;
             cache_more_size = (cache_size_mb > 0xFFFFFF ? (cache_size_mb >> 24) & 0x0F : 0) * 16;
             idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
@@ -104,7 +102,7 @@ class stager {
         }
 
         void spawn_more_idx1_if_full() {
-            if (cache_more_size > 0 && idx1->cache->file_page_count * BUCKET_BLOCK_SIZE >= IDX1_SIZE_LIMIT_MB * 1024 * 1024) {
+            if (cache_more_size > 0 && idx1->cache->file_page_count * BUCKET_BLOCK_SIZE >= idx1_size_limit_mb * 1024 * 1024) {
                 delete idx1;
                 char new_name[idx1_name.length() + 10];
                 sprintf(new_name, "%s.%lu", idx1_name.c_str(), idx1_more.size() + 1);
@@ -190,17 +188,21 @@ class stager {
                                 int16_t v1_len = 0;
                                 uint8_t *v1;
 #if BUCKET_COUNT == 2
-                                if (entry_count <= 1) {
+                                if (entry_count <= 1)
                                     v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
-                                    spawn_more_idx1_if_full();
-                                } else
+                                else
                                     v1 = idx2->put(k, k_len, v, v_len - 1, &v1_len);
 #else
                                 v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
-                                spawn_more_idx1_if_full();
 #endif
                                 if (v1 != NULL)
                                     memcpy(v1, v, v_len - 1);
+#if BUCKET_COUNT == 2
+                                if (entry_count <= 1)
+                                    spawn_more_idx1_if_full();
+#else
+                                spawn_more_idx1_if_full();
+#endif
                                 idx0->remove_entry(i);
                                 i--;
                             } else {
