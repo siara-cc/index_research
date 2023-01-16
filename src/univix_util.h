@@ -117,6 +117,16 @@ public:
         return l;
     }
 
+    static unsigned long bytesToPtr(const uint8_t *addr, int len) {
+        unsigned long ret = 0;
+        addr++;
+        do {
+            ret <<= 8;
+            ret |= *addr++;
+        } while (--len);
+        return ret;
+    }
+
     static unsigned long bytesToPtr(const uint8_t *addr) {
         unsigned long ret = 0;
         int len = *addr++;

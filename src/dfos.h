@@ -422,6 +422,10 @@ public:
         return false;
     }
 
+    uint8_t *findSplitSource(int16_t search_result) {
+        return NULL;
+    }
+
     uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filledSize();
         const uint16_t DFOS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;

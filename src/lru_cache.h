@@ -17,6 +17,7 @@
 #include <cstring>
 #include <time.h>
 #include <chrono>
+#include <brotli/encode.h>
 //#include <snappy.h>
 
 #define USE_FOPEN 1
@@ -102,6 +103,8 @@ if (page_size == 4096) {
         uint8_t *append_buf = (uint8_t *) malloc(pages_to_write.size() * page_size);
         int block_loc = 0;
         string compressed_str;
+        uint8_t c_out[page_size];
+        size_t c_size;
         for (set<int>::iterator it = pages_to_write.begin(); it != pages_to_write.end(); it++) {
             uint8_t *block = &page_cache[page_size * disk_to_cache_map[*it]->cache_loc];
             int first_part_size = 6 + util::getInt(block + 1) * 2;
@@ -114,7 +117,13 @@ if (page_size == 4096) {
             //snappy::Compress((char *) append_buf + block_loc, first_part_size + second_part_size + 4, &compressed_str);
             //memcpy(append_buf + block_loc, compressed_str.c_str(), compressed_str.length());
             //block_loc += compressed_str.size();
-            block_loc += first_part_size + second_part_size + 4;
+            if (BrotliEncoderCompress(BROTLI_DEFAULT_QUALITY, BROTLI_DEFAULT_WINDOW, BROTLI_DEFAULT_MODE, 
+                first_part_size + second_part_size + 4, append_buf + block_loc, &c_size, c_out)) {
+               memcpy(append_buf + block_loc, compressed_str.c_str(), compressed_str.length());
+               block_loc += compressed_str.size();
+            } else
+                cout << "Compression failure" << endl;
+            //block_loc += first_part_size + second_part_size + 4;
         }
 
  #if USE_FOPEN == 1

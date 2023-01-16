@@ -70,7 +70,6 @@ protected:
     long count1, count2;
     int max_key_len;
     int is_block_given;
-    staging_map staging_blocks;
 
 public:
     lru_cache *cache;
@@ -95,6 +94,7 @@ public:
     size_t leaf_block_size, parent_block_size;
     const int cache_size;
     const char *filename;
+    bool demote_blocks;
     bplus_tree_handler(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz_mb = 0,
             const char *fname = NULL, uint8_t *block = NULL) :
@@ -102,6 +102,7 @@ public:
             cache_size (cache_sz_mb & 0xFFFF), filename (fname) {
         init_stats();
         is_block_given = block == NULL ? 0 : 1;
+        demote_blocks = false;
         if (cache_size > 0) {
             cache = new lru_cache(leaf_block_size, cache_size, filename, 0, util::alignedAlloc);
             root_block = current_block = cache->get_disk_page_in_cache(0);
@@ -212,6 +213,7 @@ public:
 
     int16_t traverseToLeaf(int8_t *plevel_count = NULL, uint8_t *node_paths[] = NULL) {
         current_page = 0;
+        uint8_t prev_lvl_split_count = 0;
         while (!isLeaf()) {
             if (node_paths) {
                 *node_paths++ = cache_size > 0 ? (uint8_t *) current_page : current_block;
@@ -220,6 +222,9 @@ public:
             int16_t search_result;
             search_result = static_cast<T*>(this)->searchCurrentBlock();
             uint8_t *child_ptr_loc = static_cast<T*>(this)->getChildPtrPos(search_result);
+            if (demote_blocks) {
+                prev_lvl_split_count = child_ptr_loc[*child_ptr_loc + 1 + child_ptr_loc[*child_ptr_loc+1]];
+            }
             uint8_t *child_ptr;
             if (cache_size > 0) {
                 current_page = getChildPage(child_ptr_loc);
@@ -227,6 +232,9 @@ public:
             } else
                 child_ptr = getChildPtr(child_ptr_loc);
             static_cast<T*>(this)->setCurrentBlock(child_ptr);
+            //if (demote_blocks && current_block[5] < 255 && prev_lvl_split_count != current_block[5] - 1) {
+            //    cout << "Split count not matching: " << (int) prev_lvl_split_count << " " << (int) current_block[5] << " " << (int) (current_block[0] & 0x1F) << endl;
+            //}
         }
         return static_cast<T*>(this)->searchCurrentBlock();
     }
@@ -235,12 +243,12 @@ public:
     uint8_t *getChildPtrPos(int16_t search_result);
     inline uint8_t *getChildPtr(uint8_t *ptr) {
         ptr += (*ptr + 1);
-        return (uint8_t *) util::bytesToPtr(ptr);
+        return (uint8_t *) (demote_blocks ? util::bytesToPtr(ptr, *ptr - 1) : util::bytesToPtr(ptr));
     }
 
     inline int getChildPage(uint8_t *ptr) {
         ptr += (*ptr + 1);
-        return util::bytesToPtr(ptr);
+        return (demote_blocks ? util::bytesToPtr(ptr, *ptr - 1) : util::bytesToPtr(ptr));
     }
 
     inline int16_t filledSize() {
@@ -352,19 +360,26 @@ public:
                     key_len = 1;
                     value = (uint8_t *) addr;
                     value_len = util::ptrToBytes(cache_size > 0 ? (unsigned long) old_page : (unsigned long) old_block, addr);
+                    if (demote_blocks) {
+                        addr[value_len++] = 0;
+                    }
                     //printf("value: %d, value_len1:%d\n", old_page, value_len);
                     static_cast<T*>(this)->addFirstData();
                     key = (uint8_t *) first_key;
                     key_len = first_len;
                     value = (uint8_t *) addr;
                     value_len = util::ptrToBytes(cache_size > 0 ? (unsigned long) new_page : (unsigned long) new_block, addr);
+                    if (demote_blocks) {
+                        addr[value_len++] = 0;
+                    }
                     //printf("value: %d, value_len2:%d\n", new_page, value_len);
                     search_result = ~static_cast<T*>(this)->searchCurrentBlock();
                     static_cast<T*>(this)->addData(search_result);
                     numLevels++;
                 } else {
                     int16_t prev_level = level - 1;
-                    uint8_t *parent_data = cache_size > 0 ? cache->get_disk_page_in_cache((unsigned long)node_paths[prev_level]) : node_paths[prev_level];
+                    current_page = (unsigned long) node_paths[prev_level];
+                    uint8_t *parent_data = cache_size > 0 ? cache->get_disk_page_in_cache(current_page) : node_paths[prev_level];
                     static_cast<T*>(this)->setCurrentBlock(parent_data);
                     uint8_t addr[9];
                     key = (uint8_t *) first_key;
@@ -373,6 +388,22 @@ public:
                     value_len = util::ptrToBytes(cache_size > 0 ? (unsigned long) new_page : (unsigned long) new_block, addr);
                     //printf("value: %d, value_len3:%d\n", new_page, value_len);
                     search_result = static_cast<T*>(this)->searchCurrentBlock();
+                    if (demote_blocks) {
+                        uint8_t *split_count = static_cast<T*>(this)->findSplitSource(search_result);
+                        if (split_count != NULL) {
+                            if (*split_count < 254)
+                                (*split_count)++;
+                            //if (*split_count == 255)
+                            //    *split_count = 1;
+                            /*if (*split_count == 254)
+                                *split_count = 192;
+                            if (*split_count == 255)
+                                *split_count = 64;*/
+                            addr[value_len++] = *split_count;
+                        } else {
+                            addr[value_len++] = 0;
+                        }
+                    }
                     recursiveUpdate(search_result, node_paths, prev_level);
                 }
             } else {

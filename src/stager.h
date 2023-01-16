@@ -7,6 +7,7 @@
 #include "bfos.h"
 #include "basix.h"
 #include "basix3.h"
+#include "bloom.h"
 
 //#define STAGING_BLOCK_SIZE 524288
 #define STAGING_BLOCK_SIZE 262144
@@ -16,12 +17,15 @@
 #define BUCKET_COUNT 2
 
 typedef vector<basix *> cache_more;
+typedef vector<BloomFilter *> cache_more_bf;
 
 class stager {
     protected:
       basix3 *idx0;
       basix *idx1;
+      BloomFilter *bf_idx1;
       cache_more idx1_more;
+      cache_more_bf bf_idx1_more;
 #if BUCKET_COUNT == 2
       basix *idx2;
 #endif
@@ -31,8 +35,9 @@ class stager {
       int cache1_size;
       int cache2_size;
       int cache_more_size;
-      long idx1_size_limit_mb;
+      long idx1_count_limit_mil;
       string idx1_name;
+      string bf_idx1_name;
 
       int *flush_counts;
       long no_of_inserts;
@@ -47,26 +52,37 @@ class stager {
             strcat(fname0, ".ix0");
             strcat(fname1, ".ix1");
             idx1_name = fname1;
+            bf_idx1_name = fname1;
+            bf_idx1_name += ".blm";
             cache0_size = (cache_size_mb > 0xFF ? cache_size_mb & 0xFF : cache_size_mb) * 16;
-            idx1_size_limit_mb = (cache_size_mb > 0xFF ? (cache_size_mb >> 8) & 0xFF : 128) * 16;
+            idx1_count_limit_mil = (cache_size_mb > 0xFF ? (cache_size_mb >> 8) & 0xFF : 250);
             cache1_size = (cache_size_mb > 0xFFFF ? (cache_size_mb >> 16) & 0xFF : cache_size_mb & 0xFF) * 16;
-            cache_more_size = (cache_size_mb > 0xFFFFFF ? (cache_size_mb >> 24) & 0x0F : 0) * 16;
+            cache_more_size = (cache_size_mb > 0xFFFFFF ? (cache_size_mb >> 24) & 0x0F : (cache_size_mb & 0xFF) / 4) * 16;
             idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
+            bf_idx1 = new BloomFilter;
+            bloom_filter_init_on_disk(bf_idx1, idx1_count_limit_mil * 1000000L, 0.05, bf_idx1_name.c_str());
+            idx1->demote_blocks = false;
             bool more_files = true;
             size_t more_count = 0;
             while (more_files) {
                 char new_name[idx1_name.length() + 10];
                 sprintf(new_name, "%s.%lu", idx1_name.c_str(), more_count + 1);
-                if (file_exists(new_name))
+                char bf_new_name[bf_idx1_name.length() + 10];
+                sprintf(bf_new_name, "%s.%lu.blm", idx1_name.c_str(), idx1_more.size() + 1);
+                if (file_exists(new_name)) {
                     idx1_more.push_back(new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
-                else
+                    BloomFilter *new_bf = new BloomFilter;
+                    bloom_filter_import_on_disk(new_bf, bf_new_name);
+                    bf_idx1_more.push_back(new_bf);
+                } else {
+                    more_files = false;
                     break;
-                more_files = false;
+                }
                 more_count++;
             }
             cout << "Stg buf: " << cache0_size << "mb, Idx1 buf: " << cache1_size << "mb, Idx1+ buf: " << cache_more_size << "mb" << endl;
-            cout << "Idx1 size limit: " << idx1_size_limit_mb << "mb";
+            cout << "Idx1 entry count limit: " << idx1_count_limit_mil << "million";
 #if BUCKET_COUNT == 2
             char fname2[strlen(fname) + 5];
             strcpy(fname2, fname);
@@ -88,11 +104,17 @@ class stager {
         ~stager() {
             delete idx0;
             delete idx1;
+            bloom_filter_destroy(bf_idx1);
+            delete bf_idx1;
 #if BUCKET_COUNT == 2
             delete idx2;
 #endif
             for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++)
                 delete *it;
+            for (cache_more_bf::iterator it = bf_idx1_more.begin(); it != bf_idx1_more.end(); it++) {
+                bloom_filter_destroy(*it);
+                delete *it;
+            }
             delete flush_counts;
         }
 
@@ -102,15 +124,28 @@ class stager {
         }
 
         void spawn_more_idx1_if_full() {
-            if (cache_more_size > 0 && idx1->cache->file_page_count * BUCKET_BLOCK_SIZE >= idx1_size_limit_mb * 1024 * 1024) {
+            if (cache_more_size > 0 && idx1->size() >= idx1_count_limit_mil * 1000000L) {
                 delete idx1;
+                bloom_filter_destroy(bf_idx1);
+                delete bf_idx1;
                 char new_name[idx1_name.length() + 10];
                 sprintf(new_name, "%s.%lu", idx1_name.c_str(), idx1_more.size() + 1);
+                char bf_new_name[bf_idx1_name.length() + 10];
+                sprintf(bf_new_name, "%s.%lu.blm", idx1_name.c_str(), idx1_more.size() + 1);
                 if (rename(idx1_name.c_str(), new_name))
                     cout << "Error renaming file from: " << idx1_name << " to: " << new_name << endl;
                 else {
-                    idx1_more.push_back(new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
-                    idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, idx1_name.c_str());
+                    if (rename(bf_idx1_name.c_str(), bf_new_name))
+                        cout << "Error renaming file from: " << bf_idx1_name << " to: " << bf_new_name << endl;
+                    else {
+                        idx1_more.push_back(new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
+                        BloomFilter *new_bf = new BloomFilter;
+                        bloom_filter_import_on_disk(new_bf, bf_new_name);
+                        bf_idx1_more.push_back(new_bf);
+                        idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, idx1_name.c_str());
+                        bf_idx1 = new BloomFilter;
+                        bloom_filter_init_on_disk(bf_idx1, idx1_count_limit_mil * 1000000L, 0.05, bf_idx1_name.c_str());
+                    }
                 }
             }
         }
@@ -144,21 +179,31 @@ class stager {
                 uint8_t start_count = 1;
 #endif
                 if (val == NULL) {
-                    val = idx1->get(key, key_len, pValueLen);
-                    if (val != NULL && idx1->isChanged()) {
-                        //cout << "Found in idx1 " << endl;
-                        return val;
+                    if (bloom_filter_check_string(bf_idx1, key, key_len) != BLOOM_FAILURE) {
+                        val = idx1->get(key, key_len, pValueLen);
+                        if (val != NULL && idx1->isChanged()) {
+                            //cout << "Found in idx1 " << endl;
+                            return val;
+                        }
                     }
-                    for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
-                        val = (*it)->get(key, key_len, pValueLen);
-                        if (val != NULL)
-                            break;
+                    if (val == NULL) {
+                        cache_more_bf::iterator it_bf = bf_idx1_more.begin();
+                        for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
+                            if (bloom_filter_check_string(*it_bf, key, key_len) != BLOOM_FAILURE) {
+                                val = (*it)->get(key, key_len, pValueLen);
+                                //cout << it-idx1_more.begin() << " ";
+                                //cout << "Found in idx_more" << it-idx1_more.begin() << endl;
+                                if (val != NULL)
+                                    break;
+                            }
+                            it_bf++;
+                        }
                     }
-                    if (val == NULL && idx1->isChanged()) {
-                        idx1->put(key, key_len, value, value_len);
-                        spawn_more_idx1_if_full();
-                        return NULL;
-                    }
+                    // if (val == NULL && idx1->isChanged()) {
+                    //    idx1->put(key, key_len, value, value_len);
+                    //    spawn_more_idx1_if_full();
+                    //    return NULL;
+                    //}
                 }
                 int new_val_len = (val == NULL ? value_len : *pValueLen);
                 uint8_t new_val[new_val_len + 1];
@@ -188,12 +233,14 @@ class stager {
                                 int16_t v1_len = 0;
                                 uint8_t *v1;
 #if BUCKET_COUNT == 2
-                                if (entry_count <= 1)
+                                if (entry_count <= 1) {
                                     v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
-                                else
+                                    bloom_filter_add_string(bf_idx1, k, k_len);
+                                } else
                                     v1 = idx2->put(k, k_len, v, v_len - 1, &v1_len);
 #else
                                 v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
+                                bloom_filter_add_string(bf_idx1, k, k_len);
 #endif
                                 if (v1 != NULL)
                                     memcpy(v1, v, v_len - 1);
@@ -250,13 +297,19 @@ class stager {
             if (val == NULL)
                 val = idx2->get(key, key_len, pValueLen);
 #endif
-            if (val == NULL)
-                val = idx1->get(key, key_len, pValueLen);
             if (val == NULL) {
+                if (bloom_filter_check_string(bf_idx1, key, key_len) != BLOOM_FAILURE)
+                    val = idx1->get(key, key_len, pValueLen);
+            }
+            if (val == NULL) {
+                cache_more_bf::iterator it_bf = bf_idx1_more.begin();
                 for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
-                    val = (*it)->get(key, key_len, pValueLen);
-                    if (val != NULL)
-                        break;
+                    if (bloom_filter_check_string(*it_bf, key, key_len) != BLOOM_FAILURE) {
+                        val = (*it)->get(key, key_len, pValueLen);
+                        if (val != NULL)
+                            break;
+                    }
+                    it_bf++;
                 }
             }
             return val;
@@ -278,8 +331,13 @@ class stager {
         void printStats(long sz) {
             idx0->printStats(idx0->size());
             idx1->printStats(idx1->size());
-            for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++)
+            bloom_filter_stats(bf_idx1);
+            cache_more_bf::iterator it_bf = bf_idx1_more.begin();
+            for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
             	(*it)->printStats((*it)->size());
+                bloom_filter_stats(*it_bf);
+                it_bf++;
+            }
 #if BUCKET_COUNT == 2
             idx2->printStats(idx2->size());
 #endif

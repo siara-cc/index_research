@@ -120,6 +120,8 @@ public:
         ptr_size <<= 1;
     #endif
         if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2)) {
+            if (!isLeaf() && demote_blocks)
+                demoteBlocks();
             //makeSpace();
             //if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
                 return true;
@@ -129,6 +131,96 @@ public:
         return true;
     #endif
         return false;
+    }
+
+    void demoteBlocks() {
+        //if (current_block[5] % 8 > 0)
+        //    return;
+        if ((current_block[0] & 0x1F) <= BPT_PARENT0_LVL)
+            return;
+        uint16_t filled_size = filledSize();
+        int total = 0;
+        int count = 0;
+        int less_count = 0;
+        int demoted_count = 0;
+        cout << "Start: " << current_page << ": " << endl;
+        for (uint16_t pos = 0; pos < filled_size; pos++) {
+            uint16_t src_idx = getPtr(pos);
+            uint8_t *kv = current_block + src_idx;
+            kv += *kv;
+            kv++;
+            kv += *kv;
+            //cout << (int) *kv << " ";
+            int split_count = *kv;
+            //cout << split_count << ", ";
+            if (split_count == 255)
+                continue;
+            //total += split_count;
+            //count++;
+            //if (*kv == 0) {
+                // *kv = 255;
+            //    less_count++;
+            //}// else
+                // *kv = 0;
+        }
+            for (uint16_t pos = 0; pos < filled_size; pos++) {
+                uint16_t src_idx = getPtr(pos);
+                uint8_t *kv = current_block + src_idx;
+                kv += *kv;
+                kv++;
+                kv += *kv;
+                cout << (int) *kv << " ";
+            }
+            cout << endl;
+        //cout << endl;
+        if (total == 0)
+            total = 1;
+        if (count == 0)
+            count = total;
+        int mean = total / count;
+        /*for (uint16_t pos = 0; pos < filled_size; pos++) {
+            uint16_t src_idx = getPtr(pos);
+            uint8_t *kv = current_block + src_idx;
+            kv += *kv;
+            kv++;
+            kv += *kv;
+            if (*kv == 255)
+                continue;
+            if (*kv < 128) {
+                *kv = 255;
+                less_count++;
+            } else
+                *kv = 0;
+        }*/
+        if (less_count == 0) {
+            /*for (uint16_t pos = 0; pos < filled_size; pos++) {
+                uint16_t src_idx = getPtr(pos);
+                uint8_t *kv = current_block + src_idx;
+                kv += *kv;
+                kv++;
+                kv += *kv;
+                cout << (int) *kv << " ";
+            }
+            cout << endl;*/
+        } else {
+            cout << "Less count: " << less_count << ", tot: " << filled_size << ", mean: " << mean
+                 << ", dcount: " << demoted_count << ", lvl: " << (int) (current_block[0] & 0x1F) << endl;
+        }
+    }
+
+    uint8_t *findSplitSource(int16_t search_result) {
+        if (search_result < 0)
+            search_result = ~search_result;
+        if (search_result == 0) {
+            cout << "New split block can never be at pos 0" << endl;
+            return NULL;
+        }
+        int ptr_pos = getPtr(search_result - 1);
+        uint8_t *ret = current_block + ptr_pos;
+        ret += *ret;
+        ret++;
+        ret += *ret;
+        return ret;
     }
 
     uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
