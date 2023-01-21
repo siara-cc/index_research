@@ -10,7 +10,8 @@
 #include "bloom.h"
 
 //#define STAGING_BLOCK_SIZE 524288
-#define STAGING_BLOCK_SIZE 262144
+//#define STAGING_BLOCK_SIZE 262144
+#define STAGING_BLOCK_SIZE 65536
 //#define STAGING_BLOCK_SIZE 32768
 #define BUCKET_BLOCK_SIZE 4096
 
@@ -21,7 +22,7 @@ typedef vector<BloomFilter *> cache_more_bf;
 
 class stager {
     protected:
-      basix3 *idx0;
+      basix *idx0;
       basix *idx1;
       BloomFilter *bf_idx1;
       cache_more idx1_more;
@@ -60,17 +61,17 @@ class stager {
             bf_idx1_name = fname1;
             bf_idx1_name += ".blm";
             cache0_size = (cache_size_mb > 0xFF ? cache_size_mb & 0xFF : cache_size_mb) * 16;
-            idx1_count_limit_mil = (cache_size_mb > 0xFF ? (cache_size_mb >> 8) & 0xFF : 5);
+            idx1_count_limit_mil = (cache_size_mb > 0xFF ? (cache_size_mb >> 8) & 0xFF : 25);
             cache1_size = (cache_size_mb > 0xFFFF ? (cache_size_mb >> 16) & 0xFF : cache_size_mb & 0xFF) * 16;
             cache_more_size = (cache_size_mb > 0xFFFFFF ? (cache_size_mb >> 24) & 0x0F : (cache_size_mb & 0xFF) / 4) * 16;
-            idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
+            idx0 = new basix(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
             if (use_bloom) {
                 bf_idx1 = new BloomFilter;
                 if (file_exists(bf_idx1_name.c_str()))
-                    bloom_filter_import_on_disk(bf_idx1, bf_idx1_name.c_str());
+                    bloom_filter_import(bf_idx1, bf_idx1_name.c_str());
                 else
-                    bloom_filter_init_on_disk(bf_idx1, idx1_count_limit_mil * 1000000L, 0.05, bf_idx1_name.c_str());
+                    bloom_filter_init(bf_idx1, idx1_count_limit_mil * 1000000L, 0.05);
             }
             idx1->demote_blocks = false;
             bool more_files = true;
@@ -84,7 +85,7 @@ class stager {
                     idx1_more.push_back(new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
                     if (use_bloom) {
                         BloomFilter *new_bf = new BloomFilter;
-                        bloom_filter_import_on_disk(new_bf, bf_new_name);
+                        bloom_filter_import(new_bf, bf_new_name);
                         bf_idx1_more.push_back(new_bf);
                     }
                 } else {
@@ -104,9 +105,9 @@ class stager {
             if (use_bloom) {
                 bf_idx2 = new BloomFilter;
                 if (file_exists(bf_idx2_name.c_str()))
-                    bloom_filter_import_on_disk(bf_idx2, bf_idx2_name.c_str());
+                    bloom_filter_import(bf_idx2, bf_idx2_name.c_str());
                 else
-                    bloom_filter_init_on_disk(bf_idx2, 10000000L, 0.05, bf_idx2_name.c_str());
+                    bloom_filter_init(bf_idx2, 10000000L, 0.05);
             }
             cache2_size = (cache_size_mb > 0xFFFFFFF ? (cache_size_mb >> 28) & 0x0F : (cache_size_mb & 0xFF) / 4) * 16;
             cout << ", Idx2 buf: " << cache2_size << "mb" << endl;
@@ -128,12 +129,14 @@ class stager {
             delete idx0;
             delete idx1;
             if (use_bloom) {
+                bloom_filter_export(bf_idx1, bf_idx1_name.c_str());
                 bloom_filter_destroy(bf_idx1);
                 delete bf_idx1;
             }
 #if BUCKET_COUNT == 2
             delete idx2;
             if (use_bloom) {
+                bloom_filter_export(bf_idx2, bf_idx2_name.c_str());
                 bloom_filter_destroy(bf_idx2);
                 delete bf_idx2;
             }
@@ -159,8 +162,7 @@ class stager {
             if (cache_more_size > 0 && idx1->size() >= idx1_count_limit_mil * 1000000L) {
                 delete idx1;
                 if (use_bloom) {
-                    bloom_filter_destroy(bf_idx1);
-                    delete bf_idx1;
+                    bloom_filter_export(bf_idx1, bf_idx1_name.c_str());
                 }
                 char new_name[idx1_name.length() + 10];
                 sprintf(new_name, "%s.%lu", idx1_name.c_str(), idx1_more.size() + 1);
@@ -175,11 +177,9 @@ class stager {
                         idx1_more.push_back(new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
                         idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, idx1_name.c_str());
                         if (use_bloom) {
-                            BloomFilter *new_bf = new BloomFilter;
-                            bloom_filter_import_on_disk(new_bf, bf_new_name);
-                            bf_idx1_more.push_back(new_bf);
+                            bf_idx1_more.push_back(bf_idx1);
                             bf_idx1 = new BloomFilter;
-                            bloom_filter_init_on_disk(bf_idx1, idx1_count_limit_mil * 1000000L, 0.05, bf_idx1_name.c_str());
+                            bloom_filter_init(bf_idx1, idx1_count_limit_mil * 1000000L, 0.05);
                         }
                     }
                 }
