@@ -281,7 +281,7 @@ public:
         return (char *) put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len, pValueLen);
     }
     uint8_t *put(const uint8_t *key, uint8_t key_len, const uint8_t *value,
-            int16_t value_len, int16_t *pValueLen = NULL) {
+            int16_t value_len, int16_t *pValueLen = NULL, bool only_if_not_full = false) {
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
         this->key_len = key_len;
@@ -304,6 +304,13 @@ public:
                 free(node_paths);
                 setChanged(1);
                 return getValueAt(pValueLen);
+            }
+            if (only_if_not_full) {
+                if (static_cast<T*>(this)->isFull(~search_result)) {
+                    *pValueLen = 9999;
+                    free(node_paths);
+                    return NULL;
+                }
             }
             recursiveUpdate(search_result, node_paths, level_count - 1);
             free(node_paths);
@@ -597,6 +604,10 @@ public:
         util::endl();
         util::print("Avg Block Count:");
         util::print((long) (num_entries / blockCountLeaf));
+        util::print(" = ");
+        util::print((long) num_entries);
+        util::print(" / ");
+        util::print((long) blockCountLeaf);
         util::endl();
         util::print("Avg Max Count:");
         util::print((long) (maxKeyCountNode / (blockCountNode ? blockCountNode : 1)));

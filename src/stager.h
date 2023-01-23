@@ -10,8 +10,8 @@
 #include "bloom.h"
 
 //#define STAGING_BLOCK_SIZE 524288
-//#define STAGING_BLOCK_SIZE 262144
-#define STAGING_BLOCK_SIZE 65536
+#define STAGING_BLOCK_SIZE 262144
+//#define STAGING_BLOCK_SIZE 65536
 //#define STAGING_BLOCK_SIZE 32768
 #define BUCKET_BLOCK_SIZE 4096
 
@@ -22,7 +22,7 @@ typedef vector<BloomFilter *> cache_more_bf;
 
 class stager {
     protected:
-      basix *idx0;
+      basix3 *idx0;
       basix *idx1;
       BloomFilter *bf_idx1;
       cache_more idx1_more;
@@ -64,8 +64,8 @@ class stager {
             cache0_size = (cache_size_mb > 0xFF ? cache_size_mb & 0xFF : cache_size_mb) * 16;
             idx1_count_limit_mil = (cache_size_mb > 0xFF ? (cache_size_mb >> 8) & 0xFF : 25);
             cache1_size = (cache_size_mb > 0xFFFF ? (cache_size_mb >> 16) & 0xFF : cache_size_mb & 0xFF) * 16;
-            cache_more_size = (cache_size_mb > 0xFFFFFF ? (cache_size_mb >> 24) & 0x0F : (cache_size_mb & 0xFF) / 4) * 16;
-            idx0 = new basix(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
+            cache_more_size = (cache_size_mb > 0xFFFFFF ? (cache_size_mb >> 24) & 0x0F : (cache_size_mb & 0xFF) / 2) * 16;
+            idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
             if (use_bloom) {
                 bf_idx1 = new BloomFilter;
@@ -163,7 +163,7 @@ class stager {
         }
 
         void spawn_more_idx1_if_full() {
-            if (cache_more_size > 0 && idx1->size() >= idx1_count_limit_mil * 1000000L) {
+            if (cache_more_size > 0 && idx1->size() >= idx1_count_limit_mil * (1000000L * 2 / 3)) {
                 delete idx1;
                 if (use_bloom) {
                     bloom_filter_export(bf_idx1, bf_idx1_name.c_str());
@@ -178,10 +178,10 @@ class stager {
                     if (use_bloom && rename(bf_idx1_name.c_str(), bf_new_name))
                         cout << "Error renaming file from: " << bf_idx1_name << " to: " << bf_new_name << endl;
                     else {
-                        idx1_more.push_back(new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
+                        idx1_more.insert(idx1_more.begin(), new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
                         idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, idx1_name.c_str());
                         if (use_bloom) {
-                            bf_idx1_more.push_back(bf_idx1);
+                            bf_idx1_more.insert(bf_idx1_more.begin(), bf_idx1);
                             bf_idx1 = new BloomFilter;
                             bloom_filter_init(bf_idx1, idx1_count_limit_mil * 1000000L, 0.05);
                         }
@@ -300,7 +300,7 @@ class stager {
                             }
                             if (entry_count <= cur_count) {
                                 int16_t v1_len = 0;
-                                uint8_t *v1;
+                                uint8_t *v1 = NULL;
 #if BUCKET_COUNT == 2
                                 if (entry_count <= 1) {
                                     v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
@@ -312,9 +312,16 @@ class stager {
                                         bloom_filter_add_string(bf_idx2, k, k_len);
                                 }
 #else
-                                v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
-                                if (use_bloom && v1 == NULL)
-                                    bloom_filter_add_string(bf_idx1, k, k_len);
+                                if (idx1_more.size() > 0 && idx1_more.at(0)->size() < (idx1_count_limit_mil * (1000000L / 3))) {
+                                    v1 = idx1_more.at(0)->put(k, k_len, v, v_len - 1, &v1_len, true);
+                                    if (v1_len != 9999 && use_bloom && v1 == NULL)
+                                        bloom_filter_add_string(bf_idx1_more.at(0), k, k_len);
+                                }
+                                if (v1_len != 9999) {
+                                    v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
+                                    if (use_bloom && v1 == NULL)
+                                        bloom_filter_add_string(bf_idx1, k, k_len);
+                                }
 #endif
                                 if (v1 != NULL)
                                     memcpy(v1, v, v_len - 1);
