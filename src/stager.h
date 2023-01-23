@@ -64,7 +64,7 @@ class stager {
             cache0_size = (cache_size_mb > 0xFF ? cache_size_mb & 0xFF : cache_size_mb) * 16;
             idx1_count_limit_mil = (cache_size_mb > 0xFF ? (cache_size_mb >> 8) & 0xFF : 25);
             cache1_size = (cache_size_mb > 0xFFFF ? (cache_size_mb >> 16) & 0xFF : cache_size_mb & 0xFF) * 16;
-            cache_more_size = (cache_size_mb > 0xFFFFFF ? (cache_size_mb >> 24) & 0x0F : (cache_size_mb & 0xFF) / 2) * 16;
+            cache_more_size = (cache_size_mb > 0xFFFFFF ? (cache_size_mb >> 24) & 0x0F : (cache_size_mb & 0xFF) / 4) * 16;
             idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
             if (use_bloom) {
@@ -316,8 +316,12 @@ class stager {
                                     v1 = idx1_more.at(0)->put(k, k_len, v, v_len - 1, &v1_len, true);
                                     if (v1_len != 9999 && use_bloom && v1 == NULL)
                                         bloom_filter_add_string(bf_idx1_more.at(0), k, k_len);
-                                }
-                                if (v1_len != 9999) {
+                                    if (v1_len == 9999) {
+                                        v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
+                                        if (use_bloom && v1 == NULL)
+                                            bloom_filter_add_string(bf_idx1, k, k_len);
+                                    }
+                                } else {
                                     v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
                                     if (use_bloom && v1 == NULL)
                                         bloom_filter_add_string(bf_idx1, k, k_len);
