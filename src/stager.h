@@ -47,6 +47,7 @@ class stager {
       long no_of_inserts;
       int zero_count;
       long *idx_more_found_counts;
+      long *idx_more_pve_counts;
 
     public:
         stager(const char *fname, size_t cache_size_mb) {
@@ -120,7 +121,9 @@ class stager {
             flush_counts = new int[cache0_page_count];
             memset(flush_counts, '\0', sizeof(int) * cache0_page_count);
             idx_more_found_counts = new long[50];
+            idx_more_pve_counts = new long[50];
             memset(idx_more_found_counts, '\0', sizeof(long) * 50);
+            memset(idx_more_pve_counts, '\0', sizeof(long) * 50);
             no_of_inserts = 0;
             zero_count = cache0_page_count;
         }
@@ -151,6 +154,7 @@ class stager {
             }
             delete flush_counts;
             delete idx_more_found_counts;
+            delete idx_more_pve_counts;
         }
 
         bool file_exists (const char *filename) {
@@ -198,6 +202,14 @@ class stager {
                 //for (int i = 0; i < cache0_page_count; i++)
                 //    printf("%2x", flush_counts[i]);
                 //cout << endl;
+                cout << "Idx1+ positiv: ";
+                cout << idx_more_pve_counts[0] << " ";
+                if (BUCKET_COUNT == 2)
+                    cout << idx_more_pve_counts[1] << " ";
+                for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
+                    cout << idx_more_pve_counts[it - idx1_more.begin() + BUCKET_COUNT] << " ";
+                }
+                cout << endl;
                 cout << "Idx1+ lookups: ";
                 cout << idx_more_found_counts[0] << " ";
                 if (BUCKET_COUNT == 2)
@@ -216,6 +228,7 @@ class stager {
             if (val == NULL) {
 #if BUCKET_COUNT == 2
                 if (!use_bloom || (use_bloom && bloom_filter_check_string(bf_idx2, key, key_len) != BLOOM_FAILURE)) {
+                    idx_more_pve_counts[0]++;
                     val = idx2->get(key, key_len, pValueLen);
                     if (val != NULL)
                         idx_more_found_counts[0]++;
@@ -228,6 +241,7 @@ class stager {
 #endif
                 if (val == NULL) {
                     if (!use_bloom || (use_bloom && bloom_filter_check_string(bf_idx1, key, key_len) != BLOOM_FAILURE)) {
+                        idx_more_pve_counts[BUCKET_COUNT - 1]++;
                         val = idx1->get(key, key_len, pValueLen);
                         if (val != NULL)
                             idx_more_found_counts[BUCKET_COUNT - 1]++;
@@ -242,6 +256,7 @@ class stager {
                             it_bf = bf_idx1_more.begin();
                         for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
                             if (!use_bloom || (use_bloom && bloom_filter_check_string(*it_bf, key, key_len) != BLOOM_FAILURE)) {
+                                idx_more_pve_counts[it - idx1_more.begin() + BUCKET_COUNT]++;
                                 val = (*it)->get(key, key_len, pValueLen);
                                 //cout << it-idx1_more.begin() << " ";
                                 //cout << "Found in idx_more" << it-idx1_more.begin() << endl;
