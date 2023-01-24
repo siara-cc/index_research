@@ -15,7 +15,7 @@
 //#define STAGING_BLOCK_SIZE 32768
 #define BUCKET_BLOCK_SIZE 4096
 
-#define BUCKET_COUNT 1
+#define BUCKET_COUNT 2
 
 typedef vector<basix *> cache_more;
 typedef vector<BloomFilter *> cache_more_bf;
@@ -110,7 +110,7 @@ class stager {
                 else
                     bloom_filter_init(bf_idx2, 10000000L, 0.05);
             }
-            cache2_size = (cache_size_mb > 0xFFFFFFF ? (cache_size_mb >> 28) & 0x0F : (cache_size_mb & 0xFF) / 4) * 16;
+            cache2_size = (cache_size_mb > 0xFFFFFFF ? (cache_size_mb >> 28) & 0x0F : (cache_size_mb & 0xFF)) * 16;
             cout << ", Idx2 buf: " << cache2_size << "mb" << endl;
             idx2 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
 #else
@@ -163,7 +163,7 @@ class stager {
         }
 
         void spawn_more_idx1_if_full() {
-            if (cache_more_size > 0 && idx1->size() >= idx1_count_limit_mil * (1000000L * 2 / 3)) {
+            if (cache_more_size > 0 && idx1->size() >= idx1_count_limit_mil * 1000000L) {
                 delete idx1;
                 if (use_bloom) {
                     bloom_filter_export(bf_idx1, bf_idx1_name.c_str());
@@ -184,6 +184,13 @@ class stager {
                             bf_idx1_more.insert(bf_idx1_more.begin(), bf_idx1);
                             bf_idx1 = new BloomFilter;
                             bloom_filter_init(bf_idx1, idx1_count_limit_mil * 1000000L, 0.05);
+                            int count = idx1_more.size();
+                            while (count--) {
+                                idx_more_found_counts[count + BUCKET_COUNT] = idx_more_found_counts[count + BUCKET_COUNT - 1];
+                                idx_more_pve_counts[count + BUCKET_COUNT] = idx_more_pve_counts[count + BUCKET_COUNT - 1];
+                            }
+                            idx_more_found_counts[BUCKET_COUNT - 1] = 0;
+                            idx_more_pve_counts[BUCKET_COUNT - 1] = 0;
                         }
                     }
                 }
@@ -312,7 +319,7 @@ class stager {
                                         bloom_filter_add_string(bf_idx2, k, k_len);
                                 }
 #else
-                                if (idx1_more.size() > 0 && idx1_more.at(0)->size() < (idx1_count_limit_mil * (1000000L / 3))) {
+                                /*if (idx1_more.size() > 0 && idx1_more.at(0)->size() < (idx1_count_limit_mil * (1000000L / 3))) {
                                     v1 = idx1_more.at(0)->put(k, k_len, v, v_len - 1, &v1_len, true);
                                     if (v1_len != 9999 && use_bloom && v1 == NULL)
                                         bloom_filter_add_string(bf_idx1_more.at(0), k, k_len);
@@ -321,11 +328,11 @@ class stager {
                                         if (use_bloom && v1 == NULL)
                                             bloom_filter_add_string(bf_idx1, k, k_len);
                                     }
-                                } else {
+                                } else {*/
                                     v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
                                     if (use_bloom && v1 == NULL)
                                         bloom_filter_add_string(bf_idx1, k, k_len);
-                                }
+                                //}
 #endif
                                 if (v1 != NULL)
                                     memcpy(v1, v, v_len - 1);
