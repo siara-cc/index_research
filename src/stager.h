@@ -51,7 +51,7 @@ class stager {
 
     public:
         stager(const char *fname, size_t cache_size_mb) {
-            use_bloom = true;
+            use_bloom = false;
             char fname0[strlen(fname) + 5];
             char fname1[strlen(fname) + 5];
             strcpy(fname0, fname);
@@ -72,7 +72,7 @@ class stager {
                 if (file_exists(bf_idx1_name.c_str()))
                     bloom_filter_import(bf_idx1, bf_idx1_name.c_str());
                 else
-                    bloom_filter_init(bf_idx1, idx1_count_limit_mil * 1000000L, 0.05);
+                    bloom_filter_init(bf_idx1, idx1_count_limit_mil * 1000000L, 0.0001);
             }
             idx1->demote_blocks = false;
             bool more_files = true;
@@ -108,7 +108,7 @@ class stager {
                 if (file_exists(bf_idx2_name.c_str()))
                     bloom_filter_import(bf_idx2, bf_idx2_name.c_str());
                 else
-                    bloom_filter_init(bf_idx2, 10000000L, 0.05);
+                    bloom_filter_init(bf_idx2, 10000000L, 0.0001);
             }
             cache2_size = (cache_size_mb > 0xFFFFFFF ? (cache_size_mb >> 28) & 0x0F : (cache_size_mb & 0xFF)) * 16;
             cout << ", Idx2 buf: " << cache2_size << "mb" << endl;
@@ -183,7 +183,7 @@ class stager {
                         if (use_bloom) {
                             bf_idx1_more.insert(bf_idx1_more.begin(), bf_idx1);
                             bf_idx1 = new BloomFilter;
-                            bloom_filter_init(bf_idx1, idx1_count_limit_mil * 1000000L, 0.05);
+                            bloom_filter_init(bf_idx1, idx1_count_limit_mil * 1000000L, 0.0001);
                             int count = idx1_more.size();
                             while (count--) {
                                 idx_more_found_counts[count + BUCKET_COUNT] = idx_more_found_counts[count + BUCKET_COUNT - 1];
