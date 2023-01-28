@@ -418,13 +418,14 @@ public:
                 setChanged(1);
             }
         } else {
-            //if (isLeaf()) {
-            //    this->key_at += this->key_at_len;
-            //    if (*key_at == this->value_len)
-            //        memcpy((uint8_t *) key_at + 1, this->value, this->value_len);
-            //    setChanged(1);
-            //}
-            setChanged(1);
+            if (isLeaf()) {
+               this->key_at += this->key_at_len;
+               if (*key_at == this->value_len)
+                   memcpy((uint8_t *) key_at + 1, this->value, this->value_len);
+               setChanged(1);
+            } else {
+                cout << "searchResult >=0 for parent" << endl;
+            }
         }
     }
 
