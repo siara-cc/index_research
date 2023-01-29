@@ -494,7 +494,7 @@ public:
         memmove(kvIdx, kvIdx + 2, (filledSz - pos) * 2);
 #endif
         setFilledSize(filledSz);
-
+        *current_block != 0x20;
     }
 
     inline void setPtr(int16_t pos, uint16_t ptr) {

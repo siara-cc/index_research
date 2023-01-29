@@ -390,7 +390,7 @@ class stager {
                     //         flush_counts[idx]++;
                     // }
                 }
-                val = idx0->put(key, key_len, new_val, new_val_len);
+                idx0->put(key, key_len, new_val, new_val_len);
                 return val;
             }
             uint8_t entry_count = val[*pValueLen - 1];
