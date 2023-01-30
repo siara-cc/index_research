@@ -89,6 +89,7 @@ public:
             delPtr(found_pos);
             setChanged(1);
         }
+        total_size--;
     }
 
     void makeSpace() {
@@ -133,9 +134,13 @@ public:
         if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2)) {
             if (!isLeaf() && demote_blocks)
                 demoteBlocks();
-            //makeSpace();
-            //if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
-                return true;
+            if (*current_block & 0x20) {
+                makeSpace();
+                *current_block &= 0xDF;
+                if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
+                    return true;
+            } else
+            	return true;
         }
     #if BPT_9_BIT_PTR == 1
         if (filledSize() > 62)
