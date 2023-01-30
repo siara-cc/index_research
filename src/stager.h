@@ -204,6 +204,43 @@ class stager {
             }
         }
 
+        void remove_entry_from_more_idxs(const uint8_t *key, uint8_t key_len) {
+            uint8_t *val;
+            int16_t val_len;
+            cache_more_bf::iterator it_bf;
+            if (use_bloom)
+                it_bf = bf_idx1_more.begin();
+            for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
+                if (!use_bloom || (use_bloom && bloom_filter_check_string(*it_bf, key, key_len) != BLOOM_FAILURE)) {
+                    val = (*it)->get(key, key_len, &val_len);
+                    //cout << it-idx1_more.begin() << " ";
+                    //cout << "Found in idx_more" << it-idx1_more.begin() << endl;
+                    if (val != NULL) {
+                        (*it)->remove_found_entry();
+                        return;
+                    }
+                }
+                it_bf++;
+            }
+        }
+
+        void remove_entry_from_idx1_more(const uint8_t *key, uint8_t key_len) {
+            uint8_t *val;
+            int16_t val_len;
+            if (!use_bloom || (use_bloom && bloom_filter_check_string(bf_idx1, key, key_len) != BLOOM_FAILURE)) {
+                val = idx1->get(key, key_len, &val_len);
+                if (val != NULL) {
+                    idx1->remove_found_entry();
+                    return;
+                }
+                //  if (val != NULL && idx1->isChanged()) {
+                //     //cout << "Found in idx1 " << endl;
+                //      return val;
+                //  }
+            }
+            remove_entry_from_more_idxs(key, key_len);
+        }
+
         char *put(const char *key, uint8_t key_len, const char *value,
                 int16_t value_len, int16_t *pValueLen = NULL) {
             return (char *) put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len, pValueLen);
@@ -249,153 +286,94 @@ class stager {
                 is_cache0_full = true;
             }
             uint8_t *val = idx0->get(key, key_len, pValueLen);
-            if (val == NULL) {
-#if BUCKET_COUNT == 2
-                idx_more_lookup_counts[0]++;
-                if (!use_bloom || (use_bloom && bloom_filter_check_string(bf_idx2, key, key_len) != BLOOM_FAILURE)) {
-                    idx_more_pve_counts[0]++;
-                    val = idx2->get(key, key_len, pValueLen);
-                    if (val != NULL)
-                        idx_more_found_counts[0]++;
-                    //  if (val != NULL && idx2->isChanged())
-                    //      return val;
-                }
-                uint8_t start_count = (val == NULL ? 1 : 2);
-#else
-                uint8_t start_count = 1;
-#endif
-                if (val == NULL) {
-                    idx_more_lookup_counts[BUCKET_COUNT - 1]++;
-                    if (!use_bloom || (use_bloom && bloom_filter_check_string(bf_idx1, key, key_len) != BLOOM_FAILURE)) {
-                        idx_more_pve_counts[BUCKET_COUNT - 1]++;
-                        val = idx1->get(key, key_len, pValueLen);
-                        if (val != NULL) {
-                            idx_more_found_counts[BUCKET_COUNT - 1]++;
-                            idx1->remove_found_entry();
+            idx0->setValue(value, value_len + 1);
+            bool is_full = idx0->isFull(0);
+            if (is_full && is_cache0_full) {
+                int target_size = idx0->filledSize() / 3;
+                int cur_count = 1;
+                int next_min = 255;
+                while (idx0->filledSize() > target_size) {
+                    for (int i = 0; i < idx0->filledSize(); i++) {
+                        uint32_t src_idx = idx0->getPtr(i);
+                        int16_t k_len = idx0->current_block[src_idx];
+                        uint8_t *k = idx0->current_block + src_idx + 1;
+                        int16_t v_len = idx0->current_block[src_idx + k_len + 1];
+                        uint8_t *v = idx0->current_block + src_idx + k_len + 2;
+                        if (v_len != value_len + 1)
+                            cout << "src_idx: " << src_idx << ", vlen: " << v_len << " ";
+                        int entry_count = v[v_len - 1];
+                        if (v_len != value_len + 1) {
+                            cout << entry_count << endl;
+                            printf("k: %.*s, len: %d\n", k_len, k, k_len);
                         }
-                        //  if (val != NULL && idx1->isChanged()) {
-                        //     //cout << "Found in idx1 " << endl;
-                        //      return val;
-                        //  }
-                    }
-                    if (val == NULL) {
-                        cache_more_bf::iterator it_bf;
-                        if (use_bloom)
-                            it_bf = bf_idx1_more.begin();
-                        for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
-                            idx_more_lookup_counts[it - idx1_more.begin() + BUCKET_COUNT]++;
-                            if (!use_bloom || (use_bloom && bloom_filter_check_string(*it_bf, key, key_len) != BLOOM_FAILURE)) {
-                                idx_more_pve_counts[it - idx1_more.begin() + BUCKET_COUNT]++;
-                                val = (*it)->get(key, key_len, pValueLen);
-                                //cout << it-idx1_more.begin() << " ";
-                                //cout << "Found in idx_more" << it-idx1_more.begin() << endl;
-                                if (val != NULL) {
-                                    idx_more_found_counts[it - idx1_more.begin() + BUCKET_COUNT]++;
-                                    (*it)->remove_found_entry();
-                                    break;
-                                }
-                            }
-                            it_bf++;
-                        }
-                    }
-                    // if (val == NULL && idx1->isChanged()) {
-                    //    idx1->put(key, key_len, value, value_len);
-                    //    spawn_more_idx1_if_full();
-                    //    return NULL;
-                    //}
-                }
-                int new_val_len = (val == NULL ? value_len : *pValueLen);
-                uint8_t new_val[new_val_len + 1];
-                memcpy(new_val, val == NULL ? value : val, new_val_len);
-                new_val[new_val_len] = start_count;
-                new_val_len++;
-                bool is_full = idx0->isFull(0);
-                if (is_full && is_cache0_full) {
-                    int target_size = idx0->filledSize() / 3;
-                    int cur_count = 1;
-                    int next_min = 255;
-                    while (idx0->filledSize() > target_size) {
-                        for (int i = 0; i < idx0->filledSize(); i++) {
-                            uint32_t src_idx = idx0->getPtr(i);
-                            int16_t k_len = idx0->current_block[src_idx];
-                            uint8_t *k = idx0->current_block + src_idx + 1;
-                            int16_t v_len = idx0->current_block[src_idx + k_len + 1];
-                            uint8_t *v = idx0->current_block + src_idx + k_len + 2;
-                            if (v_len != value_len + 1)
-                                cout << "src_idx: " << src_idx << ", vlen: " << v_len << " ";
-                            int entry_count = v[v_len - 1];
-                            if (v_len != value_len + 1) {
-                                cout << entry_count << endl;
-                                printf("k: %.*s, len: %d\n", k_len, k, k_len);
-                            }
-                            if (entry_count <= cur_count) {
-                                int16_t v1_len = 0;
-                                uint8_t *v1 = NULL;
+                        if (entry_count <= cur_count) {
+                            int16_t v1_len = 0;
+                            uint8_t *v1 = NULL;
 #if BUCKET_COUNT == 2
-                                if (entry_count <= 1) {
-                                    v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
-                                    if (use_bloom && v1 == NULL)
-                                        bloom_filter_add_string(bf_idx1, k, k_len);
-                                } else {
-                                    v1 = idx2->put(k, k_len, v, v_len - 1, &v1_len);
-                                    if (use_bloom && v1 == NULL)
-                                        bloom_filter_add_string(bf_idx2, k, k_len);
-                                }
-#else
-                                /*if (idx1_more.size() > 0 && idx1_more.at(0)->size() < (idx1_count_limit_mil * (1000000L / 3))) {
-                                    v1 = idx1_more.at(0)->put(k, k_len, v, v_len - 1, &v1_len, true);
-                                    if (v1_len != 9999 && use_bloom && v1 == NULL)
-                                        bloom_filter_add_string(bf_idx1_more.at(0), k, k_len);
-                                    if (v1_len == 9999) {
-                                        v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
-                                        if (use_bloom && v1 == NULL)
-                                            bloom_filter_add_string(bf_idx1, k, k_len);
-                                    }
-                                } else {*/
-                                    v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
-                                    if (use_bloom && v1 == NULL)
-                                        bloom_filter_add_string(bf_idx1, k, k_len);
-                                //}
-#endif
-                                if (v1 != NULL)
-                                    memcpy(v1, v, v_len - 1);
-#if BUCKET_COUNT == 2
-                                if (entry_count <= 1)
-                                    spawn_more_idx1_if_full();
-#else
-                                spawn_more_idx1_if_full();
-#endif
-                                idx0->remove_entry(i);
-                                i--;
+                            if (entry_count <= 1) {
+                                v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
+                                if (use_bloom && v1 == NULL)
+                                    bloom_filter_add_string(bf_idx1, k, k_len);
+                                remove_entry_from_more_idxs(k, k_len);
                             } else {
-                                if (entry_count < next_min)
-                                    next_min = entry_count;
-                                if (entry_count > 2)
-                                    v[v_len - 1]--;
+                                v1 = idx2->put(k, k_len, v, v_len - 1, &v1_len);
+                                if (use_bloom && v1 == NULL)
+                                    bloom_filter_add_string(bf_idx2, k, k_len);
+                                remove_entry_from_idx1_more(k, k_len);
                             }
-                            if (idx0->filledSize() <= target_size && cur_count > 1)
-                                break;
+#else
+                            v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
+                            if (use_bloom && v1 == NULL)
+                                bloom_filter_add_string(bf_idx1, k, k_len);
+                            remove_entry_from_more_idxs(k, k_len);
+#endif
+                            if (v1 != NULL)
+                                memcpy(v1, v, v_len - 1);
+#if BUCKET_COUNT == 2
+                            if (entry_count <= 1)
+                                spawn_more_idx1_if_full();
+#else
+                            spawn_more_idx1_if_full();
+#endif
+                            idx0->remove_entry(i);
+                            i--;
+                        } else {
+                            if (entry_count < next_min)
+                                next_min = entry_count;
+                            if (entry_count > 2)
+                                v[v_len - 1]--;
                         }
-                        cur_count = (cur_count == next_min ? 255 : next_min);
-                        //cout << "next_min: " << next_min << endl;
+                        if (idx0->filledSize() <= target_size && cur_count > 1)
+                            break;
                     }
-                    //if (idx0->filledSize() > 0)
-                    //    cout << "Not emptied" << endl;
-                    idx0->makeSpace();
-                    // if (idx0->current_block != idx0->root_block) {
-                    //     int idx = (idx0->current_block - idx0->cache->page_cache)/STAGING_BLOCK_SIZE;
-                    //     if (idx < cache0_page_count && flush_counts[idx] == 0 && zero_count)
-                    //         zero_count--;
-                    //     if (flush_counts[idx] < 255)
-                    //         flush_counts[idx]++;
-                    // }
+                    cur_count = (cur_count == next_min ? 255 : next_min);
+                    //cout << "next_min: " << next_min << endl;
                 }
-                val = idx0->put(key, key_len, new_val, new_val_len);
-                return val;
+                //if (idx0->filledSize() > 0)
+                //    cout << "Not emptied" << endl;
+                idx0->makeSpace();
+                // if (idx0->current_block != idx0->root_block) {
+                //     int idx = (idx0->current_block - idx0->cache->page_cache)/STAGING_BLOCK_SIZE;
+                //     if (idx < cache0_page_count && flush_counts[idx] == 0 && zero_count)
+                //         zero_count--;
+                //     if (flush_counts[idx] < 255)
+                //         flush_counts[idx]++;
+                // }
             }
-            uint8_t entry_count = val[*pValueLen - 1];
-            if (entry_count < 255)
-                val[*pValueLen - 1]++;
+            int new_val_len = (val == NULL ? value_len : *pValueLen - 1);
+            uint8_t new_val[new_val_len + 1];
+            memcpy(new_val, val == NULL ? value : val, new_val_len);
+            if (val == NULL)
+                new_val[new_val_len] = 1;
+            else
+                new_val[new_val_len] = val[new_val_len];
+            new_val_len++;
+            val = idx0->put(key, key_len, new_val, new_val_len);
+            if (val != NULL) {
+                uint8_t entry_count = val[*pValueLen - 1];
+                if (entry_count < 255)
+                    val[*pValueLen - 1]++;
+            }
             //cout << "Found in idx0: " << entry_count << endl;
             return val;
         }
@@ -410,23 +388,37 @@ class stager {
                 (*pValueLen)--;
 #if BUCKET_COUNT == 2
             if (val == NULL) {
-                if (!use_bloom || (use_bloom && bloom_filter_check_string(bf_idx2, key, key_len) != BLOOM_FAILURE))
+                idx_more_lookup_counts[0]++;
+                if (!use_bloom || (use_bloom && bloom_filter_check_string(bf_idx2, key, key_len) != BLOOM_FAILURE)) {
+                    idx_more_pve_counts[0]++;
                     val = idx2->get(key, key_len, pValueLen);
+                    if (val != NULL)
+                        idx_more_found_counts[0]++;
+                }
             }
 #endif
             if (val == NULL) {
-                if (!use_bloom || (use_bloom && bloom_filter_check_string(bf_idx1, key, key_len) != BLOOM_FAILURE))
+                idx_more_lookup_counts[BUCKET_COUNT - 1]++;
+                if (!use_bloom || (use_bloom && bloom_filter_check_string(bf_idx1, key, key_len) != BLOOM_FAILURE)) {
+                    idx_more_pve_counts[BUCKET_COUNT - 1]++;
                     val = idx1->get(key, key_len, pValueLen);
+                    if (val != NULL)
+                        idx_more_found_counts[BUCKET_COUNT - 1]++;
+                }
             }
             if (val == NULL) {
                 cache_more_bf::iterator it_bf;
                 if (use_bloom)
                     it_bf = bf_idx1_more.begin();
                 for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
+                    idx_more_lookup_counts[it - idx1_more.begin() + BUCKET_COUNT]++;
                     if (!use_bloom || (use_bloom && bloom_filter_check_string(*it_bf, key, key_len) != BLOOM_FAILURE)) {
-                        val = (*it)->get(key, key_len, pValueLen);
-                        if (val != NULL)
-                            break;
+                       idx_more_pve_counts[it - idx1_more.begin() + BUCKET_COUNT]++;
+                       val = (*it)->get(key, key_len, pValueLen);
+                       if (val != NULL) {
+                           idx_more_found_counts[it - idx1_more.begin() + BUCKET_COUNT]++;
+                           break;
+                       }
                     }
                     it_bf++;
                 }

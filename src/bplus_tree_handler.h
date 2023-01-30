@@ -434,7 +434,7 @@ public:
     void addData(int16_t search_result);
     void insertCurrent();
 
-    void setValue(uint8_t *val, int16_t len) {
+    void setValue(const uint8_t *val, int16_t len) {
         value = val;
         value_len = len;
     }
