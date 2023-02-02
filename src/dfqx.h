@@ -39,8 +39,13 @@ public:
 
     dfqx(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL, uint8_t *block = NULL) :
-        bpt_trie_handler<dfqx>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
+            const char *fname = NULL) :
+        bpt_trie_handler<dfqx>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+    }
+
+    dfqx(uint32_t block_sz, uint8_t *block) :
+      bpt_trie_handler<dfqx>(block_sz, block) {
+        init_stats();
     }
 
     inline void setCurrentBlockRoot() {
@@ -567,7 +572,7 @@ public:
         int16_t orig_filled_size = filledSize();
         const uint16_t DFQX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         uint8_t *b = allocateBlock(DFQX_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
-        dfqx new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
+        dfqx new_block(DFQX_NODE_SIZE, b);
         memcpy(new_block.trie, trie, BPT_TRIE_LEN);
         new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;

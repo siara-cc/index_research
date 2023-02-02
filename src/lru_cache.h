@@ -63,24 +63,6 @@ protected:
     uint8_t empty;
     cache_stats stats;
     void *(*malloc_fn)(size_t);
-    void write_page(uint8_t *block, off_t file_pos, size_t bytes, bool is_new = true) {
-        //if (is_new)
-        //  fseek(fp, 0, SEEK_END);
-        //else
-#if USE_FOPEN == 1
-        if (fseek(fp, file_pos, SEEK_SET))
-            fseek(fp, 0, SEEK_END);
-        int write_count = fwrite(block, 1, bytes, fp);
-#else
-        if (lseek(fd, file_pos, SEEK_SET) == -1)
-            lseek(fd, 0, SEEK_END);
-        int write_count = write(fd, block, bytes);
-#endif
-        if (write_count != bytes) {
-            printf("Short write: %d\n", write_count);
-            throw EIO;
-        }
-    }
     void write_pages(set<int>& pages_to_write) {
         time_point<steady_clock> start;
         start = steady_clock::now();
@@ -256,17 +238,17 @@ public:
         memset(disk_to_cache_map, '\0', disk_to_cache_map_size * sizeof(dbl_lnklst *));
         empty = 0;
 #if USE_FOPEN == 1
+        fseek(fp, skip_page_count * page_size, SEEK_SET);
         if (fread(root_block, 1, page_size, fp) != page_size) {
-            file_page_count = 1;
-            fseek(fp, 0, SEEK_SET);
+            file_page_count = skip_page_count + 1;
             if (fwrite(root_block, 1, page_size, fp) != page_size)
               throw EIO;
             empty = 1;
         }
 #else
+        lseek(fd, skip_page_count * page_size, SEEK_SET);
         if (read(fd, root_block, page_size) != page_size) {
-            file_page_count = 1;
-            lseek(fd, 0, SEEK_SET);
+            file_page_count = skip_page_count + 1;
             if (write(fd, root_block, page_size) != page_size)
               throw EIO;
             empty = 1;
@@ -300,6 +282,24 @@ public:
         cout << "cache requests: " << " " << stats.total_cache_req 
              << ", Misses: " << stats.total_cache_misses
              << ", Flush#: " << stats.cache_flush_count << endl;
+    }
+    void write_page(uint8_t *block, off_t file_pos, size_t bytes, bool is_new = true) {
+        //if (is_new)
+        //  fseek(fp, 0, SEEK_END);
+        //else
+#if USE_FOPEN == 1
+        if (fseek(fp, file_pos, SEEK_SET))
+            fseek(fp, 0, SEEK_END);
+        int write_count = fwrite(block, 1, bytes, fp);
+#else
+        if (lseek(fd, file_pos, SEEK_SET) == -1)
+            lseek(fd, 0, SEEK_END);
+        int write_count = write(fd, block, bytes);
+#endif
+        if (write_count != bytes) {
+            printf("Short write: %d\n", write_count);
+            throw EIO;
+        }
     }
     uint8_t *get_disk_page_in_cache(int disk_page, uint8_t *block_to_keep = NULL, bool is_new = false) {
         if (disk_page == skip_page_count)

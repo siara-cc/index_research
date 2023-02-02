@@ -75,9 +75,14 @@ public:
 
     linex(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL, uint8_t *block = NULL) :
-       bplus_tree_handler<linex>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
+            const char *fname = NULL) :
+       bplus_tree_handler<linex>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
         initCurrentBlock();
+    }
+
+    linex(uint32_t block_sz, uint8_t *block) :
+      bplus_tree_handler<linex>(block_sz, block) {
+        init_stats();
     }
 
     void addFirstData() {
@@ -149,7 +154,7 @@ public:
         int16_t filled_size = filledSize();
         const uint16_t LINEX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         uint8_t *b = allocateBlock(LINEX_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
-        linex new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
+        linex new_block(LINEX_NODE_SIZE, b);
         new_block.setKVLastPos(LX_BLK_HDR_SIZE);
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         int16_t kv_last_pos = getKVLastPos();

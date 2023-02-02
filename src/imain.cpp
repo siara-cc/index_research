@@ -9,6 +9,7 @@
 #include "univix_util.h"
 #include "art.h"
 #include "linex.h"
+#include "sqlite.h"
 #include "basix.h"
 #include "basix3.h"
 #include "dfox.h"
@@ -1469,7 +1470,8 @@ int main(int argc, char *argv[]) {
     //linex *lx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //basix *lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //basix3 *lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    lx = new stager(OUT_FILE1, CACHE_SIZE);
+    //lx = new stager(OUT_FILE1, CACHE_SIZE);
+    sqlite *lx = new sqlite(2, 1, (const uint8_t[]) {12, 12}, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //bft *lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //dft *lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //bfos *lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);

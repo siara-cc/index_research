@@ -49,8 +49,13 @@ public:
 
     octp(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL, uint8_t *block = NULL) :
-        bpt_trie_handler<octp>(leaf_block_sz, parent_block_sz, cache_sz, fname, block) {
+            const char *fname = NULL) :
+        bpt_trie_handler<octp>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+    }
+
+    octp(uint32_t block_sz, uint8_t *block) :
+      bpt_trie_handler<octp>(block_sz, block) {
+        init_stats();
     }
 
     inline void setCurrentBlockRoot() {
@@ -575,7 +580,7 @@ public:
         int16_t orig_filled_size = filledSize();
         const uint16_t OCTP_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         uint8_t *b = allocateBlock(OCTP_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
-        octp new_block(this->leaf_block_size, this->parent_block_size, 0, NULL, b);
+        octp new_block(OCTP_NODE_SIZE, b);
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
         uint16_t kv_last_pos = getKVLastPos();
