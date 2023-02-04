@@ -77,6 +77,12 @@ public:
         init_stats();
     }
 
+    void init_derived() {
+    }
+
+    void cleanup() {
+    }
+
     int16_t getDataEndPos();
     void setDataEndPos(int16_t pos);
     int16_t filledUpto();

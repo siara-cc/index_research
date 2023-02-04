@@ -258,6 +258,12 @@ public:
         setFilledSize(filledSz);
     }
 
+    void init_derived() {
+    }
+
+    void cleanup() {
+    }
+
 };
 
 #endif

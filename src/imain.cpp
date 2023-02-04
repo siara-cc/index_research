@@ -124,7 +124,8 @@ int64_t insert(unordered_map<string, string>& m, uint8_t *data_buf) {
             ret += VALUE_LEN;
         }
     }
-    NUM_ENTRIES = m.size();
+    if (USE_HASHTABLE)
+       NUM_ENTRIES = m.size();
     return ret;
 }
 
@@ -1463,15 +1464,16 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
-    stager *lx;
+    sqlite *lx;
     if (TEST_IDX1)
     {
     ctr = 0;
+    
     //linex *lx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //basix *lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //basix3 *lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new stager(OUT_FILE1, CACHE_SIZE);
-    sqlite *lx = new sqlite(2, 1, (const uint8_t[]) {12, 12}, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    lx = new sqlite(2, 1, (const uint8_t[]) {12, 12}, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //bft *lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //dft *lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //bfos *lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);

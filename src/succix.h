@@ -444,6 +444,10 @@ public:
         if (insertState != INSERT_THREAD)
             need_count = need_counts[insertState];
     }
+
+    void cleanup() {
+    }
+
 };
 
 #endif

@@ -293,6 +293,12 @@ public:
         setKVLastPos(LX_BLK_HDR_SIZE);
     }
 
+    void init_derived() {
+    }
+
+    void cleanup() {
+    }
+
 };
 
 #endif

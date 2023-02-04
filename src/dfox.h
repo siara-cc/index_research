@@ -922,6 +922,12 @@ public:
             need_count = need_counts[insertState];
     }
 
+    void init_derived() {
+    }
+
+    void cleanup() {
+    }
+
 };
 
 #endif

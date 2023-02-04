@@ -92,7 +92,7 @@ public:
 #endif
 
     size_t leaf_block_size, parent_block_size;
-    const int cache_size;
+    int cache_size;
     const char *filename;
     bool demote_blocks;
     bplus_tree_handler(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
@@ -100,17 +100,20 @@ public:
             const char *fname = NULL, int start_page_num = 0) :
             leaf_block_size (leaf_block_sz), parent_block_size (parent_block_sz),
             cache_size (cache_sz_mb & 0xFFFF), filename (fname) {
+        static_cast<T*>(this)->init_derived();
         init_stats();
         is_block_given = 0;
         demote_blocks = false;
         if (cache_size > 0) {
             cache = new lru_cache(leaf_block_size, cache_size, filename, start_page_num, util::alignedAlloc);
-            root_block = current_block = cache->get_disk_page_in_cache(0);
+            root_block = current_block = cache->get_disk_page_in_cache(start_page_num);
             if (cache->is_empty()) {
+                static_cast<T*>(this)->setLeaf(1);
                 static_cast<T*>(this)->initCurrentBlock();
             }
         } else {
             root_block = current_block = (uint8_t *) util::alignedAlloc(leaf_block_size);
+            static_cast<T*>(this)->setLeaf(1);
             static_cast<T*>(this)->setCurrentBlock(current_block);
             static_cast<T*>(this)->initCurrentBlock();
         }
@@ -126,6 +129,7 @@ public:
     }
 
     ~bplus_tree_handler() {
+        static_cast<T*>(this)->cleanup();
         if (cache_size > 0)
             delete cache;
         else if (!is_block_given)
@@ -136,10 +140,10 @@ public:
         //memset(current_block, '\0', BFOS_NODE_SIZE);
         //cout << "Tree init block" << endl;
         if (!is_block_given) {
-            setLeaf(1);
-            setFilledSize(0);
+            static_cast<T*>(this)->setLeaf(1);
+            static_cast<T*>(this)->setFilledSize(0);
             BPT_MAX_KEY_LEN = 0;
-            setKVLastPos(leaf_block_size);
+            static_cast<T*>(this)->setKVLastPos(leaf_block_size);
         }
     }
 
@@ -177,9 +181,10 @@ public:
         this->key = key;
         this->key_len = key_len;
         current_page = 0;
-        if ((isLeaf() ? static_cast<T*>(this)->searchCurrentBlock() : traverseToLeaf()) < 0)
+        if ((static_cast<T*>(this)->isLeaf()
+                ? static_cast<T*>(this)->searchCurrentBlock() : traverseToLeaf()) < 0)
             return NULL;
-        return getValueAt(pValueLen);
+        return static_cast<T*>(this)->getValueAt(pValueLen);
     }
 
     inline bool isLeaf() {
@@ -222,7 +227,7 @@ public:
     int16_t traverseToLeaf(int8_t *plevel_count = NULL, uint8_t *node_paths[] = NULL) {
         current_page = 0;
         uint8_t prev_lvl_split_count = 0;
-        while (!isLeaf()) {
+        while (!static_cast<T*>(this)->isLeaf()) {
             if (node_paths) {
                 *node_paths++ = cache_size > 0 ? (uint8_t *) current_page : current_block;
                 (*plevel_count)++;
@@ -297,21 +302,21 @@ public:
             max_key_len = key_len;
         this->value = value;
         this->value_len = value_len;
-        if (filledSize() == 0) {
+        if (static_cast<T*>(this)->filledSize() == 0) {
             static_cast<T*>(this)->addFirstData();
-            setChanged(1);
+            static_cast<T*>(this)->setChanged(1);
         } else {
             current_page = 0;
             uint8_t **node_paths = (uint8_t **) malloc(8 * sizeof(void *));
             int8_t level_count = 1;
-            int16_t search_result = isLeaf() ?
+            int16_t search_result = static_cast<T*>(this)->isLeaf() ?
                     static_cast<T*>(this)->searchCurrentBlock() :
                     traverseToLeaf(&level_count, node_paths);
             numLevels = level_count;
             if (search_result >= 0) {
                 free(node_paths);
-                setChanged(1);
-                return getValueAt(pValueLen);
+                static_cast<T*>(this)->setChanged(1);
+                return static_cast<T*>(this)->getValueAt(pValueLen);
             }
             if (only_if_not_full) {
                 if (static_cast<T*>(this)->isFull(~search_result)) {
@@ -337,7 +342,7 @@ public:
                 int16_t first_len;
                 uint8_t *old_block = current_block;
                 uint8_t *new_block = static_cast<T*>(this)->split(first_key, &first_len);
-                setChanged(1);
+                static_cast<T*>(this)->setChanged(1);
                 int lvl = old_block[0] & 0x1F;
                 new_block[0] = (new_block[0] & 0xE0) + lvl;
                 int new_page = 0;
@@ -365,11 +370,11 @@ public:
                     } else
                         root_block = (uint8_t *) util::alignedAlloc(parent_block_size);
                     static_cast<T*>(this)->setCurrentBlock(root_block);
+                    static_cast<T*>(this)->setLeaf(0);
                     static_cast<T*>(this)->initCurrentBlock();
-                    setLeaf(0);
-                    setChanged(1);
+                    static_cast<T*>(this)->setChanged(1);
                     root_block[0] = (root_block[0] & 0xE0) + new_lvl;
-                    setKVLastPos(parent_block_size);
+                    static_cast<T*>(this)->setKVLastPos(parent_block_size);
                     uint8_t addr[9];
                     key = (uint8_t *) "";
                     key_len = 1;
@@ -423,14 +428,14 @@ public:
                 }
             } else {
                 static_cast<T*>(this)->addData(search_result);
-                setChanged(1);
+                static_cast<T*>(this)->setChanged(1);
             }
         } else {
-            if (isLeaf()) {
+            if (static_cast<T*>(this)->isLeaf()) {
                this->key_at += this->key_at_len;
                if (*key_at == this->value_len)
                    memcpy((uint8_t *) key_at + 1, this->value, this->value_len);
-               setChanged(1);
+               static_cast<T*>(this)->setChanged(1);
             } else {
                 cout << "searchResult >=0 for parent" << endl;
             }
@@ -452,7 +457,7 @@ public:
     }
 
     inline void insPtr(int16_t pos, uint16_t kv_pos) {
-        int16_t filledSz = filledSize();
+        int16_t filledSz = static_cast<T*>(this)->filledSize();
 #if BPT_9_BIT_PTR == 1
         uint8_t *kvIdx = static_cast<T*>(this)->getPtrPos() + pos;
         memmove(kvIdx + 1, kvIdx, filledSz - pos);
@@ -475,12 +480,12 @@ public:
         memmove(kvIdx + 2, kvIdx, (filledSz - pos) * 2);
         util::setInt(kvIdx, kv_pos);
 #endif
-        setFilledSize(filledSz + 1);
+        static_cast<T*>(this)->setFilledSize(filledSz + 1);
 
     }
 
     inline void delPtr(int16_t pos) {
-        int16_t filledSz = filledSize() - 1;
+        int16_t filledSz = static_cast<T*>(this)->filledSize() - 1;
 #if BPT_9_BIT_PTR == 1
         uint8_t *kvIdx = static_cast<T*>(this)->getPtrPos() + pos;
         memmove(kvIdx, kvIdx + 1, filledSz - pos);
@@ -501,7 +506,7 @@ public:
         uint8_t *kvIdx = static_cast<T*>(this)->getPtrPos() + (pos << 1);
         memmove(kvIdx, kvIdx + 2, (filledSz - pos) * 2);
 #endif
-        setFilledSize(filledSz);
+        static_cast<T*>(this)->setFilledSize(filledSz);
         *current_block |= 0x20;
     }
 
@@ -534,11 +539,11 @@ public:
     }
 
     inline void updateSplitStats() {
-        if (isLeaf()) {
-            maxKeyCountLeaf += filledSize();
+        if (static_cast<T*>(this)->isLeaf()) {
+            maxKeyCountLeaf += static_cast<T*>(this)->filledSize();
             blockCountLeaf++;
         } else {
-            maxKeyCountNode += filledSize();
+            maxKeyCountNode += static_cast<T*>(this)->filledSize();
             blockCountNode++;
         }
     }
@@ -675,12 +680,12 @@ protected:
     }
 
     inline void updateSplitStats() {
-        if (bplus_tree_handler<T>::isLeaf()) {
-            bplus_tree_handler<T>::maxKeyCountLeaf += bplus_tree_handler<T>::filledSize();
+        if (static_cast<T*>(this)->isLeaf()) {
+            bplus_tree_handler<T>::maxKeyCountLeaf += static_cast<T*>(this)->filledSize();
             maxTrieLenLeaf += bplus_tree_handler<T>::BPT_TRIE_LEN + (*(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR) << 8);
             bplus_tree_handler<T>::blockCountLeaf++;
         } else {
-            bplus_tree_handler<T>::maxKeyCountNode += bplus_tree_handler<T>::filledSize();
+            bplus_tree_handler<T>::maxKeyCountNode += static_cast<T*>(this)->filledSize();
             maxTrieLenNode += bplus_tree_handler<T>::BPT_TRIE_LEN + (*(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR) << 8);
             bplus_tree_handler<T>::blockCountNode++;
         }

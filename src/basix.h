@@ -358,6 +358,12 @@ public:
         addData(0);
     }
 
+    void init_derived() {
+    }
+
+    void cleanup() {
+    }
+
 };
 
 #endif

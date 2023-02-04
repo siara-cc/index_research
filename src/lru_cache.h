@@ -240,9 +240,12 @@ public:
 #if USE_FOPEN == 1
         fseek(fp, skip_page_count * page_size, SEEK_SET);
         if (fread(root_block, 1, page_size, fp) != page_size) {
+            // Just fill arbitrary data before root
+            for (int i = file_page_count; i < skip_page_count; i++)
+                write_page(root_block, i * page_size, page_size);
             file_page_count = skip_page_count + 1;
-            if (fwrite(root_block, 1, page_size, fp) != page_size)
-              throw EIO;
+            // write root block
+            write_page(root_block, skip_page_count * page_size, page_size);
             empty = 1;
         }
 #else
@@ -270,7 +273,7 @@ public:
         }
         write_pages(pages_to_write);
         free(page_cache);
-        write_page(root_block, 0, page_size);
+        write_page(root_block, skip_page_count * page_size, page_size);
 #if USE_FOPEN == 1
         fclose(fp);
 #else
