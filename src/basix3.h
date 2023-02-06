@@ -23,8 +23,8 @@ public:
         bplus_tree_handler<basix3>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
     }
 
-    basix3(uint32_t block_sz, uint8_t *block) :
-      bplus_tree_handler<basix3>(block_sz, block) {
+    basix3(uint32_t block_sz, uint8_t *block, bool is_leaf) :
+      bplus_tree_handler<basix3>(block_sz, block, is_leaf) {
         init_stats();
     }
 
@@ -129,7 +129,7 @@ public:
         uint32_t BASIX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         int lvl = current_block[0] & 0x1F;
         uint8_t *b = allocateBlock(BASIX_NODE_SIZE, isLeaf(), lvl);
-        basix3 new_block(BASIX_NODE_SIZE, b);
+        basix3 new_block(BASIX_NODE_SIZE, b, isLeaf());
         new_block.MAX_KEY_LEN = MAX_KEY_LEN;
         new_block.setKVLastPos(BASIX_NODE_SIZE);
         uint32_t kv_last_pos = getKVLastPos();
@@ -172,9 +172,6 @@ public:
         }
         //memset(current_block + BASIX3_HDR_SIZE, '\0', BASIX_NODE_SIZE - BASIX3_HDR_SIZE);
         kv_last_pos = getKVLastPos();
-        uint32_t old_blk_new_len = brk_kv_pos - kv_last_pos;
-        memcpy(current_block + BASIX_NODE_SIZE - old_blk_new_len, new_block.current_block + kv_last_pos,
-                old_blk_new_len); // Copy back first half to old block
         //memset(new_block.current_block + kv_last_pos, '\0', old_blk_new_len);
         int diff = (BASIX_NODE_SIZE - brk_kv_pos);
         for (new_idx = 0; new_idx <= brk_idx; new_idx++) {

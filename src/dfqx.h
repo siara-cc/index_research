@@ -43,8 +43,8 @@ public:
         bpt_trie_handler<dfqx>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
     }
 
-    dfqx(uint32_t block_sz, uint8_t *block) :
-      bpt_trie_handler<dfqx>(block_sz, block) {
+    dfqx(uint32_t block_sz, uint8_t *block, bool is_leaf) :
+      bpt_trie_handler<dfqx>(block_sz, block, is_leaf) {
         init_stats();
     }
 
@@ -572,7 +572,7 @@ public:
         int16_t orig_filled_size = filledSize();
         const uint16_t DFQX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         uint8_t *b = allocateBlock(DFQX_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
-        dfqx new_block(DFQX_NODE_SIZE, b);
+        dfqx new_block(DFQX_NODE_SIZE, b, isLeaf());
         memcpy(new_block.trie, trie, BPT_TRIE_LEN);
         new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;

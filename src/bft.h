@@ -45,8 +45,8 @@ public:
                 leaf_block_size : parent_block_size);
     }
 
-    bft(uint32_t block_sz, uint8_t *block) :
-      bpt_trie_handler<bft>(block_sz, block) {
+    bft(uint32_t block_sz, uint8_t *block, bool is_leaf) :
+      bpt_trie_handler<bft>(block_sz, block, isLeaf()) {
         init_stats();
     }
 
@@ -352,10 +352,10 @@ public:
         int16_t orig_filled_size = filledSize();
         const uint16_t BFT_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         uint8_t *b = allocateBlock(BFT_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
-        bft new_block(BFT_NODE_SIZE, b);
+        bft new_block(BFT_NODE_SIZE, b, isLeaf());
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
-        bft old_block(BFT_NODE_SIZE, split_buf);
+        bft old_block(BFT_NODE_SIZE, split_buf, isLeaf());
         old_block.setLeaf(isLeaf());
         old_block.setFilledSize(0);
         old_block.setKVLastPos(new_block.getKVLastPos());

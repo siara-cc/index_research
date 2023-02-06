@@ -80,8 +80,8 @@ public:
         initCurrentBlock();
     }
 
-    linex(uint32_t block_sz, uint8_t *block) :
-      bplus_tree_handler<linex>(block_sz, block) {
+    linex(uint32_t block_sz, uint8_t *block, bool ls_leaf) :
+      bplus_tree_handler<linex>(block_sz, block, ls_leaf) {
         init_stats();
     }
 
@@ -152,9 +152,9 @@ public:
 
     uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t filled_size = filledSize();
-        const uint16_t LINEX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
+        const uint32_t LINEX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         uint8_t *b = allocateBlock(LINEX_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
-        linex new_block(LINEX_NODE_SIZE, b);
+        linex new_block(LINEX_NODE_SIZE, b, isLeaf());
         new_block.setKVLastPos(LX_BLK_HDR_SIZE);
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         int16_t kv_last_pos = getKVLastPos();

@@ -71,8 +71,8 @@ public:
         bpt_trie_handler<bfos>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
     }
 
-    bfos(uint32_t block_sz, uint8_t *block) :
-      bpt_trie_handler<bfos>(block_sz, block) {
+    bfos(uint32_t block_sz, uint8_t *block, bool is_leaf) :
+      bpt_trie_handler<bfos>(block_sz, block, is_leaf) {
         init_stats();
     }
 
@@ -592,7 +592,7 @@ public:
         uint32_t BFOS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         int lvl = current_block[0] & 0x1F;
         uint8_t *b = allocateBlock(BFOS_NODE_SIZE, isLeaf(), lvl);
-        bfos new_block(BFOS_NODE_SIZE, b);
+        bfos new_block(BFOS_NODE_SIZE, b, isLeaf());
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
         uint16_t kv_last_pos = getKVLastPos();

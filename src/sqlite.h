@@ -308,7 +308,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             ptr[0] = 2; // Interior index b-tree page
             write_uint16(ptr + 1, 0); // No freeblocks
             write_uint16(ptr + 3, 0); // No records yet
-            write_uint16(ptr + 5, (leaf_block_size == 65536 ? 0 : leaf_block_size - page_resv_bytes)); // No records yet
+            write_uint16(ptr + 5, (parent_block_size == 65536 ? 0 : parent_block_size - page_resv_bytes)); // No records yet
             write_uint8(ptr + 7, 0); // Fragmented free bytes
             write_uint32(ptr + 8, 0); // right-most pointer
             blk_hdr_len = 12;
@@ -612,6 +612,59 @@ class sqlite : public bplus_tree_handler<sqlite> {
             return -1; // should not be reached
         }
 
+    public:
+        uint8_t *master_block;
+        int16_t pos;
+        int pk_count;
+        int col_count;
+        const uint8_t *col_types;
+        const char **column_names;
+        const char *table_name;
+        int blk_hdr_len;
+        sqlite(int total_col_count, int pk_col_count, const uint8_t types[],
+                const char *col_names[] = NULL, const char *tbl_name = NULL,
+                uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
+                uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
+                const char *fname = NULL) : pk_count (pk_col_count),
+                    col_count (total_col_count), col_types (types),
+                    column_names (col_names), table_name (tbl_name),
+                    bplus_tree_handler<sqlite>(leaf_block_sz, parent_block_sz, cache_sz, fname, 1) {
+            if (cache_size > 0) {
+                int res = write_page0(col_count, pk_count, col_types, column_names, table_name);
+                if (res != SQLT_RES_OK)
+                    throw res;
+            }
+            setCurrentBlockRoot();
+        }
+
+        void init_derived() {
+        }
+
+        sqlite(uint32_t block_sz, uint8_t *block, bool is_leaf)
+                : bplus_tree_handler<sqlite>(block_sz, block, is_leaf) {
+        }
+
+        ~sqlite() {
+        }
+
+        void cleanup() {
+            if (cache_size > 0) {
+                uint32_t file_size_in_pages = cache->file_page_count;
+                write_uint32(master_block + 28, file_size_in_pages);
+                cache->write_page(master_block, 0, leaf_block_size);
+            }
+            free(master_block);
+        }
+
+        inline void setCurrentBlockRoot() {
+            setCurrentBlock(root_block);
+        }
+
+        inline void setCurrentBlock(uint8_t *m) {
+            current_block = m;
+            blk_hdr_len = (current_block[0] == 10 || current_block[0] == 13 ? 8 : 12);
+        }
+
         int compare_keys(const uint8_t *rec1, int rec1_len, const uint8_t *rec2, int rec2_len) {
             int8_t vlen;
             const uint8_t *ptr1 = rec1;
@@ -664,58 +717,6 @@ class sqlite : public bplus_tree_handler<sqlite> {
             return cmp;
         }
 
-    public:
-        uint8_t *master_block;
-        int16_t pos;
-        int pk_count;
-        int col_count;
-        const uint8_t *col_types;
-        const char **column_names;
-        const char *table_name;
-        int blk_hdr_len;
-        sqlite(int total_col_count, int pk_col_count, const uint8_t types[],
-                const char *col_names[] = NULL, const char *tbl_name = NULL,
-                uint16_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
-                uint16_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-                const char *fname = NULL) : pk_count (pk_col_count),
-                    col_count (total_col_count), col_types (types),
-                    column_names (col_names), table_name (tbl_name),
-                    bplus_tree_handler<sqlite>(leaf_block_sz, parent_block_sz, cache_sz, fname, 1) {
-            if (cache_size > 0) {
-                int res = write_page0(col_count, pk_count, col_types, column_names, table_name);
-                if (res != SQLT_RES_OK)
-                    throw res;
-            }
-            setCurrentBlockRoot();
-        }
-
-        void init_derived() {
-        }
-
-        sqlite(uint32_t block_sz, uint8_t *block) : bplus_tree_handler<sqlite>(block_sz, block) {
-        }
-
-        ~sqlite() {
-        }
-
-        void cleanup() {
-            if (cache_size > 0) {
-                uint32_t file_size_in_pages = cache->file_page_count;
-                write_uint32(master_block + 28, file_size_in_pages);
-                //cache->write_page(master_block, 0, leaf_block_size);
-            }
-            free(master_block);
-        }
-
-        inline void setCurrentBlockRoot() {
-            setCurrentBlock(root_block);
-        }
-
-        inline void setCurrentBlock(uint8_t *m) {
-            current_block = m;
-            blk_hdr_len = (current_block[0] == 10 || current_block[0] == 13 ? 8 : 12);
-        }
-
         inline int16_t searchCurrentBlock() {
             int middle, first, filled_size, cmp;
             int8_t vlen;
@@ -743,24 +744,20 @@ class sqlite : public bplus_tree_handler<sqlite> {
             return ~filled_size;
         }
 
-        inline uint8_t *getChildPtrPos(int16_t search_result) {
-            if (search_result < 0) {
-                search_result++;
-                search_result = ~search_result;
-            }
-            return current_block + getPtr(search_result);
-        }
-
-        inline uint8_t *getPtrPos() {
-            return current_block + blk_hdr_len; // TODO: fix
-        }
-
         inline int getHeaderSize() {
             return blk_hdr_len;
         }
 
         void remove_entry(int16_t pos) {
             delPtr(pos);
+        }
+
+        uint16_t getPtr(int16_t pos) {
+            return read_uint16(current_block + blk_hdr_len + pos * 2);
+        }
+
+        void setPtr(int16_t pos, uint16_t ptr) {
+            write_uint16(current_block + blk_hdr_len + pos * 2, ptr);
         }
 
         void makeSpace() {
@@ -788,11 +785,72 @@ class sqlite : public bplus_tree_handler<sqlite> {
             searchCurrentBlock();
         }
 
+        void add_first_kv_to_root(uint8_t *first_key, int16_t first_len, 
+                unsigned long old_block_addr, unsigned long new_block_addr) {
+            uint32_t new_addr32 = (uint32_t) new_block_addr;
+            write_uint32(current_block + 8, new_addr32);
+            uint8_t addr[9];
+            key = first_key;
+            key_len = first_len;
+            value = (uint8_t *) addr;
+            value_len = util::ptrToBytes((unsigned long) old_block_addr, addr);
+            if (demote_blocks) {
+                addr[value_len++] = 0;
+            }
+            //printf("value: %d, value_len1:%d\n", old_page, value_len);
+            addData(0);
+        }
+
+        void prepare_kv_to_add_to_parent(uint8_t *first_key, int16_t first_len, unsigned long new_block_addr, uint8_t *addr) {
+            key = (uint8_t *) first_key;
+            key_len = first_len;
+            value = (uint8_t *) addr;
+            value_len = util::ptrToBytes((unsigned long) new_block_addr, addr);
+            //printf("value: %d, value_len3:%d\n", new_page, value_len);
+            int16_t search_result = searchCurrentBlock();
+            if (demote_blocks) {
+                uint8_t *split_count = findSplitSource(search_result);
+                if (split_count != NULL) {
+                    if (*split_count < 254)
+                        (*split_count)++;
+                    //if (*split_count == 255)
+                    //    *split_count = 1;
+                    /*if (*split_count == 254)
+                        *split_count = 192;
+                    if (*split_count == 255)
+                        *split_count = 64;*/
+                    addr[value_len++] = *split_count;
+                } else {
+                    addr[value_len++] = 0;
+                }
+            }
+        }
+
+        void updateData() {
+            // TODO: Update values
+            if (isLeaf()) {
+                // this->key_at += this->key_at_len;
+                // if (*key_at == this->value_len)
+                //     memcpy((uint8_t *) key_at + 1, this->value, this->value_len);
+                // static_cast<T*>(this)->setChanged(1);
+            } else {
+                cout << "searchResult >=0 for parent" << endl;
+            }
+        }
+
         bool isFull(int16_t search_result) { // TODO: fix
+            int rec_len = key_len + value_len;
+            if (key[0] == 0 && value_len == 0) {
+            } else {
+                rec_len += get_vlen_of_uint32(key_len);
+                rec_len += get_vlen_of_uint32(value_len);
+                rec_len++;
+            }
+            rec_len += get_vlen_of_uint32(rec_len);
             int16_t ptr_size = filledSize() + 1;
-            if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2)) {
-                makeSpace();
-                if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
+            if (getKVLastPos() <= (blk_hdr_len + ptr_size + rec_len)) {
+                //makeSpace();
+                if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + rec_len))
                     return true;
             }
             return false;
@@ -803,68 +861,61 @@ class sqlite : public bplus_tree_handler<sqlite> {
             uint32_t BASIX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
             int lvl = current_block[0] & 0x1F;
             uint8_t *b = allocateBlock(BASIX_NODE_SIZE, isLeaf(), lvl);
-            sqlite new_block(this->leaf_block_size, b);
-            new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
+            if (isLeaf())
+                init_bt_idx_leaf(b);
+            else
+                init_bt_idx_interior(b);
+            sqlite new_block(BASIX_NODE_SIZE, b, isLeaf());
+            BASIX_NODE_SIZE -= page_resv_bytes;
             uint16_t kv_last_pos = getKVLastPos();
             uint16_t halfKVLen = BASIX_NODE_SIZE - kv_last_pos + 1;
             halfKVLen /= 2;
 
+            // Copy all data to new block in ascending order
             int16_t brk_idx = -1;
             uint16_t brk_kv_pos;
             uint16_t tot_len;
             brk_kv_pos = tot_len = 0;
-            // Copy all data to new block in ascending order
             int16_t new_idx;
             for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
                 uint16_t src_idx = getPtr(new_idx);
-                uint16_t kv_len = current_block[src_idx];
-                kv_len++;
-                kv_len += current_block[src_idx + kv_len];
-                kv_len++;
-                tot_len += kv_len;
-                memcpy(new_block.current_block + kv_last_pos, current_block + src_idx, kv_len);
-                new_block.insPtr(new_idx, kv_last_pos);
-                kv_last_pos += kv_len;
+                int8_t vlen;
+                int rec_len = read_vint32(current_block + src_idx, &vlen);
+                tot_len += rec_len + vlen;
                 if (brk_idx == -1) {
                     if (tot_len > halfKVLen || new_idx == (orig_filled_size / 2)) {
                         brk_idx = new_idx + 1;
                         brk_kv_pos = kv_last_pos;
-                        uint16_t first_idx = getPtr(new_idx + 1);
-                        if (isLeaf()) {
-                            int len = 0;
-                            while (current_block[first_idx + len + 1] == current_block[src_idx + len + 1])
-                                len++;
-                            *first_len_ptr = len + 1;
-                            memcpy(first_key, current_block + first_idx + 1, *first_len_ptr);
-                        } else {
-                            *first_len_ptr = current_block[first_idx];
-                            memcpy(first_key, current_block + first_idx + 1, *first_len_ptr);
-                        }
+                        uint16_t first_idx = getPtr(new_idx);
+                        *first_len_ptr = read_vint32(current_block + first_idx, &vlen);
+                        memcpy(first_key, current_block + first_idx + vlen, *first_len_ptr);
                     }
                 }
+                if (brk_idx != new_idx + 1) { // don't copy the middle record, but promote it to prev level
+                    memcpy(new_block.current_block + kv_last_pos, current_block + src_idx, rec_len + vlen);
+                    new_block.insPtr(new_idx, kv_last_pos);
+                    kv_last_pos += rec_len;
+                    kv_last_pos += vlen;
+                }
             }
-            //memset(current_block + BLK_HDR_SIZE, '\0', BASIX_NODE_SIZE - BLK_HDR_SIZE);
-            kv_last_pos = getKVLastPos();
-            uint16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
-            memcpy(current_block + BASIX_NODE_SIZE - old_blk_new_len, new_block.current_block + kv_last_pos,
-                    old_blk_new_len); // Copy back first half to old block
-            //memset(new_block.current_block + kv_last_pos, '\0', old_blk_new_len);
-            int diff = (BASIX_NODE_SIZE - brk_kv_pos);
-            for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
-                setPtr(new_idx, new_block.getPtr(new_idx) + diff);
-            } // Set index of copied first half in old block
 
+            kv_last_pos = getKVLastPos();
             {
+                int diff = (BASIX_NODE_SIZE - brk_kv_pos);
+                for (new_idx = 0; new_idx < (brk_idx - 1); new_idx++) {
+                    setPtr(new_idx, new_block.getPtr(new_idx) + diff);
+                } // Set index of copied first half in old block
                 uint16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
                 memcpy(current_block + BASIX_NODE_SIZE - old_blk_new_len,
                         new_block.current_block + kv_last_pos, old_blk_new_len); // Copy back first half to old block
                 setKVLastPos(BASIX_NODE_SIZE - old_blk_new_len);
-                setFilledSize(brk_idx);
+                setFilledSize(brk_idx - 2);
             }
 
             {
-                int16_t new_size = orig_filled_size - brk_idx;
+                int16_t new_size = orig_filled_size - brk_idx - 1;
                 uint8_t *block_ptrs = new_block.current_block + blk_hdr_len;
+                memmove(block_ptrs, block_ptrs + (brk_idx << 1), new_size << 1);
                 new_block.setKVLastPos(brk_kv_pos);
                 new_block.setFilledSize(new_size);
             }
@@ -882,7 +933,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 uint8_t *ptr = current_block + kv_last_pos;
                 memcpy(ptr, key + 1, key_len);
             } else {
-                int rec_len = (key_len + value_len + 2);
+                int rec_len = key_len + value_len;
                 int key_len_vlen = get_vlen_of_uint32(key_len * 2 + 13);
                 int value_len_vlen = get_vlen_of_uint32(value_len * 2 + 13);
                 int hdr_len = key_len_vlen + value_len_vlen;
@@ -890,6 +941,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 hdr_len += hdr_len_vlen;
                 rec_len += hdr_len;
                 kv_last_pos -= rec_len;
+                kv_last_pos -= get_vlen_of_uint32(rec_len);
                 setKVLastPos(kv_last_pos);
                 uint8_t *ptr = current_block + kv_last_pos;
                 ptr += write_vint32(ptr, rec_len);
@@ -901,15 +953,19 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 memcpy(ptr, value, value_len);
             }
 
-            int16_t filled_size = read_uint16(current_block + 3);
-            uint8_t *kv_idx = current_block + blk_hdr_len + search_result * 2;
-            memmove(kv_idx + 2, kv_idx, (filled_size - search_result) * 2);
-            write_uint16(current_block + 3, filled_size + 1);
+            insPtr(search_result, kv_last_pos);
             write_uint16(current_block + 5, kv_last_pos);
-            write_uint16(kv_idx, kv_last_pos);
             // if (BPT_MAX_KEY_LEN < key_len)
             //     BPT_MAX_KEY_LEN = key_len;
 
+        }
+
+        void insPtr(int16_t pos, uint16_t data_loc) {
+            int16_t filled_size = read_uint16(current_block + 3);
+            uint8_t *kv_idx = current_block + blk_hdr_len + pos * 2;
+            memmove(kv_idx + 2, kv_idx, (filled_size - pos) * 2);
+            write_uint16(current_block + 3, filled_size + 1);
+            write_uint16(kv_idx, data_loc);
         }
 
         void addFirstData() {
@@ -939,6 +995,13 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 current_block[leaf_block_size - 5] |= 0x40;
             else
                 current_block[leaf_block_size - 5] &= 0xBF;
+        }
+
+        inline void setChanged(uint8_t *block, char isChanged) {
+            if (isChanged)
+                block[leaf_block_size - 5] |= 0x40;
+            else
+                block[leaf_block_size - 5] &= 0xBF;
         }
 
         inline uint8_t isChanged() {
@@ -971,6 +1034,30 @@ class sqlite : public bplus_tree_handler<sqlite> {
             if (vlen != NULL)
                 *vlen = (read_vint32(key_at + hdr_vint_len + vint_len, NULL) - 13) / 2;
             return (uint8_t *) data_ptr + k_len;
+        }
+
+        inline uint8_t *getChildPtrPos(int16_t search_result) {
+            if (search_result < 0)
+                search_result = ~search_result;
+            if (search_result == filledSize())
+                return current_block + 8;
+            uint8_t *rec_pos = current_block + read_uint16(current_block + blk_hdr_len + search_result * 2);
+            int8_t vlen;
+            int rec_len = read_vint32(rec_pos, &vlen);
+            return rec_pos + vlen;
+        }
+
+        uint8_t *getPtrPos() {
+            return current_block + blk_hdr_len;
+        }
+
+        inline uint8_t *getChildPtr(uint8_t *ptr) {
+            uint64_t ret = read_uint32(ptr);
+            return (uint8_t *) ret;
+        }
+
+        inline int getChildPage(uint8_t *ptr) {
+            return read_uint32(ptr);
         }
 
         uint8_t *findSplitSource(int16_t search_result) {

@@ -56,8 +56,8 @@ public:
         bpt_trie_handler<dfos>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
     }
 
-    dfos(uint32_t block_sz, uint8_t *block) :
-      bpt_trie_handler<dfos>(block_sz, block) {
+    dfos(uint32_t block_sz, uint8_t *block, bool is_leaf) :
+      bpt_trie_handler<dfos>(block_sz, block, is_leaf) {
         init_stats();
     }
 
@@ -435,7 +435,7 @@ public:
         int16_t orig_filled_size = filledSize();
         const uint16_t DFOS_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         uint8_t *b = allocateBlock(DFOS_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
-        dfos new_block(DFOS_NODE_SIZE, b);
+        dfos new_block(DFOS_NODE_SIZE, b, isLeaf());
         memcpy(new_block.trie, trie, DS_GET_TRIE_LEN);
 #if DS_SIBLING_PTR_SIZE == 1
         new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;

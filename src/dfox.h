@@ -41,8 +41,8 @@ public:
         bpt_trie_handler<dfox>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
     }
 
-    dfox(uint32_t block_sz, uint8_t *block) :
-      bpt_trie_handler<dfox>(block_sz, block) {
+    dfox(uint32_t block_sz, uint8_t *block, bool is_leaf) :
+      bpt_trie_handler<dfox>(block_sz, block, is_leaf) {
         init_stats();
     }
 
@@ -431,7 +431,7 @@ public:
         int16_t orig_filled_size = filledSize();
         const uint16_t DFOX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         uint8_t *b = allocateBlock(DFOX_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
-        dfox new_block(DFOX_NODE_SIZE, b);
+        dfox new_block(DFOX_NODE_SIZE, b, isLeaf());
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
         uint16_t kv_last_pos = getKVLastPos();

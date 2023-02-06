@@ -72,8 +72,8 @@ public:
         initBuf();
     }
 
-    rb_tree(uint32_t block_sz, uint8_t *block) :
-      bplus_tree_handler<rb_tree>(block_sz, block) {
+    rb_tree(uint32_t block_sz, uint8_t *block, bool is_leaf) :
+      bplus_tree_handler<rb_tree>(block_sz, block, is_leaf) {
         init_stats();
     }
 

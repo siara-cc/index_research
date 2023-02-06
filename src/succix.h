@@ -35,8 +35,8 @@ public:
                 leaf_block_size : parent_block_size);
     }
 
-    succix(uint32_t block_sz, uint8_t *block) :
-      bpt_trie_handler<succix>(block_sz, block) {
+    succix(uint32_t block_sz, uint8_t *block, bool is_leaf) :
+      bpt_trie_handler<succix>(block_sz, block, is_leaf) {
         init_stats();
     }
 
@@ -194,7 +194,7 @@ public:
         const uint16_t SUCCIX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
         int lvl = current_block[0] & 0x1F;
         uint8_t *b = allocateBlock(SUCCIX_NODE_SIZE, isLeaf(), lvl);
-        succix new_block(SUCCIX_NODE_SIZE, b);
+        succix new_block(SUCCIX_NODE_SIZE, b, isLeaf());
         new_block.setKVLastPos(SUCCIX_NODE_SIZE);
         if (!isLeaf())
             new_block.setLeaf(0);
