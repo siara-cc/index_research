@@ -82,6 +82,7 @@ public:
     uint8_t key_at_len;
     const uint8_t *value;
     int16_t value_len;
+    bool is_btree;
 #if BPT_9_BIT_PTR == 1
 #if BPT_INT64MAP == 1
     uint64_t *bitmap;
@@ -97,15 +98,18 @@ public:
     bool demote_blocks;
     bplus_tree_handler(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz_mb = 0,
-            const char *fname = NULL, int start_page_num = 0) :
+            const char *fname = NULL, int start_page_num = 0, bool whether_btree = false) :
             leaf_block_size (leaf_block_sz), parent_block_size (parent_block_sz),
             cache_size (cache_sz_mb & 0xFFFF), filename (fname) {
         static_cast<T*>(this)->init_derived();
         init_stats();
         is_block_given = 0;
+        is_btree = whether_btree;
         demote_blocks = false;
         if (cache_size > 0) {
-            cache = new lru_cache(leaf_block_size, cache_size, filename, start_page_num, util::alignedAlloc);
+            cache = new lru_cache(leaf_block_size, cache_size, filename,
+                    &static_cast<T*>(this)->isBlockChanged, &static_cast<T*>(this)->setBlockChanged,
+                    start_page_num, util::alignedAlloc);
             root_block = current_block = cache->get_disk_page_in_cache(start_page_num);
             if (cache->is_empty()) {
                 static_cast<T*>(this)->setLeaf(1);
@@ -228,6 +232,8 @@ public:
     int16_t traverseToLeaf(int8_t *plevel_count = NULL, uint8_t *node_paths[] = NULL) {
         current_page = 0;
         uint8_t prev_lvl_split_count = 0;
+        uint8_t *btree_rec_ptr = NULL;
+        uint8_t *btree_found_blk = NULL;
         while (!static_cast<T*>(this)->isLeaf()) {
             if (node_paths) {
                 *node_paths++ = cache_size > 0 ? (uint8_t *) current_page : current_block;
@@ -235,6 +241,10 @@ public:
             }
             int16_t search_result;
             search_result = static_cast<T*>(this)->searchCurrentBlock();
+            if (search_result >= 0 && is_btree) {
+                btree_rec_ptr = key_at;
+                btree_found_blk = current_block;
+            }
             uint8_t *child_ptr_loc = static_cast<T*>(this)->getChildPtrPos(search_result);
             if (demote_blocks) {
                 prev_lvl_split_count = child_ptr_loc[*child_ptr_loc + 1 + child_ptr_loc[*child_ptr_loc+1]];
@@ -242,13 +252,17 @@ public:
             uint8_t *child_ptr;
             if (cache_size > 0) {
                 current_page = static_cast<T*>(this)->getChildPage(child_ptr_loc);
-                child_ptr = cache->get_disk_page_in_cache(current_page);
+                child_ptr = cache->get_disk_page_in_cache(current_page, btree_found_blk);
             } else
                 child_ptr = static_cast<T*>(this)->getChildPtr(child_ptr_loc);
             static_cast<T*>(this)->setCurrentBlock(child_ptr);
             //if (demote_blocks && current_block[5] < 255 && prev_lvl_split_count != current_block[5] - 1) {
             //    cout << "Split count not matching: " << (int) prev_lvl_split_count << " " << (int) current_block[5] << " " << (int) (current_block[0] & 0x1F) << endl;
             //}
+        }
+        if (btree_found_blk != NULL) {
+            key_at = btree_rec_ptr;
+            return 0;
         }
         return static_cast<T*>(this)->searchCurrentBlock();
     }
@@ -314,11 +328,6 @@ public:
                     static_cast<T*>(this)->searchCurrentBlock() :
                     traverseToLeaf(&level_count, node_paths);
             numLevels = level_count;
-            if (search_result >= 0) {
-                free(node_paths);
-                static_cast<T*>(this)->setChanged(1);
-                return static_cast<T*>(this)->getValueAt(pValueLen);
-            }
             if (only_if_not_full) {
                 if (static_cast<T*>(this)->isFull(~search_result)) {
                     *pValueLen = 9999;
@@ -333,15 +342,15 @@ public:
         return NULL;
     }
 
-    int get_level(uint8_t *block) {
+    int get_level(uint8_t *block, int block_size) {
         return block[0] & 0x1F;
     }
 
-    void set_level(uint8_t *block, int lvl) {
+    void set_level(uint8_t *block, int block_size, int lvl) {
         block[0] = (block[0] & 0xE0) + lvl;
     }
 
-    int16_t compare_keys(const uint8_t *key1, uint16_t k_len1,
+    int16_t compare_first_key(const uint8_t *key1, uint16_t k_len1,
                          const uint8_t *key2, uint16_t k_len2) {
         return util::compare(key1, k_len1, key2, k_len2);
     }
@@ -357,12 +366,12 @@ public:
                 uint8_t *old_block = current_block;
                 uint8_t *new_block = static_cast<T*>(this)->split(first_key, &first_len);
                 static_cast<T*>(this)->setChanged(1);
-                int lvl = static_cast<T*>(this)->get_level(old_block);
-                static_cast<T*>(this)->set_level(new_block, lvl);
+                int lvl = static_cast<T*>(this)->get_level(old_block, static_cast<T*>(this)->isLeaf() ? leaf_block_size : parent_block_size);
+                static_cast<T*>(this)->set_level(new_block, static_cast<T*>(this)->isLeaf() ? leaf_block_size : parent_block_size, lvl);
                 int new_page = 0;
                 if (cache_size > 0)
                     new_page = cache->get_page_count() - 1;
-                int16_t cmp = static_cast<T*>(this)->compare_keys(first_key, first_len, key, key_len);
+                int16_t cmp = static_cast<T*>(this)->compare_first_key(first_key, first_len, key, key_len);
                 if (cmp <= 0)
                     static_cast<T*>(this)->setCurrentBlock(new_block);
                 search_result = ~static_cast<T*>(this)->searchCurrentBlock();
@@ -379,15 +388,17 @@ public:
                     if (cache_size > 0) {
                         old_block = cache->get_new_page(new_block);
                         old_page = cache->get_page_count() - 1;
-                        memcpy(old_block, root_block, parent_block_size);
-                        static_cast<T*>(this)->setChanged(old_block, 1);
+                        memcpy(old_block, root_block,
+                                static_cast<T*>(this)->isLeaf() ? leaf_block_size : parent_block_size);
+                        static_cast<T*>(this)->setBlockChanged(old_block,
+                                static_cast<T*>(this)->isLeaf() ? leaf_block_size : parent_block_size, 1);
                     } else
                         root_block = (uint8_t *) util::alignedAlloc(parent_block_size);
                     static_cast<T*>(this)->setCurrentBlock(root_block);
                     static_cast<T*>(this)->setLeaf(0);
                     static_cast<T*>(this)->initCurrentBlock();
                     static_cast<T*>(this)->setChanged(1);
-                    static_cast<T*>(this)->set_level(current_block, new_lvl);
+                    static_cast<T*>(this)->set_level(current_block, static_cast<T*>(this)->isLeaf() ? leaf_block_size : parent_block_size, new_lvl);
                     static_cast<T*>(this)->add_first_kv_to_root(first_key, first_len,
                         cache_size > 0 ? (unsigned long) old_page : (unsigned long) old_block,
                         cache_size > 0 ? (unsigned long) new_page : (unsigned long) new_block);
@@ -585,22 +596,26 @@ public:
             current_block[0] &= 0x7F;
     }
 
-    inline void setChanged(char isChanged) {
+    void setChanged(bool isChanged) {
         if (isChanged)
             current_block[0] |= 0x40;
         else
             current_block[0] &= 0xBF;
     }
 
-    inline void setChanged(uint8_t *block, char isChanged) {
+    bool isChanged() {
+        return current_block[0] & 0x40;
+    }
+
+    static void setBlockChanged(uint8_t *block, int block_size, bool isChanged) {
         if (isChanged)
             block[0] |= 0x40;
         else
             block[0] &= 0xBF;
     }
 
-    inline uint8_t isChanged() {
-        return current_block[0] & 0x40;
+    static bool isBlockChanged(uint8_t *block, int block_size) {
+        return block[0] & 0x40;
     }
 
     inline void setKVLastPos(uint16_t val) {
