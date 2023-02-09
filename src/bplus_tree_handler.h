@@ -70,6 +70,7 @@ protected:
     long count1, count2;
     int max_key_len;
     int is_block_given;
+    int root_page_num;
 
 public:
     lru_cache *cache;
@@ -77,9 +78,9 @@ public:
     uint8_t *current_block;
     unsigned long current_page;
     const uint8_t *key;
-    uint8_t key_len;
+    int key_len;
     uint8_t *key_at;
-    uint8_t key_at_len;
+    int key_at_len;
     const uint8_t *value;
     int16_t value_len;
     bool is_btree;
@@ -104,6 +105,7 @@ public:
         static_cast<T*>(this)->init_derived();
         init_stats();
         is_block_given = 0;
+        root_page_num = start_page_num;
         is_btree = whether_btree;
         demote_blocks = false;
         if (cache_size > 0) {
@@ -123,14 +125,16 @@ public:
         }
     }
 
-    bplus_tree_handler(uint32_t block_sz, uint8_t *block, bool is_leaf) :
+    bplus_tree_handler(uint32_t block_sz, uint8_t *block, bool is_leaf, bool should_init = true) :
             leaf_block_size (block_sz), parent_block_size (block_sz),
             cache_size (0), filename (NULL) {
         is_block_given = 1;
         root_block = current_block = block;
-        static_cast<T*>(this)->setLeaf(is_leaf ? 1 : 0);
-        static_cast<T*>(this)->setCurrentBlock(block);
-        static_cast<T*>(this)->initCurrentBlock();
+        if (should_init) {
+            static_cast<T*>(this)->setLeaf(is_leaf ? 1 : 0);
+            static_cast<T*>(this)->setCurrentBlock(block);
+            static_cast<T*>(this)->initCurrentBlock();
+        }
     }
 
     ~bplus_tree_handler() {
@@ -178,16 +182,20 @@ public:
         return current_block;
     }
 
-    char *get(const char *key, uint8_t key_len, int16_t *pValueLen) {
+    char *get(const char *key, int key_len, int16_t *pValueLen) {
         return (char *) get((uint8_t *) key, key_len, pValueLen);
     }
-    uint8_t *get(const uint8_t *key, uint8_t key_len, int16_t *pValueLen) {
+    uint8_t *get(const uint8_t *key, int key_len, int16_t *pValueLen) {
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
         this->key_len = key_len;
-        current_page = 0;
-        if ((static_cast<T*>(this)->isLeaf()
-                ? static_cast<T*>(this)->searchCurrentBlock() : traverseToLeaf()) < 0)
+        current_page = root_page_num;
+        int16_t search_result;
+        if (static_cast<T*>(this)->isLeaf())
+            search_result = static_cast<T*>(this)->searchCurrentBlock();
+        else
+            search_result = traverseToLeaf();
+        if (search_result < 0)
             return NULL;
         return static_cast<T*>(this)->getValueAt(pValueLen);
     }
@@ -200,12 +208,12 @@ public:
     int16_t searchCurrentBlock();
     void setPrefixLast(uint8_t key_char, uint8_t *t, uint8_t pfx_rem_len);
 
-    inline uint8_t *getKey(int16_t pos, uint8_t *plen) {
+    inline uint8_t *getKey(int16_t pos, int *plen) {
         uint8_t *kvIdx = current_block + getPtr(pos);
         *plen = *kvIdx;
         return kvIdx + 1;
     }
-    uint8_t *getKey(uint8_t *t, uint8_t *plen);
+    uint8_t *getKey(uint8_t *t, int *plen);
 
     inline int getPtr(int16_t pos) {
 #if BPT_9_BIT_PTR == 1
@@ -230,7 +238,7 @@ public:
     uint8_t *getPtrPos();
 
     int16_t traverseToLeaf(int8_t *plevel_count = NULL, uint8_t *node_paths[] = NULL) {
-        current_page = 0;
+        current_page = root_page_num;
         uint8_t prev_lvl_split_count = 0;
         uint8_t *btree_rec_ptr = NULL;
         uint8_t *btree_found_blk = NULL;
@@ -239,8 +247,7 @@ public:
                 *node_paths++ = cache_size > 0 ? (uint8_t *) current_page : current_block;
                 (*plevel_count)++;
             }
-            int16_t search_result;
-            search_result = static_cast<T*>(this)->searchCurrentBlock();
+            int16_t search_result = static_cast<T*>(this)->searchCurrentBlock();
             if (search_result >= 0 && is_btree) {
                 btree_rec_ptr = key_at;
                 btree_found_blk = current_block;
@@ -304,11 +311,11 @@ public:
         return new_page;
     }
 
-    char *put(const char *key, uint8_t key_len, const char *value,
+    char *put(const char *key, int key_len, const char *value,
             int16_t value_len, int16_t *pValueLen = NULL) {
         return (char *) put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len, pValueLen);
     }
-    uint8_t *put(const uint8_t *key, uint8_t key_len, const uint8_t *value,
+    uint8_t *put(const uint8_t *key, int key_len, const uint8_t *value,
             int16_t value_len, int16_t *pValueLen = NULL, bool only_if_not_full = false) {
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
@@ -321,7 +328,7 @@ public:
             static_cast<T*>(this)->addFirstData();
             static_cast<T*>(this)->setChanged(1);
         } else {
-            current_page = 0;
+            current_page = root_page_num;
             uint8_t **node_paths = (uint8_t **) malloc(8 * sizeof(void *));
             int8_t level_count = 1;
             int16_t search_result = static_cast<T*>(this)->isLeaf() ?
@@ -350,8 +357,8 @@ public:
         block[0] = (block[0] & 0xE0) + lvl;
     }
 
-    int16_t compare_first_key(const uint8_t *key1, uint16_t k_len1,
-                         const uint8_t *key2, uint16_t k_len2) {
+    int16_t compare_first_key(const uint8_t *key1, int k_len1,
+                         const uint8_t *key2, int k_len2) {
         return util::compare(key1, k_len1, key2, k_len2);
     }
 
@@ -409,7 +416,7 @@ public:
                     uint8_t *parent_data = cache_size > 0 ? cache->get_disk_page_in_cache(current_page) : node_paths[prev_level];
                     static_cast<T*>(this)->setCurrentBlock(parent_data);
                     uint8_t addr[9];
-                    search_result = prepare_kv_to_add_to_parent(first_key, first_len, 
+                    search_result = static_cast<T*>(this)->prepare_kv_to_add_to_parent(first_key, first_len, 
                                         cache_size > 0 ? (unsigned long) new_page : (unsigned long) new_block, addr);
                     recursiveUpdate(search_result, node_paths, prev_level);
                 }

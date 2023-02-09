@@ -146,6 +146,8 @@ if (page_size == 4096) {
            stats.last_pages_to_flush = 20;
     }
     void flush_pages_in_seq(uint8_t *block_to_keep) {
+        if (lnklst_last_entry == NULL)
+            return;
         stats.cache_flush_count++;
         set<int> pages_to_write(new_pages);
         calc_flush_count();

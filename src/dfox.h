@@ -181,7 +181,7 @@ public:
         return ((*t >> 2) << 8) + t[1];
     }
 
-    inline uint8_t *getKey(uint8_t *t, uint8_t *plen) {
+    inline uint8_t *getKey(uint8_t *t, int *plen) {
         uint8_t *kvIdx = current_block + getPtr(t);
         *plen = kvIdx[0];
         kvIdx++;

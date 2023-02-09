@@ -36,7 +36,7 @@ public:
         current_block = m;
     }
 
-    inline uint8_t *getKey(int16_t pos, uint8_t *plen) {
+    inline uint8_t *getKey(int16_t pos, int *plen) {
         uint8_t *kvIdx = current_block + getPtr(pos);
         *plen = *kvIdx;
         return kvIdx + 1;

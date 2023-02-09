@@ -1292,15 +1292,25 @@ void checkValue(const char *key, int key_len, const char *val, int val_len,
     }
 }
 
+int test(const char *file_name) {
+    sqlite *lx = new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, 10, file_name);
+    lx->get("dzgrvghf", 8, NULL);
+    delete lx;
+    return 0;
+}
+
 /// ./build/imain 1000000 2 16 8 4096 4096 10000 out.ix
 int main(int argc, char *argv[]) {
 
     char out_file1[100];
     char out_file2[100];
     if (argc > 1) {
-        if (argv[1][0] >= '0' && argv[1][0] <= '9')
+        if (argv[1][0] >= '0' && argv[1][0] <= '9') {
             NUM_ENTRIES = atol(argv[1]);
-        else {
+            if (NUM_ENTRIES == 0) {
+                return test(argv[2]);
+            }
+        } else {
             IMPORT_FILE = argv[1];
             if (argc > 2)
                 KEY_LEN = atoi(argv[2]);
@@ -1473,7 +1483,7 @@ int main(int argc, char *argv[]) {
     //lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new stager(OUT_FILE1, CACHE_SIZE);
-    lx = new sqlite(2, 1, (const uint8_t[]) {12, 12}, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    lx = new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
@@ -1638,6 +1648,47 @@ int main(int argc, char *argv[]) {
     lx->printNumLevels();
     //lx->printCounts();
     cout << "Root filled size:" << lx->filledSize() << endl;
+
+    if ((null_ctr > 0 || cmp > 0) && (null_ctr + cmp) < 20) {
+        if (USE_HASHTABLE) {
+            for (; it1 != m.end(); ++it1) {
+                int16_t len;
+                const char *value = dx->get(it1->first.c_str(), it1->first.length(), &len);
+                if (value == NULL)
+                    printf("Null key: %.*s\n", (int) it1->first.length(), it1->first.c_str());
+                else if (memcmp(value, it1->second.c_str(), it1->second.length()) != 0) {
+                    printf("Cmp fail: %.*s, exp: %.*s, act: %.*s\n", (int) it1->first.length(), it1->first.c_str(), 
+                        (int) it1->second.length(), it1->second.c_str(), (int) len, value);
+                }
+                ctr++;
+            }
+        } else {
+            for (int64_t pos = 0; pos < data_sz; pos++) {
+                int16_t len;
+                uint8_t key_len = data_buf[pos++];
+                uint8_t value_len = data_buf[pos + key_len + 1];
+                const char *value = (const char *) lx->get(data_buf + pos, key_len, &len);
+                if (value == NULL)
+                    printf("Null key: %.*s\n", (int) key_len, data_buf + pos);
+                else if (memcmp(value, data_buf + pos + key_len + 2, value_len) != 0) {
+                    printf("Cmp fail: %.*s, exp: %.*s, act: %.*s\n", (int) key_len, data_buf + pos, 
+                        (int) value_len, data_buf + pos + key_len + 2, (int) len, value);
+                }
+                pos += key_len + value_len + 1;
+                ctr++;
+            }
+            for (int64_t pos = 0; pos < data_sz; pos++) {
+                int16_t len;
+                uint8_t key_len = data_buf[pos++];
+                uint8_t value_len = data_buf[pos + key_len + 1];
+                printf("Key: %.*s, val: %.*s\n", (int) key_len, data_buf + pos, 
+                        (int) value_len, data_buf + pos + key_len + 2);
+                pos += key_len + value_len + 1;
+                ctr++;
+            }
+        }
+    }
+
     }
 
     if (TEST_IDX2)
@@ -1680,14 +1731,6 @@ int main(int argc, char *argv[]) {
     //dx->printCounts();
     //cout << "Root filled size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES+2] << endl;
     //getchar();
-    }
-
-    if (NUM_ENTRIES <= 1000 && (null_ctr > 0 || cmp > 0)) {
-        it = m.begin();
-        for (; it != m.end(); ++it) {
-            cout << "\"" << it->first.c_str() << "\", \"" << it->second.c_str()
-                    << "\"," << endl;
-        }
     }
 
     if (TEST_IDX1)
