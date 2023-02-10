@@ -134,7 +134,8 @@ public:
             static_cast<T*>(this)->setLeaf(is_leaf ? 1 : 0);
             static_cast<T*>(this)->setCurrentBlock(block);
             static_cast<T*>(this)->initCurrentBlock();
-        }
+        } else
+            static_cast<T*>(this)->setCurrentBlock(block);
     }
 
     ~bplus_tree_handler() {
