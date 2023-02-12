@@ -789,6 +789,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             memmove(kv_idx, kv_idx + 2, (filled_size - pos) * 2);
             write_uint16(current_block + 3, filled_size - 1);
             // Remove the gaps instead of updating free blocks
+            /*
             uint16_t rec_len = 0;
             if (!isLeaf())
                 rec_len = 4;
@@ -799,7 +800,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             if (rec_ptr != current_block + kv_last_pos)
                 memmove(current_block + kv_last_pos + rec_len, current_block + kv_last_pos, rec_ptr - current_block + kv_last_pos);
             kv_last_pos += rec_len;
-            setKVLastPos(kv_last_pos);
+            setKVLastPos(kv_last_pos);*/
         }
 
         uint16_t getPtr(int16_t pos) {
@@ -880,24 +881,23 @@ class sqlite : public bplus_tree_handler<sqlite> {
         }
 
         void updateData() {
-            // TODO: Update values
-            if (isLeaf()) {
-                // this->key_at += this->key_at_len;
-                // if (*key_at == this->value_len)
-                //     memcpy((uint8_t *) key_at + 1, this->value, this->value_len);
-                // static_cast<T*>(this)->setChanged(1);
-            } else {
-                cout << "searchResult >=0 for parent" << endl;
-            }
+            int8_t vlen;
+            if (key_len > 0) {
+                uint8_t *raw_key_at = key_at + read_vint32(key_at, &vlen);
+                if (memcmp(raw_key_at, key, key_len) != 0)
+                    cout << "Key not matching for update: " << key << ", len: " << key_len << endl;
+                raw_key_at += key_len;
+                memcpy(raw_key_at, value, value_len);
+            } // TODO: Update values at else too
         }
 
         bool isFull(int16_t search_result) {
             int rec_len = abs(key_len) + value_len;
             if (key_len < 0) {
             } else {
-                rec_len += get_vlen_of_uint32(abs(key_len));
-                rec_len += get_vlen_of_uint32(value_len);
-                rec_len += 3;
+                rec_len += get_vlen_of_uint32(key_len * 2 + 13);
+                rec_len += get_vlen_of_uint32(value_len * 2 + 13);
+                rec_len += 2;
             }
             rec_len += get_vlen_of_uint32(rec_len);
             if (!isLeaf())
@@ -912,16 +912,32 @@ class sqlite : public bplus_tree_handler<sqlite> {
             return false;
         }
 
+        uint8_t *allocateBlock(int size, int is_leaf, int lvl) {
+            uint8_t *new_page;
+            if (cache_size > 0) {
+                new_page = cache->get_new_page(current_block);
+                setBlockChanged(new_page, size, true);
+                if ((cache->file_page_count - 1) == (1073741824UL / leaf_block_size)) {
+                    new_page = cache->get_new_page(current_block);
+                    setBlockChanged(new_page, size, true);
+                }
+            } else
+                new_page = (uint8_t *) util::alignedAlloc(size);
+            if (is_leaf)
+                init_bt_idx_leaf(new_page);
+            else
+                init_bt_idx_interior(new_page);
+            return new_page;
+        }
+
         uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
             int16_t orig_filled_size = filledSize();
             uint32_t SQLT_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
             int lvl = current_block[0] & 0x1F;
             uint8_t *b = allocateBlock(SQLT_NODE_SIZE, isLeaf(), lvl);
-            if (isLeaf())
-                init_bt_idx_leaf(b);
-            else
-                init_bt_idx_interior(b);
             sqlite new_block(SQLT_NODE_SIZE, b, isLeaf(), true);
+            setChanged(true);
+            new_block.setChanged(true);
             SQLT_NODE_SIZE -= page_resv_bytes;
             uint16_t kv_last_pos = getKVLastPos();
             uint16_t halfKVLen = SQLT_NODE_SIZE - kv_last_pos + 1;
@@ -946,6 +962,8 @@ class sqlite : public bplus_tree_handler<sqlite> {
                     if (tot_len > halfKVLen || new_idx == (orig_filled_size / 2)) {
                         brk_idx = new_idx;
                         *first_len_ptr = rec_len - (isLeaf() ? 0 : 4) - vlen;
+                        if (*first_len_ptr > 200)
+                            cout << "GT 200: " << new_idx << ", rec_len: " << rec_len << ", flp: " << *first_len_ptr << ", src_idx: " << src_idx << endl;
                         memcpy(first_key, current_block + src_idx + (isLeaf() ? 0 : 4) + vlen, *first_len_ptr);
                         brk_rec_len = rec_len;
                         if (!isLeaf())
@@ -976,6 +994,8 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 memcpy(current_block + SQLT_NODE_SIZE - old_blk_new_len,
                     new_block.current_block + kv_last_pos, old_blk_new_len);
                 setKVLastPos(SQLT_NODE_SIZE - old_blk_new_len);
+                if (SQLT_NODE_SIZE - old_blk_new_len > 3000)
+                    cout << "WARNING: seems wrong kvlastpos:" << endl;
                 setFilledSize(brk_idx);
                 if (!isLeaf()) {
                     uint32_t addr_to_write = brk_child_addr;
@@ -989,6 +1009,8 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 uint8_t *block_ptrs = new_block.current_block + blk_hdr_len;
                 memmove(block_ptrs, block_ptrs + (brk_idx << 1), new_size << 1);
                 new_block.setKVLastPos(brk_kv_pos);
+                if (brk_kv_pos > 3000)
+                    cout << "WARNING: seems wrong kvlastpos:" << endl;
                 new_block.setFilledSize(new_size);
                 if (!isLeaf())
                     write_uint32(new_block.current_block + 8, brk_child_addr);
@@ -1061,6 +1083,9 @@ class sqlite : public bplus_tree_handler<sqlite> {
             }
 
             insPtr(search_result, kv_last_pos);
+            int16_t filled_size = read_uint16(current_block + 3);
+            if (kv_last_pos > 3000 && filled_size > 100)
+                cout << "Seems wrong KV Last pos: " << kv_last_pos << ", sz: " << filled_size << endl;
             setKVLastPos(kv_last_pos);
             // if (BPT_MAX_KEY_LEN < key_len)
             //     BPT_MAX_KEY_LEN = key_len;

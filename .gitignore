@@ -9,5 +9,6 @@
 /build
 /bfos_stats*
 /basix_stats*
+/sqlite_stats*
 f?_*
 

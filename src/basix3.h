@@ -199,6 +199,8 @@ public:
 
     void addData(int16_t search_result) {
 
+        if (search_result < 0)
+            search_result = ~search_result;
         uint32_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
         setKVLastPos(kv_last_pos);
         uint8_t *ptr = current_block + kv_last_pos;

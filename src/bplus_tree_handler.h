@@ -242,6 +242,7 @@ public:
         current_page = root_page_num;
         uint8_t prev_lvl_split_count = 0;
         uint8_t *btree_rec_ptr = NULL;
+        int btree_rec_at_len = 0;
         uint8_t *btree_found_blk = NULL;
         while (!static_cast<T*>(this)->isLeaf()) {
             if (node_paths) {
@@ -251,6 +252,7 @@ public:
             int16_t search_result = static_cast<T*>(this)->searchCurrentBlock();
             if (search_result >= 0 && is_btree) {
                 btree_rec_ptr = key_at;
+                btree_rec_at_len = key_at_len;
                 btree_found_blk = current_block;
             }
             uint8_t *child_ptr_loc = static_cast<T*>(this)->getChildPtrPos(search_result);
@@ -270,6 +272,7 @@ public:
         }
         if (btree_found_blk != NULL) {
             key_at = btree_rec_ptr;
+            key_at_len = btree_rec_at_len;
             return 0;
         }
         return static_cast<T*>(this)->searchCurrentBlock();
@@ -344,6 +347,11 @@ public:
                 }
             }
             recursiveUpdate(search_result, node_paths, level_count - 1);
+            if (search_result >= 0) {
+                free(node_paths);
+                static_cast<T*>(this)->setChanged(1);
+                return static_cast<T*>(this)->getValueAt(pValueLen);
+            }
             free(node_paths);
         }
         total_size++;
@@ -394,12 +402,11 @@ public:
                     blockCountNode++;
                     int old_page = 0;
                     if (cache_size > 0) {
-                        old_block = cache->get_new_page(new_block);
+                        int block_size = static_cast<T*>(this)->isLeaf() ? leaf_block_size : parent_block_size;
+                        old_block = static_cast<T*>(this)->allocateBlock(block_size, isLeaf(), new_lvl);
                         old_page = cache->get_page_count() - 1;
-                        memcpy(old_block, root_block,
-                                static_cast<T*>(this)->isLeaf() ? leaf_block_size : parent_block_size);
-                        static_cast<T*>(this)->setBlockChanged(old_block,
-                                static_cast<T*>(this)->isLeaf() ? leaf_block_size : parent_block_size, 1);
+                        memcpy(old_block, root_block, block_size);
+                        static_cast<T*>(this)->setBlockChanged(old_block, block_size, true);
                     } else
                         root_block = (uint8_t *) util::alignedAlloc(parent_block_size);
                     static_cast<T*>(this)->setCurrentBlock(root_block);
@@ -482,9 +489,10 @@ public:
 
     void updateData() {
         if (static_cast<T*>(this)->isLeaf()) {
-            this->key_at += this->key_at_len;
-            if (*key_at == this->value_len)
-                memcpy((uint8_t *) key_at + 1, this->value, this->value_len);
+            uint8_t *value_at = this->key_at;
+            value_at += this->key_at_len;
+            if (*value_at == this->value_len)
+                memcpy((uint8_t *) value_at + 1, this->value, this->value_len);
             static_cast<T*>(this)->setChanged(1);
         } else {
             cout << "searchResult >=0 for parent" << endl;

@@ -156,15 +156,18 @@ if (page_size == 4096) {
         do {
             uint8_t *block = &page_cache[cur_entry->cache_loc * page_size];
             if (block_to_keep != block) {
-              if (is_changed_fn(block, page_size))
+              if (is_changed_fn(block, page_size)) {
                 pages_to_write.insert(cur_entry->disk_page);
+                if (cur_entry->disk_page == 0 || !disk_to_cache_map[cur_entry->disk_page])
+                    cout << "Disk cache map entry missing" << endl;
+              }
               if (pages_to_write.size() > (stats.last_pages_to_flush + new_pages.size()))
                 break;
             }
             cur_entry = cur_entry->prev;
         } while (--pages_to_check && cur_entry);
-        new_pages.clear();
         write_pages(pages_to_write);
+        new_pages.clear();
         lnklst_last_free = lnklst_last_entry;
     }
     void move_to_front(dbl_lnklst *entry_to_move) {
@@ -184,6 +187,7 @@ if (page_size == 4096) {
     }
     void check_map_size() {
         if (disk_to_cache_map_size <= file_page_count) {
+            //cout << "Expanding cache at: " << file_page_count << endl;
             dbl_lnklst **temp = disk_to_cache_map;
             size_t old_size = disk_to_cache_map_size;
             disk_to_cache_map_size = file_page_count + 1000;
@@ -339,6 +343,8 @@ public:
         }
     }
     uint8_t *get_disk_page_in_cache(int disk_page, uint8_t *block_to_keep = NULL, bool is_new = false) {
+        if (disk_page < skip_page_count)
+            cout << "WARNING: asking disk_page: " << disk_page << endl;
         if (disk_page == skip_page_count)
             return root_block;
         int cache_pos = 0;
@@ -378,19 +384,22 @@ public:
                     block = &page_cache[entry_to_move->cache_loc * page_size];
                     if (!is_changed_fn(block, page_size) && block_to_keep != block)
                       break;
-                    if (entry_to_move->prev == NULL)
+                    if (entry_to_move->prev == NULL) {  // TODO: Review lru logic
+                      lnklst_last_free = NULL;
                       break;
+                    }
                     entry_to_move = entry_to_move->prev;
                   }
                   if (is_changed_fn(block, page_size) || new_pages.size() > stats.last_pages_to_flush
-                             || new_pages.find(disk_page) != new_pages.end()) {
+                             || new_pages.find(disk_page) != new_pages.end() || entry_to_move->prev == NULL) {
                       flush_pages_in_seq(block_to_keep);
                       entry_to_move = lnklst_last_entry;
                       break;
                   }
                 } while (is_changed_fn(block, page_size));
-                lnklst_last_free = entry_to_move->prev;
-                  /*entry_to_move = lnklst_last_entry;
+                if (!is_changed_fn(block, page_size))
+                    lnklst_last_free = entry_to_move->prev;
+                /*entry_to_move = lnklst_last_entry;
                   int check_count = 40;
                   while (check_count-- && entry_to_move != NULL) { // find block which is not changed
                     block = &page_cache[entry_to_move->cache_loc * page_size];
@@ -432,6 +441,8 @@ public:
                 stats.pages_read++;
             }
         } else {
+            if (is_new)
+                cout << "WARNING: How was new page found in cache?" << endl;
             dbl_lnklst *current_entry = disk_to_cache_map[disk_page];
             if (lnklst_last_free == current_entry && lnklst_last_free != NULL
                     && lnklst_last_free->prev != NULL)
