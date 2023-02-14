@@ -220,7 +220,7 @@ class stager {
             if (use_bloom)
                 it_bf = bf_idx1_more.begin();
             for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
-                if (!use_bloom || (use_bloom && bloom_filter_check_string(*it_bf, key, key_len) != BLOOM_FAILURE)) {
+                if (!use_bloom || (use_bloom && bloom_filter_check_uint8_str(*it_bf, key, key_len) != BLOOM_FAILURE)) {
                     val = (*it)->get(key, key_len, &val_len);
                     //cout << it-idx1_more.begin() << " ";
                     //cout << "Found in idx_more" << it-idx1_more.begin() << endl;
@@ -236,7 +236,7 @@ class stager {
         void remove_entry_from_idx1_more(const uint8_t *key, uint8_t key_len) {
             uint8_t *val;
             int16_t val_len;
-            if (!use_bloom || (use_bloom && bloom_filter_check_string(bf_idx1, key, key_len) != BLOOM_FAILURE)) {
+            if (!use_bloom || (use_bloom && bloom_filter_check_uint8_str(bf_idx1, key, key_len) != BLOOM_FAILURE)) {
                 val = idx1->get(key, key_len, &val_len);
                 if (val != NULL) {
                     idx1->remove_found_entry();
@@ -322,18 +322,18 @@ class stager {
                             if (entry_count <= 1) {
                                 v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
                                 if (use_bloom && v1 == NULL)
-                                    bloom_filter_add_string(bf_idx1, k, k_len);
+                                    bloom_filter_add_uint8_str(bf_idx1, k, k_len);
                                 //remove_entry_from_more_idxs(k, k_len);
                             } else {
                                 v1 = idx2->put(k, k_len, v, v_len - 1, &v1_len);
                                 if (use_bloom && v1 == NULL)
-                                    bloom_filter_add_string(bf_idx2, k, k_len);
+                                    bloom_filter_add_uint8_str(bf_idx2, k, k_len);
                                 //remove_entry_from_idx1_more(k, k_len);
                             }
 #else
                             v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
                             if (use_bloom && v1 == NULL)
-                                bloom_filter_add_string(bf_idx1, k, k_len);
+                                bloom_filter_add_uint8_str(bf_idx1, k, k_len);
                             remove_entry_from_more_idxs(k, k_len);
 #endif
                             if (v1 != NULL)
@@ -398,7 +398,7 @@ class stager {
 #if BUCKET_COUNT == 2
             if (val == NULL) {
                 idx_more_lookup_counts[0]++;
-                if (!use_bloom || (use_bloom && bloom_filter_check_string(bf_idx2, key, key_len) != BLOOM_FAILURE)) {
+                if (!use_bloom || (use_bloom && bloom_filter_check_uint8_str(bf_idx2, key, key_len) != BLOOM_FAILURE)) {
                     idx_more_pve_counts[0]++;
                     val = idx2->get(key, key_len, pValueLen);
                     if (val != NULL)
@@ -408,7 +408,7 @@ class stager {
 #endif
             if (val == NULL) {
                 idx_more_lookup_counts[BUCKET_COUNT - 1]++;
-                if (!use_bloom || (use_bloom && bloom_filter_check_string(bf_idx1, key, key_len) != BLOOM_FAILURE)) {
+                if (!use_bloom || (use_bloom && bloom_filter_check_uint8_str(bf_idx1, key, key_len) != BLOOM_FAILURE)) {
                     idx_more_pve_counts[BUCKET_COUNT - 1]++;
                     val = idx1->get(key, key_len, pValueLen);
                     if (val != NULL)
@@ -421,7 +421,7 @@ class stager {
                     it_bf = bf_idx1_more.begin();
                 for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
                     idx_more_lookup_counts[it - idx1_more.begin() + BUCKET_COUNT]++;
-                    if (!use_bloom || (use_bloom && bloom_filter_check_string(*it_bf, key, key_len) != BLOOM_FAILURE)) {
+                    if (!use_bloom || (use_bloom && bloom_filter_check_uint8_str(*it_bf, key, key_len) != BLOOM_FAILURE)) {
                        idx_more_pve_counts[it - idx1_more.begin() + BUCKET_COUNT]++;
                        val = (*it)->get(key, key_len, pValueLen);
                        if (val != NULL) {

@@ -57,6 +57,36 @@ int TEST_IDX2 = 0;
 
 int ctr = 0;
 
+// Returns how many bytes the given integer will
+// occupy if stored as a variable integer
+int8_t get_vlen_of_uint32(uint32_t vint) {
+    return vint > ((1 << 28) - 1) ? 5
+        : (vint > ((1 << 21) - 1) ? 4 
+        : (vint > ((1 << 14) - 1) ? 3
+        : (vint > ((1 << 7) - 1) ? 2 : 1)));
+}
+
+int write_vint32(uint8_t *ptr, uint32_t vint) {
+    int len = get_vlen_of_uint32(vint);
+    for (int i = len - 1; i > 0; i--)
+        *ptr++ = 0x80 + ((vint >> (7 * i)) & 0x7F);
+    *ptr = vint & 0x7F;
+    return len;
+}
+
+uint32_t read_vint32(const uint8_t *ptr, int8_t *vlen) {
+    uint32_t ret = 0;
+    int8_t len = 5; // read max 5 bytes
+    do {
+        ret <<= 7;
+        ret += *ptr & 0x7F;
+        len--;
+    } while ((*ptr++ & 0x80) == 0x80 && len);
+    if (vlen)
+        *vlen = 5 - len;
+    return ret;
+}
+
 int64_t insert(unordered_map<string, string>& m, uint8_t *data_buf) {
     char k[KEY_LEN + 1];
     char v[VALUE_LEN + 1];
@@ -104,24 +134,29 @@ int64_t insert(unordered_map<string, string>& m, uint8_t *data_buf) {
                 k[3]++;
             k[4] = 0;
         }
-        for (int16_t i = 0; i < VALUE_LEN; i++)
-            v[VALUE_LEN - i - 1] = k[i];
+        //cout << "Value: ";
+        for (int16_t i = 0; i < VALUE_LEN; i++) {
+            v[VALUE_LEN - i - 1] = k[i % KEY_LEN];
+            //cout << (char) k[i];
+        }
+        //cout << endl;
         v[VALUE_LEN] = 0;
         //itoa(rand(), v, 10);
         //itoa(rand(), v + strlen(v), 10);
         //itoa(rand(), v + strlen(v), 10);
         if (l == 0)
-            cout << "key:" << k << ", value: " << v << endl;
+            printf("key: %.*s, value: %.*s\n", KEY_LEN, k, VALUE_LEN, v);
         if (USE_HASHTABLE)
             m.insert(pair<string, string>(k, v));
         else {
-            data_buf[ret++] = KEY_LEN;
+            ret += write_vint32(data_buf + ret, KEY_LEN);
             memcpy(data_buf + ret, k, KEY_LEN);
             ret += KEY_LEN;
             data_buf[ret++] = 0;
-            data_buf[ret++] = VALUE_LEN;
+            ret += write_vint32(data_buf + ret, VALUE_LEN);
             memcpy(data_buf + ret, v, VALUE_LEN);
             ret += VALUE_LEN;
+            data_buf[ret++] = 0;
         }
     }
     if (USE_HASHTABLE)
@@ -162,12 +197,12 @@ int64_t loadFile(unordered_map<string, string>& m, uint8_t *data_buf) {
                     if (USE_HASHTABLE)
                         m.insert(pair<string, string>(key, value));
                     else {
-                        data_buf[ret++] = len;
+                        ret += write_vint32(data_buf + ret, len);
                         memcpy(data_buf + ret, key, len);
                         ret += len;
                         data_buf[ret++] = 0;
                         len = strlen(value);
-                        data_buf[ret++] = len;
+                        ret += write_vint32(data_buf + ret, len);
                         memcpy(data_buf + ret, value, len);
                         ret += len;
                     }
@@ -178,12 +213,12 @@ int64_t loadFile(unordered_map<string, string>& m, uint8_t *data_buf) {
                     if (USE_HASHTABLE)
                         m.insert(pair<string, string>(key, value));
                     else {
-                        data_buf[ret++] = len;
+                        ret += write_vint32(data_buf + ret, len);
                         memcpy(data_buf + ret, key, len);
                         ret += len;
                         data_buf[ret++] = 0;
                         len = strlen(value);
-                        data_buf[ret++] = len;
+                        ret += write_vint32(data_buf + ret, len);
                         memcpy(data_buf + ret, value, len);
                         ret += len;
                         data_buf[ret - 1] = '\0';
@@ -207,12 +242,12 @@ int64_t loadFile(unordered_map<string, string>& m, uint8_t *data_buf) {
             m.insert(pair<string, string>(key, value));
         else {
             int16_t len = strlen(key);
-            data_buf[ret++] = len;
+            ret += write_vint32(data_buf + ret, len);
             memcpy(data_buf + ret, key, len);
             ret += len;
             data_buf[ret++] = 0;
             len = strlen(value);
-            data_buf[ret++] = len;
+            ret += write_vint32(data_buf + ret, len);
             memcpy(data_buf + ret, value, len);
             ret += len;
         }
@@ -1282,9 +1317,6 @@ void checkValue(const char *key, int key_len, const char *val, int val_len,
         int16_t d = util::compare((const uint8_t *) val, val_len, (const uint8_t *) returned_value, returned_len);
         if (d != 0) {
             cmp++;
-            char value[256];
-            strncpy(value, returned_value, returned_len);
-            value[returned_len] = 0;
             printf("cmp: %.*s==========%.*s--------->%.*s\n", key_len, key, val_len, val, returned_len, returned_value);
             //cout << cmp << ":" << (char *) key << "=========="
             //        << val << "----------->" << returned_value << endl;
@@ -1349,10 +1381,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    int64_t data_alloc_sz = (IMPORT_FILE == NULL ? (KEY_LEN + VALUE_LEN + 3) * NUM_ENTRIES // including \0 at end of key
+    int64_t data_alloc_sz = (IMPORT_FILE == NULL ? (KEY_LEN + VALUE_LEN + 8) * NUM_ENTRIES // including \0 at end of key
             : getImportFileSize() + 110000000); // extra 30mb for 7 + key_len + value_len + \0 for max 11 mil entries
     uint8_t *data_buf = (uint8_t *) malloc(data_alloc_sz);
     int64_t data_sz = 0;
+    char value_buf[VALUE_LEN + 1];
 
     unordered_map<string, string> m;
     uint32_t start, stop;
@@ -1447,10 +1480,12 @@ int main(int argc, char *argv[]) {
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            uint8_t key_len = data_buf[pos++];
-            uint8_t value_len = data_buf[pos + key_len + 1];
-            art_insert(&at, data_buf + pos, key_len, data_buf + pos + key_len + 2, value_len);
-            pos += key_len + value_len + 1;
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            art_insert(&at, data_buf + pos, key_len, data_buf + pos + key_len + vlen + 1, value_len);
+            pos += key_len + value_len + vlen + 1;
             ctr++;
         }
     }
@@ -1461,10 +1496,12 @@ int main(int argc, char *argv[]) {
     if (TEST_HASHTABLE) {
         start = getTimeVal();
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            uint8_t key_len = data_buf[pos++];
-            uint8_t value_len = data_buf[pos + key_len + 1];
-            m.insert(pair<string, string>((char *) data_buf + pos, (char *) data_buf + pos + key_len + 2));
-            pos += key_len + value_len + 1;
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            m.insert(pair<string, string>((char *) data_buf + pos, (char *) data_buf + pos + key_len + vlen + 1));
+            pos += key_len + value_len + vlen + 1;
             ctr++;
         }
         stop = getTimeVal();
@@ -1506,10 +1543,12 @@ int main(int argc, char *argv[]) {
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            uint8_t key_len = data_buf[pos++];
-            uint8_t value_len = data_buf[pos + key_len + 1];
-            lx->put((char *) data_buf + pos, key_len, (char *) data_buf + pos + key_len + 2, value_len);
-            pos += key_len + value_len + 1;
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            lx->put((char *) data_buf + pos, key_len, (char *) data_buf + pos + key_len + vlen + 1, value_len);
+            pos += key_len + value_len + vlen + 1;
             ctr++;
         }
     }
@@ -1546,10 +1585,12 @@ int main(int argc, char *argv[]) {
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            uint8_t key_len = data_buf[pos++];
-            uint8_t value_len = data_buf[pos + key_len + 1];
-            dx->put((char *) data_buf + pos, key_len, (char *) data_buf + pos + key_len + 2, value_len);
-            pos += key_len + value_len + 1;
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            dx->put((char *) data_buf + pos, key_len, (char *) data_buf + pos + key_len + vlen + 1, value_len);
+            pos += key_len + value_len + vlen + 1;
             ctr++;
         }
     }
@@ -1576,12 +1617,14 @@ int main(int argc, char *argv[]) {
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
             int len;
-            uint8_t key_len = data_buf[pos++];
-            uint8_t value_len = data_buf[pos + key_len + 1];
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
             char *value = (char *) art_search(&at, data_buf + pos, key_len, &len);
-            checkValue((char *) data_buf + pos, key_len + 1,
-                    (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
-            pos += key_len + value_len + 1;
+            checkValue((char *) data_buf + pos, key_len,
+                    (char *) data_buf + pos + key_len + vlen + 1, value_len, value, len, null_ctr, cmp);
+            pos += key_len + value_len + vlen + 1;
             ctr++;
         }
     }
@@ -1598,14 +1641,16 @@ int main(int argc, char *argv[]) {
         start = getTimeVal();
         for (int64_t pos = 0; pos < data_sz; pos++) {
             int16_t len;
-            uint8_t key_len = data_buf[pos++];
-            uint8_t value_len = data_buf[pos + key_len + 1];
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
             it = m.find((char *) (data_buf + pos));
             char *value = (char *) it->second.c_str();
             len = value_len;
             checkValue((char *) data_buf + pos, key_len,
-                    (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
-            pos += key_len + value_len + 1;
+                    (char *) data_buf + pos + key_len + vlen + 1, value_len, value, len, null_ctr, cmp);
+            pos += key_len + value_len + vlen + 1;
             ctr++;
         }
         stop = getTimeVal();
@@ -1624,20 +1669,22 @@ int main(int argc, char *argv[]) {
     if (USE_HASHTABLE) {
         for (; it1 != m.end(); ++it1) {
             int16_t len;
-            const char *value = lx->get(it1->first.c_str(), it1->first.length(), &len);
+            const char *value = lx->get((const char *) it1->first.c_str(), it1->first.length(), &len, value_buf);
             checkValue(it1->first.c_str(), it1->first.length() + 1,
-                    it1->second.c_str(), it1->second.length(), value, len, null_ctr, cmp);
+                    it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
             ctr++;
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
             int16_t len;
-            uint8_t key_len = data_buf[pos++];
-            uint8_t value_len = data_buf[pos + key_len + 1];
-            const char *value = lx->get((char *) data_buf + pos, key_len, &len);
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            const char *value = lx->get((char *) data_buf + pos, key_len, &len, value_buf);
             checkValue((char *) data_buf + pos, key_len,
-                    (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
-            pos += key_len + value_len + 1;
+                    (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
+            pos += key_len + value_len + vlen + 1;
             ctr++;
         }
     }
@@ -1653,37 +1700,41 @@ int main(int argc, char *argv[]) {
         if (USE_HASHTABLE) {
             for (; it1 != m.end(); ++it1) {
                 int16_t len;
-                const char *value = dx->get(it1->first.c_str(), it1->first.length(), &len);
+                const char *value = lx->get(it1->first.c_str(), it1->first.length(), &len, value_buf);
                 if (value == NULL)
                     printf("Null key: %.*s\n", (int) it1->first.length(), it1->first.c_str());
-                else if (memcmp(value, it1->second.c_str(), it1->second.length()) != 0) {
-                    printf("Cmp fail: %.*s, exp: %.*s, act: %.*s\n", (int) it1->first.length(), it1->first.c_str(), 
-                        (int) it1->second.length(), it1->second.c_str(), (int) len, value);
+                else if (memcmp(value_buf, it1->second.c_str(), it1->second.length()) != 0) {
+                    printf("Cmp fail: %.*s\nexp: %.*s\nact: %.*s\n", (int) it1->first.length(), it1->first.c_str(), 
+                        (int) it1->second.length(), it1->second.c_str(), (int) len, value_buf);
                 }
                 ctr++;
             }
         } else {
             for (int64_t pos = 0; pos < data_sz; pos++) {
                 int16_t len;
-                uint8_t key_len = data_buf[pos++];
-                uint8_t value_len = data_buf[pos + key_len + 1];
-                const char *value = (const char *) lx->get(data_buf + pos, key_len, &len);
+                int8_t vlen;
+                uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+                pos += vlen;
+                uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+                const char *value = (const char *) lx->get((const char *) data_buf + pos, key_len, &len, value_buf);
                 if (value == NULL)
                     printf("Null key: %.*s\n", (int) key_len, data_buf + pos);
-                else if (memcmp(value, data_buf + pos + key_len + 2, value_len) != 0) {
-                    printf("Cmp fail: %.*s, exp: %.*s, act: %.*s\n", (int) key_len, data_buf + pos, 
-                        (int) value_len, data_buf + pos + key_len + 2, (int) len, value);
+                else if (memcmp(value_buf, data_buf + pos + key_len + vlen, value_len) != 0) {
+                    printf("Cmp fail: %.*s\nexp: %.*s\nact: %.*s\n", (int) key_len, data_buf + pos, 
+                        (int) value_len, data_buf + pos + key_len + vlen + 1, (int) len, value_buf);
                 }
-                pos += key_len + value_len + 1;
+                pos += key_len + value_len + vlen + 1;
                 ctr++;
             }
             for (int64_t pos = 0; pos < data_sz; pos++) {
                 int16_t len;
-                uint8_t key_len = data_buf[pos++];
-                uint8_t value_len = data_buf[pos + key_len + 1];
+                int8_t vlen;
+                uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+                pos += vlen;
+                uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
                 printf("Key: %.*s, val: %.*s\n", (int) key_len, data_buf + pos, 
-                        (int) value_len, data_buf + pos + key_len + 2);
-                pos += key_len + value_len + 1;
+                        (int) value_len, data_buf + pos + key_len + vlen + 1);
+                pos += key_len + value_len + vlen + 1;
                 ctr++;
             }
         }
@@ -1706,20 +1757,22 @@ int main(int argc, char *argv[]) {
     if (USE_HASHTABLE) {
         for (; it1 != m.end(); ++it1) {
             int16_t len;
-            const char *value = dx->get(it1->first.c_str(), it1->first.length(), &len);
+            const char *value = dx->get(it1->first.c_str(), it1->first.length(), &len, value_buf);
             checkValue(it1->first.c_str(), it1->first.length() + 1,
-                    it1->second.c_str(), it1->second.length(), value, len, null_ctr, cmp);
+                    it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
             ctr++;
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
             int16_t len;
-            uint8_t key_len = data_buf[pos++];
-            uint8_t value_len = data_buf[pos + key_len + 1];
-            const char *value = (const char *) dx->get(data_buf + pos, key_len, &len);
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            const char *value = dx->get((const char *) data_buf + pos, key_len, &len, value_buf);
             checkValue((char *) data_buf + pos, key_len,
-                    (char *) data_buf + pos + key_len + 2, value_len, value, len, null_ctr, cmp);
-            pos += key_len + value_len + 1;
+                    (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
+            pos += key_len + value_len + vlen + 1;
             ctr++;
         }
     }

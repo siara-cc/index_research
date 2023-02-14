@@ -33,6 +33,7 @@ enum {SQLT_RES_SEEK_ERR = -6, SQLT_RES_READ_ERR = -7,
 class sqlite : public bplus_tree_handler<sqlite> {
 
     private:
+        int U,X,M;
         // Returns how many bytes the given integer will
         // occupy if stored as a variable integer
         int8_t get_vlen_of_uint16(uint16_t vint) {
@@ -623,6 +624,9 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 const char *fname = NULL) : col_count (total_col_count), pk_count (pk_col_count),
                     column_names (col_names), table_name (tbl_name),
                     bplus_tree_handler<sqlite>(leaf_block_sz, parent_block_sz, cache_sz, fname, 1, true) {
+            U = leaf_block_size - page_resv_bytes;
+            X = ((U-12)*64/255)-23;
+            M = ((U-12)*32/255)-23;
             master_block = NULL;
             if (cache_size > 0) {
                 if (cache->is_empty()) {
@@ -643,6 +647,9 @@ class sqlite : public bplus_tree_handler<sqlite> {
 
         sqlite(uint32_t block_sz, uint8_t *block, bool is_leaf, bool should_init)
                 : bplus_tree_handler<sqlite>(block_sz, block, is_leaf, should_init) {
+            U = leaf_block_size - page_resv_bytes;
+            X = ((U-12)*64/255)-23;
+            M = ((U-12)*32/255)-23;
             master_block = NULL;
         }
 
@@ -731,6 +738,10 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 return util::compare(key1, k_len1, key2, k_len2);
             }
             return 0;
+        }
+
+        int get_first_key_len() {
+            return ((leaf_block_size-page_resv_bytes-12)*64/255)-22;
         }
 
         inline int16_t searchCurrentBlock() {
@@ -954,27 +965,31 @@ class sqlite : public bplus_tree_handler<sqlite> {
             for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
                 uint16_t src_idx = getPtr(new_idx);
                 int8_t vlen;
-                int rec_len = (isLeaf() ? 0 : 4);
-                rec_len += read_vint32(current_block + src_idx + rec_len, &vlen);
-                rec_len += vlen;
-                tot_len += rec_len;
+                int on_page_len = (isLeaf() ? 0 : 4);
+                int P = read_vint32(current_block + src_idx + on_page_len, &vlen);
+                int K = M+((P-M)%(U-4));
+                on_page_len += vlen;
+                on_page_len += (P <= X ? P : (K <= X ? K : M));
+                if (P > X)
+                    on_page_len += 4;
+                tot_len += on_page_len;
                 if (brk_idx == -1) {
-                    if (tot_len > halfKVLen || new_idx == (orig_filled_size / 2)) {
+                    if (new_idx > 1 && (tot_len > halfKVLen || new_idx == (orig_filled_size / 2))) {
                         brk_idx = new_idx;
-                        *first_len_ptr = rec_len - (isLeaf() ? 0 : 4) - vlen;
-                        if (*first_len_ptr > 200)
-                            cout << "GT 200: " << new_idx << ", rec_len: " << rec_len << ", flp: " << *first_len_ptr << ", src_idx: " << src_idx << endl;
-                        memcpy(first_key, current_block + src_idx + (isLeaf() ? 0 : 4) + vlen, *first_len_ptr);
-                        brk_rec_len = rec_len;
+                        *first_len_ptr = P;
+                        if (*first_len_ptr > 2000)
+                            cout << "GT 200: " << new_idx << ", rec_len: " << on_page_len << ", flp: " << *first_len_ptr << ", src_idx: " << src_idx << endl;
+                        memcpy(first_key, current_block + src_idx + (isLeaf() ? 0 : 4) + vlen, on_page_len - (isLeaf() ? 0 : 4) - vlen);
+                        brk_rec_len = on_page_len;
                         if (!isLeaf())
                             brk_child_addr = read_uint32(current_block + src_idx);
                         brk_kv_pos = kv_last_pos + brk_rec_len;
                     }
                 }
                 if (brk_idx != new_idx) { // don't copy the middle record, but promote it to prev level
-                    memcpy(new_block.current_block + kv_last_pos, current_block + src_idx, rec_len);
+                    memcpy(new_block.current_block + kv_last_pos, current_block + src_idx, on_page_len);
                     new_block.insPtr(brk_idx == -1 ? new_idx : new_idx - 1, kv_last_pos + brk_rec_len);
-                    kv_last_pos += rec_len;
+                    kv_last_pos += on_page_len;
                 }
             }
 
@@ -994,8 +1009,6 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 memcpy(current_block + SQLT_NODE_SIZE - old_blk_new_len,
                     new_block.current_block + kv_last_pos, old_blk_new_len);
                 setKVLastPos(SQLT_NODE_SIZE - old_blk_new_len);
-                if (SQLT_NODE_SIZE - old_blk_new_len > 3000)
-                    cout << "WARNING: seems wrong kvlastpos:" << endl;
                 setFilledSize(brk_idx);
                 if (!isLeaf()) {
                     uint32_t addr_to_write = brk_child_addr;
@@ -1009,8 +1022,6 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 uint8_t *block_ptrs = new_block.current_block + blk_hdr_len;
                 memmove(block_ptrs, block_ptrs + (brk_idx << 1), new_size << 1);
                 new_block.setKVLastPos(brk_kv_pos);
-                if (brk_kv_pos > 3000)
-                    cout << "WARNING: seems wrong kvlastpos:" << endl;
                 new_block.setFilledSize(new_size);
                 if (!isLeaf())
                     write_uint32(new_block.current_block + 8, brk_child_addr);
@@ -1019,77 +1030,109 @@ class sqlite : public bplus_tree_handler<sqlite> {
             return b;
         }
 
+        int write_child_page_addr(uint8_t *ptr, int16_t search_result) {
+            if (!isLeaf()) {
+                if (search_result == filledSize() && search_result > 0) {
+                    unsigned long prev_last_addr = read_uint32(current_block + 8);
+                    write_uint32(current_block + 8, child_addr);
+                    child_addr = prev_last_addr;
+                }
+                if (search_result < filledSize()) {
+                    uint16_t cur_pos = read_uint16(current_block + blk_hdr_len + search_result * 2);
+                    uint32_t old_addr = read_uint32(current_block + cur_pos);
+                    write_uint32(current_block + cur_pos, child_addr);
+                    child_addr = old_addr;
+                }
+                write_uint32(ptr, child_addr);
+                return 4;
+            }
+            return 0;
+        }
+
         void addData(int16_t search_result) {
 
-            uint16_t kv_last_pos = getKVLastPos();
+            // P is length of payload or record length
+            int P, hdr_len;
             if (key_len < 0) {
-                kv_last_pos -= abs(key_len);
-                kv_last_pos -= get_vlen_of_uint32(abs(key_len));
-                if (!isLeaf())
-                    kv_last_pos -= 4;
-                uint8_t *ptr = current_block + kv_last_pos;
-                if (!isLeaf()) {
-                    if (search_result == filledSize() && search_result > 0) {
-                        unsigned long prev_last_addr = read_uint32(current_block + 8);
-                        write_uint32(current_block + 8, child_addr);
-                        child_addr = prev_last_addr;
-                    }
-                    if (search_result < filledSize()) {
-                        uint16_t cur_pos = read_uint16(current_block + blk_hdr_len + search_result * 2);
-                        uint32_t old_addr = read_uint32(current_block + cur_pos);
-                        write_uint32(current_block + cur_pos, child_addr);
-                        child_addr = old_addr;
-                    }
-                    write_uint32(ptr, child_addr);
-                    ptr += 4;
-                }
-                ptr += write_vint32(ptr, abs(key_len));
-                memcpy(ptr, key, abs(key_len));
+                P = -key_len;
+                hdr_len = 0;
             } else {
-                int rec_len = key_len + value_len;
-                int key_len_vlen = get_vlen_of_uint32(key_len * 2 + 13);
-                int value_len_vlen = get_vlen_of_uint32(value_len * 2 + 13);
-                int hdr_len = key_len_vlen + value_len_vlen;
-                int hdr_len_vlen = get_vlen_of_uint32(hdr_len);
-                hdr_len += hdr_len_vlen;
-                rec_len += hdr_len;
-                kv_last_pos -= rec_len;
-                kv_last_pos -= get_vlen_of_uint32(rec_len);
-                if (!isLeaf())
-                    kv_last_pos -= 4;
-                uint8_t *ptr = current_block + kv_last_pos;
-                if (!isLeaf()) {
-                    if (filledSize() == search_result && search_result > 0) {
-                        unsigned long prev_last_addr = read_uint32(current_block + 8);
-                        write_uint32(current_block + 8, child_addr);
-                        child_addr = prev_last_addr;
-                    }
-                    if (search_result < filledSize()) {
-                        uint16_t cur_pos = read_uint16(current_block + blk_hdr_len + search_result * 2);
-                        uint32_t old_addr = read_uint32(current_block + cur_pos);
-                        write_uint32(current_block + cur_pos, child_addr);
-                        child_addr = old_addr;
-                    }
-                    write_uint32(ptr, child_addr);
-                    ptr += 4;
-                }
-                ptr += write_vint32(ptr, rec_len);
-                ptr += write_vint32(ptr, hdr_len);
-                ptr += write_vint32(ptr, key_len * 2 + 13);
-                ptr += write_vint32(ptr, value_len * 2 + 13);
-                memcpy(ptr, key, key_len);
-                ptr += key_len;
-                memcpy(ptr, value, value_len);
+                int key_len_vlen, value_len_vlen;
+                P = key_len + value_len;
+                key_len_vlen = get_vlen_of_uint32(key_len * 2 + 13);
+                value_len_vlen = get_vlen_of_uint32(value_len * 2 + 13);
+                hdr_len = key_len_vlen + value_len_vlen;
+                hdr_len += get_vlen_of_uint32(hdr_len);
+                P += hdr_len;
             }
-
+            // See https://www.sqlite.org/fileformat.html
+            int K = M+((P-M)%(U-4));
+            int on_bt_page = (P <= X ? P : (K <= X ? K : M));
+            uint16_t kv_last_pos = getKVLastPos();
+            kv_last_pos -= on_bt_page;
+            kv_last_pos -= get_vlen_of_uint32(P);
+            if (!isLeaf())
+                kv_last_pos -= 4;
+            if (P > X)
+                kv_last_pos -= 4;
+            uint8_t *ptr = current_block + kv_last_pos;
+            ptr += write_child_page_addr(ptr, search_result);
+            copy_kv_with_overflow(ptr, P, on_bt_page, hdr_len);
             insPtr(search_result, kv_last_pos);
             int16_t filled_size = read_uint16(current_block + 3);
-            if (kv_last_pos > 3000 && filled_size > 100)
-                cout << "Seems wrong KV Last pos: " << kv_last_pos << ", sz: " << filled_size << endl;
             setKVLastPos(kv_last_pos);
+
             // if (BPT_MAX_KEY_LEN < key_len)
             //     BPT_MAX_KEY_LEN = key_len;
 
+        }
+
+        void copy_kv_with_overflow(uint8_t *ptr, int P, int on_bt_page, int hdr_len) {
+            int k_len, v_len;
+            ptr += write_vint32(ptr, P);
+            if (key_len < 0) {
+                k_len = (isLeaf() ? P : on_bt_page);
+                if (!isLeaf()) {
+                    memcpy(ptr, key, k_len + 4);
+                    return;
+                }
+                v_len = 0;
+            } else {
+                k_len = key_len;
+                v_len = value_len;
+                ptr += write_vint32(ptr, hdr_len);
+                ptr += write_vint32(ptr, key_len * 2 + 13);
+                ptr += write_vint32(ptr, value_len * 2 + 13);
+            }
+            int on_page_remaining = on_bt_page - hdr_len;
+            bool copying_on_bt_page = true;
+            int key_remaining = k_len;
+            int val_remaining = v_len;
+            uint8_t *ptr0 = ptr;
+            do {
+                if (key_remaining > 0) {
+                    int to_copy = key_remaining > on_page_remaining ? on_page_remaining : key_remaining;
+                    memcpy(ptr, key + k_len - key_remaining, to_copy);
+                    ptr += to_copy;
+                    key_remaining -= to_copy;
+                    on_page_remaining -= to_copy;
+                }
+                if (val_remaining > 0 && key_remaining <= 0) {
+                    int to_copy = val_remaining > on_page_remaining ? on_page_remaining : val_remaining;
+                    memcpy(ptr, value + v_len - val_remaining, to_copy);
+                    ptr += to_copy;
+                    val_remaining -= to_copy;
+                }
+                if (key_remaining > 0 || val_remaining > 0) {
+                    uint8_t *ovfl_ptr = allocateBlock(leaf_block_size, false, 0);
+                    write_uint32(copying_on_bt_page ? ptr : ptr0, cache->get_page_count());
+                    ptr0 = ptr = ovfl_ptr;
+                    ptr += 4;
+                    on_page_remaining = U - 4;
+                } else if (!copying_on_bt_page)
+                    write_uint32(ptr0, 0);
+                copying_on_bt_page = false;
+            } while (key_remaining > 0 || val_remaining > 0);
         }
 
         void insPtr(int16_t pos, uint16_t data_loc) {
@@ -1179,6 +1222,59 @@ class sqlite : public bplus_tree_handler<sqlite> {
             if (vlen != NULL)
                 *vlen = (read_vint32(key_at + hdr_vint_len + vint_len, NULL) - 13) / 2;
             return (uint8_t *) data_ptr + k_len;
+        }
+
+        void copy_value(uint8_t *val, int16_t *pValueLen) {
+            int8_t vlen;
+            int P = key_at_len;
+            int K = M+((P-M)%(U-4));
+            int on_bt_page = (P <= X ? P : (K <= X ? K : M));
+            if (key_len < 0) {
+                *pValueLen = key_at_len;
+                memcpy(val, key_at, on_bt_page);
+                if (P > on_bt_page)
+                    copy_overflow(val + on_bt_page, 0, P - on_bt_page, read_uint32(key_at + on_bt_page));
+            } else {
+                int hdr_len = read_vint32(key_at, &vlen);
+                uint8_t *raw_val_at = key_at + hdr_len;
+                int8_t key_len_vlen;
+                int k_len = (read_vint32(key_at + vlen, &key_len_vlen) - 13) / 2;
+                *pValueLen = (read_vint32(key_at + vlen + key_len_vlen, NULL) - 13) / 2;
+                if (hdr_len + k_len <= on_bt_page) {
+                    raw_val_at += k_len;
+                    int val_len_on_bt = on_bt_page - k_len - hdr_len;
+                    memcpy(val, raw_val_at, val_len_on_bt);
+                    if (*pValueLen - val_len_on_bt > 0)
+                        copy_overflow(val + val_len_on_bt, 0, *pValueLen - val_len_on_bt, read_uint32(key_at + on_bt_page));
+                } else {
+                    if (*pValueLen > 0)
+                        copy_overflow(val, hdr_len + k_len - on_bt_page, *pValueLen, read_uint32(key_at + on_bt_page));
+                }
+            }
+        }
+
+        void copy_overflow(uint8_t *val, int offset, int len, uint32_t ovfl_page) {
+            do {
+                uint8_t *ovfl_blk = cache->get_disk_page_in_cache(ovfl_page - 1, current_block);
+                ovfl_page = read_uint32(ovfl_blk);
+                int cur_pos = 4;
+                int bytes_remaining = U - 4;
+                if (offset > 0) {
+                    if (offset > U - 4) {
+                        offset -= (U - 4);
+                        continue;
+                    } else {
+                        cur_pos += offset;
+                        bytes_remaining -= offset;
+                    }
+                }
+                if (bytes_remaining > 0) {
+                    int to_copy = len > bytes_remaining ? bytes_remaining : len;
+                    memcpy(val, ovfl_blk + cur_pos, to_copy);
+                    val += to_copy;
+                    len -= to_copy;
+                }
+            } while (len > 0 && ovfl_page > 0);
         }
 
         inline uint8_t *getChildPtrPos(int16_t search_result) {

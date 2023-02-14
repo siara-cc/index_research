@@ -177,16 +177,22 @@ public:
         return (uint8_t *) key_at + key_at_len + 1;
     }
 
+    void copy_value(uint8_t *val, int16_t *vlen) {
+        if (vlen != NULL)
+            *vlen = key_at[key_at_len];
+        memcpy(val, key_at + key_at_len + 1, *vlen);
+    }
+
     void setCurrentBlockRoot();
     void setCurrentBlock(uint8_t *m);
     uint8_t *getCurrentBlock() {
         return current_block;
     }
 
-    char *get(const char *key, int key_len, int16_t *pValueLen) {
-        return (char *) get((uint8_t *) key, key_len, pValueLen);
+    char *get(const char *key, int key_len, int16_t *pValueLen, char *val = NULL) {
+        return (char *) get((uint8_t *) key, key_len, pValueLen, (uint8_t *) val);
     }
-    uint8_t *get(const uint8_t *key, int key_len, int16_t *pValueLen) {
+    uint8_t *get(const uint8_t *key, int key_len, int16_t *pValueLen, uint8_t *val = NULL) {
         static_cast<T*>(this)->setCurrentBlockRoot();
         this->key = key;
         this->key_len = key_len;
@@ -198,6 +204,8 @@ public:
             search_result = traverseToLeaf();
         if (search_result < 0)
             return NULL;
+        if (val != NULL)
+            static_cast<T*>(this)->copy_value(val, pValueLen);
         return static_cast<T*>(this)->getValueAt(pValueLen);
     }
 
@@ -371,13 +379,17 @@ public:
         return util::compare(key1, k_len1, key2, k_len2);
     }
 
+    int get_first_key_len() {
+        return 255;
+    }
+
     void recursiveUpdate(int16_t search_result, uint8_t *node_paths[], uint8_t level) {
         //int16_t search_result = pos; // lastSearchPos[level];
         if (search_result < 0) {
             search_result = ~search_result;
             if (static_cast<T*>(this)->isFull(search_result)) {
                 updateSplitStats();
-                uint8_t first_key[200]; // is max_pfx_len sufficient?
+                uint8_t first_key[static_cast<T*>(this)->get_first_key_len()]; // is max_pfx_len sufficient?
                 int16_t first_len;
                 uint8_t *old_block = current_block;
                 uint8_t *new_block = static_cast<T*>(this)->split(first_key, &first_len);
