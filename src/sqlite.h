@@ -489,9 +489,10 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 script_pos += 15;
             // }
             int32_t root_page_no = 2;
-            int res = write_new_rec(0, 1, 5, (const void *[]) {"table", table_name, table_name, &root_page_no, script_loc},
-                            (const size_t[]) {5, strlen(table_name), strlen(table_name), sizeof(root_page_no), script_len},
-                           (const uint8_t[]) {SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_INT32, SQLT_TYPE_TEXT});
+            const void *master_rec_values[] = {"table", table_name, table_name, &root_page_no, script_loc};
+            const size_t master_rec_col_lens[] = {5, strlen(table_name), strlen(table_name), sizeof(root_page_no), script_len};
+            const uint8_t master_rec_col_types[] = {SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_INT32, SQLT_TYPE_TEXT};
+            int res = write_new_rec(0, 1, 5, master_rec_values, master_rec_col_lens, master_rec_col_types);
             if (res < 0)
                return res;
 

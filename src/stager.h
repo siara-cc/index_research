@@ -23,6 +23,8 @@
 typedef vector<sqlite *> cache_more;
 typedef vector<BloomFilter *> cache_more_bf;
 
+const char *key_val_const_str[] = {"key", "value"};
+
 class stager {
     protected:
       basix3 *idx0;
@@ -73,7 +75,7 @@ class stager {
             cache_more_size = (cache_size_mb > 0xFFFFFF ? (cache_size_mb >> 24) & 0x0F : (cache_size_mb & 0xFF) / (cache_size_mb < 4 ? 2 : 4)) * 16;
             idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             //idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
-            idx1 = new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
+            idx1 = new sqlite(2, 1, key_val_const_str, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
             if (use_bloom) {
                 bf_idx1 = new BloomFilter;
                 if (file_exists(bf_idx1_name.c_str()))
@@ -91,7 +93,7 @@ class stager {
                 sprintf(bf_new_name, "%s.%lu.blm", idx1_name.c_str(), idx1_more.size() + 1);
                 if (file_exists(new_name)) {
                     //idx1_more.push_back(new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
-                    idx1_more.push_back(new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
+                    idx1_more.push_back(new sqlite(2, 1, key_val_const_str, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
                     if (use_bloom) {
                         BloomFilter *new_bf = new BloomFilter;
                         bloom_filter_import(new_bf, bf_new_name);
@@ -121,7 +123,7 @@ class stager {
             cache2_size = (cache_size_mb > 0xFFFFFFF ? (cache_size_mb >> 28) & 0x0F : (cache_size_mb & 0xFF)) * 16;
             cout << ", Idx2 buf: " << cache2_size << "mb" << endl;
             //idx2 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
-            idx2 = new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
+            idx2 = new sqlite(2, 1, key_val_const_str, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
 #else
             cout << endl;
 #endif
@@ -192,8 +194,8 @@ class stager {
                     else {
                         //idx1_more.insert(idx1_more.begin(), new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
                         //idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, idx1_name.c_str());
-                        idx1_more.insert(idx1_more.begin(), new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
-                        idx1 = new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, idx1_name.c_str());
+                        idx1_more.insert(idx1_more.begin(), new sqlite(2, 1, key_val_const_str, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
+                        idx1 = new sqlite(2, 1, key_val_const_str, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, idx1_name.c_str());
                         if (use_bloom) {
                             bf_idx1_more.insert(bf_idx1_more.begin(), bf_idx1);
                             bf_idx1 = new BloomFilter;
