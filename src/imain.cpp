@@ -52,8 +52,9 @@ char *OUT_FILE1 = NULL;
 char *OUT_FILE2 = NULL;
 int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
+int TEST_ART = 1;
 int TEST_IDX1 = 1;
-int TEST_IDX2 = 0;
+int TEST_IDX2 = 1;
 
 int ctr = 0;
 
@@ -221,7 +222,7 @@ int64_t loadFile(unordered_map<string, string>& m, uint8_t *data_buf) {
                         ret += write_vint32(data_buf + ret, len);
                         memcpy(data_buf + ret, value, len);
                         ret += len;
-                        data_buf[ret - 1] = '\0';
+                        data_buf[ret++] = 0;
                     }
                 }
                 if (NUM_ENTRIES % 100000 == 0)
@@ -1465,8 +1466,10 @@ int main(int argc, char *argv[]) {
 //            break;
 //    }
 
-    ctr = 0;
     art_tree at;
+    if (TEST_ART)
+    {
+    ctr = 0;
     art_tree_init(&at);
     start = getTimeVal();
     if (USE_HASHTABLE) {
@@ -1492,6 +1495,7 @@ int main(int argc, char *argv[]) {
     stop = getTimeVal();
     cout << "ART Insert Time:" << timedifference(start, stop) << endl;
     //getchar();
+    }
 
     if (TEST_HASHTABLE) {
         start = getTimeVal();
@@ -1557,17 +1561,17 @@ int main(int argc, char *argv[]) {
     //getchar();
     }
 
-    basix *dx;
+    bfos *dx;
     if (TEST_IDX2)
     {
     ctr = 0;
     //dx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new stager(OUT_FILE2, CACHE_SIZE);
     //dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
@@ -1599,6 +1603,8 @@ int main(int argc, char *argv[]) {
     //getchar();
     }
 
+    if (TEST_ART)
+    {
     cmp = 0;
     ctr = 0;
     null_ctr = 0;
@@ -1633,6 +1639,7 @@ int main(int argc, char *argv[]) {
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << ", ";
     cout << "ART Size:" << art_size(&at) << endl;
     //getchar();
+    }
 
     if (TEST_HASHTABLE) {
         cmp = 0;
@@ -1695,7 +1702,7 @@ int main(int argc, char *argv[]) {
     lx->printNumLevels();
     //lx->printCounts();
     cout << "Root filled size:" << lx->filledSize() << endl;
-
+/*
     if ((null_ctr > 0 || cmp > 0) && (null_ctr + cmp) < 20) {
         if (USE_HASHTABLE) {
             for (; it1 != m.end(); ++it1) {
@@ -1715,7 +1722,7 @@ int main(int argc, char *argv[]) {
                 int8_t vlen;
                 uint32_t key_len = read_vint32(data_buf + pos, &vlen);
                 pos += vlen;
-                uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+                uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);  
                 const char *value = (const char *) lx->get((const char *) data_buf + pos, key_len, &len, value_buf);
                 if (value == NULL)
                     printf("Null key: %.*s\n", (int) key_len, data_buf + pos);
@@ -1739,7 +1746,7 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-
+*/
     }
 
     if (TEST_IDX2)

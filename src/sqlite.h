@@ -742,7 +742,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
         }
 
         int get_first_key_len() {
-            return ((leaf_block_size-page_resv_bytes-12)*64/255)-22;
+            return ((leaf_block_size-page_resv_bytes-12)*64/255)-23+5;
         }
 
         inline int16_t searchCurrentBlock() {
@@ -906,17 +906,25 @@ class sqlite : public bplus_tree_handler<sqlite> {
         bool isFull(int16_t search_result) {
             int rec_len = abs(key_len) + value_len;
             if (key_len < 0) {
+                if (!isLeaf())
+                    rec_len -= 4;
             } else {
                 rec_len += get_vlen_of_uint32(key_len * 2 + 13);
                 rec_len += get_vlen_of_uint32(value_len * 2 + 13);
                 rec_len += 2;
             }
-            rec_len += get_vlen_of_uint32(rec_len);
             if (!isLeaf())
                 rec_len += 4;
+            int on_page_len = (isLeaf() ? 0 : 4);
+            int P = rec_len;
+            int K = M+((P-M)%(U-4));
+            on_page_len += get_vlen_of_uint32(rec_len);
+            on_page_len += (P <= X ? P : (K <= X ? K : M));
+            if (P > X)
+                on_page_len += 4;
             int16_t ptr_size = filledSize() + 1;
             ptr_size *= 2;
-            if (getKVLastPos() <= (blk_hdr_len + ptr_size + rec_len)) {
+            if (getKVLastPos() <= (blk_hdr_len + ptr_size + on_page_len)) {
                 //makeSpace();
                 //if (getKVLastPos() <= (blk_hdr_len + ptr_size + rec_len))
                     return true;
@@ -924,7 +932,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             return false;
         }
 
-        uint8_t *allocateBlock(int size, int is_leaf, int lvl) {
+        uint8_t *allocateBlock(int size, int type, int lvl) {
             uint8_t *new_page;
             if (cache_size > 0) {
                 new_page = cache->get_new_page(current_block);
@@ -935,10 +943,12 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 }
             } else
                 new_page = (uint8_t *) util::alignedAlloc(size);
-            if (is_leaf)
-                init_bt_idx_leaf(new_page);
-            else
-                init_bt_idx_interior(new_page);
+            if (type != BPT_BLK_TYPE_OVFL) {
+                if (type == BPT_BLK_TYPE_INTERIOR)
+                    init_bt_idx_interior(new_page);
+                else
+                    init_bt_idx_leaf(new_page);
+            }
             return new_page;
         }
 
@@ -978,8 +988,8 @@ class sqlite : public bplus_tree_handler<sqlite> {
                     if (new_idx > 1 && (tot_len > halfKVLen || new_idx == (orig_filled_size / 2))) {
                         brk_idx = new_idx;
                         *first_len_ptr = P;
-                        if (*first_len_ptr > 2000)
-                            cout << "GT 200: " << new_idx << ", rec_len: " << on_page_len << ", flp: " << *first_len_ptr << ", src_idx: " << src_idx << endl;
+                        //if (*first_len_ptr > 2000)
+                        //    cout << "GT 200: " << new_idx << ", rec_len: " << on_page_len << ", flp: " << *first_len_ptr << ", src_idx: " << src_idx << endl;
                         memcpy(first_key, current_block + src_idx + (isLeaf() ? 0 : 4) + vlen, on_page_len - (isLeaf() ? 0 : 4) - vlen);
                         brk_rec_len = on_page_len;
                         if (!isLeaf())
@@ -1082,6 +1092,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             insPtr(search_result, kv_last_pos);
             int16_t filled_size = read_uint16(current_block + 3);
             setKVLastPos(kv_last_pos);
+            setChanged(true);
 
             // if (BPT_MAX_KEY_LEN < key_len)
             //     BPT_MAX_KEY_LEN = key_len;
@@ -1092,11 +1103,12 @@ class sqlite : public bplus_tree_handler<sqlite> {
             int k_len, v_len;
             ptr += write_vint32(ptr, P);
             if (key_len < 0) {
-                k_len = (isLeaf() ? P : on_bt_page);
                 if (!isLeaf()) {
+                    k_len = on_bt_page;
                     memcpy(ptr, key, k_len + 4);
                     return;
                 }
+                k_len = P;
                 v_len = 0;
             } else {
                 k_len = key_len;
@@ -1125,12 +1137,16 @@ class sqlite : public bplus_tree_handler<sqlite> {
                     val_remaining -= to_copy;
                 }
                 if (key_remaining > 0 || val_remaining > 0) {
-                    uint8_t *ovfl_ptr = allocateBlock(leaf_block_size, false, 0);
-                    write_uint32(copying_on_bt_page ? ptr : ptr0, cache->get_page_count());
+                    uint32_t new_page_no = cache->get_page_count() + 1;
+                    if (new_page_no == 262145)
+                        new_page_no++;
+                    write_uint32(copying_on_bt_page ? ptr : ptr0, new_page_no);
+                    uint8_t *ovfl_ptr = allocateBlock(leaf_block_size, BPT_BLK_TYPE_OVFL, 0);
                     ptr0 = ptr = ovfl_ptr;
                     ptr += 4;
                     on_page_remaining = U - 4;
-                } else if (!copying_on_bt_page)
+                }
+                if (!copying_on_bt_page)
                     write_uint32(ptr0, 0);
                 copying_on_bt_page = false;
             } while (key_remaining > 0 || val_remaining > 0);

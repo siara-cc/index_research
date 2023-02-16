@@ -306,7 +306,10 @@ public:
         return util::getInt(BPT_LAST_DATA_PTR);
     }
 
-    uint8_t *allocateBlock(int size, int is_leaf, int lvl) {
+    #define BPT_BLK_TYPE_INTERIOR 0
+    #define BPT_BLK_TYPE_LEAF 128
+    #define BPT_BLK_TYPE_OVFL 255
+    uint8_t *allocateBlock(int size, int type, int lvl) {
         uint8_t *new_page;
         if (cache_size > 0) {
             new_page = cache->get_new_page(current_block);
@@ -315,10 +318,12 @@ public:
             new_page = (uint8_t *) util::alignedAlloc(size);
         util::setInt(new_page + 3, size - (size == 65536 ? 1 : 0));
         util::setInt(new_page + 1, 0);
-        if (is_leaf)
-            *new_page = 0xC0 + lvl;
-        else
-            *new_page = 0x40 + lvl;
+        if (type != BPT_BLK_TYPE_OVFL) {
+            if (type == BPT_BLK_TYPE_INTERIOR)
+                *new_page = 0x40 + lvl;
+            else
+                *new_page = 0xC0 + lvl;
+        }
         new_page[5] = 1;
         return new_page;
     }
