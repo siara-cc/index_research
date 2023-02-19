@@ -49,37 +49,37 @@ public:
 
     bas_blk(uint16_t block_sz) {
         block_size = block_sz;
-        current_block = (uint8_t *) util::alignedAlloc(block_size);
-        setLeaf(1);
-        setFilledSize(0);
+        current_block = (uint8_t *) util::aligned_alloc(block_size);
+        set_leaf(1);
+        set_filled_size(0);
         BPT_MAX_KEY_LEN = 1;
-        setKVLastPos(block_size);
+        set_kv_last_pos(block_size);
     }
 
     ~bas_blk() {
         free(current_block);
     }
 
-    inline bool isLeaf() {
+    inline bool is_leaf() {
         return BPT_IS_LEAF_BYTE;
     }
 
-    inline void setLeaf(char isLeaf) {
-        if (isLeaf) {
+    inline void set_leaf(char is_leaf) {
+        if (is_leaf) {
             current_block[0] = 0x80;
         } else
             current_block[0] &= 0x7F;
     }
 
-    inline uint8_t *getKey(int16_t pos, uint8_t *plen) {
-        uint8_t *kvIdx = current_block + getPtr(pos);
-        *plen = *kvIdx;
-        return kvIdx + 1;
+    inline uint8_t *get_key(int16_t pos, uint8_t *plen) {
+        uint8_t *kv_idx = current_block + get_ptr(pos);
+        *plen = *kv_idx;
+        return kv_idx + 1;
     }
 
-    inline int getPtr(int16_t pos) {
+    inline int get_ptr(int16_t pos) {
 #if BPT_9_BIT_PTR == 1
-        uint16_t ptr = *(getPtrPos() + pos);
+        uint16_t ptr = *(get_ptr_pos() + pos);
 #if BPT_INT64MAP == 1
         if (*bitmap & MASK64(pos))
         ptr |= 256;
@@ -94,169 +94,169 @@ public:
 #endif
         return ptr;
 #else
-        return util::getInt(getPtrPos() + (pos << 1));
+        return util::get_int(get_ptr_pos() + (pos << 1));
 #endif
     }
 
-    inline int16_t filledSize() {
-        return util::getInt(BPT_FILLED_SIZE);
+    inline int16_t filled_size() {
+        return util::get_int(BPT_FILLED_SIZE);
     }
 
-    inline uint16_t getKVLastPos() {
-        return util::getInt(BPT_LAST_DATA_PTR);
+    inline uint16_t get_kv_last_pos() {
+        return util::get_int(BPT_LAST_DATA_PTR);
     }
 
-    inline int16_t searchCurrentBlock() {
-        int middle, first, filled_size;
+    inline int16_t search_current_block() {
+        int middle, first, filled_sz;
         first = 0;
-        filled_size = filledSize();
-        while (first < filled_size) {
-            middle = (first + filled_size) >> 1;
-            key_at = getKey(middle, &key_at_len);
+        filled_sz = filled_size();
+        while (first < filled_sz) {
+            middle = (first + filled_sz) >> 1;
+            key_at = get_key(middle, &key_at_len);
             int16_t cmp = util::compare(key_at, key_at_len, key, key_len);
             if (cmp < 0)
                 first = middle + 1;
             else if (cmp > 0)
-                filled_size = middle;
+                filled_sz = middle;
             else
                 return middle;
         }
-        return ~filled_size;
+        return ~filled_sz;
     }
 
-    inline uint8_t *getPtrPos() {
+    inline uint8_t *get_ptr_pos() {
         return current_block + BLK_HDR_SIZE;
     }
 
-    inline int getHeaderSize() {
+    inline int get_header_size() {
         return BLK_HDR_SIZE;
     }
 
     void remove_entry(int16_t pos) {
-        delPtr(pos);
+        del_ptr(pos);
     }
 
-    void makeSpace() {
-        const uint16_t data_size = block_size - getKVLastPos();
+    void make_space() {
+        const uint16_t data_size = block_size - get_kv_last_pos();
         uint8_t data_buf[data_size];
         uint16_t new_data_len = 0;
         int16_t new_idx;
-        int16_t orig_filled_size = filledSize();
+        int16_t orig_filled_size = filled_size();
         for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
-            uint16_t src_idx = getPtr(new_idx);
+            uint16_t src_idx = get_ptr(new_idx);
             uint16_t kv_len = current_block[src_idx];
             kv_len++;
             kv_len += current_block[src_idx + kv_len];
             kv_len++;
             new_data_len += kv_len;
             memcpy(data_buf + data_size - new_data_len, current_block + src_idx, kv_len);
-            setPtr(new_idx, block_size - new_data_len);
+            set_ptr(new_idx, block_size - new_data_len);
         }
         uint16_t new_kv_last_pos = block_size - new_data_len;
         memcpy(current_block + new_kv_last_pos, data_buf + data_size - new_data_len, new_data_len);
         //printf("%d, %d\n", data_size, new_data_len);
-        setKVLastPos(new_kv_last_pos);
-        searchCurrentBlock();
+        set_kv_last_pos(new_kv_last_pos);
+        search_current_block();
     }
 
-    bool isFull(int16_t search_result) {
-        int16_t ptr_size = filledSize() + 1;
+    bool is_full(int16_t search_result) {
+        int16_t ptr_size = filled_size() + 1;
     #if BPT_9_BIT_PTR == 0
         ptr_size <<= 1;
     #endif
-        if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2)) {
-            makeSpace();
-            if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
+        if (get_kv_last_pos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2)) {
+            make_space();
+            if (get_kv_last_pos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
                 return true;
         }
     #if BPT_9_BIT_PTR == 1
-        if (filledSize() > 62)
+        if (filled_size() > 62)
         return true;
     #endif
         return false;
     }
 
-    void addData(int16_t search_result) {
+    void add_data(int16_t search_result) {
 
-        uint16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
-        setKVLastPos(kv_last_pos);
+        uint16_t kv_last_pos = get_kv_last_pos() - (key_len + value_len + 2);
+        set_kv_last_pos(kv_last_pos);
         uint8_t *ptr = current_block + kv_last_pos;
         *ptr++ = key_len;
         memcpy(ptr, key, key_len);
         ptr += key_len;
         *ptr++ = value_len;
         memcpy(ptr, value, value_len);
-        insPtr(search_result, kv_last_pos);
+        ins_ptr(search_result, kv_last_pos);
         if (BPT_MAX_KEY_LEN < key_len)
             BPT_MAX_KEY_LEN = key_len;
 
     }
 
-    void addFirstData() {
-        addData(0);
+    void add_first_data() {
+        add_data(0);
     }
 
-    inline void setFilledSize(int16_t filledSize) {
-        util::setInt(BPT_FILLED_SIZE, filledSize);
+    inline void set_filled_size(int16_t filled_size) {
+        util::set_int(BPT_FILLED_SIZE, filled_size);
     }
 
-    inline void insPtr(int16_t pos, uint16_t kv_pos) {
-        int16_t filledSz = filledSize();
+    inline void ins_ptr(int16_t pos, uint16_t kv_pos) {
+        int16_t filled_sz = filled_size();
 #if BPT_9_BIT_PTR == 1
-        uint8_t *kvIdx = getPtrPos() + pos;
-        memmove(kvIdx + 1, kvIdx, filledSz - pos);
-        *kvIdx = kv_pos;
+        uint8_t *kv_idx = get_ptr_pos() + pos;
+        memmove(kv_idx + 1, kv_idx, filled_sz - pos);
+        *kv_idx = kv_pos;
 #if BPT_INT64MAP == 1
-        insBit(bitmap, pos, kv_pos);
+        ins_bit(bitmap, pos, kv_pos);
 #else
         if (pos & 0xFFE0) {
-            insBit(bitmap2, pos - 32, kv_pos);
+            ins_bit(bitmap2, pos - 32, kv_pos);
         } else {
             uint8_t last_bit = (*bitmap1 & 0x01);
-            insBit(bitmap1, pos, kv_pos);
+            ins_bit(bitmap1, pos, kv_pos);
             *bitmap2 >>= 1;
             if (last_bit)
             *bitmap2 |= MASK32(0);
         }
 #endif
 #else
-        uint8_t *kvIdx = getPtrPos() + (pos << 1);
-        memmove(kvIdx + 2, kvIdx, (filledSz - pos) * 2);
-        util::setInt(kvIdx, kv_pos);
+        uint8_t *kv_idx = get_ptr_pos() + (pos << 1);
+        memmove(kv_idx + 2, kv_idx, (filled_sz - pos) * 2);
+        util::set_int(kv_idx, kv_pos);
 #endif
-        setFilledSize(filledSz + 1);
+        set_filled_size(filled_sz + 1);
 
     }
 
-    inline void delPtr(int16_t pos) {
-        int16_t filledSz = filledSize() - 1;
+    inline void del_ptr(int16_t pos) {
+        int16_t filled_sz = filled_size() - 1;
 #if BPT_9_BIT_PTR == 1
-        uint8_t *kvIdx = getPtrPos() + pos;
-        memmove(kvIdx, kvIdx + 1, filledSz - pos);
+        uint8_t *kv_idx = get_ptr_pos() + pos;
+        memmove(kv_idx, kv_idx + 1, filled_sz - pos);
 #if BPT_INT64MAP == 1
-        delBit(bitmap, pos);
+        del_bit(bitmap, pos);
 #else
         if (pos & 0xFFE0) {
-            delBit(bitmap2, pos - 32);
+            del_bit(bitmap2, pos - 32);
         } else {
             uint8_t first_bit = (*bitmap2 >> 7);
-            delBit(bitmap1, pos);
+            del_bit(bitmap1, pos);
             *bitmap2 <<= 1;
             if (first_bit)
                 *bitmap1 |= 0x01;
         }
 #endif
 #else
-        uint8_t *kvIdx = getPtrPos() + (pos << 1);
-        memmove(kvIdx, kvIdx + 2, (filledSz - pos) * 2);
+        uint8_t *kv_idx = get_ptr_pos() + (pos << 1);
+        memmove(kv_idx, kv_idx + 2, (filled_sz - pos) * 2);
 #endif
-        setFilledSize(filledSz);
+        set_filled_size(filled_sz);
 
     }
 
-    inline void setPtr(int16_t pos, uint16_t ptr) {
+    inline void set_ptr(int16_t pos, uint16_t ptr) {
 #if BPT_9_BIT_PTR == 1
-        *(getPtrPos() + pos) = ptr;
+        *(get_ptr_pos() + pos) = ptr;
 #if BPT_INT64MAP == 1
         if (ptr >= 256)
         *bitmap |= MASK64(pos);
@@ -277,16 +277,16 @@ public:
         }
 #endif
 #else
-        uint8_t *kvIdx = getPtrPos() + (pos << 1);
-        return util::setInt(kvIdx, ptr);
+        uint8_t *kv_idx = get_ptr_pos() + (pos << 1);
+        return util::set_int(kv_idx, ptr);
 #endif
     }
 
-    inline void setKVLastPos(uint16_t val) {
-        util::setInt(BPT_LAST_DATA_PTR, val);
+    inline void set_kv_last_pos(uint16_t val) {
+        util::set_int(BPT_LAST_DATA_PTR, val);
     }
 
-    inline void insBit(uint32_t *ui32, int pos, uint16_t kv_pos) {
+    inline void ins_bit(uint32_t *ui32, int pos, uint16_t kv_pos) {
         uint32_t ryte_part = (*ui32) & RYTE_MASK32(pos);
         ryte_part >>= 1;
         if (kv_pos >= 256)
@@ -295,51 +295,51 @@ public:
 
     }
 
-    inline void delBit(uint32_t *ui32, int pos) {
+    inline void del_bit(uint32_t *ui32, int pos) {
         uint32_t ryte_part = (*ui32) & RYTE_MASK32(pos);
         ryte_part <<= 1;
         (*ui32) = (ryte_part | ((*ui32) & LEFT_MASK32(pos)));
     }
 
-    inline uint8_t *getValueAt(uint8_t *key_ptr, int16_t *vlen) {
+    inline uint8_t *get_value_at(uint8_t *key_ptr, int16_t *vlen) {
         key_ptr += *(key_ptr - 1);
         if (vlen != NULL)
           *vlen = *key_ptr;
         return (uint8_t *) key_ptr + 1;
     }
 
-    inline uint8_t *getValueAt(int16_t *vlen) {
+    inline uint8_t *get_value_at(int16_t *vlen) {
         if (vlen != NULL)
           *vlen = key_at[key_at_len];
         return (uint8_t *) key_at + key_at_len + 1;
     }
 
     uint8_t *put(const uint8_t *key, uint8_t key_len, const uint8_t *value,
-            int16_t value_len, int16_t *pValueLen = NULL) {
+            int16_t value_len, int16_t *p_value_len = NULL) {
         this->key = key;
         this->key_len = key_len;
         this->value = value;
         this->value_len = value_len;
-        if (filledSize() == 0) {
-            addFirstData();
+        if (filled_size() == 0) {
+            add_first_data();
         } else {
-            int16_t search_result = searchCurrentBlock();
+            int16_t search_result = search_current_block();
             if (search_result >= 0)
-                return getValueAt(pValueLen);
-            if (!isFull(search_result))
-                addData(~search_result);
+                return get_value_at(p_value_len);
+            if (!is_full(search_result))
+                add_data(~search_result);
             else
                 cout << "Full" << endl;
         }
         return NULL;
     }
 
-    uint8_t *get(const uint8_t *key, uint8_t key_len, int16_t *pValueLen) {
+    uint8_t *get(const uint8_t *key, uint8_t key_len, int16_t *p_value_len) {
         this->key = key;
         this->key_len = key_len;
-        if (searchCurrentBlock() < 0)
+        if (search_current_block() < 0)
             return NULL;
-        return getValueAt(pValueLen);
+        return get_value_at(p_value_len);
     }
 
 };

@@ -91,17 +91,17 @@ if (page_size == 4096) {
         size_t c_size;
         for (set<int>::iterator it = pages_to_write.begin(); it != pages_to_write.end(); it++) {
             uint8_t *block = &page_cache[page_size * disk_to_cache_map[*it]->cache_loc];
-            int first_part_size = 6 + util::getInt(block + 1) * 2;
-            util::setInt(append_buf + block_loc, first_part_size);
+            int first_part_size = 6 + util::get_int(block + 1) * 2;
+            util::set_int(append_buf + block_loc, first_part_size);
             memcpy(append_buf + block_loc + 2, block, first_part_size);
-            int kv_last_pos = util::getInt(block + 3);
+            int kv_last_pos = util::get_int(block + 3);
             int second_part_size = page_size - kv_last_pos;
-            util::setInt(append_buf + block_loc + first_part_size + 2, second_part_size);
+            util::set_int(append_buf + block_loc + first_part_size + 2, second_part_size);
             memcpy(append_buf + block_loc + first_part_size + 4, block + kv_last_pos, second_part_size);
             //snappy::Compress((char *) append_buf + block_loc, first_part_size + second_part_size + 4, &compressed_str);
             //memcpy(append_buf + block_loc, compressed_str.c_str(), compressed_str.length());
             //block_loc += compressed_str.size();
-            if (BrotliEncoderCompress(BROTLI_DEFAULT_QUALITY, BROTLI_DEFAULT_WINDOW, BROTLI_DEFAULT_MODE, 
+            if (Brotli_encoder_compress(BROTLI_DEFAULT_QUALITY, BROTLI_DEFAULT_WINDOW, BROTLI_DEFAULT_MODE, 
                 first_part_size + second_part_size + 4, append_buf + block_loc, &c_size, c_out)) {
                memcpy(append_buf + block_loc, compressed_str.c_str(), compressed_str.length());
                block_loc += compressed_str.size();

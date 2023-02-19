@@ -14,9 +14,9 @@ uint8_t dfqx::first_bit_offset[16] = { 0x04, 0x03, 0x02, 0x02, 0x01,
 uint8_t dfqx::bit_count[16] = { 0x00, 0x01, 0x01, 0x02, 0x01,
         0x02, 0x02, 0x03, 0x01, 0x02, 0x02, 0x03, 0x02, 0x03, 0x03, 0x04 };
 #if (defined(__AVR__))
-const PROGMEM uint16_t dfqx::dbl_bit_count[256]
+const PROGMEM int dfqx::dbl_bit_count[256]
 #else
-const uint16_t dfqx::dbl_bit_count[256]
+const int dfqx::dbl_bit_count[256]
 #endif
   = {
         //0000   0001   0010   0011   0100   0101   0110   0111   1000   1001   1010   1011   1100   1101   1110   1111

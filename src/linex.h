@@ -16,18 +16,18 @@ using namespace std;
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class linex : public bplus_tree_handler<linex> {
 private:
-    int16_t linearSearch() {
-        int16_t idx = 0;
-        int16_t filled_size = filledSize();
+    int linear_search() {
+        int idx = 0;
+        int filled_sz = filled_size();
         key_at = current_block + LX_BLK_HDR_SIZE;
         prev_key_at = key_at;
         prefix_len = prev_prefix_len = 0;
-        while (idx < filled_size) {
-            int16_t cmp;
+        while (idx < filled_sz) {
+            int cmp;
             key_at_len = *(key_at + 1);
     #if LX_PREFIX_CODING == 1
             uint8_t *p_cur_prefix_len = key_at;
-            for (int16_t pctr = 0; prefix_len < (*p_cur_prefix_len & 0x7F); pctr++)
+            for (int pctr = 0; prefix_len < (*p_cur_prefix_len & 0x7F); pctr++)
                 prefix[prefix_len++] = prev_key_at[pctr + 2];
             if (prefix_len > *key_at)
                 prefix_len = *key_at;
@@ -37,7 +37,7 @@ private:
             }
     #if LX_DATA_AREA == 1
             if (cmp == 0) {
-                int16_t partial_key_len = prefix_len + key_at_len;
+                int partial_key_len = prefix_len + key_at_len;
                 uint8_t *data_key_at = current_block + key_at_len + *key_at + 1;
                 if (*p_cur_prefix_len & 0x80)
                     data_key_at += 256;
@@ -67,17 +67,17 @@ private:
         return ~idx;
     }
 public:
-    int16_t pos;
+    int pos;
     uint8_t *prev_key_at;
     uint8_t prefix[60];
-    int16_t prefix_len;
-    int16_t prev_prefix_len;
+    int prefix_len;
+    int prev_prefix_len;
 
     linex(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
        bplus_tree_handler<linex>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
-        initCurrentBlock();
+        init_current_block();
     }
 
     linex(uint32_t block_sz, uint8_t *block, bool ls_leaf) :
@@ -85,19 +85,19 @@ public:
         init_stats();
     }
 
-    void addFirstData() {
-        setKVLastPos(LX_BLK_HDR_SIZE);
-        addData(0);
+    void add_first_data() {
+        set_kv_last_pos(LX_BLK_HDR_SIZE);
+        add_data(0);
     }
 
-    void addData(int16_t search_result) {
-        int16_t prev_plen = 0;
-        int16_t filled_size = filledSize();
-        setFilledSize(filled_size + 1);
+    void add_data(int search_result) {
+        int prev_plen = 0;
+        int filled_sz = filled_size();
+        set_filled_size(filled_sz + 1);
         if (search_result < 0)
             key_at -= 2;
     #if LX_PREFIX_CODING == 1
-        if (filled_size && key_at != prev_key_at) {
+        if (filled_sz && key_at != prev_key_at) {
             while (prev_plen < key_len) {
                 if (prev_plen < prev_prefix_len) {
                     if (prefix[prev_plen] != key[prev_plen])
@@ -111,20 +111,20 @@ public:
             }
         }
     #endif
-        int16_t kv_last_pos = getKVLastPos();
-        int16_t key_left = key_len - prev_plen;
-        int16_t tot_len = key_left + value_len + 3;
-        int16_t len_to_move = kv_last_pos - (key_at - current_block);
+        int kv_last_pos = get_kv_last_pos();
+        int key_left = key_len - prev_plen;
+        int tot_len = key_left + value_len + 3;
+        int len_to_move = kv_last_pos - (key_at - current_block);
         if (len_to_move) {
     #if LX_PREFIX_CODING == 1
-            int16_t next_plen = prefix_len;
+            int next_plen = prefix_len;
             while (key_at[next_plen - prefix_len + 2] == key[next_plen]
                     && next_plen < key_len)
                 next_plen++;
-            int16_t diff = next_plen - prefix_len;
+            int diff = next_plen - prefix_len;
             if (diff) {
-                int16_t next_key_len = key_at[1];
-                int16_t next_value_len = key_at[next_key_len + 2];
+                int next_key_len = key_at[1];
+                int next_value_len = key_at[next_key_len + 2];
                 *key_at = next_plen;
                 key_at[1] -= diff;
                 memmove(key_at + 2, key_at + diff + 2,
@@ -143,40 +143,40 @@ public:
         *key_at++ = value_len;
         memcpy(key_at, value, value_len);
         kv_last_pos += tot_len;
-        setKVLastPos(kv_last_pos);
+        set_kv_last_pos(kv_last_pos);
 
         if (BPT_MAX_KEY_LEN < key_len)
             BPT_MAX_KEY_LEN = key_len;
 
     }
 
-    uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
-        int16_t filled_size = filledSize();
-        const uint32_t LINEX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        uint8_t *b = allocateBlock(LINEX_NODE_SIZE, isLeaf(), current_block[0] & 0x1F);
-        linex new_block(LINEX_NODE_SIZE, b, isLeaf());
-        new_block.setKVLastPos(LX_BLK_HDR_SIZE);
+    uint8_t *split(uint8_t *first_key, int *first_len_ptr) {
+        int filled_sz = filled_size();
+        const uint32_t LINEX_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
+        uint8_t *b = allocate_block(LINEX_NODE_SIZE, is_leaf(), current_block[0] & 0x1F);
+        linex new_block(LINEX_NODE_SIZE, b, is_leaf());
+        new_block.set_kv_last_pos(LX_BLK_HDR_SIZE);
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
-        int16_t kv_last_pos = getKVLastPos();
-        int16_t halfKVLen = kv_last_pos / 2;
+        int kv_last_pos = get_kv_last_pos();
+        int half_kVLen = kv_last_pos / 2;
 
-        int16_t brk_idx = -1;
-        int16_t brk_kv_pos;
-        int16_t tot_len;
+        int brk_idx = -1;
+        int brk_kv_pos;
+        int tot_len;
         brk_kv_pos = tot_len = 0;
         // Copy all data to new block in ascending order
-        int16_t new_idx;
-        int16_t src_idx = LX_BLK_HDR_SIZE;
-        int16_t dst_idx = src_idx;
+        int new_idx;
+        int src_idx = LX_BLK_HDR_SIZE;
+        int dst_idx = src_idx;
         prefix_len = 0;
         prev_key_at = current_block + src_idx;
-        for (new_idx = 0; new_idx < filled_size; new_idx++) {
-            for (int16_t pctr = 0; prefix_len < current_block[src_idx]; pctr++)
+        for (new_idx = 0; new_idx < filled_sz; new_idx++) {
+            for (int pctr = 0; prefix_len < current_block[src_idx]; pctr++)
                 prefix[prefix_len++] = prev_key_at[pctr + 2];
             if (prefix_len > current_block[src_idx])
                 prefix_len = current_block[src_idx];
             src_idx++;
-            int16_t kv_len = current_block[src_idx];
+            int kv_len = current_block[src_idx];
             kv_len++;
             kv_len += current_block[src_idx + kv_len];
             kv_len++;
@@ -190,7 +190,7 @@ public:
                 dst_idx += kv_len;
                 dst_idx--;
     #if LX_PREFIX_CODING == 0
-                if (isLeaf()) {
+                if (is_leaf()) {
                     prefix_len = 0;
                     for (int i = 0; current_block[src_idx + i + 1] == prev_key_at[i + 2]; i++) {
                         prefix[i] = prev_key_at[i + 2];
@@ -199,7 +199,7 @@ public:
                 }
     #endif
                 memcpy(first_key, prefix, prefix_len);
-                if (isLeaf()) {
+                if (is_leaf()) {
     #if LX_PREFIX_CODING == 0
                     first_key[prefix_len] = current_block[src_idx + prefix_len + 1];
     #else
@@ -219,7 +219,7 @@ public:
                 dst_idx += kv_len;
             }
             if (brk_idx == -1) {
-                if (tot_len > halfKVLen || new_idx == (filled_size / 2)) {
+                if (tot_len > half_kVLen || new_idx == (filled_sz / 2)) {
                     brk_idx = new_idx + 1;
                     brk_kv_pos = dst_idx;
                 }
@@ -229,38 +229,38 @@ public:
             kv_last_pos = dst_idx;
         }
 
-        int16_t old_blk_new_len = brk_kv_pos - LX_BLK_HDR_SIZE;
+        int old_blk_new_len = brk_kv_pos - LX_BLK_HDR_SIZE;
         memcpy(current_block + LX_BLK_HDR_SIZE, new_block.current_block + LX_BLK_HDR_SIZE,
                 old_blk_new_len); // Copy back first half to old block
-        setKVLastPos(LX_BLK_HDR_SIZE + old_blk_new_len);
-        setFilledSize(brk_idx); // Set filled upto for old block
+        set_kv_last_pos(LX_BLK_HDR_SIZE + old_blk_new_len);
+        set_filled_size(brk_idx); // Set filled upto for old block
 
-        int16_t new_size = filled_size - brk_idx;
+        int new_size = filled_sz - brk_idx;
         // Move index of second half to first half in new block
         uint8_t *new_kv_idx = new_block.current_block + brk_kv_pos;
         memmove(new_block.current_block + LX_BLK_HDR_SIZE, new_kv_idx,
                 kv_last_pos - brk_kv_pos); // Move first block to front
         // Set KV Last pos for new block
-        new_block.setKVLastPos(LX_BLK_HDR_SIZE + kv_last_pos - brk_kv_pos);
-        new_block.setFilledSize(new_size); // Set filled upto for new block
+        new_block.set_kv_last_pos(LX_BLK_HDR_SIZE + kv_last_pos - brk_kv_pos);
+        new_block.set_filled_size(new_size); // Set filled upto for new block
 
         return b;
 
     }
 
-    bool isFull(int16_t search_result) {
-        uint16_t LINEX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
-        if ((getKVLastPos() + key_len + value_len + 5) >= LINEX_NODE_SIZE)
+    bool is_full(int search_result) {
+        int LINEX_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
+        if ((get_kv_last_pos() + key_len + value_len + 5) >= LINEX_NODE_SIZE)
             return true;
         return false;
     }
 
-    inline int16_t searchCurrentBlock() {
-        pos = linearSearch();
+    inline int search_current_block() {
+        pos = linear_search();
         return pos;
     }
 
-    uint8_t *getChildPtrPos(int16_t search_result) {
+    uint8_t *get_child_ptr_pos(int search_result) {
         if (search_result >= 0)
             key_at -= 2;
         if (search_result < 0)
@@ -268,29 +268,29 @@ public:
         return key_at + 1;
     }
 
-    int getHeaderSize() {
+    int get_header_size() {
         return LX_BLK_HDR_SIZE;
     }
 
-    inline uint8_t *getPtrPos() {
+    inline uint8_t *get_ptr_pos() {
         return NULL;
     }
 
-    void setCurrentBlockRoot() {
+    void set_current_block_root() {
         current_block = root_block;
         key_at = current_block + LX_BLK_HDR_SIZE;
         prefix_len = 0;
     }
 
-    void setCurrentBlock(uint8_t *m) {
+    void set_current_block(uint8_t *m) {
         current_block = m;
         key_at = m + LX_BLK_HDR_SIZE;
         prefix_len = 0;
     }
 
-    void initCurrentBlock() {
-        bplus_tree_handler<linex>::initCurrentBlock();
-        setKVLastPos(LX_BLK_HDR_SIZE);
+    void init_current_block() {
+        bplus_tree_handler<linex>::init_current_block();
+        set_kv_last_pos(LX_BLK_HDR_SIZE);
     }
 
     void init_derived() {

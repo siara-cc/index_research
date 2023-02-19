@@ -19,7 +19,7 @@ using namespace std;
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class basix : public bplus_tree_handler<basix> {
 public:
-    int16_t found_pos;
+    int found_pos;
     basix(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
@@ -31,142 +31,142 @@ public:
         init_stats();
     }
 
-    inline void setCurrentBlockRoot() {
-        setCurrentBlock(root_block);
+    inline void set_current_block_root() {
+        set_current_block(root_block);
     }
 
-    inline void setCurrentBlock(uint8_t *m) {
+    inline void set_current_block(uint8_t *m) {
         current_block = m;
 #if BPT_9_BIT_PTR == 1
 #if BPT_INT64MAP == 1
-        bitmap = (uint64_t *) (current_block + getHeaderSize() - 8);
+        bitmap = (uint64_t *) (current_block + get_header_size() - 8);
 #else
-        bitmap1 = (uint32_t *) (current_block + getHeaderSize() - 8);
+        bitmap1 = (uint32_t *) (current_block + get_header_size() - 8);
         bitmap2 = bitmap1 + 1;
 #endif
 #endif
     }
 
-    inline int16_t searchCurrentBlock() {
-        int middle, first, filled_size;
+    inline int search_current_block() {
+        int middle, first, filled_sz;
         found_pos = -1;
         first = 0;
-        filled_size = filledSize();
-        while (first < filled_size) {
-            middle = (first + filled_size) >> 1;
-            key_at = getKey(middle, &key_at_len);
-            int16_t cmp = util::compare(key_at, key_at_len, key, key_len);
+        filled_sz = filled_size();
+        while (first < filled_sz) {
+            middle = (first + filled_sz) >> 1;
+            key_at = get_key(middle, &key_at_len);
+            int cmp = util::compare(key_at, key_at_len, key, key_len);
             if (cmp < 0)
                 first = middle + 1;
             else if (cmp > 0)
-                filled_size = middle;
+                filled_sz = middle;
             else {
                 found_pos = middle;
                 return middle;
             }
         }
-        return ~filled_size;
+        return ~filled_sz;
     }
 
-    inline uint8_t *getChildPtrPos(int16_t search_result) {
+    inline uint8_t *get_child_ptr_pos(int search_result) {
         if (search_result < 0) {
             search_result++;
             search_result = ~search_result;
         }
-        return current_block + getPtr(search_result);
+        return current_block + get_ptr(search_result);
     }
 
-    inline uint8_t *getPtrPos() {
+    inline uint8_t *get_ptr_pos() {
         return current_block + BLK_HDR_SIZE;
     }
 
-    inline int getHeaderSize() {
+    inline int get_header_size() {
         return BLK_HDR_SIZE;
     }
 
-    void remove_entry(int16_t pos) {
-        delPtr(pos);
-        setChanged(1);
+    void remove_entry(int pos) {
+        del_ptr(pos);
+        set_changed(1);
     }
 
     void remove_found_entry() {
         if (found_pos != -1) {
-            delPtr(found_pos);
-            setChanged(1);
+            del_ptr(found_pos);
+            set_changed(1);
         }
         total_size--;
     }
 
-    void makeSpace() {
-        int block_size = (isLeaf() ? leaf_block_size : parent_block_size);
-        int16_t orig_filled_size = filledSize();
+    void make_space() {
+        int block_size = (is_leaf() ? leaf_block_size : parent_block_size);
+        int orig_filled_size = filled_size();
         if (orig_filled_size == 0) {
-            setKVLastPos(block_size == 65536 ? 65535 : block_size);
+            set_kv_last_pos(block_size == 65536 ? 65535 : block_size);
             return;
         }
         int lvl = current_block[0] & 0x1F;
-        const uint16_t data_size = block_size - getKVLastPos();
+        const int data_size = block_size - get_kv_last_pos();
         if (data_size < 3) {
             cout << "data size 0" << endl;
             return;
         }
         uint8_t *data_buf = (uint8_t *) malloc(data_size);
-        uint16_t new_data_len = 0;
-        int16_t new_idx;
+        int new_data_len = 0;
+        int new_idx;
         for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
-            uint16_t src_idx = getPtr(new_idx);
-            uint16_t kv_len = current_block[src_idx];
+            int src_idx = get_ptr(new_idx);
+            int kv_len = current_block[src_idx];
             kv_len++;
             kv_len += current_block[src_idx + kv_len];
             kv_len++;
             new_data_len += kv_len;
             memcpy(data_buf + data_size - new_data_len, current_block + src_idx, kv_len);
-            setPtr(new_idx, block_size - new_data_len);
+            set_ptr(new_idx, block_size - new_data_len);
         }
-        uint16_t new_kv_last_pos = block_size - new_data_len;
+        int new_kv_last_pos = block_size - new_data_len;
         memcpy(current_block + new_kv_last_pos, data_buf + data_size - new_data_len, new_data_len);
         //printf("%d, %d\n", data_size, new_data_len);
         free(data_buf);
-        setKVLastPos(new_kv_last_pos);
-        searchCurrentBlock();
+        set_kv_last_pos(new_kv_last_pos);
+        search_current_block();
     }
 
-    bool isFull(int16_t search_result) {
-        int16_t ptr_size = filledSize() + 1;
+    bool is_full(int search_result) {
+        int ptr_size = filled_size() + 1;
     #if BPT_9_BIT_PTR == 0
         ptr_size <<= 1;
     #endif
-        if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2)) {
-            if (!isLeaf() && demote_blocks)
-                demoteBlocks();
+        if (get_kv_last_pos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2)) {
+            if (!is_leaf() && to_demote_blocks)
+                demote_blocks();
             if (*current_block & 0x20) {
-                makeSpace();
+                make_space();
                 *current_block &= 0xDF;
-                if (getKVLastPos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
+                if (get_kv_last_pos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
                     return true;
             } else
             	return true;
         }
     #if BPT_9_BIT_PTR == 1
-        if (filledSize() > 62)
+        if (filled_size() > 62)
         return true;
     #endif
         return false;
     }
 
-    void demoteBlocks() {
+    void demote_blocks() {
         //if (current_block[5] % 8 > 0)
         //    return;
         if ((current_block[0] & 0x1F) <= BPT_PARENT0_LVL)
             return;
-        uint16_t filled_size = filledSize();
+        int filled_sz = filled_size();
         int total = 0;
         int count = 0;
         int less_count = 0;
         int demoted_count = 0;
         cout << "Start: " << current_page << ": " << endl;
-        for (uint16_t pos = 0; pos < filled_size; pos++) {
-            uint16_t src_idx = getPtr(pos);
+        for (int pos = 0; pos < filled_sz; pos++) {
+            int src_idx = get_ptr(pos);
             uint8_t *kv = current_block + src_idx;
             kv += *kv;
             kv++;
@@ -184,8 +184,8 @@ public:
             //}// else
                 // *kv = 0;
         }
-            for (uint16_t pos = 0; pos < filled_size; pos++) {
-                uint16_t src_idx = getPtr(pos);
+            for (int pos = 0; pos < filled_sz; pos++) {
+                int src_idx = get_ptr(pos);
                 uint8_t *kv = current_block + src_idx;
                 kv += *kv;
                 kv++;
@@ -199,8 +199,8 @@ public:
         if (count == 0)
             count = total;
         int mean = total / count;
-        /*for (uint16_t pos = 0; pos < filled_size; pos++) {
-            uint16_t src_idx = getPtr(pos);
+        /*for (int pos = 0; pos < filled_size; pos++) {
+            int src_idx = get_ptr(pos);
             uint8_t *kv = current_block + src_idx;
             kv += *kv;
             kv++;
@@ -214,8 +214,8 @@ public:
                 *kv = 0;
         }*/
         if (less_count == 0) {
-            /*for (uint16_t pos = 0; pos < filled_size; pos++) {
-                uint16_t src_idx = getPtr(pos);
+            /*for (int pos = 0; pos < filled_size; pos++) {
+                int src_idx = get_ptr(pos);
                 uint8_t *kv = current_block + src_idx;
                 kv += *kv;
                 kv++;
@@ -224,19 +224,19 @@ public:
             }
             cout << endl;*/
         } else {
-            cout << "Less count: " << less_count << ", tot: " << filled_size << ", mean: " << mean
+            cout << "Less count: " << less_count << ", tot: " << filled_sz << ", mean: " << mean
                  << ", dcount: " << demoted_count << ", lvl: " << (int) (current_block[0] & 0x1F) << endl;
         }
     }
 
-    uint8_t *findSplitSource(int16_t search_result) {
+    uint8_t *find_split_source(int search_result) {
         if (search_result < 0)
             search_result = ~search_result;
         if (search_result == 0) {
             cout << "New split block can never be at pos 0" << endl;
             return NULL;
         }
-        int ptr_pos = getPtr(search_result - 1);
+        int ptr_pos = get_ptr(search_result - 1);
         uint8_t *ret = current_block + ptr_pos;
         ret += *ret;
         ret++;
@@ -244,41 +244,41 @@ public:
         return ret;
     }
 
-    uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
-        int16_t orig_filled_size = filledSize();
-        uint32_t BASIX_NODE_SIZE = isLeaf() ? leaf_block_size : parent_block_size;
+    uint8_t *split(uint8_t *first_key, int *first_len_ptr) {
+        int orig_filled_size = filled_size();
+        uint32_t BASIX_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
         int lvl = current_block[0] & 0x1F;
-        uint8_t *b = allocateBlock(BASIX_NODE_SIZE, isLeaf(), lvl);
-        basix new_block(BASIX_NODE_SIZE, b, isLeaf());
+        uint8_t *b = allocate_block(BASIX_NODE_SIZE, is_leaf(), lvl);
+        basix new_block(BASIX_NODE_SIZE, b, is_leaf());
         if (BPT_MAX_KEY_LEN < 255)
             BPT_MAX_KEY_LEN++;
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
-        uint16_t kv_last_pos = getKVLastPos();
-        uint16_t halfKVLen = BASIX_NODE_SIZE - kv_last_pos + 1;
-        halfKVLen /= 2;
+        int kv_last_pos = get_kv_last_pos();
+        int half_kVLen = BASIX_NODE_SIZE - kv_last_pos + 1;
+        half_kVLen /= 2;
 
-        int16_t brk_idx = -1;
-        uint16_t brk_kv_pos;
-        uint16_t tot_len;
+        int brk_idx = -1;
+        int brk_kv_pos;
+        int tot_len;
         brk_kv_pos = tot_len = 0;
         // Copy all data to new block in ascending order
-        int16_t new_idx;
+        int new_idx;
         for (new_idx = 0; new_idx < orig_filled_size; new_idx++) {
-            uint16_t src_idx = getPtr(new_idx);
-            uint16_t kv_len = current_block[src_idx];
+            int src_idx = get_ptr(new_idx);
+            int kv_len = current_block[src_idx];
             kv_len++;
             kv_len += current_block[src_idx + kv_len];
             kv_len++;
             tot_len += kv_len;
             memcpy(new_block.current_block + kv_last_pos, current_block + src_idx, kv_len);
-            new_block.insPtr(new_idx, kv_last_pos);
+            new_block.ins_ptr(new_idx, kv_last_pos);
             kv_last_pos += kv_len;
             if (brk_idx == -1) {
-                if (tot_len > halfKVLen || new_idx == (orig_filled_size / 2)) {
+                if (tot_len > half_kVLen || new_idx == (orig_filled_size / 2)) {
                     brk_idx = new_idx + 1;
                     brk_kv_pos = kv_last_pos;
-                    uint16_t first_idx = getPtr(new_idx + 1);
-                    if (isLeaf()) {
+                    int first_idx = get_ptr(new_idx + 1);
+                    if (is_leaf()) {
                         int len = 0;
                         while (current_block[first_idx + len + 1] == current_block[src_idx + len + 1])
                             len++;
@@ -292,19 +292,19 @@ public:
             }
         }
         //memset(current_block + BLK_HDR_SIZE, '\0', BASIX_NODE_SIZE - BLK_HDR_SIZE);
-        kv_last_pos = getKVLastPos();
+        kv_last_pos = get_kv_last_pos();
         //memset(new_block.current_block + kv_last_pos, '\0', old_blk_new_len);
         int diff = (BASIX_NODE_SIZE - brk_kv_pos);
         for (new_idx = 0; new_idx <= brk_idx; new_idx++) {
-            setPtr(new_idx, new_block.getPtr(new_idx) + diff);
+            set_ptr(new_idx, new_block.get_ptr(new_idx) + diff);
         } // Set index of copied first half in old block
 
         {
-            uint16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
+            int old_blk_new_len = brk_kv_pos - kv_last_pos;
             memcpy(current_block + BASIX_NODE_SIZE - old_blk_new_len,
                     new_block.current_block + kv_last_pos, old_blk_new_len); // Copy back first half to old block
-            setKVLastPos(BASIX_NODE_SIZE - old_blk_new_len);
-            setFilledSize(brk_idx);
+            set_kv_last_pos(BASIX_NODE_SIZE - old_blk_new_len);
+            set_filled_size(brk_idx);
         }
 
         {
@@ -320,39 +320,39 @@ public:
             }
     #endif
     #endif
-            int16_t new_size = orig_filled_size - brk_idx;
+            int new_size = orig_filled_size - brk_idx;
             uint8_t *block_ptrs = new_block.current_block + BLK_HDR_SIZE;
     #if BPT_9_BIT_PTR == 1
             memmove(block_ptrs, block_ptrs + brk_idx, new_size);
     #else
             memmove(block_ptrs, block_ptrs + (brk_idx << 1), new_size << 1);
     #endif
-            new_block.setKVLastPos(brk_kv_pos);
-            new_block.setFilledSize(new_size);
+            new_block.set_kv_last_pos(brk_kv_pos);
+            new_block.set_filled_size(new_size);
         }
 
         return b;
     }
 
-    uint8_t *addData(int16_t search_result) {
+    uint8_t *add_data(int search_result) {
 
-        uint16_t kv_last_pos = getKVLastPos() - (key_len + value_len + 2);
-        setKVLastPos(kv_last_pos);
+        int kv_last_pos = get_kv_last_pos() - (key_len + value_len + 2);
+        set_kv_last_pos(kv_last_pos);
         uint8_t *ptr = current_block + kv_last_pos;
         *ptr++ = key_len;
         memcpy(ptr, key, key_len);
         ptr += key_len;
         *ptr++ = value_len;
         memcpy(ptr, value, value_len);
-        insPtr(search_result, kv_last_pos);
+        ins_ptr(search_result, kv_last_pos);
         //if (BPT_MAX_KEY_LEN < key_len)
         //    BPT_MAX_KEY_LEN = key_len;
         return ptr;
 
     }
 
-    void addFirstData() {
-        addData(0);
+    void add_first_data() {
+        add_data(0);
     }
 
     void init_derived() {

@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream>
-#include "GenTree.h"
+#include "gen_tree.h"
 #include "bplus_tree_handler.h"
 
 using namespace std;
@@ -38,38 +38,38 @@ using namespace std;
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class rb_tree : public bplus_tree_handler<rb_tree> {
 private:
-    int16_t binarySearch(const uint8_t *key, int16_t key_len);
-    inline int16_t getLeft(int16_t n);
-    inline int16_t getRight(int16_t n);
-    inline int16_t getParent(int16_t n);
-    int16_t getSibling(int16_t n);
-    inline int16_t getUncle(int16_t n);
-    inline int16_t getGrandParent(int16_t n);
-    inline int16_t getRoot();
-    inline int16_t getColor(int16_t n);
-    inline void setLeft(int16_t n, int16_t l);
-    inline void setRight(int16_t n, int16_t r);
-    inline void setParent(int16_t n, int16_t p);
-    inline void setRoot(int16_t n);
-    inline void setColor(int16_t n, uint8_t c);
-    void rotateLeft(int16_t n);
-    void rotateRight(int16_t n);
-    void replaceNode(int16_t oldn, int16_t newn);
-    void insertCase1(int16_t n);
-    void insertCase2(int16_t n);
-    void insertCase3(int16_t n);
-    void insertCase4(int16_t n);
-    void insertCase5(int16_t n);
+    int binary_search(const uint8_t *key, int key_len);
+    inline int get_left(int n);
+    inline int get_right(int n);
+    inline int get_parent(int n);
+    int get_sibling(int n);
+    inline int get_uncle(int n);
+    inline int get_grand_parent(int n);
+    inline int get_root();
+    inline int get_color(int n);
+    inline void set_left(int n, int l);
+    inline void set_right(int n, int r);
+    inline void set_parent(int n, int p);
+    inline void set_root(int n);
+    inline void set_color(int n, uint8_t c);
+    void rotate_left(int n);
+    void rotate_right(int n);
+    void replace_node(int oldn, int newn);
+    void insert_case1(int n);
+    void insert_case2(int n);
+    void insert_case3(int n);
+    void insert_case4(int n);
+    void insert_case5(int n);
 public:
-    int16_t pos;
+    int pos;
     uint8_t last_direction;
 
     rb_tree(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
        bplus_tree_handler<rb_tree>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
-        GenTree::generateLists();
-        initBuf();
+        gen_tree::generate_lists();
+        init_buf();
     }
 
     rb_tree(uint32_t block_sz, uint8_t *block, bool is_leaf) :
@@ -83,32 +83,32 @@ public:
     void cleanup() {
     }
 
-    int16_t getDataEndPos();
-    void setDataEndPos(int16_t pos);
-    int16_t filledUpto();
-    void setFilledUpto(int16_t filledUpto);
-    int16_t getPtr(int16_t pos);
-    void setPtr(int16_t pos, int16_t ptr);
-    bool isFull(int16_t search_result);
-    void setCurrentBlockRoot();
-    void setCurrentBlock(uint8_t *m);
-    int16_t searchCurrentBlock();
-    void addData(int16_t search_result);
-    void addFirstData();
-    uint8_t *getKey(int16_t pos, int16_t *plen);
-    uint8_t *getFirstKey(int16_t *plen);
-    int16_t getFirst();
-    int16_t getNext(int16_t n);
-    int16_t getPrevious(int16_t n);
-    uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr);
-    void initVars();
-    uint8_t *getChildPtrPos(int16_t search_result);
-    uint8_t *getValueAt(int16_t *vlen);
-    using bplus_tree_handler::getChildPtr;
-    uint8_t *getChildPtr(int16_t pos);
-    uint8_t *getPtrPos();
-    int getHeaderSize();
-    void initBuf();
+    int get_data_end_pos();
+    void set_data_end_pos(int pos);
+    int filled_upto();
+    void set_filled_upto(int filled_upto);
+    int get_ptr(int pos);
+    void set_ptr(int pos, int ptr);
+    bool is_full(int search_result);
+    void set_current_block_root();
+    void set_current_block(uint8_t *m);
+    int search_current_block();
+    void add_data(int search_result);
+    void add_first_data();
+    uint8_t *get_key(int pos, int *plen);
+    uint8_t *get_first_key(int *plen);
+    int get_first();
+    int get_next(int n);
+    int get_previous(int n);
+    uint8_t *split(uint8_t *first_key, int *first_len_ptr);
+    void init_vars();
+    uint8_t *get_child_ptr_pos(int search_result);
+    uint8_t *get_value_at(int *vlen);
+    using bplus_tree_handler::get_child_ptr;
+    uint8_t *get_child_ptr(int pos);
+    uint8_t *get_ptr_pos();
+    int get_header_size();
+    void init_buf();
 };
 
 #endif

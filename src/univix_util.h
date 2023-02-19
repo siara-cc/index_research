@@ -2,7 +2,7 @@
 #define UTIL_H
 #include <stdint.h>
 #ifdef ARDUINO
-#include <HardwareSerial.h>
+#include <Hardware_serial.h>
 #if (defined(__AVR__))
 #include <avr/pgmspace.h>
 #else
@@ -80,30 +80,30 @@ public:
 
 #endif
 
-    static inline uint16_t getInt(uint8_t *pos) {
+    static inline uint16_t get_int(uint8_t *pos) {
 //        return (uint16_t *) pos; // fast endian-dependent
         uint16_t ret = ((*pos << 8) | *(pos + 1));
         return ret; // slow endian independent
     }
 
-    static inline void setInt(uint8_t *pos, uint16_t val) {
+    static inline void set_int(uint8_t *pos, uint16_t val) {
 //        *((int16_t *) pos) = val; // fast endian-dependent
         *pos++ = val >> 8; // slow endian independent
         *pos = val % 256;
     }
 
-    static inline uint32_t getInt3(uint8_t *pos) {
+    static inline uint32_t get_int3(uint8_t *pos) {
         uint32_t ret = ((*pos << 16) + (pos[1] << 8) + pos[2]);
         return ret; // slow endian independent
     }
 
-    static inline void setInt3(uint8_t *pos, uint32_t val) {
+    static inline void set_int3(uint8_t *pos, uint32_t val) {
         *pos++ = val >> 16; // slow endian independent
         *pos++ = (val >> 8) & 0xFF;
         *pos = val & 0xFF;
     }
 
-    static int ptrToBytes(unsigned long addr_num, uint8_t *addr) {
+    static int ptr_to_bytes(unsigned long addr_num, uint8_t *addr) {
         int l = 0;
         while (addr_num) {
             addr[l++] = addr_num;
@@ -117,7 +117,7 @@ public:
         return l;
     }
 
-    static unsigned long bytesToPtr(const uint8_t *addr, int len) {
+    static unsigned long bytes_to_ptr(const uint8_t *addr, int len) {
         unsigned long ret = 0;
         addr++;
         do {
@@ -127,7 +127,7 @@ public:
         return ret;
     }
 
-    static unsigned long bytesToPtr(const uint8_t *addr) {
+    static unsigned long bytes_to_ptr(const uint8_t *addr) {
         unsigned long ret = 0;
         int len = *addr++;
         do {
@@ -212,21 +212,21 @@ public:
         return 0;
     }
 
-    static void *alignedAlloc(size_t blockSize) {
+    static void *aligned_alloc(size_t block_size) {
 #if defined(ARDUINO)
-        return malloc ((unsigned int)blockSize);
+        return malloc ((unsigned int)block_size);
 #elif defined(_MSC_VER)
-        return _aligned_malloc (blockSize, 64);
+        return _aligned_malloc (block_size, 64);
 #elif defined(__APPLE__)
-        void* aPtr;
-        if (posix_memalign (&aPtr, 64, blockSize)) {
-             aPtr = NULL;
+        void* a_ptr;
+        if (posix_memalign (&a_ptr, 64, block_size)) {
+             a_ptr = NULL;
         }
-        return aPtr;
+        return a_ptr;
 #elif defined(__BORLANDC__) || defined(__GNUC__) || defined(__ANDROID__)
-        return memalign(64, blockSize);
+        return memalign(64, block_size);
 #else
-        return malloc ((unsigned int)blockSize);
+        return malloc ((unsigned int)block_size);
 #endif
     }
 
@@ -300,9 +300,9 @@ public:
 #endif
     }
 
-    static void generateBitCounts() {
+    static void generate_bit_counts() {
         //for (int16_t i = 0; i < 256; i++) {
-        //    bit_count[i] = countSetBits(i);
+        //    bit_count[i] = count_set_bits(i);
         //    print(bit_count[i]);
         //    print(", ");
         //}
@@ -385,7 +385,7 @@ public:
 
     // Function to get no of set bits in binary
     // representation of passed binary no.
-    inline static uint8_t countSetBits(int16_t n) {
+    inline static uint8_t count_set_bits(int16_t n) {
         uint8_t count = 0;
         while (n > 0) {
             n &= (n - 1);
@@ -394,7 +394,7 @@ public:
         return (uint8_t) count;
     }
 
-    inline static uint8_t firstBitMask(int16_t n) {
+    inline static uint8_t first_bit_mask(int16_t n) {
         uint8_t mask = 0x80;
         while (0 == (n & mask) && mask) {
             mask >>= 1;
@@ -402,7 +402,7 @@ public:
         return mask;
     }
 
-    inline static uint8_t lastBitMask(int16_t n) {
+    inline static uint8_t last_bit_mask(int16_t n) {
         uint8_t mask = 0x01;
         while (0 == (n & mask) && mask) {
             mask <<= 1;
@@ -410,7 +410,7 @@ public:
         return mask;
     }
 
-    inline static uint8_t firstBitOffset(int16_t n) {
+    inline static uint8_t first_bit_offset(int16_t n) {
         int offset = 0;
         do {
             uint8_t mask = 0x01 << offset;

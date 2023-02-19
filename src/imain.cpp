@@ -56,7 +56,7 @@ int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
 int TEST_IDX1 = 1;
-int TEST_IDX2 = 0;
+int TEST_IDX2 = 1;
 
 int ctr = 0;
 
@@ -140,7 +140,7 @@ int64_t insert(unordered_map<string, string>& m, uint8_t *data_buf) {
             k[4] = 0;
         }
         //cout << "Value: ";
-        for (int16_t i = 0; i < VALUE_LEN; i++) {
+        for (int i = 0; i < VALUE_LEN; i++) {
             v[VALUE_LEN - i - 1] = k[i % KEY_LEN];
             //cout << (char) k[i];
         }
@@ -179,13 +179,13 @@ int64_t insert(unordered_map<string, string>& m, uint8_t *data_buf) {
     return ret;
 }
 
-int64_t getImportFileSize() {
+int64_t get_import_file_size() {
     struct stat st;
     stat(IMPORT_FILE, &st);
     return st.st_size;
 }
 
-int64_t loadFile(unordered_map<string, string>& m, uint8_t *data_buf) {
+int64_t load_file(unordered_map<string, string>& m, uint8_t *data_buf) {
     FILE *fp;
     char key[2000];
     char value[255];
@@ -223,7 +223,7 @@ int64_t loadFile(unordered_map<string, string>& m, uint8_t *data_buf) {
                     }
                 } else {
                     sprintf(value, "%ld", NUM_ENTRIES);
-                    //util::ptrToBytes(NUM_ENTRIES, (uint8_t *) value);
+                    //util::ptr_toBytes(NUM_ENTRIES, (uint8_t *) value);
                     //value[4] = 0;
                     if (USE_HASHTABLE)
                         m.insert(pair<string, string>(key, value));
@@ -256,7 +256,7 @@ int64_t loadFile(unordered_map<string, string>& m, uint8_t *data_buf) {
         if (USE_HASHTABLE)
             m.insert(pair<string, string>(key, value));
         else {
-            int16_t len = strlen(key);
+            int len = strlen(key);
             ret += write_vint32(data_buf + ret, len);
             memcpy(data_buf + ret, key, len);
             ret += len;
@@ -271,9 +271,9 @@ int64_t loadFile(unordered_map<string, string>& m, uint8_t *data_buf) {
     fclose(fp);
     return ret;
 }
-uint32_t getTimeVal() {
+uint32_t get_time_val() {
 #ifdef _MSC_VER
-    return GetTickCount() * 1000;
+    return Get_tick_count() * 1000;
 #else
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -289,8 +289,8 @@ double timedifference(uint32_t t0, uint32_t t1) {
 }
 
 template<class T>
-void print(bplus_tree_handler<T> *dx, const char *key, int16_t key_len) {
-    int16_t len;
+void print(bplus_tree_handler<T> *dx, const char *key, int key_len) {
+    int len;
     const char *value = dx->get(key, key_len, &len);
     if (value == null || len == 0) {
         std::cout << "Value for " << key << " is null" << endl;
@@ -303,7 +303,7 @@ void print(bplus_tree_handler<T> *dx, const char *key, int16_t key_len) {
 }
 
 int main2() {
-    util::generateBitCounts();
+    util::generate_bit_counts();
     //rb_tree *dx = new rb_tree();
     //dfox *dx = new dfox();
     dfos *dx = new dfos();
@@ -1151,28 +1151,28 @@ int main2() {
     print(dx, "coachoutletstoreonline.com.co", 29);
     print(dx, "pittsburghsteelersjerseys.com", 29);
 
-    dx->printStats(24);
-    dx->printNumLevels();
+    dx->print_stats(24);
+    dx->print_num_levels();
     cout << "Trie size: " << (int) dx->BPT_TRIE_LEN << endl;
-    cout << "Filled size: " << (int) dx->filledSize() << endl;
+    cout << "Filled size: " << (int) dx->filled_size() << endl;
     return 0;
 }
 
 int main3() {
-    int numKeys = 10;
-    util::generateBitCounts();
+    int num_keys = 10;
+    util::generate_bit_counts();
     //basix *dx = new basix();
     //dfqx *dx = new dfqx();
     //dfqx *dx = new dfqx();
     bfos *dx = new bfos();
     char k[5] = "\001\001\001\000";
-    for (int i = 1; i < numKeys; i++) {
+    for (int i = 1; i < num_keys; i++) {
         char v[5];
         k[3] = i;
         sprintf(v, "%d", i);
         dx->put(k, 4, v, strlen(v));
     }
-    for (int i = 1; i < numKeys; i++) {
+    for (int i = 1; i < num_keys; i++) {
         char v[5];
         k[3] = i;
         sprintf(v, "%d", i);
@@ -1182,7 +1182,7 @@ int main3() {
 }
 
 int main4() {
-    util::generateBitCounts();
+    util::generate_bit_counts();
     //basix *dx = new basix();
     basix3 *dx = new basix3(512, 512);
     //octp *dx = new octp();
@@ -1278,8 +1278,8 @@ int main4() {
     print(dx, "wnygwvqd", 8);
     print(dx, "mjkpujqd", 8);
 
-    dx->printStats(NUM_ENTRIES);
-    dx->printNumLevels();
+    dx->print_stats(NUM_ENTRIES);
+    dx->print_num_levels();
     std::cout << "Size:" << dx->size() << endl;
     std::cout << "Trie Size:" << (int) dx->BPT_TRIE_LEN << endl;
     return 0;
@@ -1299,7 +1299,7 @@ int main6() {
 }
 
 int main7() {
-    util::generateBitCounts();
+    util::generate_bit_counts();
     //basix *dx = new basix(512, 512, 4, "test.ix");
     bfos *dx = new bfos(512, 512, 2, "test.ix");
     //octp *dx = new octp();
@@ -1317,19 +1317,19 @@ int main7() {
 
     delete dx;
 
-    dx->printStats(NUM_ENTRIES);
-    dx->printNumLevels();
+    dx->print_stats(NUM_ENTRIES);
+    dx->print_num_levels();
     std::cout << "Size:" << dx->size() << endl;
     std::cout << "Trie Size:" << (int) dx->BPT_TRIE_LEN << endl;
     return 0;
 }
 
-void checkValue(const char *key, int key_len, const char *val, int val_len,
+void check_value(const char *key, int key_len, const char *val, int val_len,
         const char *returned_value, int returned_len, int& null_ctr, int& cmp) {
     if (returned_value == null) {
         null_ctr++;
     } else {
-        int16_t d = util::compare((const uint8_t *) val, val_len, (const uint8_t *) returned_value, returned_len);
+        int d = util::compare((const uint8_t *) val, val_len, (const uint8_t *) returned_value, returned_len);
         if (d != 0) {
             cmp++;
             printf("cmp: %.*s==========%.*s--------->%.*s\n", key_len, key, val_len, val, returned_len, returned_value);
@@ -1400,7 +1400,7 @@ int main(int argc, char *argv[]) {
     }
 
     int64_t data_alloc_sz = (IMPORT_FILE == NULL ? (KEY_LEN + VALUE_LEN + 8) * NUM_ENTRIES // including \0 at end of key
-            : getImportFileSize() + 110000000); // extra 30mb for 7 + key_len + value_len + \0 for max 11 mil entries
+            : get_import_file_size() + 110000000); // extra 30mb for 7 + key_len + value_len + \0 for max 11 mil entries
     cout << "Data size: " << data_alloc_sz / 1000 << "kb" << endl;
     uint8_t *data_buf = (uint8_t *) malloc(data_alloc_sz);
     int64_t data_sz = 0;
@@ -1408,22 +1408,22 @@ int main(int argc, char *argv[]) {
 
     unordered_map<string, string> m;
     uint32_t start, stop;
-    start = getTimeVal();
+    start = get_time_val();
     if (IMPORT_FILE == NULL)
         data_sz = insert(m, data_buf);
     else {
         cout << "Loading:" << IMPORT_FILE << "..." << endl;
         NUM_ENTRIES = 0;
-        data_sz = loadFile(m, data_buf);
+        data_sz = load_file(m, data_buf);
         for (int i = 3; i < argc; i++) {
             if (argv[3][0] != '0' && argv[3][0] != '1') {
                 IMPORT_FILE = argv[i];
                 cout << "Loading:" << IMPORT_FILE << "..." << endl;
-                data_sz += loadFile(m, data_buf + data_sz);
+                data_sz += load_file(m, data_buf + data_sz);
             }
         }
     }
-    stop = getTimeVal();
+    stop = get_time_val();
 
     unordered_map<string, string>::iterator it;
     int null_ctr = 0;
@@ -1432,21 +1432,21 @@ int main(int argc, char *argv[]) {
     /*
      //stx::btree_map<string, string> m1;
      map<string, string> m1;
-     start = getTimeVal();
+     start = get_time_val();
      it = m.begin();
      for (; it != m.end(); ++it)
      m1.insert(pair<string, string>(it->first, it->second));
-     stop = getTimeVal();
+     stop = get_time_val();
      cout << "RB Tree insert time:" << timedifference(start, stop) << endl;
      it = m.begin();
-     start = getTimeVal();
+     start = get_time_val();
      for (; it != m.end(); ++it) {
      string value = m1[it->first.c_str()];
      char v[100];
      if (value.length() == 0) {
      null_ctr++;
      } else {
-     int16_t d = util::compare(it->second.c_str(), it->second.length(),
+     int d = util::compare(it->second.c_str(), it->second.length(),
      value.c_str(), value.length());
      if (d != 0) {
      cmp++;
@@ -1458,7 +1458,7 @@ int main(int argc, char *argv[]) {
      }
      ctr++;
      }
-     stop = getTimeVal();
+     stop = get_time_val();
      cout << "RB Tree get time:" << timedifference(start, stop) << endl;
      cout << "Null:" << null_ctr << endl;
      cout << "Cmp:" << cmp << endl;
@@ -1489,7 +1489,7 @@ int main(int argc, char *argv[]) {
     {
     ctr = 0;
     art_tree_init(&at);
-    start = getTimeVal();
+    start = get_time_val();
     if (USE_HASHTABLE) {
         it1 = m.begin();
         for (; it1 != m.end(); ++it1) {
@@ -1510,13 +1510,13 @@ int main(int argc, char *argv[]) {
             ctr++;
         }
     }
-    stop = getTimeVal();
+    stop = get_time_val();
     cout << "ART Insert Time:" << timedifference(start, stop) << endl;
     //getchar();
     }
 
     if (TEST_HASHTABLE) {
-        start = getTimeVal();
+        start = get_time_val();
         for (int64_t pos = 0; pos < data_sz; pos++) {
             int8_t vlen;
             uint32_t key_len = read_vint32(data_buf + pos, &vlen);
@@ -1526,23 +1526,23 @@ int main(int argc, char *argv[]) {
             pos += key_len + value_len + vlen + 1;
             ctr++;
         }
-        stop = getTimeVal();
-        cout << "HashMap insert time:" << timedifference(start, stop) << ", ";
+        stop = get_time_val();
+        cout << "Hash_map insert time:" << timedifference(start, stop) << ", ";
         cout << "Number of entries: " << NUM_ENTRIES << ", ";
-        cout << "HashMap size:" << m.size() << endl;
+        cout << "Hash_map size:" << m.size() << endl;
         //getchar();
     }
 
-    sqlite *lx;
+    basix *lx;
     if (TEST_IDX1)
     {
     ctr = 0;
     
     //lx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
-    //lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new stager(OUT_FILE1, CACHE_SIZE);
-    lx = new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //lx = new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
@@ -1552,9 +1552,9 @@ int main(int argc, char *argv[]) {
     //lx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new rb_tree(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);  // not working
     it1 = m.begin();
-    start = getTimeVal();
+    start = get_time_val();
     uint8_t dummy[9];
-    //cout << "Ptr size:" << util::ptrToBytes((unsigned long) lx->root_block, dummy) << endl;
+    //cout << "Ptr size:" << util::ptr_toBytes((unsigned long) lx->root_block, dummy) << endl;
     if (USE_HASHTABLE) {
         it1 = m.begin();
         for (; it1 != m.end(); ++it1) {
@@ -1574,7 +1574,7 @@ int main(int argc, char *argv[]) {
             ctr++;
         }
     }
-    stop = getTimeVal();
+    stop = get_time_val();
     cout << "Index1 insert time:" << timedifference(start, stop) << endl;
     //getchar();
     }
@@ -1596,7 +1596,7 @@ int main(int argc, char *argv[]) {
     //dx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new rb_tree(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     it1 = m.begin();
-    start = getTimeVal();
+    start = get_time_val();
     if (USE_HASHTABLE) {
         it1 = m.begin();
         for (; it1 != m.end(); ++it1) {
@@ -1616,7 +1616,7 @@ int main(int argc, char *argv[]) {
             ctr++;
         }
     }
-    stop = getTimeVal();
+    stop = get_time_val();
     cout << "Index2 insert time:" << timedifference(start, stop) << endl;
     //getchar();
     }
@@ -1627,14 +1627,14 @@ int main(int argc, char *argv[]) {
     ctr = 0;
     null_ctr = 0;
     it1 = m.begin();
-    start = getTimeVal();
+    start = get_time_val();
     if (USE_HASHTABLE) {
         for (; it1 != m.end(); ++it1) {
             int len;
             char *value = (char *) art_search(&at,
                     (unsigned char*) it1->first.c_str(), it1->first.length(),
                     &len);
-            checkValue(it1->first.c_str(), it1->first.length() + 1,
+            check_value(it1->first.c_str(), it1->first.length() + 1,
                     it1->second.c_str(), it1->second.length(), value, len, null_ctr, cmp);
             ctr++;
         }
@@ -1646,13 +1646,13 @@ int main(int argc, char *argv[]) {
             pos += vlen;
             uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
             char *value = (char *) art_search(&at, data_buf + pos, key_len, &len);
-            checkValue((char *) data_buf + pos, key_len,
+            check_value((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + vlen + 1, value_len, value, len, null_ctr, cmp);
             pos += key_len + value_len + vlen + 1;
             ctr++;
         }
     }
-    stop = getTimeVal();
+    stop = get_time_val();
     cout << "ART Get Time:" << timedifference(start, stop) << ", ";
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << ", ";
     cout << "ART Size:" << art_size(&at) << endl;
@@ -1663,9 +1663,9 @@ int main(int argc, char *argv[]) {
         cmp = 0;
         ctr = 0;
         null_ctr = 0;
-        start = getTimeVal();
+        start = get_time_val();
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            int16_t len;
+            int len;
             int8_t vlen;
             uint32_t key_len = read_vint32(data_buf + pos, &vlen);
             pos += vlen;
@@ -1673,12 +1673,12 @@ int main(int argc, char *argv[]) {
             it = m.find((char *) (data_buf + pos));
             char *value = (char *) it->second.c_str();
             len = value_len;
-            checkValue((char *) data_buf + pos, key_len,
+            check_value((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + vlen + 1, value_len, value, len, null_ctr, cmp);
             pos += key_len + value_len + vlen + 1;
             ctr++;
         }
-        stop = getTimeVal();
+        stop = get_time_val();
         cout << "Hashtable Get Time:" << timedifference(start, stop) << ", ";
         cout << "Null:" << null_ctr << ", Cmp:" << cmp << ", ";
         cout << "Size:" << ctr << endl;
@@ -1690,41 +1690,41 @@ int main(int argc, char *argv[]) {
     ctr = 0;
     null_ctr = 0;
     it1 = m.begin();
-    start = getTimeVal();
+    start = get_time_val();
     if (USE_HASHTABLE) {
         for (; it1 != m.end(); ++it1) {
-            int16_t len;
+            int len;
             const char *value = lx->get((const char *) it1->first.c_str(), it1->first.length(), &len, value_buf);
-            checkValue(it1->first.c_str(), it1->first.length() + 1,
+            check_value(it1->first.c_str(), it1->first.length() + 1,
                     it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
             ctr++;
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            int16_t len;
+            int len;
             int8_t vlen;
             uint32_t key_len = read_vint32(data_buf + pos, &vlen);
             pos += vlen;
             uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
             const char *value = lx->get((char *) data_buf + pos, key_len, &len, value_buf);
-            checkValue((char *) data_buf + pos, key_len,
+            check_value((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
             pos += key_len + value_len + vlen + 1;
             ctr++;
         }
     }
-    stop = getTimeVal();
+    stop = get_time_val();
     cout << "Index1 Get Time:" << timedifference(start, stop) << ", ";
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
-    lx->printStats(NUM_ENTRIES);
-    lx->printNumLevels();
-    //lx->printCounts();
-    cout << "Root filled size:" << lx->filledSize() << endl;
+    lx->print_stats(NUM_ENTRIES);
+    lx->print_num_levels();
+    //lx->print_counts();
+    cout << "Root filled size:" << lx->filled_size() << endl;
 /*
     if ((null_ctr > 0 || cmp > 0) && (null_ctr + cmp) < 20) {
         if (USE_HASHTABLE) {
             for (; it1 != m.end(); ++it1) {
-                int16_t len;
+                int len;
                 const char *value = lx->get(it1->first.c_str(), it1->first.length(), &len, value_buf);
                 if (value == NULL)
                     printf("Null key: %.*s\n", (int) it1->first.length(), it1->first.c_str());
@@ -1736,7 +1736,7 @@ int main(int argc, char *argv[]) {
             }
         } else {
             for (int64_t pos = 0; pos < data_sz; pos++) {
-                int16_t len;
+                int len;
                 int8_t vlen;
                 uint32_t key_len = read_vint32(data_buf + pos, &vlen);
                 pos += vlen;
@@ -1752,7 +1752,7 @@ int main(int argc, char *argv[]) {
                 ctr++;
             }
             for (int64_t pos = 0; pos < data_sz; pos++) {
-                int16_t len;
+                int len;
                 int8_t vlen;
                 uint32_t key_len = read_vint32(data_buf + pos, &vlen);
                 pos += vlen;
@@ -1774,39 +1774,39 @@ int main(int argc, char *argv[]) {
     null_ctr = 0;
     //bfos::count = 0;
     it1 = m.begin();
-    start = getTimeVal();
+    start = get_time_val();
     __builtin_prefetch(util::bit_count2x, 0, 3);
     __builtin_prefetch(util::bit_count2x + 64, 0, 3);
     __builtin_prefetch(util::bit_count2x + 128, 0, 3);
     __builtin_prefetch(util::bit_count2x + 192, 0, 3);
     if (USE_HASHTABLE) {
         for (; it1 != m.end(); ++it1) {
-            int16_t len;
+            int len;
             const char *value = dx->get(it1->first.c_str(), it1->first.length(), &len, value_buf);
-            checkValue(it1->first.c_str(), it1->first.length() + 1,
+            check_value(it1->first.c_str(), it1->first.length() + 1,
                     it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
             ctr++;
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            int16_t len;
+            int len;
             int8_t vlen;
             uint32_t key_len = read_vint32(data_buf + pos, &vlen);
             pos += vlen;
             uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
             const char *value = dx->get((const char *) data_buf + pos, key_len, &len, value_buf);
-            checkValue((char *) data_buf + pos, key_len,
+            check_value((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
             pos += key_len + value_len + vlen + 1;
             ctr++;
         }
     }
-    stop = getTimeVal();
+    stop = get_time_val();
     cout << "Index2 get time:" << timedifference(start, stop) << ", ";
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
-    dx->printStats(NUM_ENTRIES);
-    dx->printNumLevels();
-    //dx->printCounts();
+    dx->print_stats(NUM_ENTRIES);
+    dx->print_num_levels();
+    //dx->print_counts();
     //cout << "Root filled size:" << (int) dx->root_data[MAX_PTR_BITMAP_BYTES+2] << endl;
     //getchar();
     }

@@ -2,7 +2,7 @@ C = gcc
 CXXFLAGS = -pthread -march=native
 CXX = g++
 CXXFLAGS = -pthread -std=c++11 -march=native
-OBJS = build/rb_tree.o build/basix.o build/imain.o build/dfox.o build/dfos.o build/dfqx.o build/linex.o build/bfos.o build/octp.o build/bfqs.o build/dft.o build/bft.o build/art.o build/GenTree.o build/univix_util.o build/lru_cache.o build/bloom.o
+OBJS = build/rb_tree.o build/basix.o build/imain.o build/dfox.o build/dfos.o build/dfqx.o build/linex.o build/bfos.o build/octp.o build/bfqs.o build/dft.o build/bft.o build/art.o build/gen_tree.o build/univix_util.o build/lru_cache.o build/bloom.o
 INCLUDES = -I./hdr -I./src -I../bloom/src
 
 opt: CXXFLAGS += -O3 -funroll-loops -DNDEBUG
@@ -50,8 +50,8 @@ build/bft.o: src/bft.cpp src/bft.h src/bplus_tree_handler.h
 build/dft.o: src/dft.cpp src/dft.h src/bplus_tree_handler.h
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c src/dft.cpp -o build/dft.o
 
-build/GenTree.o: src/GenTree.cpp src/GenTree.h
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -c src/GenTree.cpp -o build/GenTree.o
+build/gen_tree.o: src/gen_tree.cpp src/gen_tree.h
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c src/gen_tree.cpp -o build/gen_tree.o
 
 build/linex.o: src/linex.cpp src/linex.h src/bplus_tree_handler.h
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c src/linex.cpp -o build/linex.o
