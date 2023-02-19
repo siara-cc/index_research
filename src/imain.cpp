@@ -46,7 +46,7 @@ int CHAR_SET = 2;
 int KEY_LEN = 8;
 int VALUE_LEN = 4;
 int KEY_VALUE_VAR_LEN = 0;
-int MIN_KV_LEN = 12;
+int MIN_KEY_LEN = 8;
 int LEAF_PAGE_SIZE = DEFAULT_LEAF_BLOCK_SIZE;
 int PARENT_PAGE_SIZE = DEFAULT_PARENT_BLOCK_SIZE;
 int CACHE_SIZE = 0;
@@ -56,7 +56,7 @@ int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
 int TEST_IDX1 = 1;
-int TEST_IDX2 = 1;
+int TEST_IDX2 = 0;
 
 int ctr = 0;
 
@@ -150,12 +150,10 @@ int64_t insert(unordered_map<string, string>& m, uint8_t *data_buf) {
         //itoa(rand(), v + strlen(v), 10);
         //itoa(rand(), v + strlen(v), 10);
         if (KEY_VALUE_VAR_LEN) {
-            k_len = (rand() % KEY_LEN);
-            v_len = (rand() % VALUE_LEN);
-            if (k_len < MIN_KV_LEN)
-                k_len = MIN_KV_LEN;
-            if (v_len < MIN_KV_LEN)
-                v_len = MIN_KV_LEN;
+            k_len = (rand() % KEY_LEN) + 1;
+            v_len = (rand() % VALUE_LEN) + 1;
+            if (k_len < MIN_KEY_LEN)
+                k_len = MIN_KEY_LEN;
             k[k_len] = 0;
             v[v_len] = 0;
         }
@@ -1533,16 +1531,16 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
-    basix *lx;
+    sqlite *lx;
     if (TEST_IDX1)
     {
     ctr = 0;
     
     //lx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
-    lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new stager(OUT_FILE1, CACHE_SIZE);
-    //lx = new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    lx = new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
@@ -1583,17 +1581,17 @@ int main(int argc, char *argv[]) {
     if (TEST_IDX2)
     {
     ctr = 0;
-    //dx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //dx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //dx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
+    //dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
+    //dx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new stager(OUT_FILE2, CACHE_SIZE);
     //dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //dx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //dx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //dx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //dx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
+    dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working only with int16_t
+    //dx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
+    //dx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
+    //dx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
+    //dx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new rb_tree(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     it1 = m.begin();
     start = get_time_val();

@@ -37,7 +37,7 @@ public:
 #if BS_CHILD_PTR_SIZE == 1
     bfos_iterator_vars(uint8_t *tp_ext, uint8_t *t_ext) {
 #else
-    bfos_iterator_vars(int *tp_ext, uint8_t *t_ext) {
+    bfos_iterator_vars(uint16_t *tp_ext, uint8_t *t_ext) {
 #endif
         tp = tp_ext;
         t = t_ext;
@@ -47,7 +47,7 @@ public:
 #if BS_CHILD_PTR_SIZE == 1
     uint8_t *tp;
 #else
-    int *tp;
+    uint16_t *tp;
 #endif
     uint8_t *t;
     uint8_t ctr;
@@ -131,7 +131,7 @@ public:
         }
     }
 
-    inline int search_current_block() {
+    inline int16_t search_current_block() {
         uint8_t *t = trie;
         uint8_t trie_char = *t;
         orig_pos = t++;
@@ -247,7 +247,7 @@ public:
         return -1;
     }
 
-    inline uint8_t *get_child_ptr_pos(int search_result) {
+    inline uint8_t *get_child_ptr_pos(int16_t search_result) {
         return key_at == last_t ? last_t - 1 : get_last_ptr();
     }
 
@@ -259,7 +259,7 @@ public:
         return BFOS_HDR_SIZE;
     }
 
-    void set_ptr_diff(int diff) {
+    void set_ptr_diff(uint16_t diff) {
         uint8_t *t = trie;
         uint8_t *t_end = trie + BS_GET_TRIE_LEN;
         while (t < t_end) {
@@ -284,10 +284,10 @@ public:
 
 #if BS_CHILD_PTR_SIZE == 1
     uint8_t copy_kary(uint8_t *t, uint8_t *dest, int lvl, uint8_t *tp,
-            uint8_t *brk_key, int brk_key_len, uint8_t which_half) {
+            uint8_t *brk_key, int16_t brk_key_len, uint8_t which_half) {
 #else
-    int copy_kary(uint8_t *t, uint8_t *dest, int lvl, int *tp,
-                uint8_t *brk_key, int brk_key_len, uint8_t which_half) {
+    uint16_t copy_kary(uint8_t *t, uint8_t *dest, int lvl, uint16_t *tp,
+                uint8_t *brk_key, int16_t brk_key_len, uint8_t which_half) {
 #endif
         uint8_t *orig_dest = dest;
         while (*t & x01) {
@@ -363,11 +363,11 @@ public:
     }
 
 #if BS_CHILD_PTR_SIZE == 1
-    uint8_t copy_trie_half(uint8_t *tp, uint8_t *brk_key, int brk_key_len, uint8_t *dest, uint8_t which_half) {
+    uint8_t copy_trie_half(uint8_t *tp, uint8_t *brk_key, int16_t brk_key_len, uint8_t *dest, uint8_t which_half) {
         uint8_t tp_child[BPT_MAX_PFX_LEN];
 #else
-    int copy_trie_half(int *tp, uint8_t *brk_key, int brk_key_len, uint8_t *dest, uint8_t which_half) {
-        int tp_child[BPT_MAX_PFX_LEN];
+    uint16_t copy_trie_half(uint16_t *tp, uint8_t *brk_key, int16_t brk_key_len, uint8_t *dest, uint8_t which_half) {
+        uint16_t tp_child[BPT_MAX_PFX_LEN];
 #endif
         uint8_t child_num[BPT_MAX_PFX_LEN];
         uint8_t *d;
@@ -382,7 +382,7 @@ public:
             t += len + 1;
         }
         t = trie;
-        int last_len = copy_kary(t, dest, lvl, tp, brk_key, brk_key_len, which_half);
+        uint16_t last_len = copy_kary(t, dest, lvl, tp, brk_key, brk_key_len, which_half);
         d = dest;
         dest += last_len;
         do {
@@ -570,7 +570,7 @@ public:
             it.only_leaf = 1;
             if (it.child & mask) {
                 it.t -= BS_BIT_COUNT_CH(it.child & (xFF << it.ctr));
-                int child_offset = BS_GET_CHILD_OFFSET(it.t);
+                uint16_t child_offset = BS_GET_CHILD_OFFSET(it.t);
                 BS_SET_CHILD_OFFSET(it.t, it.t - trie + child_offset);
                 it.t += child_offset;
                 key_pos++;
@@ -583,36 +583,36 @@ public:
         return 0;
     }
 
-    uint8_t *find_split_source(int search_result) {
+    uint8_t *find_split_source(int16_t search_result) {
         return NULL;
     }
 
     uint8_t *split(uint8_t *first_key, int *first_len_ptr) {
-        int orig_filled_size = filled_size();
+        int16_t orig_filled_size = filled_size();
         uint32_t BFOS_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
         int lvl = current_block[0] & 0x1F;
         uint8_t *b = allocate_block(BFOS_NODE_SIZE, is_leaf(), lvl);
         bfos new_block(BFOS_NODE_SIZE, b, is_leaf());
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
-        int kv_last_pos = get_kv_last_pos();
-        int half_kVPos = kv_last_pos + (BFOS_NODE_SIZE - kv_last_pos) / 2;
+        uint16_t kv_last_pos = get_kv_last_pos();
+        uint16_t half_kVPos = kv_last_pos + (BFOS_NODE_SIZE - kv_last_pos) / 2;
 
-        int brk_idx;
-        int brk_kv_pos;
+        int16_t brk_idx;
+        uint16_t brk_kv_pos;
         brk_idx = brk_kv_pos = 0;
         // (1) move all data to new_block in order
-        int idx;
+        int16_t idx;
         uint8_t alloc_size = BPT_MAX_PFX_LEN + 1;
         uint8_t curr_key[alloc_size];
 #if BS_CHILD_PTR_SIZE == 1
         uint8_t tp[alloc_size];
         uint8_t tp_cpy[alloc_size];
 #else
-        int tp[alloc_size];
-        int tp_cpy[alloc_size];
+        uint16_t tp[alloc_size];
+        uint16_t tp_cpy[alloc_size];
 #endif
-        int tp_cpy_len = 0;
+        int16_t tp_cpy_len = 0;
         bfos_iterator_vars it(tp, new_block.trie);
         //if (!is_leaf())
         //   cout << "Trie len:" << (int) BPT_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DX_MAX_KEY_LEN << endl;
@@ -625,8 +625,8 @@ public:
 #endif
         for (idx = 0; idx < orig_filled_size; idx++) {
             uint8_t *leaf_ptr = new_block.next_ptr(curr_key, it);
-            int src_idx = util::get_int(leaf_ptr);
-            int kv_len = current_block[src_idx];
+            uint16_t src_idx = util::get_int(leaf_ptr);
+            uint16_t kv_len = current_block[src_idx];
             kv_len++;
             kv_len += current_block[src_idx + kv_len];
             kv_len++;
@@ -680,7 +680,7 @@ public:
 #endif
 
         kv_last_pos = get_kv_last_pos() + BFOS_NODE_SIZE - kv_last_pos;
-        int diff = (kv_last_pos - get_kv_last_pos());
+        uint16_t diff = (kv_last_pos - get_kv_last_pos());
 
         {
             memmove(new_block.current_block + brk_kv_pos + diff, new_block.current_block + brk_kv_pos,
@@ -692,7 +692,7 @@ public:
         }
 
         {
-            int old_blk_new_len = brk_kv_pos - kv_last_pos;
+            uint16_t old_blk_new_len = brk_kv_pos - kv_last_pos;
             memcpy(current_block + BFOS_NODE_SIZE - old_blk_new_len,
                     new_block.current_block + kv_last_pos - diff, old_blk_new_len); // Copy back first half to old block
             diff += (BFOS_NODE_SIZE - brk_kv_pos);
@@ -718,9 +718,9 @@ public:
     void make_space() {
         int block_size = (is_leaf() ? leaf_block_size : parent_block_size);
         int lvl = current_block[0] & 0x1F;
-        const int data_size = block_size - get_kv_last_pos();
+        const uint16_t data_size = block_size - get_kv_last_pos();
         uint8_t data_buf[data_size];
-        int new_data_len = 0;
+        uint16_t new_data_len = 0;
         uint8_t *t = current_block + BFOS_HDR_SIZE;
         uint8_t *upto = t + BS_GET_TRIE_LEN;
         while (t < upto) {
@@ -738,7 +738,7 @@ public:
             while (leaf_count--) {
                 int leaf_pos = util::get_int(t);
                 uint8_t *child_ptr_pos = current_block + leaf_pos;
-                int data_len = *child_ptr_pos;
+                uint16_t data_len = *child_ptr_pos;
                 data_len++;
                 data_len += child_ptr_pos[data_len];
                 data_len++;
@@ -755,14 +755,14 @@ public:
                 t += 2;
             }
         }
-        int new_kv_last_pos = block_size - new_data_len;
+        uint16_t new_kv_last_pos = block_size - new_data_len;
         memcpy(current_block + new_kv_last_pos, data_buf + data_size - new_data_len, new_data_len);
         //printf("%d, %d\n", data_size, new_data_len);
         set_kv_last_pos(new_kv_last_pos);
         search_current_block();
     }
 
-    bool is_full(int search_result) {
+    bool is_full(int16_t search_result) {
         decode_need_count(search_result);
         if (get_kv_last_pos() < (BFOS_HDR_SIZE + BS_GET_TRIE_LEN
                 + need_count + key_len - key_pos + value_len + 3)) {
@@ -782,14 +782,14 @@ public:
         add_data(3);
     }
 
-    void add_data(int search_result) {
+    void add_data(int16_t search_result) {
 
         insert_state = search_result + 1;
 
-        int ptr = insert_current();
+        uint16_t ptr = insert_current();
 
-        int key_left = key_len - key_pos;
-        int kv_last_pos = get_kv_last_pos() - (key_left + value_len + 2);
+        int16_t key_left = key_len - key_pos;
+        uint16_t kv_last_pos = get_kv_last_pos() - (key_left + value_len + 2);
         set_kv_last_pos(kv_last_pos);
         util::set_int(trie + ptr, kv_last_pos);
         current_block[kv_last_pos] = key_left;
@@ -827,7 +827,7 @@ public:
                 }
                 t++;
 #else
-                int child_offset = BS_GET_CHILD_OFFSET(t);
+                uint16_t child_offset = BS_GET_CHILD_OFFSET(t);
                 if ((t + child_offset) >= upto)
                     BS_SET_CHILD_OFFSET(t, child_offset + diff);
                 if (insert_state == INSERT_BEFORE) {
@@ -842,22 +842,22 @@ public:
         }
     }
 
-    inline void del_at(uint8_t *ptr, int count) {
-        int trie_len = BS_GET_TRIE_LEN - count;
+    inline void del_at(uint8_t *ptr, int16_t count) {
+        int16_t trie_len = BS_GET_TRIE_LEN - count;
         BS_SET_TRIE_LEN(trie_len);
         memmove(ptr, ptr + count, trie + trie_len - ptr);
     }
 
-    inline int ins_at(uint8_t *ptr, uint8_t b) {
-        int trie_len = BS_GET_TRIE_LEN;
+    inline int16_t ins_at(uint8_t *ptr, uint8_t b) {
+        int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + 1, ptr, trie + trie_len - ptr);
         *ptr = b;
         BS_SET_TRIE_LEN(trie_len + 1);
         return 1;
     }
 
-    inline int ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2) {
-        int trie_len = BS_GET_TRIE_LEN;
+    inline int16_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2) {
+        int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + 2, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
         *ptr = b2;
@@ -865,8 +865,8 @@ public:
         return 2;
     }
 
-    inline int ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3) {
-        int trie_len = BS_GET_TRIE_LEN;
+    inline int16_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3) {
+        int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + 3, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
@@ -876,7 +876,7 @@ public:
     }
 
     inline uint8_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4) {
-        int trie_len = BS_GET_TRIE_LEN;
+        int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + 4, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
@@ -886,16 +886,16 @@ public:
         return 4;
     }
 
-    void ins_bytes(uint8_t *ptr, int len) {
-        int trie_len = BS_GET_TRIE_LEN;
+    void ins_bytes(uint8_t *ptr, int16_t len) {
+        int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + len, ptr, trie + trie_len - ptr);
         BS_SET_TRIE_LEN(trie_len + len);
     }
 
-    int insert_current() {
+    uint16_t insert_current() {
         uint8_t key_char, mask;
-        int diff;
-        int ret;
+        uint16_t diff;
+        uint16_t ret;
 
         key_char = key[key_pos - 1];
         mask = x01 << (key_char & x07);
@@ -995,10 +995,10 @@ public:
             break;
     #endif
         case INSERT_THREAD:
-              int p, min;
+              uint16_t p, min;
               uint8_t c1, c2;
               uint8_t *child_pos;
-              int ptr, pos;
+              uint16_t ptr, pos;
               ret = pos = 0;
 
               c1 = c2 = key_char;
@@ -1012,7 +1012,7 @@ public:
                   ins_at(child_pos, (uint8_t) (BPT_TRIE_LEN - (child_pos - trie) + 1));
                   update_ptrs(child_pos, 1);
 #else
-                  int offset = (BS_GET_TRIE_LEN + 1 - (child_pos - trie) + 1);
+                  int16_t offset = (BS_GET_TRIE_LEN + 1 - (child_pos - trie) + 1);
                   ins_at(child_pos, offset >> 8, offset & xFF);
                   update_ptrs(child_pos, 2);
 #endif
@@ -1023,7 +1023,7 @@ public:
                   child_pos[2] = (uint8_t) (BPT_TRIE_LEN - (child_pos + 2 - trie));
                   update_ptrs(child_pos, 2);
 #else
-                  int offset = BS_GET_TRIE_LEN + 3 - (child_pos + 2 - trie);
+                  int16_t offset = BS_GET_TRIE_LEN + 3 - (child_pos + 2 - trie);
                   ins_at(child_pos, mask, *child_pos, (uint8_t) (offset >> 8));
                   child_pos[3] = offset & xFF;
                   update_ptrs(child_pos, 3);
@@ -1066,7 +1066,7 @@ public:
               if (need_count) {
                   uint8_t copied = 0;
                   while (copied < need_count) {
-                      int to_copy = (need_count - copied) > 127 ? 127 : need_count - copied;
+                      int16_t to_copy = (need_count - copied) > 127 ? 127 : need_count - copied;
                       *trie_pos++ = (to_copy << 1) | x01;
                       memcpy(trie_pos, key + key_pos + copied, to_copy);
                       trie_pos += to_copy;
@@ -1189,7 +1189,7 @@ public:
         return ret;
     }
 
-    void decode_need_count(int search_result) {
+    void decode_need_count(int16_t search_result) {
         insert_state = search_result + 1;
         if (insert_state != INSERT_THREAD)
             need_count = need_counts[insert_state];
@@ -1199,6 +1199,10 @@ public:
     }
 
     void cleanup() {
+    }
+
+    uint8_t *find_split_source(int search_result) {
+        return NULL;
     }
 
 };
@@ -1227,7 +1231,7 @@ uint8_t bfos_node_handler::copy_kary(uint8_t *t, uint8_t *dest) {
     return tot_len;
 }
 
-uint8_t bfos_node_handler::copy_trie_first_half(uint8_t *tp, uint8_t *first_key, int first_key_len, uint8_t *dest) {
+uint8_t bfos_node_handler::copy_trie_first_half(uint8_t *tp, uint8_t *first_key, int16_t first_key_len, uint8_t *dest) {
     uint8_t *t = trie;
     uint8_t trie_len = 0;
     for (int i = 0; i < first_key_len; i++) {

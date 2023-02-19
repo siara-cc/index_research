@@ -51,7 +51,8 @@ public:
     }
 
     ~bft() {
-        delete split_buf;
+        if (!is_block_given)
+            delete split_buf;
     }
 
     inline void set_current_block_root() {
@@ -647,6 +648,10 @@ public:
     }
 
     void cleanup() {
+    }
+
+    uint8_t *find_split_source(int search_result) {
+        return NULL;
     }
 
 };

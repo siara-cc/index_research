@@ -928,6 +928,10 @@ public:
     void cleanup() {
     }
 
+    uint8_t *find_split_source(int search_result) {
+        return NULL;
+    }
+
 };
 
 #endif

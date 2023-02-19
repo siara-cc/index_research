@@ -79,8 +79,10 @@ public:
 
     void init_derived() {
     }
-
     void cleanup() {
+    }
+    uint8_t *find_split_source(int search_result) {
+        return NULL;
     }
 
     int get_data_end_pos();
@@ -105,6 +107,8 @@ public:
     uint8_t *get_child_ptr_pos(int search_result);
     uint8_t *get_value_at(int *vlen);
     using bplus_tree_handler::get_child_ptr;
+    using bplus_tree_handler::get;
+    using bplus_tree_handler::put;
     uint8_t *get_child_ptr(int pos);
     uint8_t *get_ptr_pos();
     int get_header_size();
