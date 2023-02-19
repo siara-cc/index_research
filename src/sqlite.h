@@ -906,15 +906,13 @@ class sqlite : public bplus_tree_handler<sqlite> {
         bool isFull(int16_t search_result) {
             int rec_len = abs(key_len) + value_len;
             if (key_len < 0) {
-                if (!isLeaf())
-                    rec_len -= 4;
             } else {
-                rec_len += get_vlen_of_uint32(key_len * 2 + 13);
-                rec_len += get_vlen_of_uint32(value_len * 2 + 13);
-                rec_len += 2;
+                int key_len_vlen = get_vlen_of_uint32(key_len * 2 + 13);
+                int value_len_vlen = get_vlen_of_uint32(value_len * 2 + 13);
+                rec_len += key_len_vlen;
+                rec_len += value_len_vlen;
+                rec_len += get_vlen_of_uint32(key_len_vlen + value_len_vlen);
             }
-            if (!isLeaf())
-                rec_len += 4;
             int on_page_len = (isLeaf() ? 0 : 4);
             int P = rec_len;
             int K = M+((P-M)%(U-4));
@@ -1104,8 +1102,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             ptr += write_vint32(ptr, P);
             if (key_len < 0) {
                 if (!isLeaf()) {
-                    k_len = on_bt_page;
-                    memcpy(ptr, key, k_len + 4);
+                    memcpy(ptr, key, on_bt_page + (P == on_bt_page ? 0 : 4));
                     return;
                 }
                 k_len = P;

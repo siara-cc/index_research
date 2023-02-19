@@ -41,10 +41,12 @@ using namespace std;
 //char *IMPORT_FILE = "/Users/arun/index_research/Release/w7.txt";
 char *IMPORT_FILE = NULL; //"/Users/arun/index_research/Release/unordered_dbpedia_labels.txt";
 //char *IMPORT_FILE = "/Users/arun/index_research/Release/domain_rank.csv";
-unsigned long NUM_ENTRIES = 40;
+long NUM_ENTRIES = 40;
 int CHAR_SET = 2;
 int KEY_LEN = 8;
 int VALUE_LEN = 4;
+int KEY_VALUE_VAR_LEN = 0;
+int MIN_KV_LEN = 12;
 int LEAF_PAGE_SIZE = DEFAULT_LEAF_BLOCK_SIZE;
 int PARENT_PAGE_SIZE = DEFAULT_PARENT_BLOCK_SIZE;
 int CACHE_SIZE = 0;
@@ -54,7 +56,7 @@ int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
 int TEST_IDX1 = 1;
-int TEST_IDX2 = 1;
+int TEST_IDX2 = 0;
 
 int ctr = 0;
 
@@ -91,6 +93,8 @@ uint32_t read_vint32(const uint8_t *ptr, int8_t *vlen) {
 int64_t insert(unordered_map<string, string>& m, uint8_t *data_buf) {
     char k[KEY_LEN + 1];
     char v[VALUE_LEN + 1];
+    int k_len = KEY_LEN;
+    int v_len = VALUE_LEN;
     int64_t ret = 0;
     srand(time(NULL));
     for (unsigned long l = 0; l < NUM_ENTRIES; l++) {
@@ -145,18 +149,28 @@ int64_t insert(unordered_map<string, string>& m, uint8_t *data_buf) {
         //itoa(rand(), v, 10);
         //itoa(rand(), v + strlen(v), 10);
         //itoa(rand(), v + strlen(v), 10);
+        if (KEY_VALUE_VAR_LEN) {
+            k_len = (rand() % KEY_LEN);
+            v_len = (rand() % VALUE_LEN);
+            if (k_len < MIN_KV_LEN)
+                k_len = MIN_KV_LEN;
+            if (v_len < MIN_KV_LEN)
+                v_len = MIN_KV_LEN;
+            k[k_len] = 0;
+            v[v_len] = 0;
+        }
         if (l == 0)
             printf("key: %.*s, value: %.*s\n", KEY_LEN, k, VALUE_LEN, v);
         if (USE_HASHTABLE)
             m.insert(pair<string, string>(k, v));
         else {
-            ret += write_vint32(data_buf + ret, KEY_LEN);
-            memcpy(data_buf + ret, k, KEY_LEN);
-            ret += KEY_LEN;
+            ret += write_vint32(data_buf + ret, k_len);
+            memcpy(data_buf + ret, k, k_len);
+            ret += k_len;
             data_buf[ret++] = 0;
-            ret += write_vint32(data_buf + ret, VALUE_LEN);
-            memcpy(data_buf + ret, v, VALUE_LEN);
-            ret += VALUE_LEN;
+            ret += write_vint32(data_buf + ret, v_len);
+            memcpy(data_buf + ret, v, v_len);
+            ret += v_len;
             data_buf[ret++] = 0;
         }
     }
@@ -1338,10 +1352,13 @@ int main(int argc, char *argv[]) {
     char out_file1[100];
     char out_file2[100];
     if (argc > 1) {
-        if (argv[1][0] >= '0' && argv[1][0] <= '9') {
+        if ((argv[1][0] >= '0' && argv[1][0] <= '9') || argv[1][0] == '-') {
             NUM_ENTRIES = atol(argv[1]);
             if (NUM_ENTRIES == 0) {
                 return test(argv[2]);
+            } else if (NUM_ENTRIES < 0) {
+                NUM_ENTRIES = -NUM_ENTRIES;
+                KEY_VALUE_VAR_LEN = 1;
             }
         } else {
             IMPORT_FILE = argv[1];
@@ -1384,6 +1401,7 @@ int main(int argc, char *argv[]) {
 
     int64_t data_alloc_sz = (IMPORT_FILE == NULL ? (KEY_LEN + VALUE_LEN + 8) * NUM_ENTRIES // including \0 at end of key
             : getImportFileSize() + 110000000); // extra 30mb for 7 + key_len + value_len + \0 for max 11 mil entries
+    cout << "Data size: " << data_alloc_sz / 1000 << "kb" << endl;
     uint8_t *data_buf = (uint8_t *) malloc(data_alloc_sz);
     int64_t data_sz = 0;
     char value_buf[VALUE_LEN + 1];
