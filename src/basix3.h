@@ -42,7 +42,7 @@ public:
         return kv_idx + 1;
     }
 
-    inline int search_current_block() {
+    int search_current_block(bptree_iter_ctx *ctx = NULL) {
         int middle, first, filled_sz;
         first = 0;
         filled_sz = filled_size();

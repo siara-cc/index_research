@@ -46,7 +46,7 @@ int CHAR_SET = 2;
 int KEY_LEN = 8;
 int VALUE_LEN = 4;
 int KEY_VALUE_VAR_LEN = 0;
-int MIN_KEY_LEN = 8;
+int MIN_KEY_LEN = 12;
 int LEAF_PAGE_SIZE = DEFAULT_LEAF_BLOCK_SIZE;
 int PARENT_PAGE_SIZE = DEFAULT_PARENT_BLOCK_SIZE;
 int CACHE_SIZE = 0;
@@ -288,16 +288,15 @@ double timedifference(uint32_t t0, uint32_t t1) {
 
 template<class T>
 void print(bplus_tree_handler<T> *dx, const char *key, int key_len) {
-    int len;
-    const char *value = dx->get(key, key_len, &len);
-    if (value == null || len == 0) {
+    int len = VALUE_LEN;
+    char value[VALUE_LEN + 1];
+    bool is_found = dx->get(key, key_len, &len, value);
+    if (!is_found || len == 0) {
         std::cout << "Value for " << key << " is null" << endl;
         return;
     }
-    char s[100];
-    strncpy(s, value, len);
-    s[len] = 0;
-    std::cout << "Key: " << key << ", Value:" << s << endl;
+    value[len] = 0;
+    std::cout << "Key: " << key << ", Value:" << value << endl;
 }
 
 int main2() {
@@ -1691,20 +1690,20 @@ int main(int argc, char *argv[]) {
     start = get_time_val();
     if (USE_HASHTABLE) {
         for (; it1 != m.end(); ++it1) {
-            int len;
-            const char *value = lx->get((const char *) it1->first.c_str(), it1->first.length(), &len, value_buf);
+            int len = VALUE_LEN;
+            bool is_found = lx->get((const char *) it1->first.c_str(), it1->first.length(), &len, value_buf);
             check_value(it1->first.c_str(), it1->first.length() + 1,
                     it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
             ctr++;
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            int len;
+            int len = VALUE_LEN;
             int8_t vlen;
             uint32_t key_len = read_vint32(data_buf + pos, &vlen);
             pos += vlen;
             uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
-            const char *value = lx->get((char *) data_buf + pos, key_len, &len, value_buf);
+            bool is_found = lx->get((char *) data_buf + pos, key_len, &len, value_buf);
             check_value((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
             pos += key_len + value_len + vlen + 1;
@@ -1779,20 +1778,20 @@ int main(int argc, char *argv[]) {
     __builtin_prefetch(util::bit_count2x + 192, 0, 3);
     if (USE_HASHTABLE) {
         for (; it1 != m.end(); ++it1) {
-            int len;
-            const char *value = dx->get(it1->first.c_str(), it1->first.length(), &len, value_buf);
+            int len = VALUE_LEN;
+            bool is_found = dx->get(it1->first.c_str(), it1->first.length(), &len, value_buf);
             check_value(it1->first.c_str(), it1->first.length() + 1,
                     it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
             ctr++;
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            int len;
+            int len = VALUE_LEN;
             int8_t vlen;
             uint32_t key_len = read_vint32(data_buf + pos, &vlen);
             pos += vlen;
             uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
-            const char *value = dx->get((const char *) data_buf + pos, key_len, &len, value_buf);
+            bool is_found = dx->get((const char *) data_buf + pos, key_len, &len, value_buf);
             check_value((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
             pos += key_len + value_len + vlen + 1;

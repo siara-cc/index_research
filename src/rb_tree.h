@@ -94,7 +94,7 @@ public:
     bool is_full(int search_result);
     void set_current_block_root();
     void set_current_block(uint8_t *m);
-    int search_current_block();
+    int search_current_block(bptree_iter_ctx *ctx = NULL);
     void add_data(int search_result);
     void add_first_data();
     uint8_t *get_key(int pos, int *plen);

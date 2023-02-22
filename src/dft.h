@@ -41,7 +41,7 @@ public:
         trie = current_block + DFT_HDR_SIZE;
     }
 
-    inline int search_current_block() {
+    int search_current_block(bptree_iter_ctx *ctx = NULL) {
         uint8_t *t = trie;
         key_pos = 0;
         uint8_t key_char = key[key_pos++];

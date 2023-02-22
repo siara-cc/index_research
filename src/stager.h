@@ -223,10 +223,9 @@ class stager {
                 it_bf = bf_idx1_more.begin();
             for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
                 if (!use_bloom || (use_bloom && bloom_filter_check_uint8_str(*it_bf, key, key_len) != BLOOM_FAILURE)) {
-                    val = (*it)->get(key, key_len, &val_len);
                     //cout << it-idx1_more.begin() << " ";
                     //cout << "Found in idx_more" << it-idx1_more.begin() << endl;
-                    if (val != NULL) {
+                    if ((*it)->get(key, key_len, &val_len)) {
                         (*it)->remove_found_entry();
                         return;
                     }
@@ -239,8 +238,7 @@ class stager {
             uint8_t *val;
             int val_len;
             if (!use_bloom || (use_bloom && bloom_filter_check_uint8_str(bf_idx1, key, key_len) != BLOOM_FAILURE)) {
-                val = idx1->get(key, key_len, &val_len);
-                if (val != NULL) {
+                if (idx1->get(key, key_len, &val_len)) {
                     idx1->remove_found_entry();
                     return;
                 }
@@ -252,13 +250,11 @@ class stager {
             remove_entry_from_more_idxs(key, key_len);
         }
 
-        char *put(const char *key, uint8_t key_len, const char *value,
-                int value_len, int *out_value_len = NULL) {
-            return (char *) put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len, out_value_len);
+        bool put(const char *key, uint8_t key_len, const char *value, int value_len) {
+            return put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len);
         }
 
-        uint8_t *put(const uint8_t *key, uint8_t key_len, const uint8_t *value,
-                int value_len, int *out_value_len = NULL) {
+        bool put(const uint8_t *key, uint8_t key_len, const uint8_t *value, int value_len) {
             no_of_inserts++;
             if (no_of_inserts % 5000000 == 0) {
                 //for (int i = 0; i < cache0_page_count; i++)
@@ -296,7 +292,9 @@ class stager {
             if (idx0->cache->cache_size_in_pages <= idx0->cache->file_page_count) {
                 is_cache0_full = true;
             }
-            uint8_t *val = idx0->get(key, key_len, out_value_len);
+            int out_val_len = value_len + 1;
+            uint8_t val[value_len + 1];
+            bool is_found_in_idx0 = idx0->get(key, key_len, &out_val_len, val);
             idx0->set_value(value, value_len + 1);
             bool is_full = idx0->is_full(0);
             if (is_full && is_cache0_full) {
@@ -318,17 +316,20 @@ class stager {
                             printf("k: %.*s, len: %d\n", k_len, k, k_len);
                         }
                         if (entry_count <= cur_count) {
-                            int v1_len = 0;
-                            uint8_t *v1 = NULL;
+                            int v1_len;
+                            uint8_t v1[value_len + 1];
 #if BUCKET_COUNT == 2
                             if (entry_count <= 1) {
-                                v1 = idx1->put(k, k_len, v, v_len - 1, &v1_len);
-                                if (use_bloom && v1 == NULL)
+                                bool is_inserted = !idx1->put(k, k_len, v, v_len - 1);
+                                if (use_bloom && is_inserted)
                                     bloom_filter_add_uint8_str(bf_idx1, k, k_len);
                                 //remove_entry_from_more_idxs(k, k_len);
+                                // if (v1 != NULL)
+                                //     memcpy(v1, v, v_len - 1);
+                                spawn_more_idx1_if_full();
                             } else {
-                                v1 = idx2->put(k, k_len, v, v_len - 1, &v1_len);
-                                if (use_bloom && v1 == NULL)
+                                bool is_inserted = !idx2->put(k, k_len, v, v_len - 1);
+                                if (use_bloom && is_inserted)
                                     bloom_filter_add_uint8_str(bf_idx2, k, k_len);
                                 //remove_entry_from_idx1_more(k, k_len);
                             }
@@ -337,13 +338,8 @@ class stager {
                             if (use_bloom && v1 == NULL)
                                 bloom_filter_add_uint8_str(bf_idx1, k, k_len);
                             remove_entry_from_more_idxs(k, k_len);
-#endif
-                            if (v1 != NULL)
-                                memcpy(v1, v, v_len - 1);
-#if BUCKET_COUNT == 2
-                            if (entry_count <= 1)
-                                spawn_more_idx1_if_full();
-#else
+                            // if (v1 != NULL)
+                            //     memcpy(v1, v, v_len - 1);
                             spawn_more_idx1_if_full();
 #endif
                             idx0->remove_entry(i);
@@ -371,53 +367,50 @@ class stager {
                 //         flush_counts[idx]++;
                 // }
             }
-            int new_val_len = (val == NULL ? value_len : *out_value_len - 1);
+            int new_val_len = (is_found_in_idx0 ? out_val_len - 1 : value_len);
             uint8_t new_val[new_val_len + 1];
-            memcpy(new_val, val == NULL ? value : val, new_val_len);
-            if (val == NULL)
+            memcpy(new_val, is_found_in_idx0 ? val : value, new_val_len);
+            if (is_found_in_idx0)
                 new_val[new_val_len] = 1;
-            else
-                new_val[new_val_len] = val[new_val_len];
-            new_val_len++;
-            val = idx0->put(key, key_len, new_val, new_val_len);
-            if (val != NULL) {
-                uint8_t entry_count = val[*out_value_len - 1];
-                if (entry_count < 255)
-                    val[*out_value_len - 1]++;
+            else {
+                uint8_t entry_count = val[new_val_len];
+                new_val[new_val_len] = entry_count < 255 ? entry_count + 1 : 255;
             }
+            new_val_len++;
             //cout << "Found in idx0: " << entry_count << endl;
-            return val;
+            return idx0->put(key, key_len, new_val, new_val_len);
         }
 
-        char *get(const char *key, uint8_t key_len, int *out_value_len) {
-            return (char *) get((const uint8_t *) key, key_len, out_value_len);
+        bool get(const char *key, uint8_t key_len, int *out_value_len, char *val) {
+            return get((const uint8_t *) key, key_len, out_value_len, (uint8_t *) val);
         }
 
-        uint8_t *get(const uint8_t *key, uint8_t key_len, int *out_value_len) {
-            uint8_t *val = idx0->get(key, key_len, out_value_len);
-            if (val != NULL)
-                (*out_value_len)--;
+        bool get(const uint8_t *key, uint8_t key_len, int *in_size_out_value_len, uint8_t *val) {
+            bool is_found = idx0->get(key, key_len, in_size_out_value_len, val);
+            if (is_found) {
+                return true;
+            }
 #if BUCKET_COUNT == 2
-            if (val == NULL) {
+            if (!is_found) {
                 idx_more_lookup_counts[0]++;
                 if (!use_bloom || (use_bloom && bloom_filter_check_uint8_str(bf_idx2, key, key_len) != BLOOM_FAILURE)) {
                     idx_more_pve_counts[0]++;
-                    val = idx2->get(key, key_len, out_value_len);
-                    if (val != NULL)
+                    is_found = idx2->get(key, key_len, in_size_out_value_len, val);
+                    if (is_found)
                         idx_more_found_counts[0]++;
                 }
             }
 #endif
-            if (val == NULL) {
+            if (!is_found) {
                 idx_more_lookup_counts[BUCKET_COUNT - 1]++;
                 if (!use_bloom || (use_bloom && bloom_filter_check_uint8_str(bf_idx1, key, key_len) != BLOOM_FAILURE)) {
                     idx_more_pve_counts[BUCKET_COUNT - 1]++;
-                    val = idx1->get(key, key_len, out_value_len);
-                    if (val != NULL)
+                    is_found = idx1->get(key, key_len, in_size_out_value_len, val);
+                    if (is_found)
                         idx_more_found_counts[BUCKET_COUNT - 1]++;
                 }
             }
-            if (val == NULL) {
+            if (!is_found) {
                 cache_more_bf::iterator it_bf;
                 if (use_bloom)
                     it_bf = bf_idx1_more.begin();
@@ -425,8 +418,8 @@ class stager {
                     idx_more_lookup_counts[it - idx1_more.begin() + BUCKET_COUNT]++;
                     if (!use_bloom || (use_bloom && bloom_filter_check_uint8_str(*it_bf, key, key_len) != BLOOM_FAILURE)) {
                        idx_more_pve_counts[it - idx1_more.begin() + BUCKET_COUNT]++;
-                       val = (*it)->get(key, key_len, out_value_len);
-                       if (val != NULL) {
+                       is_found = (*it)->get(key, key_len, in_size_out_value_len, val);
+                       if (is_found) {
                            idx_more_found_counts[it - idx1_more.begin() + BUCKET_COUNT]++;
                            break;
                        }
@@ -434,7 +427,7 @@ class stager {
                     it_bf++;
                 }
             }
-            return val;
+            return is_found;
         }
 
         cache_stats get_cache_stats() {

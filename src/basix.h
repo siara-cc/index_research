@@ -19,7 +19,6 @@ using namespace std;
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class basix : public bplus_tree_handler<basix> {
 public:
-    int found_pos;
     basix(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
@@ -47,9 +46,8 @@ public:
 #endif
     }
 
-    inline int search_current_block() {
+    int search_current_block(bptree_iter_ctx *ctx = NULL) {
         int middle, first, filled_sz;
-        found_pos = -1;
         first = 0;
         filled_sz = filled_size();
         while (first < filled_sz) {
@@ -61,9 +59,16 @@ public:
             else if (cmp > 0)
                 filled_sz = middle;
             else {
-                found_pos = middle;
+                if (ctx) {
+                    ctx->found_page_idx = ctx->last_page_lvl;
+                    ctx->found_page_pos = middle;
+                }
                 return middle;
             }
+        }
+        if (ctx) {
+            ctx->found_page_idx = ctx->last_page_lvl;
+            ctx->found_page_pos = ~filled_sz;
         }
         return ~filled_sz;
     }
@@ -89,9 +94,9 @@ public:
         set_changed(1);
     }
 
-    void remove_found_entry() {
-        if (found_pos != -1) {
-            del_ptr(found_pos);
+    void remove_found_entry(bptree_iter_ctx *ctx) {
+        if (ctx->found_page_pos != -1) {
+            del_ptr(ctx->found_page_pos);
             set_changed(1);
         }
         total_size--;

@@ -76,7 +76,8 @@ public:
         }
         return t;
     }
-    inline int search_current_block() {
+
+    int search_current_block(bptree_iter_ctx *ctx = NULL) {
         uint8_t *t = trie;
         int to_skip = 0;
         uint8_t key_char = *key;

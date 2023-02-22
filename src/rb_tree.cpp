@@ -208,7 +208,7 @@ int rb_tree::binary_search(const uint8_t *key, int key_len) {
     return ~middle;
 }
 
-int rb_tree::search_current_block() {
+int rb_tree::search_current_block(bptree_iter_ctx *ctx) {
     pos = binary_search(key, key_len);
     return pos;
 }

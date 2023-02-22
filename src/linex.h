@@ -255,7 +255,7 @@ public:
         return false;
     }
 
-    inline int search_current_block() {
+    int search_current_block(bptree_iter_ctx *ctx = NULL) {
         pos = linear_search();
         return pos;
     }

@@ -54,7 +54,7 @@ public:
         trie = current_block + SUCCIX_HDR_SIZE;
     }
 
-    inline int16_t search_current_block() {
+    int search_current_block(bptree_iter_ctx *ctx) {
         uint8_t *elouds_bm = current_block + 9;
         int node_count = util::get_int(SCX_NODE_COUNT_P);
         uint8_t *nodes_ptr = elouds_bm + (node_count >> 1) + (node_count & 0x01);

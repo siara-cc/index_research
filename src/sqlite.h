@@ -713,14 +713,14 @@ class sqlite : public bplus_tree_handler<sqlite> {
             return ((leaf_block_size-page_resv_bytes-12)*64/255)-23+5;
         }
 
-        inline int search_current_block() {
-            int middle, first, filled_size, cmp;
+        int search_current_block(bptree_iter_ctx *ctx = NULL) {
+            int middle, first, filled_sz, cmp;
             int8_t vlen;
             found_pos = -1;
             first = 0;
-            filled_size = read_uint16(current_block + 3);
-            while (first < filled_size) {
-                middle = (first + filled_size) >> 1;
+            filled_sz = read_uint16(current_block + 3);
+            while (first < filled_sz) {
+                middle = (first + filled_sz) >> 1;
                 key_at = current_block + read_uint16(current_block + blk_hdr_len + middle * 2);
                 if (!is_leaf())
                     key_at += 4;
@@ -736,13 +736,20 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 if (cmp < 0)
                     first = middle + 1;
                 else if (cmp > 0)
-                    filled_size = middle;
+                    filled_sz = middle;
                 else {
-                    found_pos = middle;
+                    if (ctx) {
+                        ctx->found_page_idx = ctx->last_page_lvl;
+                        ctx->found_page_pos = middle;
+                    }
                     return middle;
                 }
             }
-            return ~filled_size;
+            if (ctx) {
+                ctx->found_page_idx = ctx->last_page_lvl;
+                ctx->found_page_pos = ~filled_sz;
+            }
+            return ~filled_sz;
         }
 
         inline int get_header_size() {

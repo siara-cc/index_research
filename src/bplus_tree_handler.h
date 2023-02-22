@@ -9,11 +9,8 @@
 #include <iostream>
 #endif
 #include <stdint.h>
-#include <map>
-#include <unordered_map>
 #include "univix_util.h"
 #include "lru_cache.h"
-#include "bas_blk.h"
 
 using namespace std;
 
@@ -56,7 +53,33 @@ using namespace std;
 #define DEFAULT_LEAF_BLOCK_SIZE 4096
 #endif
 
-typedef unordered_map<int, bas_blk*> staging_map;
+#define descendant static_cast<T*>(this)
+
+union page_ptr {
+    unsigned long page;
+    uint8_t *ptr;
+};
+
+#define MAX_LVL_COUNT 10
+class bptree_iter_ctx {
+    public:
+        page_ptr pages[MAX_LVL_COUNT];
+        int found_page_pos;
+        int8_t last_page_lvl;
+        int8_t found_page_idx;
+        void init(unsigned long page, uint8_t *ptr, int cache_size) {
+            last_page_lvl = 0;
+            found_page_idx = 0;
+            found_page_pos = -1;
+            set(page, ptr, cache_size);
+        }
+        void set(unsigned long page, uint8_t *ptr, int cache_size) {
+            if (cache_size > 0)
+                pages[last_page_lvl].page = page;
+            else
+                pages[last_page_lvl].ptr = ptr;
+        }
+};
 
 template<class T> // CRTP
 class bplus_tree_handler {
@@ -102,7 +125,7 @@ public:
             const char *fname = NULL, int start_page_num = 0, bool whether_btree = false) :
             leaf_block_size (leaf_block_sz), parent_block_size (parent_block_sz),
             cache_size (cache_sz_mb & 0xFFFF), filename (fname) {
-        static_cast<T*>(this)->init_derived();
+        descendant->init_derived();
         init_stats();
         is_block_given = 0;
         root_page_num = start_page_num;
@@ -110,18 +133,18 @@ public:
         to_demote_blocks = false;
         if (cache_size > 0) {
             cache = new lru_cache(leaf_block_size, cache_size, filename,
-                    &static_cast<T*>(this)->is_block_changed, &static_cast<T*>(this)->set_block_changed,
+                    &descendant->is_block_changed, &descendant->set_block_changed,
                     start_page_num, util::aligned_alloc);
             root_block = current_block = cache->get_disk_page_in_cache(start_page_num);
             if (cache->is_empty()) {
-                static_cast<T*>(this)->set_leaf(1);
-                static_cast<T*>(this)->init_current_block();
+                descendant->set_leaf(1);
+                descendant->init_current_block();
             }
         } else {
             root_block = current_block = (uint8_t *) util::aligned_alloc(leaf_block_size);
-            static_cast<T*>(this)->set_leaf(1);
-            static_cast<T*>(this)->set_current_block(root_block);
-            static_cast<T*>(this)->init_current_block();
+            descendant->set_leaf(1);
+            descendant->set_current_block(root_block);
+            descendant->init_current_block();
         }
     }
 
@@ -131,15 +154,15 @@ public:
         is_block_given = 1;
         root_block = current_block = block;
         if (should_init) {
-            static_cast<T*>(this)->set_leaf(is_leaf ? 1 : 0);
-            static_cast<T*>(this)->set_current_block(block);
-            static_cast<T*>(this)->init_current_block();
+            descendant->set_leaf(is_leaf ? 1 : 0);
+            descendant->set_current_block(block);
+            descendant->init_current_block();
         } else
-            static_cast<T*>(this)->set_current_block(block);
+            descendant->set_current_block(block);
     }
 
     ~bplus_tree_handler() {
-        static_cast<T*>(this)->cleanup();
+        descendant->cleanup();
         if (cache_size > 0)
             delete cache;
         else if (!is_block_given)
@@ -150,10 +173,10 @@ public:
         //memset(current_block, '\0', BFOS_NODE_SIZE);
         //cout << "Tree init block" << endl;
         if (!is_block_given) {
-            static_cast<T*>(this)->set_filled_size(0);
+            descendant->set_filled_size(0);
             BPT_MAX_KEY_LEN = 0;
-            static_cast<T*>(this)->set_kv_last_pos(
-                static_cast<T*>(this)->is_leaf() ? leaf_block_size : parent_block_size);
+            descendant->set_kv_last_pos(
+                descendant->is_leaf() ? leaf_block_size : parent_block_size);
         }
     }
 
@@ -187,24 +210,24 @@ public:
         return current_block;
     }
 
-    char *get(const char *key, int key_len, int *out_value_len, char *val = NULL) {
-        return (char *) get((uint8_t *) key, key_len, out_value_len, (uint8_t *) val);
+    bool get(const char *key, int key_len, int *in_size_out_val_len = NULL,
+                 char *val = NULL, bptree_iter_ctx *ctx = NULL) {
+        return get((uint8_t *) key, key_len, in_size_out_val_len, (uint8_t *) val, ctx);
     }
-    uint8_t *get(const uint8_t *key, int key_len, int *out_value_len, uint8_t *val = NULL) {
-        static_cast<T*>(this)->set_current_block_root();
+    bool get(const uint8_t *key, int key_len, int *in_size_out_val_len = NULL,
+                 uint8_t *val = NULL, bptree_iter_ctx *ctx = NULL) {
+        descendant->set_current_block_root();
+        current_page = root_page_num;
+        if (ctx)
+            ctx->init(current_page, current_block, cache_size);
         this->key = key;
         this->key_len = key_len;
-        current_page = root_page_num;
-        int search_result;
-        if (static_cast<T*>(this)->is_leaf())
-            search_result = static_cast<T*>(this)->search_current_block();
-        else
-            search_result = traverse_to_leaf();
+        int search_result = traverse_to_leaf(ctx);
         if (search_result < 0)
-            return NULL;
+            return false;
         if (val != NULL)
-            static_cast<T*>(this)->copy_value(val, out_value_len);
-        return static_cast<T*>(this)->get_value_at(out_value_len);
+            descendant->copy_value(val, in_size_out_val_len);
+        return true;
     }
 
     inline bool is_leaf() {
@@ -224,7 +247,7 @@ public:
 
     inline int get_ptr(int pos) {
 #if BPT_9_BIT_PTR == 1
-        int ptr = *(static_cast<T*>(this)->get_ptr_pos() + pos);
+        int ptr = *(descendant->get_ptr_pos() + pos);
 #if BPT_INT64MAP == 1
         if (*bitmap & MASK64(pos))
         ptr |= 256;
@@ -239,48 +262,36 @@ public:
 #endif
         return ptr;
 #else
-        return util::get_int(static_cast<T*>(this)->get_ptr_pos() + (pos << 1));
+        return util::get_int(descendant->get_ptr_pos() + (pos << 1));
 #endif
     }
 
-    int traverse_to_leaf(int8_t *plevel_count = NULL, uint8_t *node_paths[] = NULL) {
-        current_page = root_page_num;
+    int traverse_to_leaf(bptree_iter_ctx *ctx = NULL) {
         uint8_t prev_lvl_split_count = 0;
-        uint8_t *btree_rec_ptr = NULL;
-        int btree_rec_at_len = 0;
-        uint8_t *btree_found_blk = NULL;
-        while (!static_cast<T*>(this)->is_leaf()) {
-            if (node_paths) {
-                *node_paths++ = cache_size > 0 ? (uint8_t *) current_page : current_block;
-                (*plevel_count)++;
+        while (!descendant->is_leaf()) {
+            if (ctx) {
+                ctx->set(current_page, current_block, cache_size);
+                ctx->last_page_lvl++;
             }
-            int search_result = static_cast<T*>(this)->search_current_block();
-            if (search_result >= 0 && is_btree) {
-                btree_rec_ptr = key_at;
-                btree_rec_at_len = key_at_len;
-                btree_found_blk = current_block;
-            }
-            uint8_t *child_ptr_loc = static_cast<T*>(this)->get_child_ptr_pos(search_result);
+            int search_result = descendant->search_current_block(ctx);
+            if (search_result >= 0 && is_btree)
+                return search_result;
+            uint8_t *child_ptr_loc = descendant->get_child_ptr_pos(search_result);
             if (to_demote_blocks) {
                 prev_lvl_split_count = child_ptr_loc[*child_ptr_loc + 1 + child_ptr_loc[*child_ptr_loc+1]];
             }
             uint8_t *child_ptr;
             if (cache_size > 0) {
-                current_page = static_cast<T*>(this)->get_child_page(child_ptr_loc);
-                child_ptr = cache->get_disk_page_in_cache(current_page, btree_found_blk);
+                current_page = descendant->get_child_page(child_ptr_loc);
+                child_ptr = cache->get_disk_page_in_cache(current_page);
             } else
-                child_ptr = static_cast<T*>(this)->get_child_ptr(child_ptr_loc);
-            static_cast<T*>(this)->set_current_block(child_ptr);
+                child_ptr = descendant->get_child_ptr(child_ptr_loc);
+            descendant->set_current_block(child_ptr);
             //if (to_demote_blocks && current_block[5] < 255 && prev_lvl_split_count != current_block[5] - 1) {
             //    cout << "Split count not matching: " << (int) prev_lvl_split_count << " " << (int) current_block[5] << " " << (int) (current_block[0] & 0x1F) << endl;
             //}
         }
-        if (btree_found_blk != NULL) {
-            key_at = btree_rec_ptr;
-            key_at_len = btree_rec_at_len;
-            return 0;
-        }
-        return static_cast<T*>(this)->search_current_block();
+        return descendant->search_current_block(ctx);
     }
 
     inline uint8_t *get_child_ptr(uint8_t *ptr) {
@@ -323,47 +334,51 @@ public:
         return new_page;
     }
 
-    char *put(const char *key, int key_len, const char *value,
-            int value_len, int *out_value_len = NULL) {
-        return (char *) put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len, out_value_len);
+    bool put(const char *key, int key_len, const char *value,
+            int value_len, bptree_iter_ctx *ctx = NULL) {
+        return put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len, ctx);
     }
-    uint8_t *put(const uint8_t *key, int key_len, const uint8_t *value,
-            int value_len, int *out_value_len = NULL, bool only_if_not_full = false) {
-        static_cast<T*>(this)->set_current_block_root();
+    bool put(const uint8_t *key, int key_len, const uint8_t *value,
+            int value_len, bptree_iter_ctx *ctx = NULL, bool only_if_not_full = false) {
+        descendant->set_current_block_root();
         this->key = key;
         this->key_len = key_len;
         if (max_key_len < key_len)
             max_key_len = key_len;
         this->value = value;
         this->value_len = value_len;
-        if (static_cast<T*>(this)->filled_size() == 0) {
-            static_cast<T*>(this)->add_first_data();
-            static_cast<T*>(this)->set_changed(1);
+        current_page = root_page_num;
+        bool is_ctx_given = true;
+        if (ctx == NULL) {
+            ctx = new bptree_iter_ctx();
+            is_ctx_given = false;
+        }
+        ctx->init(current_page, current_block, cache_size);
+        if (descendant->filled_size() == 0) {
+            descendant->add_first_data();
+            descendant->set_changed(1);
         } else {
-            current_page = root_page_num;
-            uint8_t **node_paths = (uint8_t **) malloc(8 * sizeof(void *));
-            int8_t level_count = 1;
-            int search_result = static_cast<T*>(this)->is_leaf() ?
-                    static_cast<T*>(this)->search_current_block() :
-                    traverse_to_leaf(&level_count, node_paths);
-            num_levels = level_count;
+            int search_result = traverse_to_leaf(ctx);
+            num_levels = ctx->last_page_lvl + 1;
             if (only_if_not_full) {
-                if (static_cast<T*>(this)->is_full(~search_result)) {
-                    *out_value_len = 9999;
-                    free(node_paths);
-                    return NULL;
+                if (descendant->is_full(~search_result)) {
+                    if (is_ctx_given)
+                        delete ctx;
+                    return false;
                 }
             }
-            recursive_update(search_result, node_paths, level_count - 1);
+            recursive_update(search_result, ctx, ctx->last_page_lvl);
             if (search_result >= 0) {
-                free(node_paths);
-                static_cast<T*>(this)->set_changed(1);
-                return static_cast<T*>(this)->get_value_at(out_value_len);
+                if (is_ctx_given)
+                    delete ctx;
+                descendant->set_changed(1);
+                return true;
             }
-            free(node_paths);
         }
         total_size++;
-        return NULL;
+        if (is_ctx_given)
+            delete ctx;
+        return false;
     }
 
     int get_level(uint8_t *block, int block_size) {
@@ -383,26 +398,26 @@ public:
         return 255;
     }
 
-    void recursive_update(int search_result, uint8_t *node_paths[], uint8_t level) {
+    void recursive_update(int search_result, bptree_iter_ctx *ctx, int prev_level) {
         if (search_result < 0) {
             search_result = ~search_result;
-            if (static_cast<T*>(this)->is_full(search_result)) {
+            if (descendant->is_full(search_result)) {
                 update_split_stats();
-                uint8_t first_key[static_cast<T*>(this)->get_first_key_len()]; // is max_pfx_len sufficient?
+                uint8_t first_key[descendant->get_first_key_len()]; // is max_pfx_len sufficient?
                 int first_len;
                 uint8_t *old_block = current_block;
-                uint8_t *new_block = static_cast<T*>(this)->split(first_key, &first_len);
-                static_cast<T*>(this)->set_changed(1);
-                int lvl = static_cast<T*>(this)->get_level(old_block, static_cast<T*>(this)->is_leaf() ? leaf_block_size : parent_block_size);
-                static_cast<T*>(this)->set_level(new_block, static_cast<T*>(this)->is_leaf() ? leaf_block_size : parent_block_size, lvl);
+                uint8_t *new_block = descendant->split(first_key, &first_len);
+                descendant->set_changed(1);
+                int lvl = descendant->get_level(old_block, descendant->is_leaf() ? leaf_block_size : parent_block_size);
+                descendant->set_level(new_block, descendant->is_leaf() ? leaf_block_size : parent_block_size, lvl);
                 int new_page = 0;
                 if (cache_size > 0)
                     new_page = cache->get_page_count() - 1;
-                int cmp = static_cast<T*>(this)->compare_first_key(first_key, first_len, key, key_len);
+                int cmp = descendant->compare_first_key(first_key, first_len, key, key_len);
                 if (cmp <= 0)
-                    static_cast<T*>(this)->set_current_block(new_block);
-                search_result = ~static_cast<T*>(this)->search_current_block();
-                static_cast<T*>(this)->add_data(search_result);
+                    descendant->set_current_block(new_block);
+                search_result = ~descendant->search_current_block();
+                descendant->add_data(search_result);
                 //cout << "FK:" << level << ":" << first_key << endl;
                 if (root_block == old_block) {
                     int new_lvl = lvl;
@@ -413,38 +428,38 @@ public:
                     block_count_node++;
                     int old_page = 0;
                     if (cache_size > 0) {
-                        int block_size = static_cast<T*>(this)->is_leaf() ? leaf_block_size : parent_block_size;
-                        old_block = static_cast<T*>(this)->allocate_block(block_size, is_leaf(), new_lvl);
+                        int block_size = descendant->is_leaf() ? leaf_block_size : parent_block_size;
+                        old_block = descendant->allocate_block(block_size, is_leaf(), new_lvl);
                         old_page = cache->get_page_count() - 1;
                         memcpy(old_block, root_block, block_size);
-                        static_cast<T*>(this)->set_block_changed(old_block, block_size, true);
+                        descendant->set_block_changed(old_block, block_size, true);
                     } else
                         root_block = (uint8_t *) util::aligned_alloc(parent_block_size);
-                    static_cast<T*>(this)->set_current_block(root_block);
-                    static_cast<T*>(this)->set_leaf(0);
-                    static_cast<T*>(this)->init_current_block();
-                    static_cast<T*>(this)->set_changed(1);
-                    static_cast<T*>(this)->set_level(current_block, static_cast<T*>(this)->is_leaf() ? leaf_block_size : parent_block_size, new_lvl);
-                    static_cast<T*>(this)->add_first_kv_to_root(first_key, first_len,
+                    descendant->set_current_block(root_block);
+                    descendant->set_leaf(0);
+                    descendant->init_current_block();
+                    descendant->set_changed(1);
+                    descendant->set_level(current_block, descendant->is_leaf() ? leaf_block_size : parent_block_size, new_lvl);
+                    descendant->add_first_kv_to_root(first_key, first_len,
                         cache_size > 0 ? (unsigned long) old_page : (unsigned long) old_block,
                         cache_size > 0 ? (unsigned long) new_page : (unsigned long) new_block);
                     num_levels++;
                 } else {
-                    int prev_level = level - 1;
-                    current_page = (unsigned long) node_paths[prev_level];
-                    uint8_t *parent_data = cache_size > 0 ? cache->get_disk_page_in_cache(current_page) : node_paths[prev_level];
-                    static_cast<T*>(this)->set_current_block(parent_data);
+                    prev_level = prev_level - 1;
+                    current_page = ctx->pages[prev_level].page;
+                    uint8_t *parent_data = cache_size > 0 ? cache->get_disk_page_in_cache(current_page) : ctx->pages[prev_level].ptr;
+                    descendant->set_current_block(parent_data);
                     uint8_t addr[9];
-                    search_result = static_cast<T*>(this)->prepare_kv_to_add_to_parent(first_key, first_len, 
+                    search_result = descendant->prepare_kv_to_add_to_parent(first_key, first_len, 
                                         cache_size > 0 ? (unsigned long) new_page : (unsigned long) new_block, addr);
-                    recursive_update(search_result, node_paths, prev_level);
+                    recursive_update(search_result, ctx, prev_level);
                 }
             } else {
-                static_cast<T*>(this)->add_data(search_result);
-                static_cast<T*>(this)->set_changed(1);
+                descendant->add_data(search_result);
+                descendant->set_changed(1);
             }
         } else {
-            static_cast<T*>(this)->update_data();
+            descendant->update_data();
         }
     }
 
@@ -459,7 +474,7 @@ public:
             addr[value_len++] = 0;
         }
         //printf("value: %d, value_len1:%d\n", old_page, value_len);
-        static_cast<T*>(this)->add_first_data();
+        descendant->add_first_data();
         key = (uint8_t *) first_key;
         key_len = first_len;
         value = (uint8_t *) addr;
@@ -468,8 +483,8 @@ public:
             addr[value_len++] = 0;
         }
         //printf("value: %d, value_len2:%d\n", new_page, value_len);
-        int search_result = ~static_cast<T*>(this)->search_current_block();
-        static_cast<T*>(this)->add_data(search_result);
+        int search_result = ~descendant->search_current_block();
+        descendant->add_data(search_result);
     }
 
     int prepare_kv_to_add_to_parent(uint8_t *first_key, int first_len, unsigned long new_block_addr, uint8_t *addr) {
@@ -478,9 +493,9 @@ public:
         value = (uint8_t *) addr;
         value_len = util::ptr_to_bytes(new_block_addr, addr);
         //printf("value: %d, value_len3:%d\n", new_page, value_len);
-        int search_result = static_cast<T*>(this)->search_current_block();
+        int search_result = descendant->search_current_block();
         if (to_demote_blocks) {
-            uint8_t *split_count = static_cast<T*>(this)->find_split_source(search_result);
+            uint8_t *split_count = descendant->find_split_source(search_result);
             if (split_count != NULL) {
                 if (*split_count < 254)
                     (*split_count)++;
@@ -499,12 +514,12 @@ public:
     }
 
     void update_data() {
-        if (static_cast<T*>(this)->is_leaf()) {
+        if (descendant->is_leaf()) {
             uint8_t *value_at = this->key_at;
             value_at += this->key_at_len;
             if (*value_at == this->value_len)
                 memcpy((uint8_t *) value_at + 1, this->value, this->value_len);
-            static_cast<T*>(this)->set_changed(1);
+            descendant->set_changed(1);
         } else {
             cout << "search_result >=0 for parent" << endl;
         }
@@ -525,9 +540,9 @@ public:
     }
 
     inline void ins_ptr(int pos, int kv_pos) {
-        int filled_sz = static_cast<T*>(this)->filled_size();
+        int filled_sz = descendant->filled_size();
 #if BPT_9_BIT_PTR == 1
-        uint8_t *kv_idx = static_cast<T*>(this)->get_ptr_pos() + pos;
+        uint8_t *kv_idx = descendant->get_ptr_pos() + pos;
         memmove(kv_idx + 1, kv_idx, filled_sz - pos);
         *kv_idx = kv_pos;
 #if BPT_INT64MAP == 1
@@ -544,18 +559,18 @@ public:
         }
 #endif
 #else
-        uint8_t *kv_idx = static_cast<T*>(this)->get_ptr_pos() + (pos << 1);
+        uint8_t *kv_idx = descendant->get_ptr_pos() + (pos << 1);
         memmove(kv_idx + 2, kv_idx, (filled_sz - pos) * 2);
         util::set_int(kv_idx, kv_pos);
 #endif
-        static_cast<T*>(this)->set_filled_size(filled_sz + 1);
+        descendant->set_filled_size(filled_sz + 1);
 
     }
 
     inline void del_ptr(int pos) {
-        int filled_sz = static_cast<T*>(this)->filled_size() - 1;
+        int filled_sz = descendant->filled_size() - 1;
 #if BPT_9_BIT_PTR == 1
-        uint8_t *kv_idx = static_cast<T*>(this)->get_ptr_pos() + pos;
+        uint8_t *kv_idx = descendant->get_ptr_pos() + pos;
         memmove(kv_idx, kv_idx + 1, filled_sz - pos);
 #if BPT_INT64MAP == 1
         del_bit(bitmap, pos);
@@ -571,16 +586,16 @@ public:
         }
 #endif
 #else
-        uint8_t *kv_idx = static_cast<T*>(this)->get_ptr_pos() + (pos << 1);
+        uint8_t *kv_idx = descendant->get_ptr_pos() + (pos << 1);
         memmove(kv_idx, kv_idx + 2, (filled_sz - pos) * 2);
 #endif
-        static_cast<T*>(this)->set_filled_size(filled_sz);
+        descendant->set_filled_size(filled_sz);
         *current_block |= 0x20;
     }
 
     inline void set_ptr(int pos, int ptr) {
 #if BPT_9_BIT_PTR == 1
-        *(static_cast<T*>(this)->get_ptr_pos() + pos) = ptr;
+        *(descendant->get_ptr_pos() + pos) = ptr;
 #if BPT_INT64MAP == 1
         if (ptr >= 256)
         *bitmap |= MASK64(pos);
@@ -601,17 +616,17 @@ public:
         }
 #endif
 #else
-        uint8_t *kv_idx = static_cast<T*>(this)->get_ptr_pos() + (pos << 1);
+        uint8_t *kv_idx = descendant->get_ptr_pos() + (pos << 1);
         return util::set_int(kv_idx, ptr);
 #endif
     }
 
     inline void update_split_stats() {
-        if (static_cast<T*>(this)->is_leaf()) {
-            max_key_count_leaf += static_cast<T*>(this)->filled_size();
+        if (descendant->is_leaf()) {
+            max_key_count_leaf += descendant->filled_size();
             block_count_leaf++;
         } else {
-            max_key_count_node += static_cast<T*>(this)->filled_size();
+            max_key_count_node += descendant->filled_size();
             block_count_node++;
         }
     }
@@ -757,12 +772,12 @@ protected:
     }
 
     inline void update_split_stats() {
-        if (static_cast<T*>(this)->is_leaf()) {
-            bplus_tree_handler<T>::max_key_count_leaf += static_cast<T*>(this)->filled_size();
+        if (descendant->is_leaf()) {
+            bplus_tree_handler<T>::max_key_count_leaf += descendant->filled_size();
             max_trie_len_leaf += bplus_tree_handler<T>::BPT_TRIE_LEN + (*(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR) << 8);
             bplus_tree_handler<T>::block_count_leaf++;
         } else {
-            bplus_tree_handler<T>::max_key_count_node += static_cast<T*>(this)->filled_size();
+            bplus_tree_handler<T>::max_key_count_node += descendant->filled_size();
             max_trie_len_node += bplus_tree_handler<T>::BPT_TRIE_LEN + (*(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR) << 8);
             bplus_tree_handler<T>::block_count_node++;
         }

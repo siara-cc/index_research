@@ -65,7 +65,7 @@ public:
         trie = current_block + BFT_HDR_SIZE;
     }
 
-    inline int search_current_block() {
+    int search_current_block(bptree_iter_ctx *ctx = NULL) {
         uint8_t *t;
         t = trie;
         last_t = trie + 1;

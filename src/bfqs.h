@@ -102,7 +102,7 @@ public:
         }
     }
 
-    inline int search_current_block() {
+    int search_current_block(bptree_iter_ctx *ctx = NULL) {
         uint8_t *t = trie;
         uint8_t trie_char = *t;
         orig_pos = t++;

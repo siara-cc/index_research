@@ -125,8 +125,7 @@ public:
         (*pt) += count;
     }
 
-    // 
-    inline int search_current_block() {
+    int search_current_block(bptree_iter_ctx *ctx = NULL) {
         uint8_t *t = trie;
         uint8_t key_char = *key; //[key_pos++];
         key_pos = 1;
