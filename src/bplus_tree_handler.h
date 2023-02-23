@@ -429,7 +429,7 @@ public:
                     int old_page = 0;
                     if (cache_size > 0) {
                         int block_size = descendant->is_leaf() ? leaf_block_size : parent_block_size;
-                        old_block = descendant->allocate_block(block_size, is_leaf(), new_lvl);
+                        old_block = descendant->allocate_block(block_size, descendant->is_leaf(), new_lvl);
                         old_page = cache->get_page_count() - 1;
                         memcpy(old_block, root_block, block_size);
                         descendant->set_block_changed(old_block, block_size, true);
@@ -703,38 +703,38 @@ public:
     }
 
     void print_stats(long num_entries) {
-        util::print("Block Count:");
-        util::print((long) block_count_node);
-        util::print(", ");
-        util::print((long) block_count_leaf);
-        util::endl();
-        util::print("Avg Block Count:");
-        util::print((long) (num_entries / block_count_leaf));
-        util::print(" = ");
-        util::print((long) num_entries);
-        util::print(" / ");
-        util::print((long) block_count_leaf);
-        util::endl();
-        util::print("Avg Max Count:");
-        util::print((long) (max_key_count_node / (block_count_node ? block_count_node : 1)));
-        util::print(", ");
-        util::print((long) (max_key_count_leaf / block_count_leaf));
-        util::print(", ");
-        util::print((long) max_key_len);
-        util::endl();
+        std::cout << "Block Count:";
+        std::cout << (long) block_count_node;
+        std::cout << ", ";
+        std::cout << (long) block_count_leaf;
+        std::cout << std::endl;
+        std::cout << "Avg Block Count:";
+        std::cout << (long) (num_entries / block_count_leaf);
+        std::cout << " = ";
+        std::cout << (long) num_entries;
+        std::cout << " / ";
+        std::cout << (long) block_count_leaf;
+        std::cout << std::endl;
+        std::cout << "Avg Max Count:";
+        std::cout << (long) (max_key_count_node / (block_count_node ? block_count_node : 1));
+        std::cout << ", ";
+        std::cout << (long) (max_key_count_leaf / block_count_leaf);
+        std::cout << ", ";
+        std::cout << (long) max_key_len;
+        std::cout << std::endl;
     }
     void print_num_levels() {
-        util::print("Level Count:");
-        util::print((long) num_levels);
-        util::endl();
+        std::cout << "Level Count:";
+        std::cout << (long) num_levels;
+        std::cout << std::endl;
     }
     void print_counts() {
-        util::print("Count1:");
-        util::print(count1);
-        util::print(", Count2:");
-        util::print(count2);
-        util::print("\n");
-        util::endl();
+        std::cout << "Count1:";
+        std::cout << count1;
+        std::cout << ", Count2:";
+        std::cout << count2;
+        std::cout << "\n";
+        std::cout << std::endl;
     }
     long size() {
         return total_size;
@@ -903,12 +903,12 @@ public:
     ~bpt_trie_handler() {}
     void print_stats(long num_entries) {
         bplus_tree_handler<T>::print_stats(num_entries);
-        util::print("Avg Trie Len:");
-        util::print((long) (max_trie_len_node
-                / (bplus_tree_handler<T>::block_count_node ? bplus_tree_handler<T>::block_count_node : 1)));
-        util::print(", ");
-        util::print((long) (max_trie_len_leaf / bplus_tree_handler<T>::block_count_leaf));
-        util::endl();
+        std::cout << "Avg Trie Len:";
+        std::cout << (long) (max_trie_len_node
+                / (bplus_tree_handler<T>::block_count_node ? bplus_tree_handler<T>::block_count_node : 1));
+        std::cout << ", ";
+        std::cout << (long) (max_trie_len_leaf / bplus_tree_handler<T>::block_count_leaf);
+        std::cout << std::endl;
     }
     void init_current_block() {
         //cout << "Trie init block" << endl;
