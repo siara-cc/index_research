@@ -275,7 +275,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             ptr[0] = 2; // Interior index b-tree page
             write_uint16(ptr + 1, 0); // No freeblocks
             write_uint16(ptr + 3, 0); // No records yet
-            write_uint16(ptr + 5, (parent_block_size == 65536 ? 0 : parent_block_size - page_resv_bytes)); // No records yet
+            write_uint16(ptr + 5, (parent_block_size - page_resv_bytes == 65536 ? 0 : parent_block_size - page_resv_bytes)); // No records yet
             write_uint8(ptr + 7, 0); // Fragmented free bytes
             write_uint32(ptr + 8, 0); // right-most pointer
         }
@@ -285,7 +285,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             ptr[0] = 10; // Leaf index b-tree page
             write_uint16(ptr + 1, 0); // No freeblocks
             write_uint16(ptr + 3, 0); // No records yet
-            write_uint16(ptr + 5, (leaf_block_size == 65536 ? 0 : leaf_block_size - page_resv_bytes)); // No records yet
+            write_uint16(ptr + 5, (leaf_block_size - page_resv_bytes == 65536 ? 0 : leaf_block_size - page_resv_bytes)); // No records yet
             write_uint8(ptr + 7, 0); // Fragmented free bytes
         }
 
@@ -294,7 +294,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             ptr[0] = 13; // Leaf Table b-tree page
             write_uint16(ptr + 1, 0); // No freeblocks
             write_uint16(ptr + 3, 0); // No records yet
-            write_uint16(ptr + 5, (leaf_block_size == 65536 ? 0 : leaf_block_size - page_resv_bytes)); // No records yet
+            write_uint16(ptr + 5, (leaf_block_size - page_resv_bytes == 65536 ? 0 : leaf_block_size - page_resv_bytes)); // No records yet
             write_uint8(ptr + 7, 0); // Fragmented free bytes
         }
 
@@ -783,11 +783,11 @@ class sqlite : public bplus_tree_handler<sqlite> {
             uint8_t *rec_ptr = current_block + read_uint16(kv_idx);
             rec_len += read_vint32(rec_ptr + rec_len, &vlen);
             rec_len += vlen;
-            int kv_last_pos = get_kVLast_pos();
+            int kv_last_pos = get_kv_last_pos();
             if (rec_ptr != current_block + kv_last_pos)
                 memmove(current_block + kv_last_pos + rec_len, current_block + kv_last_pos, rec_ptr - current_block + kv_last_pos);
             kv_last_pos += rec_len;
-            set_kVLast_pos(kv_last_pos);*/
+            set_kv_last_pos(kv_last_pos);*/
         }
 
         int get_ptr(int pos) {
@@ -801,7 +801,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
         void make_space() {
             int block_size = (is_leaf() ? leaf_block_size : parent_block_size);
             int lvl = current_block[0] & 0x1F;
-            const int data_size = block_size - get_kVLast_pos();
+            const int data_size = block_size - get_kv_last_pos();
             uint8_t data_buf[data_size];
             int new_data_len = 0;
             int new_idx;
@@ -819,7 +819,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             int new_kv_last_pos = block_size - new_data_len;
             memcpy(current_block + new_kv_last_pos, data_buf + data_size - new_data_len, new_data_len);
             //printf("%d, %d\n", data_size, new_data_len);
-            set_kVLast_pos(new_kv_last_pos);
+            set_kv_last_pos(new_kv_last_pos);
             search_current_block();
         }
 
@@ -878,9 +878,9 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 on_page_len += 4;
             int ptr_size = filled_size() + 1;
             ptr_size *= 2;
-            if (get_kVLast_pos() <= (blk_hdr_len + ptr_size + on_page_len)) {
+            if (get_kv_last_pos() <= (blk_hdr_len + ptr_size + on_page_len)) {
                 //make_space();
-                //if (get_kVLast_pos() <= (blk_hdr_len + ptr_size + rec_len))
+                //if (get_kv_last_pos() <= (blk_hdr_len + ptr_size + rec_len))
                     return true;
             }
             return false;
@@ -891,7 +891,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             if (cache_size > 0) {
                 new_page = cache->get_new_page(current_block);
                 set_block_changed(new_page, size, true);
-                if ((cache->file_page_count - 1) == (1073741824UL / leaf_block_size)) {
+                if ((cache->file_page_count - 1) * leaf_block_size == 1073741824UL) {
                     new_page = cache->get_new_page(current_block);
                     set_block_changed(new_page, size, true);
                 }
@@ -915,7 +915,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             set_changed(true);
             new_block.set_changed(true);
             SQLT_NODE_SIZE -= page_resv_bytes;
-            int kv_last_pos = get_kVLast_pos();
+            int kv_last_pos = get_kv_last_pos();
             int half_kVLen = SQLT_NODE_SIZE - kv_last_pos + 1;
             half_kVLen /= 2;
 
@@ -958,7 +958,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 }
             }
 
-            kv_last_pos = get_kVLast_pos();
+            kv_last_pos = get_kv_last_pos();
             if (brk_rec_len) {
                 memmove(new_block.current_block + kv_last_pos + brk_rec_len, new_block.current_block + kv_last_pos,
                             SQLT_NODE_SIZE - kv_last_pos - brk_rec_len);
@@ -973,7 +973,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 int old_blk_new_len = brk_kv_pos - kv_last_pos;
                 memcpy(current_block + SQLT_NODE_SIZE - old_blk_new_len,
                     new_block.current_block + kv_last_pos, old_blk_new_len);
-                set_kVLast_pos(SQLT_NODE_SIZE - old_blk_new_len);
+                set_kv_last_pos(SQLT_NODE_SIZE - old_blk_new_len);
                 set_filled_size(brk_idx);
                 if (!is_leaf()) {
                     uint32_t addr_to_write = brk_child_addr;
@@ -986,7 +986,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 int new_size = orig_filled_size - brk_idx - 1;
                 uint8_t *block_ptrs = new_block.current_block + blk_hdr_len;
                 memmove(block_ptrs, block_ptrs + (brk_idx << 1), new_size << 1);
-                new_block.set_kVLast_pos(brk_kv_pos);
+                new_block.set_kv_last_pos(brk_kv_pos);
                 new_block.set_filled_size(new_size);
                 if (!is_leaf())
                     write_uint32(new_block.current_block + 8, brk_child_addr);
@@ -1033,7 +1033,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             // See https://www.sqlite.org/fileformat.html
             int K = M+((P-M)%(U-4));
             int on_bt_page = (P <= X ? P : (K <= X ? K : M));
-            int kv_last_pos = get_kVLast_pos();
+            int kv_last_pos = get_kv_last_pos();
             kv_last_pos -= on_bt_page;
             kv_last_pos -= get_vlen_of_uint32(P);
             if (!is_leaf())
@@ -1045,7 +1045,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             copy_kv_with_overflow(ptr, P, on_bt_page, hdr_len);
             ins_ptr(search_result, kv_last_pos);
             int filled_size = read_uint16(current_block + 3);
-            set_kVLast_pos(kv_last_pos);
+            set_kv_last_pos(kv_last_pos);
             set_changed(true);
 
             // if (BPT_MAX_KEY_LEN < key_len)
@@ -1091,7 +1091,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 }
                 if (key_remaining > 0 || val_remaining > 0) {
                     uint32_t new_page_no = cache->get_page_count() + 1;
-                    if (new_page_no == 262145)
+                    if ((new_page_no - 1) * leaf_block_size == 1073741824UL)
                         new_page_no++;
                     write_uint32(copying_on_bt_page ? ptr : ptr0, new_page_no);
                     uint8_t *ovfl_ptr = allocate_block(leaf_block_size, BPT_BLK_TYPE_OVFL, 0);
@@ -1125,11 +1125,11 @@ class sqlite : public bplus_tree_handler<sqlite> {
             write_uint16(current_block + 3, filled_size);
         }
 
-        int get_kVLast_pos() {
+        int get_kv_last_pos() {
             return read_uint16(current_block + 5);
         }
 
-        void set_kVLast_pos(int val) {
+        void set_kv_last_pos(int val) {
             if (val == 0)
                 val = 65535;
             write_uint16(current_block + 5, val);

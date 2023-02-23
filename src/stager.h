@@ -331,6 +331,7 @@ class stager {
                                 bool is_inserted = !idx2->put(k, k_len, v, v_len - 1);
                                 if (use_bloom && is_inserted)
                                     bloom_filter_add_uint8_str(bf_idx2, k, k_len);
+                                //printf("Key: %.*s, %d,%d,%d,%d,%d\n", k_len, k, v[0], v[1], v[2], v[4], v[5]);
                                 //remove_entry_from_idx1_more(k, k_len);
                             }
 #else
@@ -367,15 +368,14 @@ class stager {
                 //         flush_counts[idx]++;
                 // }
             }
-            int new_val_len = (is_found_in_idx0 ? out_val_len - 1 : value_len);
+            int new_val_len = value_len;
             uint8_t new_val[new_val_len + 1];
-            memcpy(new_val, is_found_in_idx0 ? val : value, new_val_len);
-            if (is_found_in_idx0)
-                new_val[new_val_len] = 1;
-            else {
+            memcpy(new_val, value, new_val_len);
+            if (is_found_in_idx0) {
                 uint8_t entry_count = val[new_val_len];
                 new_val[new_val_len] = entry_count < 255 ? entry_count + 1 : 255;
-            }
+            } else
+                new_val[new_val_len] = 1;
             new_val_len++;
             //cout << "Found in idx0: " << entry_count << endl;
             return idx0->put(key, key_len, new_val, new_val_len);

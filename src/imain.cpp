@@ -1338,7 +1338,12 @@ void check_value(const char *key, int key_len, const char *val, int val_len,
 
 int test(const char *file_name) {
     sqlite *lx = new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, 10, file_name);
-    lx->get("dzgrvghf", 8, NULL);
+    int val_len = 2000;
+    char val[2000];
+    if (lx->get("wfdkbhtmlhsntkkvheyqqheajmlppdghlqeuafxr", 40, &val_len, val)) {
+        val[val_len] = 0;
+        cout << "Val: [" << val << "]" << endl;
+    }
     delete lx;
     return 0;
 }
@@ -1351,9 +1356,7 @@ int main(int argc, char *argv[]) {
     if (argc > 1) {
         if ((argv[1][0] >= '0' && argv[1][0] <= '9') || argv[1][0] == '-') {
             NUM_ENTRIES = atol(argv[1]);
-            if (NUM_ENTRIES == 0) {
-                return test(argv[2]);
-            } else if (NUM_ENTRIES < 0) {
+            if (NUM_ENTRIES < 0) {
                 NUM_ENTRIES = -NUM_ENTRIES;
                 KEY_VALUE_VAR_LEN = 1;
             }
@@ -1393,6 +1396,9 @@ int main(int argc, char *argv[]) {
             OUT_FILE2 = out_file2;
             strcpy(OUT_FILE2, "f2_");
             strcat(OUT_FILE2, argv[8]);
+        }
+        if (NUM_ENTRIES == 0) {
+            return test(OUT_FILE1);
         }
     }
 
