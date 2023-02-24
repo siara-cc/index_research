@@ -70,9 +70,12 @@ class stager {
             bf_idx1_name = fname1;
             bf_idx1_name += ".blm";
             cache0_size = (cache_size_mb > 0xFF ? cache_size_mb & 0xFF : cache_size_mb) * 16;
+            cache0_size *= 1024;
             idx1_count_limit_mil = (cache_size_mb > 0xFF ? (cache_size_mb >> 8) & 0xFF : 250);
             cache1_size = (cache_size_mb > 0xFFFF ? (cache_size_mb >> 16) & 0xFF : cache_size_mb & 0xFF) * 16;
+            cache1_size *= 1024;
             cache_more_size = (cache_size_mb > 0xFFFFFF ? (cache_size_mb >> 24) & 0x0F : (cache_size_mb & 0xFF) / (cache_size_mb < 4 ? 2 : 4)) * 16;
+            cache_more_size *= 1024;
             idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             //idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
             idx1 = new sqlite(2, 1, key_val_const_str, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
@@ -121,6 +124,7 @@ class stager {
                     bloom_filter_init(bf_idx2, 30000000L, 0.005);
             }
             cache2_size = (cache_size_mb > 0xFFFFFFF ? (cache_size_mb >> 28) & 0x0F : (cache_size_mb & 0xFF)) * 16;
+            cache2_size *= 1024;
             cout << ", Idx2 buf: " << cache2_size << "mb" << endl;
             //idx2 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
             idx2 = new sqlite(2, 1, key_val_const_str, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
