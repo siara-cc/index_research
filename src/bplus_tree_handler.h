@@ -12,8 +12,6 @@
 #include "univix_util.h"
 #include "lru_cache.h"
 
-using namespace std;
-
 #define BPT_IS_LEAF_BYTE current_block[0] & 0x80
 #define BPT_IS_CHANGED current_block[0] & 0x40
 #define BPT_LEVEL (current_block[0] & 0x1F)
@@ -94,6 +92,7 @@ protected:
     int max_key_len;
     int is_block_given;
     int root_page_num;
+    bool is_closed;
 
 public:
     lru_cache *cache;
@@ -127,6 +126,7 @@ public:
             cache_size (cache_sz_mb & 0xFFFF), filename (fname) {
         descendant->init_derived();
         init_stats();
+        is_closed = false;
         is_block_given = 0;
         root_page_num = start_page_num;
         is_btree = whether_btree;
@@ -152,6 +152,7 @@ public:
             leaf_block_size (block_sz), parent_block_size (block_sz),
             cache_size (0), filename (NULL) {
         is_block_given = 1;
+        is_closed = false;
         root_block = current_block = block;
         if (should_init) {
             descendant->set_leaf(is_leaf ? 1 : 0);
@@ -162,6 +163,11 @@ public:
     }
 
     ~bplus_tree_handler() {
+        if (!is_closed)
+            close();
+    }
+
+    void close() {
         descendant->cleanup();
         if (cache_size > 0)
             delete cache;
@@ -208,6 +214,17 @@ public:
 
     uint8_t *get_current_block() {
         return current_block;
+    }
+
+    std::string get_string(std::string key, std::string not_found_value) {
+        bool ret = get(key.c_str(), key.length(), NULL, NULL);
+        if (ret) {
+            uint8_t *val = (uint8_t *) malloc(key_at_len);
+            int val_len;
+            descendant->copy_value(val, &val_len);
+            return std::string((const char *) val, val_len);
+        }
+        return not_found_value;
     }
 
     bool get(const char *key, int key_len, int *in_size_out_val_len = NULL,
@@ -334,6 +351,9 @@ public:
         return new_page;
     }
 
+    bool put_string(std::string key, std::string value) {
+        return put(key.c_str(), key.length(), value.c_str(), value.length());
+    }
     bool put(const char *key, int key_len, const char *value,
             int value_len, bptree_iter_ctx *ctx = NULL) {
         return put((const uint8_t *) key, key_len, (const uint8_t *) value, value_len, ctx);

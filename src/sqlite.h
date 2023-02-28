@@ -4,10 +4,10 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <string>
+#include <vector>
 #endif
 #include "bplus_tree_handler.h"
-
-using namespace std;
 
 // TODO: decide whether needed
 #define page_resv_bytes 5 
@@ -452,7 +452,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
 
         // Writes data into buffer to form first page of Sqlite db
         int write_page0(int total_col_count, int pk_col_count,
-            const char *col_names[] = NULL, const char *table_name = NULL) {
+            std::vector<std::string> col_names, const char *table_name = NULL) {
 
             if (leaf_block_size % 512 || leaf_block_size < 512 || leaf_block_size > 65536)
                 throw SQLT_RES_INV_PAGE_SZ;
@@ -512,11 +512,11 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 int table_name_len = strlen(table_name);
                 size_t script_len = 13 + table_name_len + 2 + 13 + 15;
                 for (int i = 0; i < total_col_count; i++)
-                    script_len += strlen(col_names[i]);
+                    script_len += col_names[i].length();
                 script_len += total_col_count; // commas
                 script_len += total_col_count; // spaces
                 for (int i = 0; i < pk_col_count; i++)
-                    script_len += strlen(col_names[i]);
+                    script_len += col_names[i].length();
                 script_len += pk_col_count; // commas
                 // 100 byte header, 2 byte ptr, 3 byte rec/hdr vlen, 1 byte rowid
                 // 6 byte hdr len, 5 byte "table", twice table name, 4 byte uint32 root
@@ -532,8 +532,8 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 *script_pos++ = ' ';
                 *script_pos++ = '(';
                 for (int i = 0; i < total_col_count; i++) {
-                    size_t str_len = strlen(col_names[i]);
-                    memcpy(script_pos, col_names[i], str_len);
+                    size_t str_len = col_names[i].length();
+                    memcpy(script_pos, col_names[i].c_str(), str_len);
                     script_pos += str_len;
                     *script_pos++ = ',';
                     *script_pos++ = ' ';
@@ -541,8 +541,8 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 memcpy(script_pos, "PRIMARY KEY (", 13);
                 script_pos += 13;
                 for (int i = 0; i < pk_col_count; ) {
-                    size_t str_len = strlen(col_names[i]);
-                    memcpy(script_pos, col_names[i], str_len);
+                    size_t str_len = col_names[i].length();
+                    memcpy(script_pos, col_names[i].c_str(), str_len);
                     script_pos += str_len;
                     i++;
                     *script_pos++ = (i == pk_col_count ? ')' : ',');
@@ -677,16 +677,20 @@ class sqlite : public bplus_tree_handler<sqlite> {
         unsigned long child_addr;
         int pk_count;
         int column_count;
-        const char **column_names;
+        std::vector<std::string> column_names;
         const char *table_name;
         int blk_hdr_len;
         sqlite(int total_col_count, int pk_col_count, 
-                const char *col_names[] = NULL, const char *tbl_name = NULL,
+                std::vector<std::string> col_names, const char *tbl_name = NULL,
                 int leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
                 int parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
                 const char *fname = NULL) : column_count (total_col_count), pk_count (pk_col_count),
                     column_names (col_names), table_name (tbl_name),
                     bplus_tree_handler<sqlite>(leaf_block_sz, parent_block_sz, cache_sz, fname, 1, true) {
+            init();
+        }
+
+        void init() {
             U = leaf_block_size - page_resv_bytes;
             X = ((U-12)*64/255)-23;
             M = ((U-12)*32/255)-23;
@@ -786,7 +790,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
         }
 
         void cleanup() {
-            if (cache_size > 0) {
+            if (cache_size > 0 && master_block != NULL) {
                 uint32_t file_size_in_pages = cache->file_page_count;
                 write_uint32(master_block + 28, file_size_in_pages);
                 cache->write_page(master_block, 0, leaf_block_size);

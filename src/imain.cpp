@@ -1337,7 +1337,7 @@ void check_value(const char *key, int key_len, const char *val, int val_len,
 }
 
 int test(const char *file_name) {
-    sqlite *lx = new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, 10, file_name);
+    sqlite *lx = new sqlite(2, 1, {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, 10, file_name);
     int val_len = 2000;
     char val[2000];
     if (lx->get("wfdkbhtmlhsntkkvheyqqheajmlppdghlqeuafxr", 40, &val_len, val)) {
@@ -1545,7 +1545,7 @@ int main(int argc, char *argv[]) {
     //lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new stager(OUT_FILE1, CACHE_SIZE);
-    lx = new sqlite(2, 1, (const char *[]) {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    lx = new sqlite(2, 1, {"key", "value"}, "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
