@@ -76,7 +76,7 @@ class stager {
             cache_more_size *= 1024;
             idx0 = new basix3(STAGING_BLOCK_SIZE, STAGING_BLOCK_SIZE, cache0_size, fname0);
             //idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
-            idx1 = new sqlite(2, 1, {"key", "value"}, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
+            idx1 = new sqlite(2, 1, "key, value", "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, fname1);
             if (use_bloom) {
                 bf_idx1 = new bloom_filter;
                 if (file_exists(bf_idx1_name.c_str()))
@@ -94,7 +94,7 @@ class stager {
                 sprintf(bf_new_name, "%s.%lu.blm", idx1_name.c_str(), idx1_more.size() + 1);
                 if (file_exists(new_name)) {
                     //idx1_more.push_back(new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
-                    idx1_more.push_back(new sqlite(2, 1, {"key", "value"}, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
+                    idx1_more.push_back(new sqlite(2, 1, "key, value", "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
                     if (use_bloom) {
                         bloom_filter *new_bf = new bloom_filter;
                         bloom_filter_import(new_bf, bf_new_name);
@@ -125,7 +125,7 @@ class stager {
             cache2_size *= 1024;
             cout << ", Idx2 buf: " << cache2_size << "mb" << endl;
             //idx2 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
-            idx2 = new sqlite(2, 1, {"key", "value"}, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
+            idx2 = new sqlite(2, 1, "key, value", "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
 #else
             cout << endl;
 #endif
@@ -196,8 +196,8 @@ class stager {
                     else {
                         //idx1_more.insert(idx1_more.begin(), new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
                         //idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, idx1_name.c_str());
-                        idx1_more.insert(idx1_more.begin(), new sqlite(2, 1, {"key", "value"}, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
-                        idx1 = new sqlite(2, 1, {"key", "value"}, "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, idx1_name.c_str());
+                        idx1_more.insert(idx1_more.begin(), new sqlite(2, 1, "key, value", "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
+                        idx1 = new sqlite(2, 1, "key, value", "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, idx1_name.c_str());
                         if (use_bloom) {
                             bf_idx1_more.insert(bf_idx1_more.begin(), bf_idx1);
                             bf_idx1 = new bloom_filter;

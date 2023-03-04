@@ -216,7 +216,7 @@ public:
         return current_block;
     }
 
-    std::string get_string(std::string key, std::string not_found_value) {
+    std::string get_string(std::string& key, std::string& not_found_value) {
         bool ret = get(key.c_str(), key.length(), NULL, NULL);
         if (ret) {
             uint8_t *val = (uint8_t *) malloc(key_at_len);
@@ -242,6 +242,8 @@ public:
         int search_result = traverse_to_leaf(ctx);
         if (search_result < 0)
             return false;
+        if (in_size_out_val_len != NULL)
+            *in_size_out_val_len = key_at_len;
         if (val != NULL)
             descendant->copy_value(val, in_size_out_val_len);
         return true;
@@ -351,7 +353,7 @@ public:
         return new_page;
     }
 
-    bool put_string(std::string key, std::string value) {
+    bool put_string(std::string& key, std::string& value) {
         return put(key.c_str(), key.length(), value.c_str(), value.length());
     }
     bool put(const char *key, int key_len, const char *value,
