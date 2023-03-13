@@ -5,7 +5,6 @@
 #include <cstring>
 #include <iostream>
 #include <string>
-#include <vector>
 #endif
 #include "bplus_tree_handler.h"
 
@@ -1204,6 +1203,10 @@ class sqlite : public bplus_tree_handler<sqlite> {
                         copy_overflow(val, hdr_len + k_len - on_bt_page, *p_value_len, util::read_uint32(key_at + on_bt_page));
                 }
             }
+        }
+
+        void append(string key, string val) {
+            
         }
 
 };

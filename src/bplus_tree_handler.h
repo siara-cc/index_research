@@ -32,6 +32,7 @@
 #define INSERT_EMPTY 4
 #define INSERT_THREAD 5
 #define INSERT_CONVERT 6
+#define INSERT_CHILD_LEAF 7
 
 #ifdef ARDUINO
 #define BPT_INT64MAP 0
