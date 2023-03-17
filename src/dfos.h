@@ -48,17 +48,27 @@ public:
 #else
     int pos, key_at_pos;
 #endif
-    const static uint8_t need_counts[10];
+    uint8_t need_counts[10];
 
     dfos(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-        bpt_trie_handler<dfos>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+                bpt_trie_handler<dfos>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+#if DS_SIBLING_PTR_SIZE == 1
+        memcpy(need_counts, "\x00\x02\x02\x02\x02\x00\x06\x00\x00\x00", 10);
+#else
+        memcpy(need_counts, "\x00\x02\x02\x02\x02\x00\x07\x00\x00\x00", 10);
+#endif
     }
 
     dfos(uint32_t block_sz, uint8_t *block, bool is_leaf) :
       bpt_trie_handler<dfos>(block_sz, block, is_leaf) {
         init_stats();
+#if DS_SIBLING_PTR_SIZE == 1
+        memcpy(need_counts, "\x00\x02\x02\x02\x02\x00\x06\x00\x00\x00", 10);
+#else
+        memcpy(need_counts, "\x00\x02\x02\x02\x02\x00\x07\x00\x00\x00", 10);
+#endif
     }
 
     inline void set_current_block_root() {

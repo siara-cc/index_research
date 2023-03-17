@@ -39,7 +39,7 @@ public:
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class octp : public bpt_trie_handler<octp> {
 public:
-    const static uint8_t need_counts[10];
+    char need_counts[10];
     uint8_t *last_t;
     uint8_t last_child;
     uint8_t last_leaf;
@@ -50,12 +50,22 @@ public:
     octp(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-        bpt_trie_handler<octp>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+                bpt_trie_handler<octp>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+#if BS_CHILD_PTR_SIZE == 1
+        memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x07\x00\x00\x00", 10);
+#else
+        memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x08\x00\x00\x00", 10);
+#endif
     }
 
     octp(uint32_t block_sz, uint8_t *block, bool is_leaf) :
       bpt_trie_handler<octp>(block_sz, block, is_leaf) {
         init_stats();
+#if BS_CHILD_PTR_SIZE == 1
+        memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x07\x00\x00\x00", 10);
+#else
+        memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x08\x00\x00\x00", 10);
+#endif
     }
 
     inline void set_current_block_root() {
@@ -132,11 +142,21 @@ public:
         do {
             orig_pos = t;
 
+            // bft/dft improvement:
+            // nnnnnnxx - if xx = 00, n = len, letters followed by ptrs
+            //                          if ptr < trie_len, then child else leaf
+            //                          if n = 63, next byte is the len
+            //            if xx = 10 and n = 0, then leaf + child
+            //                          else n = next field data type
+            //            if xx = y1, n + y = prefix len, followed by xx = 00 node
+            //                        if n = 127, more prefix nodes follow
+
             // bfos/dfos improvement:
-            // kkkkk tx0 - octet with bitmap, x = leaf+node y/n, t = terminator
-            // nnnnn yz1 - if z = 0, n = len of prefix, if z = 1, n = next key data type
-            //             if z = 0 and y = 0, expect prefix continuation elsewhere
-            //             if z = 1, function of y to be defined (reserved)
+            // kkkkk tx0 - octet with bitmap, t = terminator
+            //             if x = 0 and k = 0 then leaf+node
+            //             if x = 0 and k > 0 then k+t = next key data type
+            // nnnnn ny1 - if y = 0, n = len of prefix
+            //             if y = 1, prefix continues in data area
 
             // kkkkk t00 - octet with bitmap, t = terminator
             // lllll x01 - letter range or letter set, l = length, x = 0 (letter range), x = 1 (letter set)

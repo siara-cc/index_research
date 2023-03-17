@@ -34,7 +34,7 @@ class bft : public bpt_trie_handler<bft> {
 public:
     uint8_t *last_t;
     uint8_t *split_buf;
-    const static uint8_t need_counts[10];
+    char need_counts[10];
     uint8_t last_child_pos;
     uint8_t to_pick_leaf;
     bft(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
@@ -43,12 +43,22 @@ public:
         bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
         split_buf = (uint8_t *) util::aligned_alloc(leaf_block_size > parent_block_size ?
                 leaf_block_size : parent_block_size);
+#if DFT_UNIT_SIZE == 4
+        memcpy(need_counts, "\x00\x04\x04\x00\x04\x00\x00\x00\x00\x00", 10);
+#else
+        memcpy(need_counts, "\x00\x03\x03\x00\x03\x00\x00\x00\x00\x00", 10);
+#endif
     }
 
     bft(uint32_t block_sz, uint8_t *block, bool is_leaf) :
       bpt_trie_handler<bft>(block_sz, block, is_leaf) {
         init_stats();
-    }
+ #if DFT_UNIT_SIZE == 4
+        memcpy(need_counts, "\x00\x04\x04\x00\x04\x00\x00\x00\x00\x00", 10);
+#else
+        memcpy(need_counts, "\x00\x03\x03\x00\x03\x00\x00\x00\x00\x00", 10);
+#endif
+   }
 
     ~bft() {
         if (!is_block_given)

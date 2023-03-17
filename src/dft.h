@@ -16,19 +16,29 @@ using namespace std;
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class dft : public bpt_trie_handler<dft> {
 public:
-    const static uint8_t need_counts[10];
+    char need_counts[10];
     int last_sibling_pos;
     int pos, key_at_pos;
 
     dft(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-        bpt_trie_handler<dft>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+                bpt_trie_handler<dft>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+#if DFT_UNIT_SIZE == 4
+        memcpy(need_counts, "\x00\x04\x04\x00\x04\x00\x00\x00\x00\x00", 10);
+#else
+        memcpy(need_counts, "\x00\x03\x03\x00\x03\x00\x00\x00\x00\x00", 10);
+#endif
     }
 
     dft(uint32_t block_sz, uint8_t *block, bool is_leaf) :
       bpt_trie_handler<dft>(block_sz, block, is_leaf) {
         init_stats();
+#if DFT_UNIT_SIZE == 4
+        memcpy(need_counts, "\x00\x04\x04\x00\x04\x00\x00\x00\x00\x00", 10);
+#else
+        memcpy(need_counts, "\x00\x03\x03\x00\x03\x00\x00\x00\x00\x00", 10);
+#endif
     }
 
     inline void set_current_block_root() {

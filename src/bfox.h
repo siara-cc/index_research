@@ -42,6 +42,7 @@ public:
     const static uint8_t need_counts[10];
     uint8_t *last_t;
     uint8_t last_bm;
+    int bit_count;
 
     bfox(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
@@ -107,6 +108,8 @@ public:
     int search_current_block(bptree_iter_ctx *ctx = NULL) {
         uint8_t *t = trie;
         uint8_t trie_char;
+        trie_char = *t;
+        orig_pos = t++;
         //if (key_pos) {
         //    if (trie_char & x01) {
         //        key_pos--;
@@ -125,10 +128,74 @@ public:
         //}
         uint8_t key_char = *key; //[key_pos++];
         key_pos = 1;
+        bit_count = 0;
         do {
-            trie_char = *t;
-            orig_pos = t++;
-            if (trie_char & 0x01) {
+            switch (trie_char & x01 ? 3 : (key_char ^ trie_char) > x07 ? (key_char > trie_char ? 0 : 2) : 1) {
+            case 0:
+                last_t = orig_pos;
+                last_bm = *t++;
+                if (trie_char & 0x04) {
+                    trie_pos = t;
+                    return ~INSERT_AFTER;
+                }
+                bit_count += BIT_COUNT2(last_bm);
+                trie_char = *t++;
+                continue;
+            case 1: {
+                uint8_t r_bm = *t;
+                uint8_t r_mask = 0x01 << (key_char & 0x07);
+                if (r_bm & r_mask) {
+                    bit_count += BIT_COUNT2(r_bm & (r_mask - 1));
+                    if (!is_leaf()) {
+                        last_t = orig_pos;
+                        last_bm = r_bm;                            
+                    }
+                    t--;
+                    trie_pos = t;
+                    while ((*t++ & 0x04) == 0)
+                        t++;
+                    int ptr_pos = util::get_int(t + bit_count);
+                    int sw = (key_pos == key_len ? 0x01 : 0x00) |
+                        (ptr_pos < BPT_TRIE_LEN ? (t[ptr_pos] == 0x02 ? 0x02 : 0x04) : 0x06);
+                    switch (sw) {
+                        case 0x04: // open child
+                            break;
+                        case 0x03:
+                        case 0x06:
+                        case 0x07:
+                            int cmp;
+                            key_at = current_block + (sw == 0x03 ? util::get_int(t + ptr_pos + 1) : ptr_pos);
+                            key_at_len = *key_at++;
+                            cmp = util::compare(key + key_pos, key_len - key_pos, key_at, key_at_len);
+                            if (!cmp) {
+                                last_t = key_at;
+                                return 0;
+                            }
+                            if (cmp < 0)
+                                cmp = -cmp;
+                            else
+                                last_t = key_at;
+                            need_count = (cmp * (3 + 2)) + 8;
+                            return -INSERT_THREAD;
+                        case 0x05: // insert child_leaf
+                            trie_pos = t;
+                            return -INSERT_CHILD_LEAF;
+                        case 0x02: // check value
+                            if (!is_leaf()) {
+                                last_t = orig_pos;
+                                last_bm = (r_bm & r_mask) | (r_mask + 1);
+                            }
+                            break;
+                    }
+                } else {
+                    trie_pos = t;
+                    return -INSERT_LEAF;
+                }
+                t += bit_count;
+                t += util::get_int(t);
+                key_char = key[key_pos++];
+                } break;
+            case 3: {
 #if BS_MIDDLE_PREFIX == 1
                 uint8_t pfx_len;
                 pfx_len = (trie_char >> 1);
@@ -144,69 +211,13 @@ public:
                     return -INSERT_CONVERT;
                 }
 #endif
-            } else {
-                while (key_char > trie_char) {
-                    last_t = orig_pos;
-                    last_bm = *t++;
-                    if (trie_char & 0x04) {
-                        trie_pos = t;
-                        return ~INSERT_AFTER;
-                    }
-                    trie_char = *t++;
-                }
-                if (key_char ^ trie_char < 0x07) {
-                    uint8_t r_bm = *t;
-                    uint8_t r_mask = 0x01 << (key_char & 0x07);
-                    if (r_bm & r_mask) {
-                        if (!is_leaf()) {
-                            last_t = orig_pos;
-                            last_bm = r_bm;                            
-                        }
-                        t--;
-                        trie_pos = t;
-                        while ((*t++ & 0x04) == 0)
-                            t++;
-                        int ptr_pos = util::get_int(t + (trie_pos - orig_pos));
-                        int sw = (key_pos == key_len ? 0x01 : 0x00) |
-                                    (ptr_pos < BPT_TRIE_LEN ? 
-                                        ((t[ptr_pos] & 0x03) == 0x02 ? 0x02 : 0x04) : 0x06);
-                        switch (sw) {
-                            case 0x04: // open child
-                                break;
-                            case 0x03:
-                            case 0x06:
-                            case 0x07:
-                                int cmp;
-                                key_at = current_block + (sw == 0x03 ? util::get_int(t + ptr_pos + 1) : ptr_pos);
-                                key_at_len = *key_at++;
-                                cmp = util::compare(key + key_pos, key_len - key_pos, key_at, key_at_len);
-                                if (!cmp) {
-                                    last_t = key_at;
-                                    return 0;
-                                }
-                                if (cmp < 0)
-                                    cmp = -cmp;
-                                else
-                                    last_t = key_at;
-                                need_count = (cmp * (3 + 2)) + 8;
-                                return -INSERT_THREAD;
-                            case 0x05: // insert child_leaf
-                                trie_pos = --t;
-                                return -INSERT_CHILD_LEAF;
-                            case 0x02: // check value
-                                if (!is_leaf()) {
-                                    last_t = orig_pos;
-                                    last_bm = (r_bm & r_mask) | (r_mask + 1);
-                                }
-                                break;
-                        }
-                    } else {
-                        trie_pos = --t;
-                        return -INSERT_LEAF;
-                    }
-                } else
-                    return -INSERT_BEFORE;
+              }
+            case 2:
+                trie_pos = --t;
+                return -INSERT_BEFORE;
             }
+            trie_char = *t;
+            orig_pos = t++;
         } while (1);
         return -1;
     }
@@ -689,7 +700,7 @@ public:
     }
 
     void add_first_data() {
-        add_data(3);
+        add_data(3); // INSERT_EMPTY - 1
     }
 
     void add_data(int16_t search_result) {
@@ -792,6 +803,17 @@ public:
         BS_SET_TRIE_LEN(trie_len + len);
     }
 
+    void update_sibling_ptrs(uint16_t ret, uint8_t *t) {
+        ins_at(trie + ret, 0x00, 0x00);
+        bit_count -= 2;
+        while (bit_count) {
+            int ptr_pos = util::get_int(t + bit_count);
+            if (ptr_pos < BS_GET_TRIE_LEN)
+                util::set_int(t + bit_count, ptr_pos + 2);
+            bit_count -= 2;
+        }
+    }
+
     uint16_t insert_current() {
         uint8_t key_char, mask;
         uint16_t diff;
@@ -801,26 +823,37 @@ public:
         mask = x01 << (key_char & x07);
         switch (insert_state) {
         case INSERT_AFTER:
-            *orig_pos &= xFB;
-            trie_pos = orig_pos + (*orig_pos & x02 ? BS_BIT_COUNT_CH(orig_pos[1])
-                    + BIT_COUNT2(orig_pos[2]) + 3 : BIT_COUNT2(orig_pos[1]) + 2);
+            *orig_pos &= xFB; // Clear terminator bit
             update_ptrs(trie_pos, 4);
-            ins_at(trie_pos, ((key_char & xF8) | x04), mask, 0, 0);
-            ret = trie_pos - trie + 2;
+            ins_at(trie_pos, ((key_char & xF8) | x04), mask);
+            ret = (trie_pos - trie) + bit_count + 2;
+            update_sibling_ptrs(ret, trie_pos);
             break;
         case INSERT_BEFORE:
             update_ptrs(orig_pos, 4);
-            ins_at(orig_pos, (key_char & xF8), mask, 0, 0);
-            ret = orig_pos - trie + 2;
+            ins_at(trie_pos, (key_char & xF8), mask);
+            uint8_t *t = trie_pos;
+            while ((*t & 0x04) == 0)
+                t += 2;
+            ret = (t - trie) + bit_count;
+            update_sibling_ptrs(ret, t);
             break;
         case INSERT_LEAF:
-            trie_pos = orig_pos + ((*orig_pos & x02) ? 2 : 1);
             *trie_pos |= mask;
-            trie_pos += ((*orig_pos & x02 ? BS_BIT_COUNT_CH(orig_pos[1]) : 0)
-                    + BIT_COUNT2(*trie_pos & (mask - 1)) + 1);
-            update_ptrs(trie_pos, 2);
-            ins_at(trie_pos, x00, x00);
-            ret = trie_pos - trie;
+            uint8_t *t = trie_pos - 1;
+            while ((*t & 0x04) == 0)
+                t += 2;
+            ret = (t - trie) + bit_count;
+            update_sibling_ptrs(ret, t);
+            break;
+        case INSERT_CHILD_LEAF:
+            uint8_t *t = trie_pos;
+            int ptr_pos = util::get_int(t + bit_count);
+            util::set_int(t + bit_count, BS_GET_TRIE_LEN);
+            ret = BS_GET_TRIE_LEN + 1;
+            append(0x02);
+            append_ptr(0);
+            // Pull in next char of existing key from data area
             break;
 #if BS_MIDDLE_PREFIX == 1
         case INSERT_CONVERT:

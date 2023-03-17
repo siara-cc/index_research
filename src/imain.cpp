@@ -56,7 +56,7 @@ int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
 int TEST_IDX1 = 1;
-int TEST_IDX2 = 0;
+int TEST_IDX2 = 1;
 
 int ctr = 0;
 
@@ -1366,13 +1366,19 @@ int main(int argc, char *argv[]) {
                 KEY_LEN = atoi(argv[2]);
             if (argc > 3 && (argv[3][0] == '0' || argv[3][0] == '1'))
                 USE_HASHTABLE = atoi(argv[3]);
-            if (argc > 4) {
+            if (argc > 4)
+                LEAF_PAGE_SIZE = atoi(argv[4]);
+            if (argc > 5)
+                PARENT_PAGE_SIZE = atoi(argv[5]);
+            if (argc > 6)
+                CACHE_SIZE = atoi(argv[6]);
+            if (argc > 7) {
                 OUT_FILE1 = out_file1;
                 strcpy(OUT_FILE1, "f1_");
-                strcat(OUT_FILE1, argv[4]);
+                strcat(OUT_FILE1, argv[7]);
                 OUT_FILE2 = out_file2;
                 strcpy(OUT_FILE2, "f2_");
-                strcat(OUT_FILE2, argv[4]);
+                strcat(OUT_FILE2, argv[7]);
             }
         }
     }
@@ -1536,16 +1542,16 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
-    sqlite *lx;
+    basix *lx;
     if (TEST_IDX1)
     {
     ctr = 0;
     
     //lx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
-    //lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new stager(OUT_FILE1, CACHE_SIZE);
-    lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
