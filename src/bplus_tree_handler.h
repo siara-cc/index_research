@@ -850,7 +850,7 @@ protected:
         return 4;
     }
 
-    inline void ins_at(uint8_t *ptr, uint8_t b, const uint8_t *s, uint8_t len) {
+    inline void ins_at(uint8_t *ptr, uint8_t b, const uint8_t *s, int len) {
         memmove(ptr + 1 + len, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
         *ptr++ = b;
         memcpy(ptr, s, len);

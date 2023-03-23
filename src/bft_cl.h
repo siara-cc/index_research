@@ -13,7 +13,10 @@ using namespace std;
 
 #define BFT_HDR_SIZE 9
 
-#define BFT_MAX_KEY_PREFIX_LEN 60
+#define BFT_MIDDLE_PREFIX 1
+
+#define BFT_MAX_KEY_PREFIX_LEN 255
+#define BFT_SET_TRIE_LEN(x) BPT_TRIE_LEN = x
 
 class bft_iterator_status {
 public:
@@ -49,8 +52,8 @@ public:
     bft(uint32_t block_sz, uint8_t *block, bool is_leaf) :
       bpt_trie_handler<bft>(block_sz, block, is_leaf) {
         init_stats();
-        memcpy(need_counts, "\x00\x03\x03\x00\x03\x00\x00\x00\x00\x00", 10);
-   }
+        memcpy(need_counts, "\x00\x04\x04\x00\x03\x00\x00\x00\x00\x00", 10);
+    }
 
     ~bft() {
         if (!is_block_given)
@@ -67,6 +70,19 @@ public:
         trie = current_block + BFT_HDR_SIZE;
     }
 
+    inline void set_prefix_last(uint8_t key_char, uint8_t *t, uint8_t pfx_rem_len) {
+        if (key_char > *t) {
+            t += pfx_rem_len;
+            while (*t & x01)
+                t += (*t >> 1) + 1;
+            while (!(*t & x04)) {
+                t += (*t & x02 ? BIT_COUNT(t[1])
+                     + BIT_COUNT2(t[2]) + 3 : BIT_COUNT2(t[1]) + 2);
+            }
+            last_t = t++;
+        }
+    }
+
     int search_current_block(bptree_iter_ctx *ctx = NULL) {
         uint8_t *t;
         t = trie;
@@ -78,59 +94,66 @@ public:
             orig_pos = t;
             switch (*t & 0x03) {
                 case 0x00: {
-                    int sib_len = *t++ >> 2;
-                    if (sib_len == 0x3F)
-                        sib_len += *t++;
+                    int len_of_len;
+                    int sib_len = get_pfx_len(t, &len_of_len);
+                    t += len_of_len;
                     while (sib_len && key_char > *t) {
-                        last_t = t++;
                         sib_len--;
+                        t++;
                     }
                     last_t = trie_pos = t;
                     if (!sib_len)
                         return ~INSERT_AFTER;
                     if (key_char < *t)
                         return ~INSERT_BEFORE;
-                    while (sib_len--)
-                        t++;
-                    int ptr_pos = util::get_int(t + ((trie_pos - orig_pos) << 1));
+                    t += sib_len;
+                    t += ((trie_pos - orig_pos - len_of_len) << 1);
+                    int ptr_pos = util::get_int(t);
                     int sw = (key_pos == key_len ? 0x01 : 0x00) |
                         (ptr_pos < BPT_TRIE_LEN ? (t[ptr_pos] == 0x02 ? 0x02 : 0x04) : 0x06);
                     switch (sw) {
-                    case 0:
-                        return ~INSERT_LEAF;
-                    case 4:
-                        break;
-                    case 2:
-                        int cmp;
-                        key_at = current_block + ptr;
-                        key_at_len = *key_at++;
-                        cmp = util::compare(key + key_pos, key_len - key_pos, key_at, key_at_len);
-                        if (cmp == 0) {
-                            last_t = key_at - 1;
-                            return ptr;
-                        }
-                            insert_state = INSERT_THREAD;
-                            if (cmp < 0) {
-                                if (!is_leaf())
-                                    last_t = get_last_ptr(last_t);
+                        case 0x04: // open child
+                            break;
+                        case 0x03:
+                        case 0x06:
+                        case 0x07:
+                            int cmp;
+                            key_at = current_block + (sw == 0x03 ? util::get_int(t + ptr_pos + 1) : ptr_pos);
+                            key_at_len = *key_at++;
+                            cmp = util::compare(key + key_pos, key_len - key_pos, key_at, key_at_len);
+                            if (!cmp) {
+                                last_t = key_at;
+                                return 0;
+                            }
+                            if (cmp < 0)
                                 cmp = -cmp;
-                            } else
-                                last_t = key_at - 1;
-                            need_count = (cmp * BFT_UNIT_SIZE) + BFT_UNIT_SIZE * 2;
-                        return -1;
-                    case 3:
-                        last_t = t;
-                        to_pick_leaf = 1;
-                        break;
+                            else
+                                last_t = key_at;
+#if BFT_MIDDLE_PREFIX == 1
+                            // cmp = pfx_len, 2=len_of_len, 7 = end node
+                            need_count = cmp + 2 + 7;
+#else
+                            // cmp * 4 for pfx, 7 = end node
+                            need_count = (cmp * 4) + 7;
+#endif
+                            return -INSERT_THREAD;
+                        case 0x05: // insert child_leaf
+                            trie_pos = t;
+                            return -INSERT_CHILD_LEAF;
+                        case 0x02: // check value
+                            last_t = orig_pos;
+                            // pick_leaf ??
+                            break;
                     }
-                    t += (r_children * BFT_UNIT_SIZE);
-                    t--;
+                    t += ptr_pos;
                     key_char = key[key_pos++];
                     break; }
                 case 0x01:
                 case 0x03: {
-                    uint8_t pfx_len;
-                    pfx_len = (trie_char >> 1);
+                    int pfx_len;
+                    pfx_len = (*t >> 3);
+                    if (*t++ & 0x04)
+                        pfx_len += (((int) *t++) << 5);
                     while (pfx_len && key_char == *t && key_pos < key_len) {
                         key_char = key[key_pos++];
                         t++;
@@ -143,7 +166,8 @@ public:
                         return -INSERT_CONVERT;
                     }
                     break; }
-                case 0x02:
+                case 0x02: // next data type
+                    break;
             }
         } while (1);
         return -1;
@@ -244,11 +268,14 @@ public:
     }
 
     void add_first_data() {
-        add_data(0);
+        add_data(4);
     }
 
     void add_data(int search_result) {
 
+        if (search_result < 0)
+            search_result = ~search_result;
+        insert_state = search_result;
         int ptr = insert_current();
 
         int key_left = key_len - key_pos;
@@ -265,13 +292,14 @@ public:
     }
 
     bool is_full(int search_result) {
-        decode_need_count();
+        if (search_result < 0)
+            search_result = ~search_result;
+        if (search_result != INSERT_THREAD)
+            need_count = need_counts[search_result];
         if (get_kv_last_pos() < (BFT_HDR_SIZE + BPT_TRIE_LEN
                 + need_count + key_len - key_pos + value_len + 3)) {
             return true;
         }
-        if (BPT_TRIE_LEN > 254 - need_count)
-            return true;
         return false;
     }
 
@@ -382,132 +410,265 @@ public:
         return next_ptr(s);
     }
 
+    void update_ptrs(uint8_t *upto, int diff) {
+        uint8_t *t = trie;
+        int len_of_len, len;
+        while (t <= upto) {
+            switch (*t & 0x03) {
+                case 0: {
+                    len = get_pfx_len(t, &len_of_len);
+                    t += len_of_len;
+                    t += len;
+                    int ptr_idx = 0;
+                    while (t < upto && ptr_idx++ < len) {
+                        int ptr_pos = util::get_int(t);
+                        if (ptr_pos < BPT_TRIE_LEN && (t + ptr_pos) > upto)
+                            util::set_int(t, ptr_pos + diff);
+                        t += 2;
+                    }
+                    break; }
+                case 1:
+                case 3:
+                    t += get_pfx_len(t, &len_of_len);
+                    t += len_of_len;
+                    break;
+                case 2:
+                    t += 3;
+            }
+       }
+    }
+
+    void update_sibling_ptrs(uint16_t ret, int count) {
+        uint8_t *t = trie + ret;
+        ins_at(t, (uint8_t) 0x00, (uint8_t) 0x00);
+        t -= 2;
+        while (count) {
+            int ptr_pos = util::get_int(t + count);
+            if (ptr_pos < BPT_TRIE_LEN)
+                util::set_int(trie + ret + count, ptr_pos + 2);
+            count--;
+        }
+    }
+
+    int set_pfx_len(uint8_t *ptr, int len) {
+        *ptr = (*ptr & 0x07) | ((len & 0x1F) << 3);
+        if (len > 0x1F) {
+            *ptr++ |= 0x04;
+            *ptr = len >> 5;
+            return 2;
+        }
+        return 1;
+    }
+
+    int get_pfx_len(uint8_t *t, int *len_of_len = NULL) {
+        int dummy;
+        if (len_of_len == NULL)
+            len_of_len = &dummy;
+        int len = *t >> 3;
+        *len_of_len = 1;
+        if (*t++ & 0x04) {
+            len += (((int)*t) << 5);
+            *len_of_len = 2;
+        }
+        return len;
+    }
+
+    uint8_t *increment_len(uint8_t *ptr, int& len, int given_len = 1) {
+        len = *ptr >> 3;
+        if (*ptr & 0x04)
+            len += (((int)ptr[1]) << 5);
+        len += given_len;
+        *ptr = (*ptr & 0x07) | ((len & 0x1F) << 3);
+        if (len > 0x1F) {
+            if ((*ptr & 0x04) == 0) {
+                update_ptrs(ptr, 1);
+                *ptr++ |= 0x04;
+                ins_at(ptr, 1);
+            } else
+                ptr++;
+            *ptr = len >> 5;
+        }
+        return ptr + 1;
+    }
+
     int insert_current() {
         uint8_t key_char;
-        int ret, ptr, pos;
+        int ret, ptr, pos, len;
         ret = pos = 0;
 
+        key_char = key[key_pos - 1];
         switch (insert_state) {
-        case INSERT_AFTER:
-            key_char = key[key_pos - 1];
-            orig_pos++;
-            *orig_pos &= (BFT_UNIT_SIZE == 3 ? xBF : x7F);
-            update_ptrs(trie_pos, 1);
-            ins_at(trie_pos, key_char, x80, 0, 0);
-            ret = trie_pos - trie + 2;
-            break;
-        case INSERT_BEFORE:
-            key_char = key[key_pos - 1];
-            update_ptrs(orig_pos, 1);
-            if (key_pos > 1 && last_child_pos)
-                trie[last_child_pos]--;
-            ins_at(orig_pos, key_char, x00, 0, 0);
-            ret = orig_pos - trie + 2;
-            break;
-        case INSERT_LEAF:
-            key_char = key[key_pos - 1];
-            ret = orig_pos - trie + 2;
-            break;
-        case INSERT_THREAD:
-            int p, min;
+        case INSERT_AFTER: {
+            uint8_t *t = increment_len(orig_pos, len);
+            update_ptrs(orig_pos, 3 + (len == 0x3F ? 1 : 0));
+            ins_at(trie_pos++, key_char);
+            ret = (trie_pos - trie) + (len << 1) - 2;
+            update_sibling_ptrs(ret, len);
+            break; }
+        case INSERT_BEFORE: {
+            uint8_t *t = increment_len(orig_pos, len);
+            update_ptrs(orig_pos, 3 + (len == 0x3F ? 1 : 0));
+            ins_at(trie_pos, key_char);
+            ret = (trie_pos - t);
+            ret = (t - trie) + len + (ret << 1);
+            update_sibling_ptrs(ret, trie_pos - t);
+            break; }
+        case INSERT_CHILD_LEAF: {
+            int len_of_len;
+            len = get_pfx_len(orig_pos, &len_of_len);
+            orig_pos += len_of_len;
+            uint8_t *t = orig_pos + len + ((trie_pos - orig_pos) << 1);
+            int ptr_pos = util::get_int(t);
+            ins_at(t + ptr_pos, 0x02, 0x00, 0x00);
+            update_ptrs(t + ptr_pos, 3);
+            ret = (t - trie) + ptr_pos + 1;
+            break; }
+        case INSERT_THREAD: {
+            uint16_t p, min;
             uint8_t c1, c2;
-            key_char = key[key_pos - 1];
+            uint8_t *t;
+            uint16_t ptr, pos;
+            ret = pos = 0;
+
+            t = orig_pos - 1;
+            int sib_len = (*t >> 2) + ((*t & 0x03) ? (*(t - 1) >> 2) : 0);
+            t = orig_pos;
+            while (*t != key_pos)
+            t++;
+            ptr = util::get_int(orig_pos + sib_len + ((t - orig_pos) << 1));
+            t = trie + BPT_TRIE_LEN;
             c1 = c2 = key_char;
             p = key_pos;
-            min = util::min16(key_len, key_pos + key_at_len);
-            orig_pos++;
-            *orig_pos |= ((BPT_TRIE_LEN - (orig_pos - trie - 1)) / 4);
-            ptr = util::get_int(orig_pos + 1);
-            if (p < min) {
-                util::set_int(orig_pos + 1, 0);
-            } else {
-                orig_pos++;
-                pos = orig_pos - trie;
-                ret = pos;
+            min = util::min_b(key_len, key_pos + key_at_len);
+#if BFT_MIDDLE_PREFIX == 1
+            int cmp = need_count - (2 + 7 + 1); // restore cmp from search_current_block
+#else
+            int cmp = need_count - 7; // restore cmp from search_current_block
+            cmp /= 4;
+            cmp--;
+#endif
+            if (p + cmp == min && cmp)
+                cmp--;
+#if BFT_MIDDLE_PREFIX == 1
+            if (cmp) {
+                *t++ = (cmp << 3) | (cmp > 63 ? 0x03 : 0x01);
+                if (cmp > 63)
+                    *t++ = cmp >> 6;
+                memcpy(t, key + key_pos, cmp);
+                t += cmp;
             }
+            p += cmp;
+#endif
+            // Insert thread
             while (p < min) {
-                uint8_t swap = 0;
+                bool is_swapped = false;
                 c1 = key[p];
                 c2 = key_at[p - key_pos];
                 if (c1 > c2) {
-                    swap = c1;
+                    uint8_t swap = c1;
                     c1 = c2;
                     c2 = swap;
+                    is_swapped = true;
                 }
-                switch (c1 == c2 ? (p + 1 == min ? 2 : 1) : 0) {
-                case 0:
-                    append(c1);
-                    append(x00);
-                    if (swap) {
-                        pos = BPT_TRIE_LEN;
-                        append_ptr(ptr);
-                    } else {
-                        ret = BPT_TRIE_LEN;
-                        append_ptr(0);
-                    }
-                    append(c2);
-                    append(BFT_UNIT_SIZE == 3 ? x40 : x80);
-                    if (swap) {
-                        ret = BPT_TRIE_LEN;
-                        append_ptr(0);
-                    } else {
-                        pos = BPT_TRIE_LEN;
-                        append_ptr(ptr);
-                    }
-                    break;
-                case 1:
-                    append(c1);
-                    append(BFT_UNIT_SIZE == 3 ? x41 : x81);
-                    append_ptr(0);
-                    break;
+#if BFT_MIDDLE_PREFIX == 1
+                switch (c1 == c2 ? 3 : 1) {
+#else
+                switch (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1) {
                 case 2:
-                    append(c1);
-                    append(BFT_UNIT_SIZE == 3 ? x41 : x81);
-                    if (p + 1 == key_len) {
-                        ret = BPT_TRIE_LEN;
-                        append_ptr(0);
-                    } else {
-                        pos = BPT_TRIE_LEN;
-                        append_ptr(ptr);
-                    }
+                    *t++ = 0x04;
+                    *t++ = c1;
+                    *t++ = 0;
+                    *t++ = 0;
+                    break;
+#endif
+                case 1:
+                    *t++ = x08;
+                    *t++ = c1;
+                    *t++ = c2;
+                    ret = is_swapped ? ret : (t - trie);
+                    pos = is_swapped ? (t - trie) : pos;
+                    util::set_int(t, is_swapped ? ptr : 0);
+                    t += 2;
+                    ret = is_swapped ? (t - trie) : ret;
+                    pos = is_swapped ? pos : (t - trie);
+                    util::set_int(t, is_swapped ? 0 : ptr);
+                    t += 2;
+                    break;
+                case 3:
+                    *t++ = 0x04;
+                    *t++ = c1;
+                    *t++ = 0;
+                    *t++ = 2;
+                    *t++ = 0x02;
+                    ret = (p + 1 == key_len) ? (t - trie) : ret;
+                    pos = (p + 1 == key_len) ? pos : (t - trie);
+                    util::set_int(t, (p + 1 == key_len) ? 0 : ptr);
+                    t += 2;
                     break;
                 }
                 if (c1 != c2)
                     break;
                 p++;
             }
-            int diff;
-            diff = p - key_pos;
-            key_pos = p + 1;
+            // child_leaf
             if (c1 == c2) {
-                c2 = (p == key_len ? key_at[diff] : key[p]);
-                append(c2);
-                append(BFT_UNIT_SIZE == 3 ? x40 : x80);
-                if (p == key_len) {
-                    pos = BPT_TRIE_LEN;
-                    append_ptr(ptr);
-                    key_pos--;
-                } else {
-                    ret = BPT_TRIE_LEN;
-                    append_ptr(0);
-                }
+                c2 = (p == key_len ? key_at[p - key_pos] : key[p]);
+                *t++ = x04;
+                *t++ = c2;
+                ret = (p == key_len) ? ret : (t - trie);
+                pos = (p == key_len) ? (t - trie) : pos;
+                util::set_int(t, (p == key_len) ? ptr : 0);
+                t += 2;
             }
+            BFT_SET_TRIE_LEN(t - trie);
+            // remote thread chars from data area
+            int diff = p - key_pos;
+            key_pos = p + (p < key_len ? 1 : 0);
             if (diff < key_at_len)
                 diff++;
             if (diff) {
-                p = ptr;
                 key_at_len -= diff;
-                p += diff;
+                p = ptr + diff;
                 if (key_at_len >= 0) {
                     current_block[p] = key_at_len;
                     util::set_int(trie + pos, p);
                 }
             }
-            break;
+            break; }
+#if BFT_MIDDLE_PREFIX == 1
+        case INSERT_CONVERT: {
+            int diff = trie_pos - orig_pos;
+            int len_of_len;
+            int pfx_len = get_pfx_len(orig_pos, &len_of_len);
+            uint8_t c1 = (*trie_pos > key_char ? key_char : *trie_pos);
+            uint8_t c2 = (*trie_pos > key_char ? *trie_pos : key_char);
+            uint8_t *t = orig_pos + len_of_len;
+            diff = trie_pos - t;
+            int sw = (pfx_len == 1 ? 0 : (diff == 0 ? 1 : (diff == (pfx_len - 1) ? 2 : 3)));
+            int to_ins = (sw == 0 ? 5 : (sw == 3 ? 7 : 6));
+            ins_bytes(trie_pos, to_ins);
+            update_ptrs(orig_pos, to_ins);
+            if (sw == 2 || sw == 3)
+                increment_len(orig_pos, len_of_len, diff - pfx_len);
+            t = trie_pos;
+            *t++ = 0x08;
+            *t++ = c1;
+            *t++ = c2;
+            util::set_int(t, 4);
+            t += 2;
+            util::set_int(t, 2);
+            ret = t - trie - (c1 == key_char ? 0 : 2);
+            t += 2;
+            *t = 0x01;
+            set_pfx_len(t, pfx_len - diff);
+            if (sw == 3)
+                increment_len(t, len_of_len, diff - pfx_len);
+            break; }
+#endif
         case INSERT_EMPTY:
             key_char = *key;
+            append(0x08);
             append(key_char);
-            append(BFT_UNIT_SIZE == 3 ? x40 : x80);
             ret = BPT_TRIE_LEN;
             append_ptr(0);
             key_pos = 1;
@@ -521,16 +682,6 @@ public:
             BPT_MAX_PFX_LEN = key_pos;
 
         return ret;
-    }
-
-    void update_ptrs(uint8_t *upto, int diff) {
-        uint8_t *t = trie + 1;
-        while (t <= upto) {
-            uint8_t child = (*t & x7F);
-            if (child && (t + child * 4) >= upto)
-                *t += diff;
-            t += 4;
-        }
     }
 
     void decode_need_count() {

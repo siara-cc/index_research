@@ -16,7 +16,7 @@
 #include "dfos.h"
 #include "octp.h"
 #include "dfqx.h"
-#include "bft.h"
+#include "bft_cl.h"
 #include "dft.h"
 #include "bfqs.h"
 #include "bfos.h"
@@ -56,7 +56,7 @@ int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
 int TEST_IDX1 = 1;
-int TEST_IDX2 = 1;
+int TEST_IDX2 = 0;
 
 int ctr = 0;
 
@@ -1336,11 +1336,34 @@ void check_value(const char *key, int key_len, const char *val, int val_len,
     }
 }
 
-int test(const char *file_name) {
+int test_sqlite(const char *file_name) {
     sqlite *lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, 10, file_name);
     int val_len = 2000;
     char val[2000];
     if (lx->get("wfdkbhtmlhsntkkvheyqqheajmlppdghlqeuafxr", 40, &val_len, val)) {
+        val[val_len] = 0;
+        cout << "Val: [" << val << "]" << endl;
+    }
+    delete lx;
+    return 0;
+}
+
+int test(const char *file_name) {
+    bft *lx = new bft(512, 512);
+    int val_len = 4;
+    char val[2000];
+    lx->put("bon", 3, "jour", 4);
+    lx->put("good", 4, "morning", 7);
+    lx->put("hello", 5, "world", 5);
+    if (lx->get("bon", 3, &val_len, val)) {
+        val[val_len] = 0;
+        cout << "Val: [" << val << "]" << endl;
+    }
+    if (lx->get("good", 4, &val_len, val)) {
+        val[val_len] = 0;
+        cout << "Val: [" << val << "]" << endl;
+    }
+    if (lx->get("hello", 5, &val_len, val)) {
         val[val_len] = 0;
         cout << "Val: [" << val << "]" << endl;
     }
@@ -1542,7 +1565,7 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
-    bfos *lx;
+    bft *lx;
     if (TEST_IDX1)
     {
     ctr = 0;
@@ -1552,9 +1575,9 @@ int main(int argc, char *argv[]) {
     //lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new stager(OUT_FILE1, CACHE_SIZE);
     //lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    //lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
+    lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);

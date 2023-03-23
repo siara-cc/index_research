@@ -143,13 +143,15 @@ public:
             orig_pos = t;
 
             // bft/dft improvement:
-            // nnnnnnxx - if xx = 00, n = len, letters followed by ptrs
+            // nnnnnlxx - if xx = 00, n = len, letters followed by ptrs
+            //                  if l = 0, then end of len, else msbyte follows
             //                          if ptr < trie_len, then child else leaf
             //                          if n = 63, next byte is the len
             //            if xx = 10 and n = 0, then leaf + child
             //                          else n = next field data type
-            //            if xx = y1, n + y = prefix len, followed by xx = 00 node
-            //                        if n = 127, more prefix nodes follow
+            //            if xx = y1, n = prefix len, followed by xx = 00 node
+            //                  if l = 0, then end of len, else msbyte follows
+            //                  y bit is reserved for future use
 
             // bfos/dfos improvement:
             // kkkkk tx0 - octet with bitmap, t = terminator
