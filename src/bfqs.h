@@ -241,7 +241,7 @@ public:
     }
 
     inline uint8_t *get_ptr_pos() {
-        return trie + BPT_TRIE_LEN;
+        return trie + get_trie_len();
     }
 
     inline int get_header_size() {
@@ -385,7 +385,7 @@ public:
 
     void set_ptr_diff(int diff) {
         uint8_t *t = trie;
-        uint8_t *t_end = trie + BPT_TRIE_LEN;
+        uint8_t *t_end = trie + get_trie_len();
         while (t < t_end) {
             uint8_t tc = *t++;
             if (tc & x01) {
@@ -428,14 +428,14 @@ public:
             }
         }
         if (t1 > t2) {
-            memmove(t2, t1, BPT_TRIE_LEN - (t1 - t));
+            memmove(t2, t1, get_trie_len() - (t1 - t));
             if (*t & x01) {
                 *t = (((*t >> 1) + count) << 1) + 1;
             } else {
                 *t = (count << 1) + 1;
                 trie_len_diff--;
             }
-            BPT_TRIE_LEN -= trie_len_diff;
+            change_trie_len(-trie_len_diff);
             //cout << (int) (*t >> 1) << endl;
         }
     }
@@ -448,7 +448,7 @@ public:
         *orig_pos &= xFC;
         trie_pos = orig_pos + 2 + BIT_COUNT_LF_CH(orig_pos[1]);
         update_ptrs(trie_pos, 4);
-        ins_at(trie_pos, ((key_char & xFC) | x02), mask, 0, 0);
+        ins_b4(trie_pos, ((key_char & xFC) | x02), mask, 0, 0);
         return trie_pos - trie + 2;
     }
 
@@ -458,7 +458,7 @@ public:
         key_char = key[key_pos - 1];
         mask = x01 << ((key_char & x03) << 1);
         update_ptrs(orig_pos, 4);
-        ins_at(orig_pos, (key_char & xFC), mask, 0, 0);
+        ins_b4(orig_pos, (key_char & xFC), mask, 0, 0);
         return orig_pos - trie + 2;
     }
 
@@ -472,7 +472,7 @@ public:
         trie_pos += BIT_COUNT_LF_CH(orig_pos[1])
                 - BIT_COUNT_LF_CH(orig_pos[1] & (0x55 << ((key_char & x03) << 1)));
         update_ptrs(trie_pos, 2);
-        ins_at(trie_pos, x00, x00);
+        ins_b2(trie_pos, x00, x00);
         return trie_pos - trie;
     }
 
@@ -549,7 +549,7 @@ public:
         c1 = c2 = key_char;
         {
             trie_pos = orig_pos + 2 + BIT_COUNT_LF_CH(orig_pos[1] & xAA & (mask - 1));
-            ins_at(trie_pos, (uint8_t) (BPT_TRIE_LEN - (trie_pos - trie) + 1));
+            ins_b(trie_pos, (uint8_t) (get_trie_len() - (trie_pos - trie) + 1));
             update_ptrs(trie_pos, 1);
             orig_pos[1] |= (mask << 1);
         }
@@ -604,31 +604,31 @@ public:
             case 0:
                 append(c1 & xFC);
                 append(x01 << ((c1 & x03) << 1));
-                ret = is_swapped ? ret : BPT_TRIE_LEN;
-                pos = is_swapped ? BPT_TRIE_LEN : pos;
+                ret = is_swapped ? ret : get_trie_len();
+                pos = is_swapped ? get_trie_len() : pos;
                 append_ptr(is_swapped ? ptr : 0);
                 append((c2 & xFC) | x02);
                 append(x01 << ((c2 & x03) << 1));
-                ret = is_swapped ? BPT_TRIE_LEN : ret;
-                pos = is_swapped ? pos : BPT_TRIE_LEN;
+                ret = is_swapped ? get_trie_len() : ret;
+                pos = is_swapped ? pos : get_trie_len();
                 append_ptr(is_swapped ? 0 : ptr);
                 break;
             case 1:
                 append((c1 & xFC) | x02);
                 append((x01 << ((c1 & x03) << 1) | (x01 << ((c2 & x03) << 1))));
-                ret = is_swapped ? ret : BPT_TRIE_LEN;
-                pos = is_swapped ? BPT_TRIE_LEN : pos;
+                ret = is_swapped ? ret : get_trie_len();
+                pos = is_swapped ? get_trie_len() : pos;
                 append_ptr(is_swapped ? ptr : 0);
-                ret = is_swapped ? BPT_TRIE_LEN : ret;
-                pos = is_swapped ? pos : BPT_TRIE_LEN;
+                ret = is_swapped ? get_trie_len() : ret;
+                pos = is_swapped ? pos : get_trie_len();
                 append_ptr(is_swapped ? 0 : ptr);
                 break;
             case 3:
                 append((c1 & xFC) | x02);
                 append(x03 << ((c1 & x03) << 1));
                 append(3);
-                ret = (p + 1 == key_len) ? BPT_TRIE_LEN : ret;
-                pos = (p + 1 == key_len) ? pos : BPT_TRIE_LEN;
+                ret = (p + 1 == key_len) ? get_trie_len() : ret;
+                pos = (p + 1 == key_len) ? pos : get_trie_len();
                 append_ptr((p + 1 == key_len) ? 0 : ptr);
                 break;
             }
@@ -642,8 +642,8 @@ public:
             c2 = (p == key_len ? key_at[diff] : key[p]);
             append((c2 & xFC) | x02);
             append(x01 << ((c2 & x03) << 1));
-            ret = (p == key_len) ? ret : BPT_TRIE_LEN;
-            pos = (p == key_len) ? BPT_TRIE_LEN : pos;
+            ret = (p == key_len) ? ret : get_trie_len();
+            pos = (p == key_len) ? get_trie_len() : pos;
             append_ptr((p == key_len) ? ptr : 0);
             if (p == key_len)
                 key_pos--;
@@ -665,7 +665,7 @@ public:
     int insert_empty() {
         append((*key & xFC) | x02);
         append(x01 << ((*key & x03) << 1));
-        int ret = BPT_TRIE_LEN;
+        int ret = get_trie_len();
         key_pos = 1;
         append(0);
         append(0);
@@ -695,10 +695,10 @@ public:
 
     bool is_full(int search_result) {
         decode_need_count();
-        if (get_kv_last_pos() < (BFQS_HDR_SIZE + BPT_TRIE_LEN +
+        if (get_kv_last_pos() < (BFQS_HDR_SIZE + get_trie_len() +
                 need_count + key_len - key_pos + value_len + 3))
             return true;
-        if (BPT_TRIE_LEN > 254 - need_count)
+        if (get_trie_len() > 254 - need_count)
             return true;
         return false;
     }
@@ -724,10 +724,10 @@ public:
         int tp_cpy_len = 0;
         uint8_t *t = new_block.trie;
         //if (!is_leaf())
-        //   cout << "Trie len:" << (int) BPT_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DX_MAX_KEY_LEN << endl;
+        //   cout << "Trie len:" << (int) get_trie_len() << ", filled:" << orig_filled_size << ", max:" << (int) DX_MAX_KEY_LEN << endl;
         new_block.key_pos = 0;
-        memcpy(new_block.trie, trie, BPT_TRIE_LEN);
-        new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
+        memcpy(new_block.trie, trie, get_trie_len());
+        new_block.set_trie_len(get_trie_len());
         uint8_t tc, leaf_child;
         tc = leaf_child = 0;
         uint8_t ctr = 5;
@@ -811,7 +811,7 @@ public:
                         brk_kv_pos = kv_last_pos;
                         *first_len_ptr = new_block.key_pos + 1;
                         memcpy(first_key, curr_key, *first_len_ptr);
-                        BPT_TRIE_LEN = new_block.copy_trie_half(tp, first_key, *first_len_ptr, trie, 1);
+                        set_trie_len(new_block.copy_trie_half(tp, first_key, *first_len_ptr, trie, 1));
                     }
                 }
                 idx++;
@@ -830,8 +830,8 @@ public:
             leaf_child &= ~(x03 << (ctr * 2));
             ctr = leaf_child ? FIRST_BIT_OFFSET_FROM_RIGHT(leaf_child) >> 1 : 4;
         } while (1);
-        new_block.BPT_TRIE_LEN = new_block.copy_trie_half(tp_cpy, first_key, tp_cpy_len, trie + BPT_TRIE_LEN, 2);
-        memcpy(new_block.trie, trie + BPT_TRIE_LEN, new_block.BPT_TRIE_LEN);
+        new_block.set_trie_len(new_block.copy_trie_half(tp_cpy, first_key, tp_cpy_len, trie + get_trie_len(), 2));
+        memcpy(new_block.trie, trie + get_trie_len(), new_block.get_trie_len());
 
         kv_last_pos = get_kv_last_pos() + BFQS_NODE_SIZE - kv_last_pos;
         int diff = (kv_last_pos - get_kv_last_pos());

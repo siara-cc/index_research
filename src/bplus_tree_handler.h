@@ -19,7 +19,6 @@
 #define BPT_LAST_DATA_PTR current_block + 3
 #define BPT_MAX_KEY_LEN current_block[5]
 #define BPT_TRIE_LEN_PTR current_block + 6
-#define BPT_TRIE_LEN current_block[7]
 #define BPT_MAX_PFX_LEN current_block[8]
 
 #define BPT_LEAF0_LVL 14
@@ -797,76 +796,83 @@ protected:
     inline void update_split_stats() {
         if (descendant->is_leaf()) {
             bplus_tree_handler<T>::max_key_count_leaf += descendant->filled_size();
-            max_trie_len_leaf += bplus_tree_handler<T>::BPT_TRIE_LEN + (*(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR) << 8);
+            max_trie_len_leaf += get_trie_len();
             bplus_tree_handler<T>::block_count_leaf++;
         } else {
             bplus_tree_handler<T>::max_key_count_node += descendant->filled_size();
-            max_trie_len_node += bplus_tree_handler<T>::BPT_TRIE_LEN + (*(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR) << 8);
+            max_trie_len_node += get_trie_len();
             bplus_tree_handler<T>::block_count_node++;
         }
     }
 
+    void set_trie_len(int len) {
+        util::set_int(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR, len);
+    }
+
+    void change_trie_len(int delta) {
+        util::set_int(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR, get_trie_len() + delta);
+    }
+
     inline void del_at(uint8_t *ptr) {
-        bplus_tree_handler<T>::BPT_TRIE_LEN--;
-        memmove(ptr, ptr + 1, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
+        change_trie_len(-1);
+        memmove(ptr, ptr + 1, trie + get_trie_len() - ptr);
     }
 
     inline void del_at(uint8_t *ptr, int count) {
-        bplus_tree_handler<T>::BPT_TRIE_LEN -= count;
-        memmove(ptr, ptr + count, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
+        change_trie_len(-count);
+        memmove(ptr, ptr + count, trie + get_trie_len() - ptr);
     }
 
-    inline uint8_t ins_at(uint8_t *ptr, uint8_t b) {
-        memmove(ptr + 1, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
+    inline uint8_t ins_b(uint8_t *ptr, uint8_t b) {
+        memmove(ptr + 1, ptr, trie + get_trie_len() - ptr);
         *ptr = b;
-        bplus_tree_handler<T>::BPT_TRIE_LEN++;
+        change_trie_len(1);
         return 1;
     }
 
-    inline uint8_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2) {
-        memmove(ptr + 2, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
+    inline uint8_t ins_b2(uint8_t *ptr, uint8_t b1, uint8_t b2) {
+        memmove(ptr + 2, ptr, trie + get_trie_len() - ptr);
         *ptr++ = b1;
         *ptr = b2;
-        bplus_tree_handler<T>::BPT_TRIE_LEN += 2;
+        change_trie_len(2);
         return 2;
     }
 
-    inline uint8_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3) {
-        memmove(ptr + 3, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
+    inline uint8_t ins_b3(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3) {
+        memmove(ptr + 3, ptr, trie + get_trie_len() - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr = b3;
-        bplus_tree_handler<T>::BPT_TRIE_LEN += 3;
+        change_trie_len(3);
         return 3;
     }
 
-    inline uint8_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4) {
-        memmove(ptr + 4, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
+    inline uint8_t ins_b4(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4) {
+        memmove(ptr + 4, ptr, trie + get_trie_len() - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr++ = b3;
         *ptr = b4;
-        bplus_tree_handler<T>::BPT_TRIE_LEN += 4;
+        change_trie_len(4);
         return 4;
     }
 
     inline void ins_at(uint8_t *ptr, uint8_t b, const uint8_t *s, int len) {
-        memmove(ptr + 1 + len, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
+        memmove(ptr + 1 + len, ptr, trie + get_trie_len() - ptr);
         *ptr++ = b;
         memcpy(ptr, s, len);
-        bplus_tree_handler<T>::BPT_TRIE_LEN += len;
-        bplus_tree_handler<T>::BPT_TRIE_LEN++;
+        change_trie_len(len + 1);
     }
 
     inline void ins_at(uint8_t *ptr, const uint8_t *s, uint8_t len) {
-        memmove(ptr + len, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
+        memmove(ptr + len, ptr, trie + get_trie_len() - ptr);
         memcpy(ptr, s, len);
-        bplus_tree_handler<T>::BPT_TRIE_LEN += len;
+        change_trie_len(len);
     }
 
     void ins_bytes(uint8_t *ptr, int len) {
-        memmove(ptr + len, ptr, trie + bplus_tree_handler<T>::BPT_TRIE_LEN - ptr);
-        bplus_tree_handler<T>::BPT_TRIE_LEN += len;
+        memmove(ptr + len, ptr, trie + get_trie_len() - ptr);
+        change_trie_len(len);
     }
 
     inline void set_at(uint8_t pos, uint8_t b) {
@@ -874,17 +880,18 @@ protected:
     }
 
     inline void append(uint8_t b) {
-        trie[bplus_tree_handler<T>::BPT_TRIE_LEN++] = b;
+        trie[get_trie_len()] = b;
+        change_trie_len(1);
     }
 
     inline void append_ptr(int p) {
-        util::set_int(trie + bplus_tree_handler<T>::BPT_TRIE_LEN, p);
-        bplus_tree_handler<T>::BPT_TRIE_LEN += 2;
+        util::set_int(trie + get_trie_len(), p);
+        change_trie_len(2);
     }
 
     void append(const uint8_t *s, int need_count) {
-        memcpy(trie + bplus_tree_handler<T>::BPT_TRIE_LEN, s, need_count);
-        bplus_tree_handler<T>::BPT_TRIE_LEN += need_count;
+        memcpy(trie + get_trie_len(), s, need_count);
+        change_trie_len(need_count);
     }
 
 public:
@@ -937,11 +944,15 @@ public:
         //cout << "Trie init block" << endl;
         bplus_tree_handler<T>::init_current_block();
         *(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR) = 0;
-        bplus_tree_handler<T>::BPT_TRIE_LEN = 0;
+        set_trie_len(0);
         bplus_tree_handler<T>::BPT_MAX_PFX_LEN = 1;
         key_pos = 1;
         insert_state = INSERT_EMPTY;
     }
+    int get_trie_len() {
+        return util::get_int(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR);
+    }
+
 
 };
 

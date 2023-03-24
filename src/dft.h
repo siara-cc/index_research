@@ -180,7 +180,7 @@ public:
     }
 
     uint8_t insert_unit(uint8_t *t, uint8_t c1, uint8_t s1, int ptr1) {
-        memmove(t + DFT_UNIT_SIZE, t, trie + BPT_TRIE_LEN- t);
+        memmove(t + DFT_UNIT_SIZE, t, trie + get_trie_len()- t);
         t[0] = c1;
         t[1] = s1;
     #if DFT_UNIT_SIZE == 3
@@ -190,14 +190,14 @@ public:
     #else
                 util::set_int(t + 2, ptr1);
     #endif
-                BPT_TRIE_LEN += DFT_UNIT_SIZE;
+                change_trie_len(DFT_UNIT_SIZE);
                 return DFT_UNIT_SIZE;
             }
 
     uint8_t insert2Units(uint8_t *t, uint8_t c1, uint8_t s1, int ptr1,
             uint8_t c2, uint8_t s2, int ptr2) {
         uint8_t size = DFT_UNIT_SIZE * 2;
-        memmove(t + size, t, trie + BPT_TRIE_LEN- t);
+        memmove(t + size, t, trie + get_trie_len()- t);
         t[0] = c1;
         t[1] = s1;
     #if DFT_UNIT_SIZE == 3
@@ -215,25 +215,21 @@ public:
         t[5] = s2;
         util::set_int(t + 6, ptr2);
     #endif
-        BPT_TRIE_LEN+= size;
+        change_trie_len(size);
         return size;
-    }
-
-    void append(uint8_t b) {
-        trie[BPT_TRIE_LEN++] = b;
     }
 
     void append_ptr(int p) {
     #if DFT_UNIT_SIZE == 3
-        trie[BPT_TRIE_LEN] = p;
+        trie[get_trie_len()] = p;
         if (p & x100)
-        trie[BPT_TRIE_LEN - 1] |= x80;
+        trie[get_trie_len() - 1] |= x80;
         else
-        trie[BPT_TRIE_LEN - 1] &= x7F;
-        BPT_TRIE_LEN++;
+        trie[get_trie_len() - 1] &= x7F;
+        change_trie_len(1);
     #else
-        util::set_int(trie + BPT_TRIE_LEN, p);
-        BPT_TRIE_LEN += 2;
+        util::set_int(trie + get_trie_len(), p);
+        change_trie_len(2);
     #endif
     }
 
@@ -275,7 +271,7 @@ public:
         uint8_t tp[BPT_MAX_PFX_LEN + 1];
         uint8_t brk_tp_old[BPT_MAX_PFX_LEN + 1];
         uint8_t brk_tp_new[BPT_MAX_PFX_LEN + 1];
-        uint8_t *t_end = trie + BPT_TRIE_LEN;
+        uint8_t *t_end = trie + get_trie_len();
         for (uint8_t *t = trie + 1; t < t_end; t += DFT_UNIT_SIZE) {
     #if DFT_UNIT_SIZE == 3
             int src_idx = get9bit_ptr(t);
@@ -304,9 +300,9 @@ public:
                 kv_last_pos += kv_len;
                 if (brk_idx == 0) {
                     //if (tot_len > half_kVLen) {
-                    //if (tot_len > half_kVLen || ((t-trie) > (BPT_TRIE_LEN * 2 / 3)) ) {
+                    //if (tot_len > half_kVLen || ((t-trie) > (get_trie_len() * 2 / 3)) ) {
                     if (tot_len > half_kVLen || idx == (orig_filled_size / 2)
-                                || ((t - trie) > (BPT_TRIE_LEN* 2 / 3)) ) {
+                                || ((t - trie) > (get_trie_len()* 2 / 3)) ) {
                         brk_idx = -1;
                         brk_kv_pos = kv_last_pos;
                         brk_tp_old_pos = (child ? key_pos : key_pos + 1);
@@ -337,8 +333,8 @@ public:
                 }
             }
         }
-        memcpy(new_block.trie, trie, BPT_TRIE_LEN);
-        new_block.BPT_TRIE_LEN= BPT_TRIE_LEN;
+        memcpy(new_block.trie, trie, get_trie_len());
+        new_block.set_trie_len(get_trie_len());
         idx = *first_len_ptr;
         first_key[--idx] = trie[brk_trie_pos];
         int k = brk_trie_pos;
@@ -362,9 +358,9 @@ public:
     #endif
             k -= DFT_UNIT_SIZE;
         }
-        new_block.BPT_TRIE_LEN-= k;
-        memmove(new_block.trie, new_block.trie + k, new_block.BPT_TRIE_LEN);
-        BPT_TRIE_LEN= brk_old_trie_pos;
+        new_block.change_trie_len(-k);
+        memmove(new_block.trie, new_block.trie + k, new_block.get_trie_len());
+        set_trie_len(brk_old_trie_pos);
         idx = brk_tp_old_pos;
         while (idx--) {
     #if DFT_UNIT_SIZE == 3
@@ -394,7 +390,7 @@ public:
             set_kv_last_pos(DFT_NODE_SIZE - old_blk_new_len);
             set_filled_size(brk_idx);
             int diff = DFT_NODE_SIZE - brk_kv_pos;
-            t_end = trie + BPT_TRIE_LEN;
+            t_end = trie + get_trie_len();
             for (uint8_t *t = trie + 1; t < t_end; t += DFT_UNIT_SIZE) {
     #if DFT_UNIT_SIZE == 3
                 int ptr = get9bit_ptr(t);
@@ -450,17 +446,17 @@ public:
     bool is_full(int search_result) {
         decode_need_count();
     #if DFT_UNIT_SIZE == 3
-        if (BPT_TRIE_LEN > 189 - need_count) {
+        if (get_trie_len() > 189 - need_count) {
             //if ((orig_pos - trie) <= (72 + need_count)) {
             return true;
             //}
         }
     #endif
-        if (get_kv_last_pos() < (DFT_HDR_SIZE + BPT_TRIE_LEN
+        if (get_kv_last_pos() < (DFT_HDR_SIZE + get_trie_len()
                 + need_count + key_len - key_pos + value_len + 3)) {
             return true;
         }
-        if (BPT_TRIE_LEN > 254 - need_count) {
+        if (get_trie_len() > 254 - need_count) {
             return true;
         }
         return false;
@@ -478,9 +474,9 @@ public:
             orig_pos++;
             *orig_pos += ((trie_pos - orig_pos + 1) / DFT_UNIT_SIZE);
     #if DFT_UNIT_SIZE == 3
-            ins_at(trie_pos, key_char, x00, 0);
+            ins_b3(trie_pos, key_char, x00, 0);
     #else
-            ins_at(trie_pos, key_char, x00, 0, 0);
+            ins_b4(trie_pos, key_char, x00, 0, 0);
     #endif
             ret = trie_pos - trie + 2;
             break;
@@ -492,7 +488,7 @@ public:
     #if DFT_UNIT_SIZE == 3
             ins_at(orig_pos, key_char, 1, 0);
     #else
-            ins_at(orig_pos, key_char, 1, 0, 0);
+            ins_b4(orig_pos, key_char, 1, 0, 0);
     #endif
             ret = orig_pos - trie + 2;
             break;
@@ -618,7 +614,7 @@ public:
             key_char = *key;
             append(key_char);
             append(x00);
-            ret = BPT_TRIE_LEN;
+            ret = get_trie_len();
             append_ptr(0);
             key_pos = 1;
             break;

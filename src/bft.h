@@ -214,7 +214,7 @@ public:
                 s.key_pos++;
                 s.t += (s.is_child_pending * BFT_UNIT_SIZE);
             }
-        } while (1); // (s.t - trie) < BPT_TRIE_LEN);
+        } while (1); // (s.t - trie) < get_trie_len());
         return 0;
     }
 
@@ -259,15 +259,15 @@ public:
 
     void append_ptr(int p) {
     #if BFT_UNIT_SIZE == 3
-        trie[BPT_TRIE_LEN] = p;
+        trie[get_trie_len()] = p;
         if (p & x100)
-            trie[BPT_TRIE_LEN - 1] |= x80;
+            trie[get_trie_len() - 1] |= x80;
         else
-            trie[BPT_TRIE_LEN - 1] &= x7F;
-        BPT_TRIE_LEN++;
+            trie[get_trie_len() - 1] &= x7F;
+        get_trie_len()++;
     #else
-        util::set_int(trie + BPT_TRIE_LEN, p);
-        BPT_TRIE_LEN += 2;
+        util::set_int(trie + get_trie_len(), p);
+        get_trie_len() += 2;
     #endif
     }
 
@@ -299,13 +299,13 @@ public:
             }
     #if BFT_UNIT_SIZE == 3
             t += (*t & x3F);
-            BPT_TRIE_LEN -= 3;
-            memmove(delete_start, delete_start + 3, BPT_TRIE_LEN);
+            get_trie_len() -= 3;
+            memmove(delete_start, delete_start + 3, get_trie_len());
             t -= 3;
     #else
             t += (*t & x7F);
-            BPT_TRIE_LEN -= 4;
-            memmove(delete_start, delete_start + 4, BPT_TRIE_LEN);
+            get_trie_len() -= 4;
+            memmove(delete_start, delete_start + 4, get_trie_len());
             t -= 4;
     #endif
         }
@@ -344,17 +344,17 @@ public:
     bool is_full(int search_result) {
         decode_need_count();
     #if BFT_UNIT_SIZE == 3
-        if ((BPT_TRIE_LEN + need_count) > 189) {
+        if ((get_trie_len() + need_count) > 189) {
             //if ((orig_pos - trie) <= (72 + need_count)) {
                 return true;
             //}
         }
     #endif
-        if (get_kv_last_pos() < (BFT_HDR_SIZE + BPT_TRIE_LEN
+        if (get_kv_last_pos() < (BFT_HDR_SIZE + get_trie_len()
                 + need_count + key_len - key_pos + value_len + 3)) {
             return true;
         }
-        if (BPT_TRIE_LEN > 254 - need_count)
+        if (get_trie_len() > 254 - need_count)
             return true;
         return false;
     }
@@ -509,12 +509,12 @@ public:
             min = util::min16(key_len, key_pos + key_at_len);
             orig_pos++;
     #if BFT_UNIT_SIZE == 3
-            *orig_pos |= ((BPT_TRIE_LEN - (orig_pos - trie - 1)) / 3);
+            *orig_pos |= ((get_trie_len() - (orig_pos - trie - 1)) / 3);
             ptr = *(orig_pos + 1);
             if (*orig_pos & x80)
                 ptr |= x100;
     #else
-            *orig_pos |= ((BPT_TRIE_LEN - (orig_pos - trie - 1)) / 4);
+            *orig_pos |= ((get_trie_len() - (orig_pos - trie - 1)) / 4);
             ptr = util::get_int(orig_pos + 1);
     #endif
             if (p < min) {
@@ -544,19 +544,19 @@ public:
                     append(c1);
                     append(x00);
                     if (swap) {
-                        pos = BPT_TRIE_LEN;
+                        pos = get_trie_len();
                         append_ptr(ptr);
                     } else {
-                        ret = BPT_TRIE_LEN;
+                        ret = get_trie_len();
                         append_ptr(0);
                     }
                     append(c2);
                     append(BFT_UNIT_SIZE == 3 ? x40 : x80);
                     if (swap) {
-                        ret = BPT_TRIE_LEN;
+                        ret = get_trie_len();
                         append_ptr(0);
                     } else {
-                        pos = BPT_TRIE_LEN;
+                        pos = get_trie_len();
                         append_ptr(ptr);
                     }
                     break;
@@ -569,10 +569,10 @@ public:
                     append(c1);
                     append(BFT_UNIT_SIZE == 3 ? x41 : x81);
                     if (p + 1 == key_len) {
-                        ret = BPT_TRIE_LEN;
+                        ret = get_trie_len();
                         append_ptr(0);
                     } else {
-                        pos = BPT_TRIE_LEN;
+                        pos = get_trie_len();
                         append_ptr(ptr);
                     }
                     break;
@@ -589,11 +589,11 @@ public:
                 append(c2);
                 append(BFT_UNIT_SIZE == 3 ? x40 : x80);
                 if (p == key_len) {
-                    pos = BPT_TRIE_LEN;
+                    pos = get_trie_len();
                     append_ptr(ptr);
                     key_pos--;
                 } else {
-                    ret = BPT_TRIE_LEN;
+                    ret = get_trie_len();
                     append_ptr(0);
                 }
             }
@@ -617,7 +617,7 @@ public:
             key_char = *key;
             append(key_char);
             append(BFT_UNIT_SIZE == 3 ? x40 : x80);
-            ret = BPT_TRIE_LEN;
+            ret = get_trie_len();
             append_ptr(0);
             key_pos = 1;
             break;

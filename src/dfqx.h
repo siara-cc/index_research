@@ -203,15 +203,11 @@ public:
     }
 
     inline uint8_t *get_ptr_pos() {
-        return trie + BPT_TRIE_LEN;
+        return trie + get_trie_len();
     }
 
     inline int get_header_size() {
         return DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES;
-    }
-
-    void append(uint8_t b) {
-        trie[BPT_TRIE_LEN++] = b;
     }
 
     uint8_t *next_key(uint8_t *first_key, uint8_t *tp, uint8_t *t, char& ctr, uint8_t& tc, uint8_t& child_leaf) {
@@ -245,20 +241,20 @@ public:
                 tc = 0;
             }
             ctr++;
-        } while (1); // (t - trie) < BPT_TRIE_LEN);
+        } while (1); // (t - trie) < get_trie_len());
         return t;
     }
 
     void move_ptr_list(uint8_t orig_trie_len) {
     #if BPT_9_BIT_PTR == 1
-        memmove(trie + BPT_TRIE_LEN, trie + orig_trie_len, filled_size());
+        memmove(trie + get_trie_len(), trie + orig_trie_len, filled_size());
     #else
-        memmove(trie + BPT_TRIE_LEN, trie + orig_trie_len, filled_size() << 1);
+        memmove(trie + get_trie_len(), trie + orig_trie_len, filled_size() << 1);
     #endif
     }
 
     void delete_trie_last_half(int brk_key_len, uint8_t *first_key, uint8_t *tp) {
-        uint8_t orig_trie_len = BPT_TRIE_LEN;
+        uint8_t orig_trie_len = get_trie_len();
         for (int idx = brk_key_len; idx >= 0; idx--) {
             uint8_t *t = trie + tp[idx];
             uint8_t tc = *t;
@@ -278,7 +274,7 @@ public:
                 }
                 t = new_t;
                 if (idx == brk_key_len)
-                    BPT_TRIE_LEN = t - trie;
+                    set_trie_len(t - trie);
             }
         }
         move_ptr_list(orig_trie_len);
@@ -287,14 +283,14 @@ public:
     int delete_segment(uint8_t *delete_end, uint8_t *delete_start) {
         int count = delete_end - delete_start;
         if (count) {
-            BPT_TRIE_LEN -= count;
-            memmove(delete_start, delete_end, trie + BPT_TRIE_LEN - delete_start);
+            change_trie_len(-count);
+            memmove(delete_start, delete_end, trie + get_trie_len() - delete_start);
         }
         return count;
     }
 
     void delete_trie_first_half(int brk_key_len, uint8_t *first_key, uint8_t *tp) {
-        uint8_t orig_trie_len = BPT_TRIE_LEN;
+        uint8_t orig_trie_len = get_trie_len();
         for (int idx = brk_key_len; idx >= 0; idx--) {
             uint8_t *t = trie + tp[idx];
             uint8_t tc = *t;
@@ -346,108 +342,107 @@ public:
         ptr_size <<= 1;
     #endif
         if (get_kv_last_pos()
-                < (DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES + BPT_TRIE_LEN
+                < (DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES + get_trie_len()
                         + need_count + ptr_size + key_len - key_pos + value_len + 3))
             return true;
         if (filled_size() > DQ_MAX_PTRS)
             return true;
-        if (BPT_TRIE_LEN > 252 - need_count)
+        if (get_trie_len() > 252 - need_count)
             return true;
         return false;
     }
 
     void ins_bytes_with_ptrs(uint8_t *ptr, int len) {
     #if BPT_9_BIT_PTR == 1
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filled_size() - ptr);
+        memmove(ptr + len, ptr, trie + get_trie_len() + filled_size() - ptr);
     #else
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filled_size() * 2 - ptr);
+        memmove(ptr + len, ptr, trie + get_trie_len() + filled_size() * 2 - ptr);
     #endif
-        BPT_TRIE_LEN += len;
+        change_trie_len(len);
     }
 
     void ins_atWith_ptrs(uint8_t *ptr, const uint8_t *s, uint8_t len) {
     #if BPT_9_BIT_PTR == 1
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filled_size() - ptr);
+        memmove(ptr + len, ptr, trie + get_trie_len() + filled_size() - ptr);
     #else
-        memmove(ptr + len, ptr, trie + BPT_TRIE_LEN + filled_size() * 2 - ptr);
+        memmove(ptr + len, ptr, trie + get_trie_len() + filled_size() * 2 - ptr);
     #endif
         memcpy(ptr, s, len);
-        BPT_TRIE_LEN += len;
+        change_trie_len(len);
     }
 
     void ins_atWith_ptrs(uint8_t *ptr, uint8_t b, const uint8_t *s, uint8_t len) {
     #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filled_size() - ptr);
+        memmove(ptr + 1 + len, ptr, trie + get_trie_len() + filled_size() - ptr);
     #else
-        memmove(ptr + 1 + len, ptr, trie + BPT_TRIE_LEN + filled_size() * 2 - ptr);
+        memmove(ptr + 1 + len, ptr, trie + get_trie_len() + filled_size() * 2 - ptr);
     #endif
         *ptr++ = b;
         memcpy(ptr, s, len);
-        BPT_TRIE_LEN += len;
-        BPT_TRIE_LEN++;
+        change_trie_len(len + 1);
     }
 
     uint8_t ins_atWith_ptrs(uint8_t *ptr, uint8_t b1, uint8_t b2) {
     #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filled_size() - ptr);
+        memmove(ptr + 2, ptr, trie + get_trie_len() + filled_size() - ptr);
     #else
-        memmove(ptr + 2, ptr, trie + BPT_TRIE_LEN + filled_size() * 2 - ptr);
+        memmove(ptr + 2, ptr, trie + get_trie_len() + filled_size() * 2 - ptr);
     #endif
         *ptr++ = b1;
         *ptr = b2;
-        BPT_TRIE_LEN += 2;
+        change_trie_len(2);
         return 2;
     }
 
     uint8_t ins_atWith_ptrs(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3) {
     #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filled_size() - ptr);
+        memmove(ptr + 3, ptr, trie + get_trie_len() + filled_size() - ptr);
     #else
-        memmove(ptr + 3, ptr, trie + BPT_TRIE_LEN + filled_size() * 2 - ptr);
+        memmove(ptr + 3, ptr, trie + get_trie_len() + filled_size() * 2 - ptr);
     #endif
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr = b3;
-        BPT_TRIE_LEN += 3;
+        change_trie_len(3);
         return 3;
     }
 
     uint8_t ins_atWith_ptrs(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4) {
     #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filled_size() - ptr);
+        memmove(ptr + 4, ptr, trie + get_trie_len() + filled_size() - ptr);
     #else
-        memmove(ptr + 4, ptr, trie + BPT_TRIE_LEN + filled_size() * 2 - ptr);
+        memmove(ptr + 4, ptr, trie + get_trie_len() + filled_size() * 2 - ptr);
     #endif
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr++ = b3;
         *ptr = b4;
-        BPT_TRIE_LEN += 4;
+        change_trie_len(4);
         return 4;
     }
 
     uint8_t ins_atWith_ptrs(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4,
             uint8_t b5) {
     #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filled_size() - ptr);
+        memmove(ptr + 5, ptr, trie + get_trie_len() + filled_size() - ptr);
     #else
-        memmove(ptr + 5, ptr, trie + BPT_TRIE_LEN + filled_size() * 2 - ptr);
+        memmove(ptr + 5, ptr, trie + get_trie_len() + filled_size() * 2 - ptr);
     #endif
         *ptr++ = b1;
         *ptr++ = b2;
         *ptr++ = b3;
         *ptr++ = b4;
         *ptr = b5;
-        BPT_TRIE_LEN += 5;
+        change_trie_len(5);
         return 5;
     }
 
     uint8_t ins_atWith_ptrs(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4,
             uint8_t b5, uint8_t b6) {
     #if BPT_9_BIT_PTR == 1
-        memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filled_size() - ptr);
+        memmove(ptr + 6, ptr, trie + get_trie_len() + filled_size() - ptr);
     #else
-        memmove(ptr + 6, ptr, trie + BPT_TRIE_LEN + filled_size() * 2 - ptr);
+        memmove(ptr + 6, ptr, trie + get_trie_len() + filled_size() * 2 - ptr);
     #endif
         *ptr++ = b1;
         *ptr++ = b2;
@@ -455,7 +450,7 @@ public:
         *ptr++ = b4;
         *ptr++ = b5;
         *ptr = b6;
-        BPT_TRIE_LEN += 6;
+        change_trie_len(6);
         return 6;
     }
 
@@ -615,8 +610,8 @@ public:
         const int DFQX_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
         uint8_t *b = allocate_block(DFQX_NODE_SIZE, is_leaf(), current_block[0] & 0x1F);
         dfqx new_block(DFQX_NODE_SIZE, b, is_leaf());
-        memcpy(new_block.trie, trie, BPT_TRIE_LEN);
-        new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
+        memcpy(new_block.trie, trie, get_trie_len());
+        new_block.set_trie_len(get_trie_len());
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
         int kv_last_pos = get_kv_last_pos();
@@ -633,7 +628,7 @@ public:
         uint8_t tc, child_leaf;
         tc = child_leaf = 0;
         //if (!is_leaf())
-        //   cout << "Trie len:" << (int) BPT_TRIE_LEN << ", filled size:" << orig_filled_size << endl;
+        //   cout << "Trie len:" << (int) get_trie_len() << ", filled size:" << orig_filled_size << endl;
         key_pos = 0;
         // (1) move all data to new_block in order
         int idx;
@@ -685,9 +680,9 @@ public:
         kv_last_pos = new_block.get_kv_last_pos();
     #if BPT_9_BIT_PTR == 1
         memcpy(current_block + DFQX_HDR_SIZE, new_block.current_block + DFQX_HDR_SIZE, DQ_MAX_PTR_BITMAP_BYTES);
-        memcpy(trie + BPT_TRIE_LEN, new_block.trie + new_block.BPT_TRIE_LEN, brk_idx);
+        memcpy(trie + get_trie_len(), new_block.trie + new_block.get_trie_len(), brk_idx);
     #else
-        memcpy(trie + BPT_TRIE_LEN, new_block.trie + new_block.BPT_TRIE_LEN, (brk_idx << 1));
+        memcpy(trie + get_trie_len(), new_block.trie + new_block.get_trie_len(), (brk_idx << 1));
     #endif
 
         {
@@ -729,7 +724,7 @@ public:
     #endif
     #endif
             int new_size = orig_filled_size - brk_idx;
-            uint8_t *block_ptrs = new_block.trie + new_block.BPT_TRIE_LEN;
+            uint8_t *block_ptrs = new_block.trie + new_block.get_trie_len();
     #if BPT_9_BIT_PTR == 1
             memmove(block_ptrs, block_ptrs + brk_idx, new_size);
     #else

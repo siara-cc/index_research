@@ -220,7 +220,7 @@ public:
                 bit_map_len = bitmap_len;
                 key_char_pos = keychar_pos;
                 int idx = util::get_int(t);
-                if (idx < BPT_TRIE_LEN) {
+                if (idx < get_trie_len()) {
                   *t += idx;
                   if (key_pos == key_len && *t == 0x06) {
                     idx = util::get_int(t+1);
@@ -599,7 +599,7 @@ public:
                 continue;
             }
             it.ctr = (it.ctr == x07 ? 8 : FIRST_BIT_OFFSET_FROM_RIGHT((it.child | it.leaf) & (xFE << it.ctr)));
-        } while (1); // (s.t - trie) < BPT_TRIE_LEN);
+        } while (1); // (s.t - trie) < get_trie_len());
         return 0;
     }
 
@@ -630,11 +630,11 @@ public:
         int tp_cpy_len = 0;
         octp_iterator_vars it(tp, new_block.trie);
         //if (!is_leaf())
-        //   cout << "Trie len:" << (int) BPT_TRIE_LEN << ", filled:" << orig_filled_size << ", max:" << (int) DX_MAX_KEY_LEN << endl;
+        //   cout << "Trie len:" << (int) get_trie_len() << ", filled:" << orig_filled_size << ", max:" << (int) DX_MAX_KEY_LEN << endl;
         new_block.key_pos = 0;
         memcpy(new_block.trie, trie, OP_GET_TRIE_LEN);
 #if OP_CHILD_PTR_SIZE == 1
-        new_block.BPT_TRIE_LEN = BPT_TRIE_LEN;
+        new_block.get_trie_len() = get_trie_len();
 #else
         util::set_int(new_block.BPT_TRIE_LEN_PTR, OP_GET_TRIE_LEN);
 #endif
@@ -686,8 +686,8 @@ public:
             }
         }
 #if OP_CHILD_PTR_SIZE == 1
-        new_block.BPT_TRIE_LEN = new_block.copy_trie_half(tp_cpy, first_key, tp_cpy_len, trie + BPT_TRIE_LEN, 2);
-        memcpy(new_block.trie, trie + BPT_TRIE_LEN, new_block.BPT_TRIE_LEN);
+        new_block.get_trie_len() = new_block.copy_trie_half(tp_cpy, first_key, tp_cpy_len, trie + get_trie_len(), 2);
+        memcpy(new_block.trie, trie + get_trie_len(), new_block.get_trie_len());
 #else
         util::set_int(new_block.BPT_TRIE_LEN_PTR, new_block.copy_trie_half(tp_cpy, first_key,
                 tp_cpy_len, trie + OP_GET_TRIE_LEN, 2));
@@ -973,7 +973,7 @@ public:
                   *child_pos |= mask;
                   child_pos = child_pos + 2 + OP_BIT_COUNT_CH(*child_pos & (mask - 1));
 #if OP_CHILD_PTR_SIZE == 1
-                  ins_at(child_pos, (uint8_t) (BPT_TRIE_LEN - (child_pos - trie) + 1));
+                  ins_at(child_pos, (uint8_t) (get_trie_len() - (child_pos - trie) + 1));
                   update_ptrs(child_pos, 1);
 #else
                   int offset = (OP_GET_TRIE_LEN + 1 - (child_pos - trie) + 1);
@@ -984,7 +984,7 @@ public:
                   *orig_pos |= x02;
 #if OP_CHILD_PTR_SIZE == 1
                   ins_at(child_pos, mask, *child_pos);
-                  child_pos[2] = (uint8_t) (BPT_TRIE_LEN - (child_pos + 2 - trie));
+                  child_pos[2] = (uint8_t) (get_trie_len() - (child_pos + 2 - trie));
                   update_ptrs(child_pos, 2);
 #else
                   int offset = OP_GET_TRIE_LEN + 3 - (child_pos + 2 - trie);

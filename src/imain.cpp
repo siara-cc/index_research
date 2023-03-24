@@ -55,8 +55,8 @@ char *OUT_FILE2 = NULL;
 int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
-int TEST_IDX1 = 1;
-int TEST_IDX2 = 0;
+int TEST_IDX1 = 0;
+int TEST_IDX2 = 1;
 
 int ctr = 0;
 
@@ -1150,7 +1150,7 @@ int main2() {
 
     dx->print_stats(24);
     dx->print_num_levels();
-    cout << "Trie size: " << (int) dx->BPT_TRIE_LEN << endl;
+    cout << "Trie size: " << (int) dx->get_trie_len() << endl;
     cout << "Filled size: " << (int) dx->filled_size() << endl;
     return 0;
 }
@@ -1278,7 +1278,7 @@ int main4() {
     dx->print_stats(NUM_ENTRIES);
     dx->print_num_levels();
     std::cout << "Size:" << dx->size() << endl;
-    std::cout << "Trie Size:" << (int) dx->BPT_TRIE_LEN << endl;
+    //std::cout << "Trie Size:" << (int) dx->get_trie_len() << endl;
     return 0;
 }
 
@@ -1317,7 +1317,7 @@ int main7() {
     dx->print_stats(NUM_ENTRIES);
     dx->print_num_levels();
     std::cout << "Size:" << dx->size() << endl;
-    std::cout << "Trie Size:" << (int) dx->BPT_TRIE_LEN << endl;
+    std::cout << "Trie Size:" << (int) dx->get_trie_len() << endl;
     return 0;
 }
 
@@ -1351,21 +1351,54 @@ int test_sqlite(const char *file_name) {
 int test(const char *file_name) {
     bft *lx = new bft(512, 512);
     int val_len = 4;
-    char val[2000];
-    lx->put("bon", 3, "jour", 4);
-    lx->put("good", 4, "morning", 7);
-    lx->put("hello", 5, "world", 5);
-    if (lx->get("bon", 3, &val_len, val)) {
-        val[val_len] = 0;
-        cout << "Val: [" << val << "]" << endl;
+    char val[200];
+    const char *data[] = {"bon", "jour"
+                        , "good", "morning"
+                        , "hello", "world"
+                        , "price", "drop"
+                        , "prose", "text"
+                        , "private", "area"
+                        , "really", "naive"
+                        , "reality", "show"
+                        , "real", "truth"
+                        , "realise", "mistake"
+                        , "January", "first"
+                        , "February", "second"
+                        , "March", "third"
+                        , "April", "forth"
+                        , "May", "fifth"
+                        , "June", "sixth"
+                        , "July", "seventh"
+                        , "August", "eighth"
+                        , "September", "ninth"
+                        , "October", "tenth"
+                        , "November", "eleventh"
+                        , "December", "twelfth"
+                        , ""
+                        };
+    // const char *data[] = {"bon", "jour"
+    //                     , "really", "naive"
+    //                     , "reality", "show"
+    //                     , "real", "truth"
+    //                     , ""
+    //                     };
+    int len = 1000;
+    for (int i = 0; i < len; i++) {
+        const char *key = data[i * 2];
+        if (strlen(key) == 0)
+            break;
+        const char *val = data[i * 2 + 1];
+        lx->put(key, strlen(key), val, strlen(val));
     }
-    if (lx->get("good", 4, &val_len, val)) {
-        val[val_len] = 0;
-        cout << "Val: [" << val << "]" << endl;
-    }
-    if (lx->get("hello", 5, &val_len, val)) {
-        val[val_len] = 0;
-        cout << "Val: [" << val << "]" << endl;
+    for (int i = 0; i < len; i++) {
+        const char *key = data[i * 2];
+        if (strlen(key) == 0)
+            break;
+        if (lx->get(key, strlen(key), &val_len, val)) {
+            val[val_len] = 0;
+            cout << "Key: " << key << ", val: [" << val << "]" << endl;
+        } else
+            cout << key << " not found" << endl;
     }
     delete lx;
     return 0;
@@ -1373,6 +1406,14 @@ int test(const char *file_name) {
 
 /// ./build/imain 1000000 2 16 8 4096 4096 10000 out.ix
 int main(int argc, char *argv[]) {
+
+    if (argc == 1) {
+        cout << "Load file:" << endl;
+        cout << "  imain <IMPORT_FILE> [KEY_LEN] [USE_HASH_TABLE] [LEAF_PAGE_SIZE] [PARENT_PAGE_SIZE] [CACHE_SIZE] [FILE]" << endl;
+        cout << "Gen entries:" << endl;
+        cout << "  imain <NUM_ENTRIES> [CHAR_SET] [KEY_LEN] [VAL_LEN] [LEAF_PAGE_SIZE] [PARENT_PAGE_SIZE] [CACHE_SIZE] [FILE]" << endl;
+        return 0;
+    }
 
     char out_file1[100];
     char out_file2[100];
@@ -1565,7 +1606,7 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
-    bft *lx;
+    bfos *lx;
     if (TEST_IDX1)
     {
     ctr = 0;
@@ -1573,9 +1614,9 @@ int main(int argc, char *argv[]) {
     //lx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    //lx = new stager(OUT_FILE1, CACHE_SIZE);
+    //lx = new stager(OUT_FILE1, CACHE_SIZE); // not working
     //lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
+    //lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
@@ -1620,11 +1661,11 @@ int main(int argc, char *argv[]) {
     //dx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new stager(OUT_FILE2, CACHE_SIZE);
     //dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
+    //dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working only with int16_t
     //dx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
-    //dx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
+    //dx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     dx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new rb_tree(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     it1 = m.begin();
