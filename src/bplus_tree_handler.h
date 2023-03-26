@@ -933,7 +933,8 @@ public:
     ~bpt_trie_handler() {}
     void print_stats(long num_entries) {
         bplus_tree_handler<T>::print_stats(num_entries);
-        std::cout << "Avg Trie Len:";
+        std::cout << "Trie Len:" << get_trie_len();
+        std::cout << ", Trie Len:";
         std::cout << (long) (max_trie_len_node
                 / (bplus_tree_handler<T>::block_count_node ? bplus_tree_handler<T>::block_count_node : 1));
         std::cout << ", ";

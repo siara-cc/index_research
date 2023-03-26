@@ -303,7 +303,7 @@ int main2() {
     util::generate_bit_counts();
     //rb_tree *dx = new rb_tree();
     //dfox *dx = new dfox();
-    dfos *dx = new dfos();
+    bft *dx = new bft(32768, 32768);
     //dfqx *dx = new dfqx();
     //bfos *dx = new bfos();
     //bfqs *dx = new bfqs();
@@ -1349,6 +1349,7 @@ int test_sqlite(const char *file_name) {
 }
 
 int test(const char *file_name) {
+    //bfos *lx = new bfos(16384, 16384);
     bft *lx = new bft(16384, 16384);
     int val_len = 4;
     char val[200];
@@ -1551,10 +1552,14 @@ int test(const char *file_name) {
             break;
         if (lx->get(key, strlen(key), &val_len, val)) {
             val[val_len] = 0;
-            cout << "Key: " << key << ", val: [" << val << "]" << endl;
+            if (memcmp(val, data[i * 2 + 1], strlen(data[i * 2 + 1])) != 0)
+                cout << key << " not matching" << endl;
+            else
+                cout << "Key: " << key << ", val: [" << val << "]" << endl;
         } else
             cout << key << " not found" << endl;
     }
+    lx->print_stats(lx->size());
     delete lx;
     return 0;
 }
@@ -1761,7 +1766,7 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
-    bfos *lx;
+    bft *lx;
     if (TEST_IDX1)
     {
     ctr = 0;
@@ -1771,9 +1776,9 @@ int main(int argc, char *argv[]) {
     //lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new stager(OUT_FILE1, CACHE_SIZE); // not working
     //lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    //lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
+    lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
@@ -1807,7 +1812,7 @@ int main(int argc, char *argv[]) {
     //getchar();
     }
 
-    bft *dx;
+    bfos *dx;
     if (TEST_IDX2)
     {
     ctr = 0;
@@ -1815,9 +1820,9 @@ int main(int argc, char *argv[]) {
     //dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new stager(OUT_FILE2, CACHE_SIZE);
-    dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    //dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working only with int16_t
+    dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working only with int16_t
     //dx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);

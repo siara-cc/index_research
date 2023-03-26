@@ -16,7 +16,6 @@ using namespace std;
 #define BFT_MIDDLE_PREFIX 1
 
 #define BFT_MAX_KEY_PREFIX_LEN 255
-#define BFT_SET_TRIE_LEN(x) get_trie_len() = x
 
 class bft_iterator_status {
 public:
@@ -38,7 +37,6 @@ public:
     uint8_t *last_t;
     uint8_t *split_buf;
     char need_counts[10];
-    uint8_t last_child_pos;
     uint8_t to_pick_leaf;
     bft(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
@@ -89,7 +87,6 @@ public:
         last_t = trie + 1;
         key_pos = 0;
         uint8_t key_char = key[key_pos++];
-        last_child_pos = 0;
         do {
             orig_pos = t;
             switch (*t & 0x03) {
@@ -141,18 +138,12 @@ public:
                             return ~INSERT_CHILD_LEAF;
                         case 0x02: // check value
                             last_t = orig_pos;
-                                if (key_pos == key_len) {
-                                    key_at = current_block + util::get_int(t + 1);
-                                    key_at_len = *key_at++;
-                                    last_t = key_at;
-                                    return 0;
-                                }
-                                ptr_pos += 3;
                             // pick_leaf ??
                             break;
                     }
                     t += ptr_pos;
-                    key_char = key[key_pos++];
+                    if (*t != 0x02)
+                        key_char = key[key_pos++];
                     break; }
                 case 0x01:
                 case 0x03: {
@@ -173,17 +164,16 @@ public:
                             set_prefix_last(key_char, t, pfx_len);
                         return ~INSERT_CONVERT;
                     }
-                    if (*t == 0x02) {
-                        if (key_pos == key_len) {
-                            key_at = current_block + util::get_int(t + 1);
-                            key_at_len = *key_at++;
-                            last_t = key_at;
-                            return 0;
-                        }
-                        t += 3;
-                    }
                     break; }
                 case 0x02: // next data type
+                    if (key_pos == key_len) {
+                        key_at = current_block + util::get_int(t + 1);
+                        key_at_len = *key_at++;
+                        last_t = key_at;
+                        return 0;
+                    }
+                    t += 3;
+                    key_char = key[key_pos++];
                     break;
             }
         } while (1);
@@ -484,22 +474,23 @@ public:
         return len;
     }
 
-    uint8_t *increment_len(uint8_t *ptr, int& len, int given_len = 1) {
-        len = *ptr >> 3;
+    bool change_len(uint8_t *ptr, int& ret_len, int delta = 1) {
+        ret_len = *ptr >> 3;
         if (*ptr & 0x04)
-            len += (((int)ptr[1]) << 5);
-        len += given_len;
-        *ptr = (*ptr & 0x07) | ((len & 0x1F) << 3);
-        if (len > 0x1F) {
+            ret_len += (((int)ptr[1]) << 5);
+        ret_len += delta;
+        *ptr = (*ptr & 0x07) | ((ret_len & 0x1F) << 3);
+        if (ret_len > 0x1F) {
             if ((*ptr & 0x04) == 0) {
                 update_ptrs(ptr, 1);
                 *ptr++ |= 0x04;
-                ins_b(ptr, 1);
-            } else
-                ptr++;
-            *ptr = len >> 5;
+                ins_b(ptr, ret_len >> 5);
+                return true;
+            }
+            ptr++;
+            *ptr = ret_len >> 5;
         }
-        return ptr + 1;
+        return false;
     }
 
     int insert_current() {
@@ -510,16 +501,19 @@ public:
         key_char = key[key_pos - 1];
         switch (insert_state) {
         case INSERT_AFTER: {
-            uint8_t *t = increment_len(orig_pos, len);
+            if (change_len(orig_pos, len, 1))
+                trie_pos++;
             update_ptrs(orig_pos, 3);
             ins_b(trie_pos++, key_char);
             ret = (trie_pos - trie) + (len << 1) - 2;
             update_sibling_ptrs(ret, len);
             break; }
         case INSERT_BEFORE: {
-            uint8_t *t = increment_len(orig_pos, len);
+            if (change_len(orig_pos, len, 1))
+                trie_pos++;
             update_ptrs(orig_pos, 3);
             ins_b(trie_pos, key_char);
+            uint8_t *t = orig_pos + (*orig_pos & 0x04 ? 2 : 1);
             ret = (trie_pos - t);
             ret = (t - trie) + len + (ret << 1);
             update_sibling_ptrs(ret, trie_pos - t);
@@ -665,12 +659,16 @@ public:
                     trie_pos++;
                     to_ins++;
                 }
-                if (sw == 2 || sw == 3)
-                    increment_len(orig_pos, len_of_len, diff - pfx_len + 1);
+                if (sw == 2 || sw == 3) {
+                    if (change_len(orig_pos, len_of_len, diff - pfx_len + 1))
+                        trie_pos++;
+                }
             } else {
                 to_ins = (sw == 0 ? 5 : (sw == 3 ? 7 : 6));
-                if (sw == 2 || sw == 3)
-                    increment_len(orig_pos, len_of_len, diff - pfx_len);
+                if (sw == 2 || sw == 3) {
+                    if (change_len(orig_pos, len_of_len, diff - pfx_len))
+                        trie_pos++;
+                }
             }
             ins_bytes(trie_pos, to_ins);
             update_ptrs(orig_pos, to_ins);
