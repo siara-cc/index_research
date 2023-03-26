@@ -55,7 +55,7 @@ char *OUT_FILE2 = NULL;
 int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
-int TEST_IDX1 = 0;
+int TEST_IDX1 = 1;
 int TEST_IDX2 = 1;
 
 int ctr = 0;
@@ -1349,7 +1349,7 @@ int test_sqlite(const char *file_name) {
 }
 
 int test(const char *file_name) {
-    bft *lx = new bft(512, 512);
+    bft *lx = new bft(16384, 16384);
     int val_len = 4;
     char val[200];
     const char *data[] = {"bon", "jour"
@@ -1360,8 +1360,16 @@ int test(const char *file_name) {
                         , "private", "area"
                         , "really", "naive"
                         , "reality", "show"
-                        , "real", "truth"
                         , "realise", "mistake"
+                        , "real", "truth"
+                        , "resin", "3"
+                        , "rinse", "2"
+                        , "rickshaw", "4"
+                        , "ride", "5"
+                        , "rider", "6"
+                        , "rid", "5.5"
+                        , "rice", "7"
+                        , "rick", "8"
                         , "January", "first"
                         , "February", "second"
                         , "March", "third"
@@ -1374,15 +1382,162 @@ int test(const char *file_name) {
                         , "October", "tenth"
                         , "November", "eleventh"
                         , "December", "twelfth"
+                        , "arrogant", "35"
+                        , "arrogance", "36"
+                        , "aroma", "37"
+                        , "ape", "38"
+                        , "arrange", "39"
+                        , "single", "24"
+                        , "singular", "25"
+                        , "sine", "27"
+                        , "shuteye", "26"
+                        , "sick", "28"
+                        , "inhabitation", "19"
+                        , "inhabitant", "20"
+                        , "inhibition", "21"
+                        , "intent", "22"
+                        , "inhale", "23"
+                        , "yourself", "30"
+                        , "yourselves", "31"
+                        , "yousuf", "32"
+                        , "yonder", "33"
+                        , "yvette", "34"
+                        , "aruna", "9"
+                        , "hello", "10"
+                        , "world", "11"
+                        , "how", "12"
+                        , "are", "13"
+                        , "you", "14"
+                        , "hundred", "100"
+                        , "boy", "15"
+                        , "boat", "16"
+                        , "thousand", "1000"
+                        , "buoy", "17"
+                        , "boast", "18"
+                        , "January", "first"
+                        , "February", "second"
+                        , "March", "third"
+                        , "April", "forth"
+                        , "May", "fifth"
+                        , "June", "sixth"
+                        , "July", "seventh"
+                        , "August", "eighth"
+                        , "September", "ninth"
+                        , "October", "tenth"
+                        , "November", "eleventh"
+                        , "December", "twelfth"
+                        , "Sunday", "one"
+                        , "Monday", "two"
+                        , "Tuesday", "three"
+                        , "Wednesday", "four"
+                        , "Thursday", "five"
+                        , "Friday", "six"
+                        , "Saturday", "seven"
+                        , "casa", "nova"
+                        , "young", "19"
+                        , "youth", "20"
+                        , "additional", "check"
+                        , "absorb", "carelessly"
+                        , "add", "chairman"
+                        , "accuse", "cat"
+                        , "act", "easy"
+                        , "adopt", "charity"
+                        , "agreement", "camping"
+                        , "actively", "called"
+                        , "aircraft", "car"
+                        , "agree", "calmly"
+                        , "adequate", "else"
+                        , "afraid", "easily"
+                        , "accident", "cheaply"
+                        , "activity", "card"
+                        , "abroad", "element"
+                        , "acquire", "calm"
+                        , "aim", "chair"
+                        , "absence", "centre"
+                        , "afterwards", "careful"
+                        , "advice", "cap"
+                        , "advertise", "captain"
+                        , "advertisement", "chamber"
+                        , "advert", "elegant"
+                        , "absolute", "calculation"
+                        , "acid", "century"
+                        , "address", "chance"
+                        , "advanced", "carrot"
+                        , "absolutely", "capital"
+                        , "admire", "careless"
+                        , "agency", "certificate"
+                        , "aggressive", "elevator"
+                        , "affair", "eastern"
+                        , "access", "cease"
+                        , "afternoon", "east"
+                        , "afford", "cannot"
+                        , "acceptable", "cake"
+                        , "ability", "calculate"
+                        , "again", "cardboard"
+                        , "advertising", "ceremony"
+                        , "accidental", "eleven"
+                        , "action", "ease"
+                        , "academic", "carefully"
+                        , "account", "earth"
+                        , "above", "certainly"
+                        , "accompany", "case"
+                        , "adapt", "castle"
+                        , "ago", "earn"
+                        , "actually", "cancel"
+                        , "alarmed", "celebrate"
+                        , "abuse", "cast"
+                        , "accurately", "chain"
+                        , "accurate", "charge"
+                        , "a", "carpet"
+                        , "ahead", "cause"
+                        , "advantage", "capacity"
+                        , "accommodation", "camp"
+                        , "actual", "ceiling"
+                        , "acknowledge", "cancer"
+                        , "actress", "chart"
+                        , "abandoned", "character"
+                        , "able", "cash"
+                        , "absent", "channel"
+                        , "airport", "carry"
+                        , "against", "catch"
+                        , "across", "cell"
+                        , "aid", "central"
+                        , "advance", "eleventh"
+                        , "accept", "career"
+                        , "adult", "capable"
+                        , "ad", "care"
+                        , "aged", "candidate"
+                        , "alarm", "CD"
+                        , "admiration", "campaign"
+                        , "affect", "cent"
+                        , "adjust", "capture"
+                        , "accidentally", "change"
+                        , "about", "cheat"
+                        , "actor", "celebration"
+                        , "after", "electronic"
+                        , "air", "chase"
+                        , "accent", "cable"
+                        , "agent", "camera"
+                        , "admit", "certain"
+                        , "adequately", "cheap"
+                        , "abandon", "category"
+                        , "addition", "chapter"
+                        , "affection", "electricity"
+                        , "achieve", "early"
+                        , "adventure", "candy"
+                        , "active", "centimetre"
+                        , "advise", "challenge"
+                        , "age", "call"
+                        , "achievement", "chat"
                         , ""
                         };
     // const char *data[] = {"bon", "jour"
-    //                     , "really", "naive"
-    //                     , "reality", "show"
     //                     , "real", "truth"
+    //                     , "reality", "show"
+    //                     , "really", "naive"
     //                     , ""
     //                     };
-    int len = 1000;
+    int len = 10000;
     for (int i = 0; i < len; i++) {
         const char *key = data[i * 2];
         if (strlen(key) == 0)
@@ -1618,7 +1773,7 @@ int main(int argc, char *argv[]) {
     //lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    //lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
@@ -1652,7 +1807,7 @@ int main(int argc, char *argv[]) {
     //getchar();
     }
 
-    dfos *dx;
+    bft *dx;
     if (TEST_IDX2)
     {
     ctr = 0;
@@ -1660,13 +1815,13 @@ int main(int argc, char *argv[]) {
     //dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new stager(OUT_FILE2, CACHE_SIZE);
-    //dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
+    dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working only with int16_t
     //dx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    dx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
+    //dx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new rb_tree(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     it1 = m.begin();
     start = get_time_val();

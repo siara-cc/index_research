@@ -13,7 +13,7 @@ using namespace std;
 
 #define BFT_HDR_SIZE 9
 
-#define BFT_MIDDLE_PREFIX 0
+#define BFT_MIDDLE_PREFIX 1
 
 #define BFT_MAX_KEY_PREFIX_LEN 255
 #define BFT_SET_TRIE_LEN(x) get_trie_len() = x
@@ -141,6 +141,13 @@ public:
                             return ~INSERT_CHILD_LEAF;
                         case 0x02: // check value
                             last_t = orig_pos;
+                                if (key_pos == key_len) {
+                                    key_at = current_block + util::get_int(t + 1);
+                                    key_at_len = *key_at++;
+                                    last_t = key_at;
+                                    return 0;
+                                }
+                                ptr_pos += 3;
                             // pick_leaf ??
                             break;
                     }
@@ -153,10 +160,12 @@ public:
                     pfx_len = (*t >> 3);
                     if (*t++ & 0x04)
                         pfx_len += (((int) *t++) << 5);
-                    while (pfx_len && key_char == *t && key_pos < key_len) {
-                        key_char = key[key_pos++];
+                    while (pfx_len && key_char == *t) {
                         t++;
                         pfx_len--;
+                        if (key_pos == key_len)
+                            break;
+                        key_char = key[key_pos++];
                     }
                     if (pfx_len) {
                         trie_pos = t;
@@ -164,8 +173,6 @@ public:
                             set_prefix_last(key_char, t, pfx_len);
                         return ~INSERT_CONVERT;
                     }
-                    break; }
-                case 0x02: // next data type
                     if (*t == 0x02) {
                         if (key_pos == key_len) {
                             key_at = current_block + util::get_int(t + 1);
@@ -175,6 +182,8 @@ public:
                         }
                         t += 3;
                     }
+                    break; }
+                case 0x02: // next data type
                     break;
             }
         } while (1);
@@ -650,24 +659,26 @@ public:
             diff = trie_pos - t;
             int sw = (pfx_len == 1 ? 0 : (diff == 0 ? 1 : (diff == (pfx_len - 1) ? 2 : 3)));
             int to_ins;
-            if (key_pos == key_len)
+            if (key_pos == key_len && c1 == c2) {
                 to_ins = (sw == 0 ? 1 : (sw == 3 ? 3 : 2));
-            else
+                if (sw == 1 || sw == 3) {
+                    trie_pos++;
+                    to_ins++;
+                }
+                if (sw == 2 || sw == 3)
+                    increment_len(orig_pos, len_of_len, diff - pfx_len + 1);
+            } else {
                 to_ins = (sw == 0 ? 5 : (sw == 3 ? 7 : 6));
+                if (sw == 2 || sw == 3)
+                    increment_len(orig_pos, len_of_len, diff - pfx_len);
+            }
             ins_bytes(trie_pos, to_ins);
             update_ptrs(orig_pos, to_ins);
-            if (sw == 2 || sw == 3)
-                increment_len(orig_pos, len_of_len, diff - pfx_len);
-            t = trie_pos;
-            if (key_pos == key_len) {
+            t = (sw == 0 || sw == 1 ? orig_pos : trie_pos);
+            if (key_pos == key_len && c1 == c2) {
                 *t++ = 0x02;
                 ret = t - trie;
                 t += 2;
-                if (sw != 1) {
-                    *t = 0x01;
-                    set_pfx_len(t, pfx_len - diff);
-                    t++;
-                }
             } else {
                 *t++ = 0x10;
                 *t++ = c1;
@@ -675,14 +686,12 @@ public:
                 util::set_int(t, 4);
                 t += 2;
                 util::set_int(t, 2);
-                ret = t - trie - (c1 == key_char ? 0 : 2);
+                ret = t - trie - (c1 == key_char ? 2 : 0);
                 t += 2;
             }
             if (sw == 1 || sw == 3) {
                 *t = 0x01;
-                set_pfx_len(t, pfx_len - diff);
-                if (sw == 3)
-                    increment_len(t, len_of_len, diff - pfx_len);
+                set_pfx_len(t, pfx_len - diff - 1);
             }
             break; }
 #endif
