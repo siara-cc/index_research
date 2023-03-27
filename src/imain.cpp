@@ -1404,7 +1404,7 @@ int test(const char *file_name) {
                         , "yonder", "33"
                         , "yvette", "34"
                         , "aruna", "9"
-                        , "hello", "10"
+                        , "Hello", "10"
                         , "world", "11"
                         , "how", "12"
                         , "are", "13"
@@ -1546,19 +1546,25 @@ int test(const char *file_name) {
         const char *val = data[i * 2 + 1];
         lx->put(key, strlen(key), val, strlen(val));
     }
+    bool all_ok = true;
     for (int i = 0; i < len; i++) {
         const char *key = data[i * 2];
         if (strlen(key) == 0)
             break;
         if (lx->get(key, strlen(key), &val_len, val)) {
             val[val_len] = 0;
-            if (memcmp(val, data[i * 2 + 1], strlen(data[i * 2 + 1])) != 0)
+            if (memcmp(val, data[i * 2 + 1], strlen(data[i * 2 + 1])) != 0) {
                 cout << key << " not matching" << endl;
-            else
+                all_ok = false;
+            } else
                 cout << "Key: " << key << ", val: [" << val << "]" << endl;
-        } else
+        } else {
             cout << key << " not found" << endl;
+            all_ok = false;
+        }
     }
+    if (all_ok)
+        cout << "All ok" << endl;
     lx->print_stats(lx->size());
     delete lx;
     return 0;

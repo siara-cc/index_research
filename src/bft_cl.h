@@ -84,7 +84,6 @@ public:
     int search_current_block(bptree_iter_ctx *ctx = NULL) {
         uint8_t *t;
         t = trie;
-        last_t = trie + 1;
         key_pos = 0;
         uint8_t key_char = key[key_pos++];
         do {
@@ -107,43 +106,35 @@ public:
                     t += ((trie_pos - orig_pos - len_of_len) << 1);
                     int ptr_pos = util::get_int(t);
                     int sw = (key_pos == key_len ? 0x01 : 0x00) |
-                        (ptr_pos < get_trie_len() ? (t[ptr_pos] == 0x02 ? 0x02 : 0x04) : 0x06);
-                    switch (sw) {
-                        case 0x04: // open child
-                            break;
-                        case 0x03:
-                        case 0x06:
-                        case 0x07:
-                            int cmp;
-                            key_at = current_block + (sw == 0x03 ? util::get_int(t + ptr_pos + 1) : ptr_pos);
-                            key_at_len = *key_at++;
-                            cmp = util::compare(key + key_pos, key_len - key_pos, key_at, key_at_len);
-                            if (!cmp) {
-                                last_t = key_at;
-                                return 0;
-                            }
-                            if (cmp < 0)
-                                cmp = -cmp;
-                            else
-                                last_t = key_at;
+                        (ptr_pos < get_trie_len() ? 0x02 : 0x00);
+                    if (sw < 2) {
+                        int cmp;
+                        key_at = current_block + ptr_pos;
+                        key_at_len = *key_at++;
+                        cmp = util::compare(key + key_pos, key_len - key_pos, key_at, key_at_len);
+                        if (!cmp) {
+                            last_t = key_at;
+                            return 0;
+                        }
+                        if (cmp < 0)
+                            cmp = -cmp;
+                        else
+                            last_t = key_at;
 #if BFT_MIDDLE_PREFIX == 1
-                            // cmp = pfx_len, 2=len_of_len, 7 = end node
-                            need_count = cmp + 2 + 7;
+                        // cmp = pfx_len, 2=len_of_len, 7 = end node
+                        need_count = cmp + 2 + 7;
 #else
-                            // cmp * 4 for pfx, 7 = end node
-                            need_count = (cmp * 4) + 7;
+                        // cmp * 4 for pfx, 7 = end node
+                        need_count = (cmp * 4) + 7;
 #endif
-                            return ~INSERT_THREAD;
-                        case 0x05: // insert child_leaf
-                            return ~INSERT_CHILD_LEAF;
-                        case 0x02: // check value
-                            last_t = orig_pos;
-                            // pick_leaf ??
-                            break;
+                        return ~INSERT_THREAD;
                     }
                     t += ptr_pos;
-                    if (*t != 0x02)
+                    if (*t != 0x02) {
+                        if (sw == 0x03)
+                            return ~INSERT_CHILD_LEAF;
                         key_char = key[key_pos++];
+                    }
                     break; }
                 case 0x01:
                 case 0x03: {
@@ -440,7 +431,7 @@ public:
        }
     }
 
-    void update_sibling_ptrs(uint16_t ret, int count) {
+    void update_sibling_ptrs(int ret, int count) {
         uint8_t *t = trie + ret;
         ins_b2(t, 0x00, 0x00);
         while (count) {
@@ -461,10 +452,7 @@ public:
         return 1;
     }
 
-    int get_pfx_len(uint8_t *t, int *len_of_len = NULL) {
-        int dummy;
-        if (len_of_len == NULL)
-            len_of_len = &dummy;
+    int get_pfx_len(uint8_t *t, int *len_of_len) {
         int len = *t >> 3;
         *len_of_len = 1;
         if (*t++ & 0x04) {
@@ -529,10 +517,10 @@ public:
             ret = (t - trie) + ptr_pos + 1;
             break; }
         case INSERT_THREAD: {
-            uint16_t p, min;
+            int p, min;
             uint8_t c1, c2;
             uint8_t *t;
-            uint16_t ptr, pos;
+            int ptr, pos;
             ret = pos = 0;
 
             t = orig_pos;

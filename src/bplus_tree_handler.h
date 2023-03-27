@@ -296,9 +296,9 @@ public:
             if (search_result >= 0 && is_btree)
                 return search_result;
             uint8_t *child_ptr_loc = descendant->get_child_ptr_pos(search_result);
-            if (to_demote_blocks) {
-                prev_lvl_split_count = child_ptr_loc[*child_ptr_loc + 1 + child_ptr_loc[*child_ptr_loc+1]];
-            }
+            // if (to_demote_blocks) {
+            //     prev_lvl_split_count = child_ptr_loc[*child_ptr_loc + 1 + child_ptr_loc[*child_ptr_loc+1]];
+            // }
             uint8_t *child_ptr;
             if (cache_size > 0) {
                 current_page = descendant->get_child_page(child_ptr_loc);
