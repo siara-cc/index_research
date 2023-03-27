@@ -121,11 +121,11 @@ public:
                         else
                             last_t = key_at;
 #if BFT_MIDDLE_PREFIX == 1
-                        // cmp = pfx_len, 2=len_of_len, 7 = end node
-                        need_count = cmp + 2 + 7;
+                        // cmp = pfx_len, 2=len_of_len, 7 = end node, 3 - child_leaf
+                        need_count = cmp + 2 + 7 + 3;
 #else
                         // cmp * 4 for pfx, 7 = end node
-                        need_count = (cmp * 4) + 7;
+                        need_count = (cmp * 4) + 3;
 #endif
                         return ~INSERT_THREAD;
                     }
@@ -415,7 +415,7 @@ public:
                     int ptr_idx = 0;
                     while (t < upto && ptr_idx++ < len) {
                         int ptr_pos = util::get_int(t);
-                        if (ptr_pos < get_trie_len() && (t + ptr_pos) > upto)
+                        if (ptr_pos < get_trie_len() && (t + ptr_pos) >= upto)
                             util::set_int(t, ptr_pos + diff);
                         t += 2;
                     }
@@ -433,7 +433,6 @@ public:
 
     void update_sibling_ptrs(int ret, int count) {
         uint8_t *t = trie + ret;
-        ins_b2(t, 0x00, 0x00);
         while (count) {
             int ptr_pos = util::get_int(t - (count << 1));
             if (ptr_pos < get_trie_len())
@@ -470,15 +469,43 @@ public:
         *ptr = (*ptr & 0x07) | ((ret_len & 0x1F) << 3);
         if (ret_len > 0x1F) {
             if ((*ptr & 0x04) == 0) {
-                update_ptrs(ptr, 1);
                 *ptr++ |= 0x04;
                 ins_b(ptr, ret_len >> 5);
+                update_ptrs(ptr, 1);
                 return true;
             }
             ptr++;
             *ptr = ret_len >> 5;
         }
         return false;
+    }
+
+    uint8_t *find_last_child_rec(uint8_t *last_node, int sib_len, int len_of_sib_len, int count) {
+        while (count--) {
+            uint8_t *ptr_loc = last_node + len_of_sib_len + sib_len + (count << 1);
+            int ptr_pos = util::get_int(ptr_loc);
+            if (ptr_pos < get_trie_len()) {
+                uint8_t *child_node = ptr_loc + ptr_pos;
+                while ((*child_node & 0x03) && child_node < trie + get_trie_len()) {
+                    if (*child_node == 0x02)
+                        child_node += 3;
+                    if (*child_node & 0x01) {
+                        int len_of_len;
+                        int len = get_pfx_len(child_node, &len_of_len);
+                        child_node += len + len_of_len;
+                    }
+                }
+                int len_of_child_len;
+                int child_sib_len = get_pfx_len(child_node, &len_of_child_len);
+                return find_last_child_rec(child_node, child_sib_len, len_of_child_len, child_sib_len);
+            }
+        }
+        return last_node + len_of_sib_len + (sib_len * 3);
+    }
+
+    uint8_t *find_child_pos_to_be(int sib_len, int len_of_sib_len) {
+        int count = trie_pos - orig_pos - len_of_sib_len;
+        return find_last_child_rec(orig_pos, sib_len, len_of_sib_len, count);
     }
 
     int insert_current() {
@@ -491,19 +518,21 @@ public:
         case INSERT_AFTER: {
             if (change_len(orig_pos, len, 1))
                 trie_pos++;
-            update_ptrs(orig_pos, 3);
+            update_ptrs(trie_pos, 3);
             ins_b(trie_pos++, key_char);
             ret = (trie_pos - trie) + (len << 1) - 2;
+            ins_b2(trie + ret, 0x00, 0x00);
             update_sibling_ptrs(ret, len);
             break; }
         case INSERT_BEFORE: {
             if (change_len(orig_pos, len, 1))
                 trie_pos++;
-            update_ptrs(orig_pos, 3);
+            update_ptrs(trie_pos, 3);
             ins_b(trie_pos, key_char);
             uint8_t *t = orig_pos + (*orig_pos & 0x04 ? 2 : 1);
             ret = (trie_pos - t);
             ret = (t - trie) + len + (ret << 1);
+            ins_b2(trie + ret, 0x00, 0x00);
             update_sibling_ptrs(ret, trie_pos - t);
             break; }
         case INSERT_CHILD_LEAF: {
@@ -513,7 +542,7 @@ public:
             t += ((trie_pos - orig_pos - len_of_len) << 1);
             int ptr_pos = util::get_int(t);
             ins_b3(t + ptr_pos, 0x02, 0x00, 0x00);
-            update_ptrs(t + ptr_pos, 3);
+            update_ptrs(t + ptr_pos + 1, 3);
             ret = (t - trie) + ptr_pos + 1;
             break; }
         case INSERT_THREAD: {
@@ -530,20 +559,39 @@ public:
                 t++;
             t = orig_pos + len + sib_len + ((t - orig_pos - len) << 1);
             ptr = util::get_int(t);
-            util::set_int(t, get_trie_len() - (t - trie));
-            t = trie + get_trie_len();
             c1 = c2 = key_char;
             p = key_pos;
             min = util::min_b(key_len, key_pos + key_at_len);
 #if BFT_MIDDLE_PREFIX == 1
-            int cmp = need_count - (2 + 7 + 1); // restore cmp from search_current_block
+            int cmp = need_count - (2 + 7 + 3 + 1); // restore cmp from search_current_block
+            need_count = 0;
 #else
-            int cmp = need_count - 7; // restore cmp from search_current_block
+            int cmp = need_count - 3; // restore cmp from search_current_block
             cmp /= 4;
             cmp--;
 #endif
-            if (p + cmp == min && cmp)
+            if (p + cmp == min && cmp) {
                 cmp--;
+#if BFT_MIDDLE_PREFIX == 1
+                need_count = 4;
+#endif
+            }
+#if BFT_MIDDLE_PREFIX == 1
+            need_count += (cmp + (cmp ? 1 : 0) + 7);
+#endif
+
+            uint8_t *child_ins_pos = find_child_pos_to_be(sib_len, len);
+            // uint8_t *child_ins_pos = orig_pos + len + (sib_len * 3);
+            if (child_ins_pos != trie + get_trie_len()) {
+                ins_at(child_ins_pos, trie + get_trie_len() + need_count, need_count);
+                // update_sibling_ptrs(t - trie, trie_pos - orig_pos - len);
+                update_ptrs(child_ins_pos, need_count);
+            } else
+                set_trie_len(get_trie_len() + need_count);
+            util::set_int(t, child_ins_pos - t);
+            //util::set_int(t, get_trie_len() - (t - trie));
+            t = child_ins_pos;
+
 #if BFT_MIDDLE_PREFIX == 1
             if (cmp) {
                 *t++ = (cmp << 3) | (cmp > 31 ? 0x05 : 0x01);
@@ -615,7 +663,14 @@ public:
                     util::set_int(t, ptr);
                 t += 2;
             }
-            set_trie_len(t - trie);
+            if (t - child_ins_pos != need_count)
+                cout << "MISMATCH NEED_COUNT: " << key << " " << cmp << " " << (t - child_ins_pos) << " " << (int) need_count << endl;
+            // int child_ins_len = t - trie + get_trie_len();
+            // if (child_ins_pos != trie + get_trie_len()) {
+            //     memmove(child_ins_pos, trie + get_trie_len(), child_ins_len);
+            //     update_ptrs(orig_pos, child_ins_len);
+            // }
+            // set_trie_len(t - trie);
             // remote thread chars from data area
             int diff = p - key_pos;
             key_pos = p + (p < key_len ? 1 : 0);
@@ -659,7 +714,7 @@ public:
                 }
             }
             ins_bytes(trie_pos, to_ins);
-            update_ptrs(orig_pos, to_ins);
+            update_ptrs(orig_pos + 1, to_ins);
             t = (sw == 0 || sw == 1 ? orig_pos : trie_pos);
             if (key_pos == key_len && c1 == c2) {
                 *t++ = 0x02;
