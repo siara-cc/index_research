@@ -19,15 +19,26 @@ using namespace std;
 
 class bft_iterator_status {
 public:
-    uint8_t *t;
-    int key_pos;
-    uint8_t is_next;
-    uint8_t is_child_pending;
-    uint8_t tp[BFT_MAX_KEY_PREFIX_LEN];
-    bft_iterator_status(uint8_t *trie, uint8_t prefix_len) {
-        t = trie + 1;
-        key_pos = prefix_len;
-        is_child_pending = is_next = 0;
+    int v_pos, trie_len, last_len;
+    uint8_t *node_start[BFT_MAX_KEY_PREFIX_LEN];
+    int16_t cur_pos[BFT_MAX_KEY_PREFIX_LEN];
+    int16_t len[BFT_MAX_KEY_PREFIX_LEN];
+    int8_t len_len[BFT_MAX_KEY_PREFIX_LEN];
+    void set_node(uint8_t *n) {
+        node_start[v_pos] = n;
+            uint8_t *t = n;
+            cur_pos[v_pos] = 0;
+            len[v_pos] = (*t >> 3);
+            len_len[v_pos] = 1;
+            if (*t++ & 0x04) {
+                len[v_pos] += ((((int)*t++) << 5) + 1);
+                len_len[v_pos] = 2;
+            }
+    }
+    bft_iterator_status(uint8_t *trie, uint8_t prefix_len, int _trie_len) {
+        memset(this, '\0', sizeof(bft_iterator_status));
+        trie_len = _trie_len;
+        set_node(trie);
     }
 };
 
@@ -35,6 +46,7 @@ public:
 class bft : public bpt_trie_handler<bft> {
 public:
     uint8_t *last_t;
+    int last_t_pos;
     uint8_t *split_buf;
     char need_counts[10];
     uint8_t to_pick_leaf;
@@ -68,19 +80,6 @@ public:
         trie = current_block + BFT_HDR_SIZE;
     }
 
-    inline void set_prefix_last(uint8_t key_char, uint8_t *t, uint8_t pfx_rem_len) {
-        if (key_char > *t) {
-            t += pfx_rem_len;
-            while (*t & x01)
-                t += (*t >> 1) + 1;
-            while (!(*t & x04)) {
-                t += (*t & x02 ? BIT_COUNT(t[1])
-                     + BIT_COUNT2(t[2]) + 3 : BIT_COUNT2(t[1]) + 2);
-            }
-            last_t = t++;
-        }
-    }
-
     int search_current_block(bptree_iter_ctx *ctx = NULL) {
         uint8_t *t;
         t = trie;
@@ -94,10 +93,12 @@ public:
                     int sib_len = get_pfx_len(t, &len_of_len);
                     t += len_of_len;
                     while (sib_len && key_char > *t) {
+                        last_t = orig_pos;
+                        last_t_pos = sib_len;
                         sib_len--;
                         t++;
                     }
-                    last_t = trie_pos = t;
+                    trie_pos = t;
                     if (!sib_len)
                         return ~INSERT_AFTER;
                     if (key_char < *t)
@@ -151,16 +152,14 @@ public:
                     }
                     if (pfx_len) {
                         trie_pos = t;
-                        if (!is_leaf())
-                            set_prefix_last(key_char, t, pfx_len);
                         return ~INSERT_CONVERT;
                     }
                     break; }
                 case 0x02: // next data type
+                    last_t = key_at;
                     if (key_pos == key_len) {
                         key_at = current_block + util::get_int(t + 1);
                         key_at_len = *key_at++;
-                        last_t = key_at;
                         return 0;
                     }
                     t += 3;
@@ -175,59 +174,116 @@ public:
         return NULL;
     }
 
+    uint8_t *get_last_ptr_of_child(uint8_t *t) {
+        int len, len_len;
+        switch (*t & 0x03) {
+            case 0x00: {
+                len = get_pfx_len(t, &len_len);
+                t += (len_len + len * 3);
+                t -= 2;
+                int ptr = util::get_int(t);
+                if (ptr < get_trie_len())
+                    return get_last_ptr_of_child(t + ptr);
+                else
+                    return current_block + ptr;
+                break; }
+            case 0x02:
+                return get_last_ptr_of_child(t + 3);
+            case 0x01:
+            case 0x03:
+                len = get_pfx_len(t, &len_len);
+                return get_last_ptr_of_child(t + len_len + len);
+                break;
+        }
+        return 0;
+    }
+
+    uint8_t *get_last_ptr(uint8_t *t) {
+        int len, len_len;
+        if (*orig_pos & 0x01) {
+            if (key[key_pos - 1] > *trie_pos)
+                return get_last_ptr_of_child(orig_pos);
+            else
+                t = last_t;
+        }
+        if (*t == 0x02)
+            return current_block + util::get_int(t + 1);
+        len = get_pfx_len(t, &len_len);
+        t += (len_len + len + ((len - last_t_pos) << 1));
+        int ptr = util::get_int(t);
+        if (ptr < get_trie_len())
+            return get_last_ptr_of_child(t + ptr);
+        return current_block + ptr;
+    }
+
     inline uint8_t *get_child_ptr_pos(int search_result) {
-        return last_t;
+        return last_t == key_at ? last_t - 1 : get_last_ptr(last_t);
     }
 
     inline int get_header_size() {
         return BFT_HDR_SIZE;
     }
 
-    int next_ptr(bft_iterator_status& s) {
-        if (s.is_child_pending) {
-            s.key_pos++;
-            s.t += (s.is_child_pending * BFT_UNIT_SIZE);
-        } else if (s.is_next) {
-            while (*s.t & (BFT_UNIT_SIZE == 3 ? x40 : x80)) {
-                s.key_pos--;
-                s.t = trie + s.tp[s.key_pos];
-            }
-            s.t += BFT_UNIT_SIZE;
-        } else
-            s.is_next = 1;
+    int next_ptr(bft_iterator_status& s, uint8_t *out_str, int& out_len) {
+        out_len = s.last_len;
+        uint8_t *cur_loc = s.node_start[s.v_pos];
+        if (s.v_pos < 0)
+            return 0;
         do {
-            s.tp[s.key_pos] = s.t - trie;
-            s.is_child_pending = *s.t & x7F;
-            int leaf_ptr = util::get_int(s.t + 1);
-            if (leaf_ptr)
-                return leaf_ptr;
-            else {
-                s.key_pos++;
-                s.t += (s.is_child_pending * BFT_UNIT_SIZE);
+            switch (*cur_loc & 0x03) {
+                case 0x00: {
+                    if (s.cur_pos[s.v_pos] && out_len)
+                        out_len--;
+                    out_str[out_len++] = cur_loc[s.len_len[s.v_pos] + s.cur_pos[s.v_pos]];
+                    cur_loc = cur_loc + s.len_len[s.v_pos]
+                                + s.len[s.v_pos] + (s.cur_pos[s.v_pos] << 1);
+                    int ptr = util::get_int(cur_loc);
+                    if (ptr < s.trie_len) {
+                        cur_loc += ptr;
+                        if (*cur_loc == 0x02)
+                            out_len--;
+                        else {
+                            s.v_pos++;
+                            s.set_node(cur_loc);
+                        }
+                    } else {
+                        s.cur_pos[s.v_pos]++;
+                        s.last_len = out_len;
+                        while (s.v_pos > -1 && s.cur_pos[s.v_pos] == s.len[s.v_pos]) {
+                            s.v_pos--;
+                            while (s.v_pos > -1 && (s.node_start[s.v_pos][0] & 0x01) == 0x01) {
+                                s.last_len -= s.len[s.v_pos];
+                                s.v_pos--;
+                            }
+                            if (s.v_pos < 0)
+                                break;
+                            s.last_len--;
+                            s.cur_pos[s.v_pos]++;
+                        }
+                        if (s.v_pos == 0 && s.cur_pos[s.v_pos] >= s.len[s.v_pos])
+                            s.v_pos = -1;
+                        return ptr;
+                    }
+                    break; }
+                case 0x02:
+                    s.v_pos++;
+                    s.set_node(cur_loc + 3);
+                    s.last_len = out_len;
+                    return util::get_int(cur_loc + 1);
+                case 0x01:
+                case 0x03:
+                    cur_loc += s.len_len[s.v_pos];
+                    memcpy(out_str + out_len, cur_loc, s.len[s.v_pos]);
+                    out_len += s.len[s.v_pos];
+                    cur_loc += s.len[s.v_pos];
+                    if (*cur_loc != 0x02) {
+                        s.v_pos++;
+                        s.set_node(cur_loc);
+                    }
+                    break;
             }
         } while (1); // (s.t - trie) < get_trie_len());
         return 0;
-    }
-
-    int get_last_ptr_ofChild(uint8_t *t) {
-        do {
-            if (*t & x80) {
-                uint8_t children = (*t & x7F);
-                if (children)
-                    t += (children * 4);
-                else
-                    return util::get_int(t + 1);
-            } else
-                t += 4;
-        } while (1);
-        return -1;
-    }
-
-    uint8_t *get_last_ptr(uint8_t *last_t) {
-        uint8_t last_child = (*last_t & x7F);
-        if (!last_child || to_pick_leaf)
-            return current_block + util::get_int(last_t + 1);
-        return current_block + get_last_ptr_ofChild(last_t + (last_child * 4));
     }
 
     int get9bit_ptr(uint8_t *t) {
@@ -290,7 +346,7 @@ public:
         if (search_result != INSERT_THREAD)
             need_count = need_counts[search_result];
         if (get_kv_last_pos() < (BFT_HDR_SIZE + get_trie_len()
-                + need_count + key_len - key_pos + value_len + 3)) {
+                + need_count + key_len - key_pos + value_len + 10)) {
             return true;
         }
         return false;
@@ -318,50 +374,48 @@ public:
         int tot_len = 0;
         // (1) move all data to new_block in order
         int idx;
-        uint8_t ins_key[BPT_MAX_PFX_LEN], old_first_key[BPT_MAX_PFX_LEN];
+        uint8_t ins_key[256];
+        //uint8_t old_first_key[BPT_MAX_PFX_LEN];
         int ins_key_len, old_first_len;
-        bft_iterator_status s(trie, 0); //BPT_MAX_PFX_LEN);
+        bft_iterator_status *s = new bft_iterator_status(trie, 0, get_trie_len()); //BPT_MAX_PFX_LEN);
         for (idx = 0; idx < orig_filled_size; idx++) {
-            int src_idx = next_ptr(s);
+            int src_idx = next_ptr(*s, ins_key, ins_key_len);
             int kv_len = current_block[src_idx];
-            ins_key_len = kv_len;
-            memcpy(ins_key + s.key_pos + 1, current_block + src_idx + 1, kv_len);
+            memcpy(ins_key + ins_key_len, current_block + src_idx + 1, kv_len);
+            ins_key_len += kv_len;
             kv_len++;
             ins_block->value_len = current_block[src_idx + kv_len];
             kv_len++;
             ins_block->value = current_block + src_idx + kv_len;
             kv_len += ins_block->value_len;
             tot_len += kv_len;
-            for (int i = 0; i <= s.key_pos; i++)
-                ins_key[i] = trie[s.tp[i] - 1];
-            //for (int i = 0; i < BPT_MAX_PFX_LEN; i++)
-            //    ins_key[i] = key[i];
-            ins_key_len += s.key_pos;
-            ins_key_len++;
-            if (idx == 0) {
-                memcpy(old_first_key, ins_key, ins_key_len);
-                old_first_len = ins_key_len;
-            }
-            //ins_key[ins_key_len] = 0;
-            //cout << ins_key << endl;
+            // if (idx == 0) {
+            //     memcpy(old_first_key, ins_key, ins_key_len);
+            //     old_first_len = ins_key_len;
+            // }
             ins_block->key = ins_key;
             ins_block->key_len = ins_key_len;
-            if (idx && brk_idx >= 0)
-                ins_block->search_current_block();
-            ins_block->add_data(0);
+            //printf("Key: %d,%.*s, Value: %.*s\n", current_block[src_idx], ins_block->key_len, ins_block->key, ins_block->value_len, ins_block->value);
+            int search_result = 4;
+            if (ins_block->filled_size() > 0)
+                search_result = ins_block->search_current_block();
+            ins_block->add_data(search_result);
             if (brk_idx < 0) {
                 brk_idx = -brk_idx;
-                s.key_pos++;
                 if (is_leaf()) {
-                    *first_len_ptr = s.key_pos;
-                    memcpy(first_key, ins_key, s.key_pos);
+                    *first_len_ptr = ins_key_len;
+                    memcpy(first_key, ins_key, ins_key_len);
+                    // int cmp = util::compare(ins_key, ins_key_len, first_key, *first_len_ptr);
+                    // if (cmp < ins_key_len)
+                    //     cmp++;
+                    // *first_len_ptr = cmp;
+                    // memcpy(first_key, ins_key, *first_len_ptr);
                 } else {
                     *first_len_ptr = ins_key_len;
                     memcpy(first_key, ins_key, ins_key_len);
                 }
                 //first_key[*first_len_ptr] = 0;
                 //cout << (int) is_leaf() << "First key:" << first_key << endl;
-                s.key_pos--;
             }
             kv_last_pos += kv_len;
             if (brk_idx == 0) {
@@ -369,38 +423,23 @@ public:
                 if (tot_len > half_kVLen || idx == (orig_filled_size / 2)) {
                     brk_idx = idx + 1;
                     brk_idx = -brk_idx;
+                    memcpy(first_key, ins_key, ins_key_len);
+                    *first_len_ptr = ins_key_len;
                     ins_block = &new_block;
                 }
             }
         }
+        delete s;
         memcpy(current_block, old_block.current_block, BFT_NODE_SIZE);
-
-        /*
-        if (first_key[0] - old_first_key[0] < 2) {
-            int len_to_chk = util::min(old_first_len, *first_len_ptr);
-            int prefix = 0;
-            while (prefix < len_to_chk) {
-                if (old_first_key[prefix] != first_key[prefix]) {
-                    if (first_key[prefix] - old_first_key[prefix] > 1)
-                        prefix--;
-                    break;
-                }
-                prefix++;
-            }
-            if (BPT_MAX_PFX_LEN) {
-                new_block.delete_prefix(BPT_MAX_PFX_LEN);
-                new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
-            }
-            prefix -= delete_prefix(prefix);
-            BPT_MAX_PFX_LEN = prefix;
-        }*/
 
         return new_block.current_block;
     }
 
     int get_first_ptr() {
-        bft_iterator_status s(trie, 0);
-        return next_ptr(s);
+        bft_iterator_status s(trie, 0, get_trie_len());
+        uint8_t key_str[BPT_MAX_KEY_LEN];
+        int key_str_len;
+        return next_ptr(s, key_str, key_str_len);
     }
 
     void update_ptrs(uint8_t *upto, int diff) {
@@ -579,7 +618,7 @@ public:
 #if BFT_MIDDLE_PREFIX == 1
             need_count += (cmp + (cmp ? 1 : 0) + 7);
 #endif
-
+/*
             uint8_t *child_ins_pos = find_child_pos_to_be(sib_len, len);
             // uint8_t *child_ins_pos = orig_pos + len + (sib_len * 3);
             if (child_ins_pos != trie + get_trie_len()) {
@@ -591,7 +630,9 @@ public:
             util::set_int(t, child_ins_pos - t);
             //util::set_int(t, get_trie_len() - (t - trie));
             t = child_ins_pos;
-
+*/
+            util::set_int(t, get_trie_len() - (t - trie));
+            t = trie + get_trie_len();
 #if BFT_MIDDLE_PREFIX == 1
             if (cmp) {
                 *t++ = (cmp << 3) | (cmp > 31 ? 0x05 : 0x01);
@@ -663,15 +704,9 @@ public:
                     util::set_int(t, ptr);
                 t += 2;
             }
-            if (t - child_ins_pos != need_count)
-                cout << "MISMATCH NEED_COUNT: " << key << " " << cmp << " " << (t - child_ins_pos) << " " << (int) need_count << endl;
-            // int child_ins_len = t - trie + get_trie_len();
-            // if (child_ins_pos != trie + get_trie_len()) {
-            //     memmove(child_ins_pos, trie + get_trie_len(), child_ins_len);
-            //     update_ptrs(orig_pos, child_ins_len);
-            // }
-            // set_trie_len(t - trie);
-            // remote thread chars from data area
+            // if (t - child_ins_pos != need_count)
+            //     cout << "MISMATCH NEED_COUNT: " << key << " " << cmp << " " << (t - child_ins_pos) << " " << (int) need_count << endl;
+            set_trie_len(t - trie);
             int diff = p - key_pos;
             key_pos = p + (p < key_len ? 1 : 0);
             if (diff < key_at_len)

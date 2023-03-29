@@ -787,6 +787,7 @@ protected:
     bpt_trie_handler<T>(uint32_t block_sz, uint8_t *block, bool is_leaf) :
        bplus_tree_handler<T>(block_sz, block, is_leaf) {
         init_stats();
+        descendant->set_current_block(block);
     }
 
     void init_stats() {
