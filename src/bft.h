@@ -7,8 +7,6 @@
 #endif
 #include "bplus_tree_handler.h"
 
-using namespace std;
-
 #define BFT_UNIT_SIZE 4
 
 #define BFT_HDR_SIZE 9

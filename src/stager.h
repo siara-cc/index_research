@@ -20,8 +20,8 @@
 #define BUCKET_COUNT 2
 
 //typedef vector<basix *> cache_more;
-typedef vector<sqlite *> cache_more;
-typedef vector<bloom_filter *> cache_more_bf;
+typedef std::vector<sqlite *> cache_more;
+typedef std::vector<bloom_filter *> cache_more_bf;
 
 class stager {
     protected:
@@ -43,9 +43,9 @@ class stager {
       int cache2_size;
       int cache_more_size;
       long idx1_count_limit_mil;
-      string idx1_name;
-      string bf_idx1_name;
-      string bf_idx2_name;
+      std::string idx1_name;
+      std::string bf_idx1_name;
+      std::string bf_idx2_name;
       bool use_bloom;
 
       int *flush_counts;
@@ -106,8 +106,8 @@ class stager {
                 }
                 more_count++;
             }
-            cout << "Stg buf: " << cache0_size << "mb, Idx1 buf: " << cache1_size << "mb, Idx1+ buf: " << cache_more_size << "mb" << endl;
-            cout << "Idx1 entry count limit: " << idx1_count_limit_mil << " million";
+            std::cout << "Stg buf: " << cache0_size << "mb, Idx1 buf: " << cache1_size << "mb, Idx1+ buf: " << cache_more_size << "mb" << std::endl;
+            std::cout << "Idx1 entry count limit: " << idx1_count_limit_mil << " million";
 #if BUCKET_COUNT == 2
             char fname2[strlen(fname) + 5];
             strcpy(fname2, fname);
@@ -123,7 +123,7 @@ class stager {
             }
             cache2_size = (cache_size_mb > 0xFFFFFFF ? (cache_size_mb >> 28) & 0x0F : (cache_size_mb & 0xFF)) * 16;
             cache2_size *= 1024;
-            cout << ", Idx2 buf: " << cache2_size << "mb" << endl;
+            std::cout << ", Idx2 buf: " << cache2_size << "mb" << std::endl;
             //idx2 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
             idx2 = new sqlite(2, 1, "key, value", "imain", BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache2_size, fname2);
 #else
@@ -189,10 +189,10 @@ class stager {
                 char bf_new_name[bf_idx1_name.length() + 10];
                 sprintf(bf_new_name, "%s.%lu.blm", idx1_name.c_str(), idx1_more.size() + 1);
                 if (rename(idx1_name.c_str(), new_name))
-                    cout << "Error renaming file from: " << idx1_name << " to: " << new_name << endl;
+                    std::cout << "Error renaming file from: " << idx1_name << " to: " << new_name << std::endl;
                 else {
                     if (use_bloom && rename(bf_idx1_name.c_str(), bf_new_name))
-                        cout << "Error renaming file from: " << bf_idx1_name << " to: " << bf_new_name << endl;
+                        std::cout << "Error renaming file from: " << bf_idx1_name << " to: " << bf_new_name << std::endl;
                     else {
                         //idx1_more.insert(idx1_more.begin(), new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache_more_size, new_name));
                         //idx1 = new basix(BUCKET_BLOCK_SIZE, BUCKET_BLOCK_SIZE, cache1_size, idx1_name.c_str());
@@ -262,32 +262,32 @@ class stager {
                 //for (int i = 0; i < cache0_page_count; i++)
                 //    printf("%2x", flush_counts[i]);
                 //cout << endl;
-                cout << "Idx1+ lookups: ";
-                cout << idx_more_lookup_counts[0] << " ";
+                std::cout << "Idx1+ lookups: ";
+                std::cout << idx_more_lookup_counts[0] << " ";
                 if (BUCKET_COUNT == 2)
-                    cout << idx_more_lookup_counts[1] << " ";
+                    std::cout << idx_more_lookup_counts[1] << " ";
                 for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
-                    cout << idx_more_lookup_counts[it - idx1_more.begin() + BUCKET_COUNT] << " ";
+                    std::cout << idx_more_lookup_counts[it - idx1_more.begin() + BUCKET_COUNT] << " ";
                 }
-                cout << endl;
+                std::cout << std::endl;
                 if (use_bloom) {
-                    cout << "Idx1+ positiv: ";
-                    cout << idx_more_pve_counts[0] << " ";
+                    std::cout << "Idx1+ positiv: ";
+                    std::cout << idx_more_pve_counts[0] << " ";
                     if (BUCKET_COUNT == 2)
-                        cout << idx_more_pve_counts[1] << " ";
+                        std::cout << idx_more_pve_counts[1] << " ";
                     for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
-                        cout << idx_more_pve_counts[it - idx1_more.begin() + BUCKET_COUNT] << " ";
+                        std::cout << idx_more_pve_counts[it - idx1_more.begin() + BUCKET_COUNT] << " ";
                     }
-                    cout << endl;
+                    std::cout << std::endl;
                 }
-                cout << "Idx1+ found  : ";
-                cout << idx_more_found_counts[0] << " ";
+                std::cout << "Idx1+ found  : ";
+                std::cout << idx_more_found_counts[0] << " ";
                 if (BUCKET_COUNT == 2)
-                    cout << idx_more_found_counts[1] << " ";
+                    std::cout << idx_more_found_counts[1] << " ";
                 for (cache_more::iterator it = idx1_more.begin(); it != idx1_more.end(); it++) {
-                    cout << idx_more_found_counts[it - idx1_more.begin() + BUCKET_COUNT] << " ";
+                    std::cout << idx_more_found_counts[it - idx1_more.begin() + BUCKET_COUNT] << " ";
                 }
-                cout << endl;
+                std::cout << std::endl;
                 memset(flush_counts, '\0', sizeof(int) * cache0_page_count);
                 zero_count = cache0_page_count;
             }
@@ -311,10 +311,10 @@ class stager {
                         int v_len = idx0->current_block[src_idx + k_len + 1];
                         uint8_t *v = idx0->current_block + src_idx + k_len + 2;
                         if (v_len != value_len + 1)
-                            cout << "src_idx: " << src_idx << ", vlen: " << v_len << " ";
+                            std::cout << "src_idx: " << src_idx << ", vlen: " << v_len << " ";
                         int entry_count = v[v_len - 1];
                         if (v_len != value_len + 1) {
-                            cout << entry_count << endl;
+                            std::cout << entry_count << std::endl;
                             printf("k: %.*s, len: %d\n", k_len, k, k_len);
                         }
                         if (entry_count <= cur_count) {
@@ -437,7 +437,7 @@ class stager {
         }
         int get_max_key_len() {
 #if BUCKET_COUNT == 2
-            return max(max(idx0->get_max_key_len(), idx1->get_max_key_len()), idx2->get_max_key_len());
+            return std::max(std::max(idx0->get_max_key_len(), idx1->get_max_key_len()), idx2->get_max_key_len());
 #else
             return max(idx0->get_max_key_len(), idx1->get_max_key_len());
 #endif

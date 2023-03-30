@@ -23,8 +23,6 @@
 #define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "native-activity", __VA_ARGS__))
 #endif
 
-using namespace std;
-
 typedef unsigned char uint8_t;
 #define null 0
 
@@ -490,7 +488,7 @@ public:
 #elif defined(ANDROID) || defined(__ANDROID__)
         LOGI("%s", s);
 #else
-        cout << s;
+        std::cout << s;
 #endif
     }
 
@@ -500,7 +498,7 @@ public:
 #elif defined(ANDROID) || defined(__ANDROID__)
         LOGI("%ld", l);
 #else
-        cout << l;
+        std::cout << l;
 #endif
     }
 
@@ -510,7 +508,7 @@ public:
 #elif defined(ANDROID) || defined(__ANDROID__)
         LOGI("%d", i16);
 #else
-        cout << i16;
+        std::cout << i16;
 #endif
     }
 
@@ -520,7 +518,7 @@ public:
 #elif defined(ANDROID) || defined(__ANDROID__)
         LOGI("%d", l);
 #else
-        cout << (int) l;
+        std::cout << (int) l;
 #endif
     }
 
@@ -530,7 +528,7 @@ public:
 #elif defined(ANDROID) || defined(__ANDROID__)
         LOGI("%u", l);
 #else
-        cout << l;
+        std::cout << l;
 #endif
     }
 
@@ -540,7 +538,7 @@ public:
 #elif defined(ANDROID) || defined(__ANDROID__)
         LOGI("%lu", l);
 #else
-        cout << l;
+        std::cout << l;
 #endif
     }
 
@@ -550,7 +548,7 @@ public:
 #elif defined(ANDROID) || defined(__ANDROID__)
         LOGI("\n");
 #else
-        cout << std::endl;
+        std::cout << std::endl;
 #endif
     }
 

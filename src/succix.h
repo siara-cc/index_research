@@ -10,8 +10,6 @@
 #define SCX_NODE_COUNT_P current_block + 5
 #define SCX_PTR_COUNT_P current_block + 7
 
-using namespace std;
-
 #define HAS_CHILD_MASK 0x01
 #define IS_LEAF_MASK 0x02
 #define CHILD_LEAF_MASK 0x03

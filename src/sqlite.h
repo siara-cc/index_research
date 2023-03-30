@@ -672,7 +672,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
                 int hdr_len = util::read_vint32(key_at, &vlen);
                 uint8_t *raw_key_at = key_at + hdr_len;
                 if (memcmp(raw_key_at, key, key_len) != 0)
-                    cout << "Key not matching for update: " << key << ", len: " << key_len << endl;
+                    std::cout << "Key not matching for update: " << key << ", len: " << key_len << std::endl;
                 raw_key_at += key_len;
                 if (hdr_len + key_len + value_len == key_at_len && key_at_len <= X)
                     memcpy(raw_key_at, value, value_len);
@@ -1205,7 +1205,7 @@ class sqlite : public bplus_tree_handler<sqlite> {
             }
         }
 
-        void append(string key, string val) {
+        void append(std::string key, std::string val) {
             
         }
 

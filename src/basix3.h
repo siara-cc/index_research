@@ -7,8 +7,6 @@
 #endif
 #include "bplus_tree_handler.h"
 
-using namespace std;
-
 #define BASIX3_HDR_SIZE 7
 
 #define MAX_KEY_LEN current_block[6]
@@ -85,7 +83,7 @@ public:
         }
         const uint32_t data_size = block_size - get_kv_last_pos();
         if (data_size < 3) {
-            cout << "data size 0" << endl;
+            std::cout << "data size 0" << std::endl;
             return;
         }
         uint8_t *data_buf = (uint8_t *) malloc(data_size);

@@ -7,8 +7,6 @@
 #endif
 #include "bplus_tree_handler.h"
 
-using namespace std;
-
 #define DS_SIBLING_PTR_SIZE 2
 #define DS_MIDDLE_PREFIX 1
 #define DFOS_HDR_SIZE 9

@@ -7,8 +7,6 @@
 #endif
 #include "bplus_tree_handler.h"
 
-using namespace std;
-
 #if BPT_9_BIT_PTR == 1
 #define DQ_MAX_PTR_BITMAP_BYTES 8
 #define DQ_MAX_PTRS 63

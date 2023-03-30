@@ -7,8 +7,6 @@
 #endif
 #include "bplus_tree_handler.h"
 
-using namespace std;
-
 #if BPT_9_BIT_PTR == 1
 #define BLK_HDR_SIZE 14
 #define BITMAP_POS 6
@@ -112,7 +110,7 @@ public:
         int lvl = current_block[0] & 0x1F;
         const int data_size = block_size - get_kv_last_pos();
         if (data_size < 3) {
-            cout << "data size 0" << endl;
+            std::cout << "data size 0" << std::endl;
             return;
         }
         uint8_t *data_buf = (uint8_t *) malloc(data_size);
@@ -169,7 +167,7 @@ public:
         int count = 0;
         int less_count = 0;
         int demoted_count = 0;
-        cout << "Start: " << current_page << ": " << endl;
+        std::cout << "Start: " << current_page << ": " << std::endl;
         for (int pos = 0; pos < filled_sz; pos++) {
             int src_idx = get_ptr(pos);
             uint8_t *kv = current_block + src_idx;
@@ -195,9 +193,9 @@ public:
                 kv += *kv;
                 kv++;
                 kv += *kv;
-                cout << (int) *kv << " ";
+                std::cout << (int) *kv << " ";
             }
-            cout << endl;
+            std::cout << std::endl;
         //cout << endl;
         if (total == 0)
             total = 1;
@@ -229,8 +227,8 @@ public:
             }
             cout << endl;*/
         } else {
-            cout << "Less count: " << less_count << ", tot: " << filled_sz << ", mean: " << mean
-                 << ", dcount: " << demoted_count << ", lvl: " << (int) (current_block[0] & 0x1F) << endl;
+            std::cout << "Less count: " << less_count << ", tot: " << filled_sz << ", mean: " << mean
+                 << ", dcount: " << demoted_count << ", lvl: " << (int) (current_block[0] & 0x1F) << std::endl;
         }
     }
 
@@ -238,7 +236,7 @@ public:
         if (search_result < 0)
             search_result = ~search_result;
         if (search_result == 0) {
-            cout << "New split block can never be at pos 0" << endl;
+            std::cout << "New split block can never be at pos 0" << std::endl;
             return NULL;
         }
         int ptr_pos = get_ptr(search_result - 1);

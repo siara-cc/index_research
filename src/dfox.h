@@ -7,8 +7,6 @@
 #endif
 #include "bplus_tree_handler.h"
 
-using namespace std;
-
 #define DX_MIDDLE_PREFIX 1
 
 #define DFOX_HDR_SIZE 9

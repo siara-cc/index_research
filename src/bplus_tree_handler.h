@@ -543,7 +543,7 @@ public:
                 memcpy((uint8_t *) value_at + 1, this->value, this->value_len);
             descendant->set_changed(1);
         } else {
-            cout << "search_result >=0 for parent" << endl;
+            std::cout << "search_result >=0 for parent" << std::endl;
         }
     }
 

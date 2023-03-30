@@ -6,8 +6,6 @@
 #include "gen_tree.h"
 #include "bplus_tree_handler.h"
 
-using namespace std;
-
 #if RB_TREE_NODE_SIZE == 512
 #define RB_TREE_HDR_SIZE 7
 #define DATA_END_POS 2

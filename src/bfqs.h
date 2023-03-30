@@ -13,8 +13,6 @@
 #endif
 #include "bplus_tree_handler.h"
 
-using namespace std;
-
 #if defined(ARDUINO)
 #define BIT_COUNT_LF_CH(x) pgm_read_byte_near(util::bit_count_lf_ch + (x))
 #else

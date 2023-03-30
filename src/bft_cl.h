@@ -7,8 +7,6 @@
 #endif
 #include "bplus_tree_handler.h"
 
-using namespace std;
-
 #define BFT_UNIT_SIZE 4
 
 #define BFT_HDR_SIZE 9
@@ -31,7 +29,7 @@ public:
             len[v_pos] = (*t >> 3);
             len_len[v_pos] = 1;
             if (*t++ & 0x04) {
-                len[v_pos] += ((((int)*t++) << 5) + 1);
+                len[v_pos] += (((int)*t++) << 5);
                 len_len[v_pos] = 2;
             }
     }
@@ -56,13 +54,13 @@ public:
         bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
         split_buf = (uint8_t *) util::aligned_alloc(leaf_block_size > parent_block_size ?
                 leaf_block_size : parent_block_size);
-        memcpy(need_counts, "\x00\x03\x03\x00\x03\x00\x00\x00\x00\x00", 10);
+        memcpy(need_counts, "\x00\x04\x04\x00\x04\x00\x08\x03\x00\x00", 10);
     }
 
     bft(uint32_t block_sz, uint8_t *block, bool is_leaf) :
       bpt_trie_handler<bft>(block_sz, block, is_leaf) {
         init_stats();
-        memcpy(need_counts, "\x00\x04\x04\x00\x03\x00\x00\x00\x00\x00", 10);
+        memcpy(need_counts, "\x00\x04\x04\x00\x04\x00\x08\x03\x00\x00", 10);
     }
 
     ~bft() {
@@ -143,11 +141,9 @@ public:
                     pfx_len = (*t >> 3);
                     if (*t++ & 0x04)
                         pfx_len += (((int) *t++) << 5);
-                    while (pfx_len && key_char == *t) {
+                    while (pfx_len && key_char == *t && key_pos < key_len) {
                         t++;
                         pfx_len--;
-                        if (key_pos == key_len)
-                            break;
                         key_char = key[key_pos++];
                     }
                     if (pfx_len) {
@@ -240,9 +236,7 @@ public:
                     int ptr = util::get_int(cur_loc);
                     if (ptr < s.trie_len) {
                         cur_loc += ptr;
-                        if (*cur_loc == 0x02)
-                            out_len--;
-                        else {
+                        if (*cur_loc != 0x02) {
                             s.v_pos++;
                             s.set_node(cur_loc);
                         }
@@ -346,7 +340,7 @@ public:
         if (search_result != INSERT_THREAD)
             need_count = need_counts[search_result];
         if (get_kv_last_pos() < (BFT_HDR_SIZE + get_trie_len()
-                + need_count + key_len - key_pos + value_len + 10)) {
+                + need_count + key_len - key_pos + value_len + 3)) {
             return true;
         }
         return false;
@@ -395,7 +389,7 @@ public:
             // }
             ins_block->key = ins_key;
             ins_block->key_len = ins_key_len;
-            //printf("Key: %d,%.*s, Value: %.*s\n", current_block[src_idx], ins_block->key_len, ins_block->key, ins_block->value_len, ins_block->value);
+            // printf("Key: %d,%.*s, Value: %.*s\n", current_block[src_idx], ins_block->key_len, ins_block->key, ins_block->value_len, ins_block->value);
             int search_result = 4;
             if (ins_block->filled_size() > 0)
                 search_result = ins_block->search_current_block();
@@ -403,13 +397,13 @@ public:
             if (brk_idx < 0) {
                 brk_idx = -brk_idx;
                 if (is_leaf()) {
-                    *first_len_ptr = ins_key_len;
-                    memcpy(first_key, ins_key, ins_key_len);
-                    // int cmp = util::compare(ins_key, ins_key_len, first_key, *first_len_ptr);
-                    // if (cmp < ins_key_len)
-                    //     cmp++;
-                    // *first_len_ptr = cmp;
-                    // memcpy(first_key, ins_key, *first_len_ptr);
+                    // *first_len_ptr = ins_key_len;
+                    // memcpy(first_key, ins_key, ins_key_len);
+                    int cmp = util::compare(ins_key, ins_key_len, first_key, *first_len_ptr);
+                    if (cmp < ins_key_len)
+                        cmp++;
+                    *first_len_ptr = cmp;
+                    memcpy(first_key, ins_key, *first_len_ptr);
                 } else {
                     *first_len_ptr = ins_key_len;
                     memcpy(first_key, ins_key, ins_key_len);
@@ -618,7 +612,7 @@ public:
 #if BFT_MIDDLE_PREFIX == 1
             need_count += (cmp + (cmp ? 1 : 0) + 7);
 #endif
-/*
+
             uint8_t *child_ins_pos = find_child_pos_to_be(sib_len, len);
             // uint8_t *child_ins_pos = orig_pos + len + (sib_len * 3);
             if (child_ins_pos != trie + get_trie_len()) {
@@ -630,9 +624,9 @@ public:
             util::set_int(t, child_ins_pos - t);
             //util::set_int(t, get_trie_len() - (t - trie));
             t = child_ins_pos;
-*/
-            util::set_int(t, get_trie_len() - (t - trie));
-            t = trie + get_trie_len();
+
+            // util::set_int(t, get_trie_len() - (t - trie));
+            // t = trie + get_trie_len();
 #if BFT_MIDDLE_PREFIX == 1
             if (cmp) {
                 *t++ = (cmp << 3) | (cmp > 31 ? 0x05 : 0x01);
@@ -704,9 +698,9 @@ public:
                     util::set_int(t, ptr);
                 t += 2;
             }
-            // if (t - child_ins_pos != need_count)
-            //     cout << "MISMATCH NEED_COUNT: " << key << " " << cmp << " " << (t - child_ins_pos) << " " << (int) need_count << endl;
-            set_trie_len(t - trie);
+            if (t - child_ins_pos != need_count)
+                std::cout << "MISMATCH NEED_COUNT: " << key << " " << cmp << " " << (t - child_ins_pos) << " " << (int) need_count << std::endl;
+            // set_trie_len(t - trie);
             int diff = p - key_pos;
             key_pos = p + (p < key_len ? 1 : 0);
             if (diff < key_at_len)
@@ -731,27 +725,28 @@ public:
             diff = trie_pos - t;
             int sw = (pfx_len == 1 ? 0 : (diff == 0 ? 1 : (diff == (pfx_len - 1) ? 2 : 3)));
             int to_ins;
-            if (key_pos == key_len && c1 == c2) {
-                to_ins = (sw == 0 ? 1 : (sw == 3 ? 3 : 2));
-                if (sw == 1 || sw == 3) {
-                    trie_pos++;
-                    to_ins++;
-                }
-                if (sw == 2 || sw == 3) {
-                    if (change_len(orig_pos, len_of_len, diff - pfx_len + 1))
-                        trie_pos++;
-                }
-            } else {
+            // if (key_pos == key_len && c1 == c2) {
                 to_ins = (sw == 0 ? 5 : (sw == 3 ? 7 : 6));
+                //std::cout << "IC: " << sw << " " << to_ins << std::endl;
                 if (sw == 2 || sw == 3) {
                     if (change_len(orig_pos, len_of_len, diff - pfx_len))
                         trie_pos++;
                 }
-            }
+            // } else {
+            //     to_ins = (sw == 0 ? 5 : (sw == 3 ? 7 : 6));
+            //     if (sw == 2 || sw == 3) {
+            //         if (change_len(orig_pos, len_of_len, diff - pfx_len))
+            //             trie_pos++;
+            //     }
+            // }
             ins_bytes(trie_pos, to_ins);
             update_ptrs(orig_pos + 1, to_ins);
             t = (sw == 0 || sw == 1 ? orig_pos : trie_pos);
             if (key_pos == key_len && c1 == c2) {
+                *t++ = 0x08;
+                *t++ = c1;
+                util::set_int(t, 2);
+                t += 2;
                 *t++ = 0x02;
                 ret = t - trie;
                 t += 2;
@@ -767,7 +762,7 @@ public:
             }
             if (sw == 1 || sw == 3) {
                 *t = 0x01;
-                set_pfx_len(t, pfx_len - diff - 1);
+                change_len(t, len, pfx_len - diff - 1);
             }
             break; }
 #endif

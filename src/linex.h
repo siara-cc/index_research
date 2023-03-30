@@ -7,8 +7,6 @@
 #endif
 #include "bplus_tree_handler.h"
 
-using namespace std;
-
 #define LX_BLK_HDR_SIZE 6
 #define LX_PREFIX_CODING 1
 #define LX_DATA_AREA 0
