@@ -471,7 +471,7 @@ public:
                     current_page = ctx->pages[prev_level].page;
                     uint8_t *parent_data = cache_size > 0 ? cache->get_disk_page_in_cache(current_page) : ctx->pages[prev_level].ptr;
                     descendant->set_current_block(parent_data);
-                    uint8_t addr[9];
+                    uint8_t addr[15];
                     search_result = descendant->prepare_kv_to_add_to_parent(first_key, first_len, 
                                         cache_size > 0 ? (unsigned long) new_page : (unsigned long) new_block, addr);
                     recursive_update(search_result, ctx, prev_level);
@@ -487,7 +487,7 @@ public:
 
     void add_first_kv_to_root(uint8_t *first_key, int first_len, 
             unsigned long old_block_addr, unsigned long new_block_addr) {
-        uint8_t addr[9];
+        uint8_t addr[15];
         key = (uint8_t *) "";
         key_len = 1;
         value = (uint8_t *) addr;

@@ -402,6 +402,8 @@ public:
                     int cmp = util::compare(ins_key, ins_key_len, first_key, *first_len_ptr);
                     if (cmp < ins_key_len)
                         cmp++;
+                    if (cmp < ins_key_len)
+                        cmp++;
                     *first_len_ptr = cmp;
                     memcpy(first_key, ins_key, *first_len_ptr);
                 } else {
