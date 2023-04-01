@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 #include <assert.h>
 #include "art.h"
@@ -92,8 +93,8 @@ static void destroy_node(art_node *n) {
         case NODE48:
             p.p3 = (art_node48*)n;
             for (i=0;i<256;i++) {
-                idx = ((art_node48*)n)->keys[i];
-                if (!idx) continue;
+                idx = ((art_node48*)n)->keys[i]; 
+                if (!idx) continue; 
                 destroy_node(p.p3->children[idx-1]);
             }
             break;
@@ -143,9 +144,9 @@ static art_node** find_child(art_node *n, unsigned char c) {
         case NODE4:
             p.p1 = (art_node4*)n;
             for (i=0 ; i < n->num_children; i++) {
-        /* this cast works around a bug in gcc 5.1 when unrolling loops
-         * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=59124
-         */
+		/* this cast works around a bug in gcc 5.1 when unrolling loops
+		 * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=59124
+		 */
                 if (((unsigned char*)p.p1->keys)[i] == c)
                     return &p.p1->children[i];
             }
@@ -161,17 +162,10 @@ static art_node** find_child(art_node *n, unsigned char c) {
                 __m128i cmp;
                 cmp = _mm_cmpeq_epi8(_mm_set1_epi8(c),
                         _mm_loadu_si128((__m128i*)p.p2->keys));
-
+                
                 // Use a mask to ignore children that don't exist
                 mask = (1 << n->num_children) - 1;
                 bitfield = _mm_movemask_epi8(cmp) & mask;
-                /*
-                 * If we have a match (any bit set) then we can
-                 * return the pointer match using ctz to get
-                 * the index.
-                 */
-                if (bitfield)
-                    return &p.p2->children[__builtin_ctz(bitfield)];
             #else
             #ifdef __amd64__
                 // Compare the key to all 16 stored keys
@@ -182,22 +176,27 @@ static art_node** find_child(art_node *n, unsigned char c) {
                 // Use a mask to ignore children that don't exist
                 mask = (1 << n->num_children) - 1;
                 bitfield = _mm_movemask_epi8(cmp) & mask;
-
-                /*
-                 * If we have a match (any bit set) then we can
-                 * return the pointer match using ctz to get
-                 * the index.
-                 */
-                if (bitfield)
-                    return &p.p2->children[__builtin_ctz(bitfield)];
             #else
-                p.p2 = (art_node16*)n;
-                for (i=0;i < n->num_children; i++) {
+                // Compare the key to all 16 stored keys
+                bitfield = 0;
+                for (i = 0; i < 16; ++i) {
                     if (p.p2->keys[i] == c)
-                        return &p.p2->children[i];
+                        bitfield |= (1 << i);
                 }
+
+                // Use a mask to ignore children that don't exist
+                mask = (1 << n->num_children) - 1;
+                bitfield &= mask;
             #endif
             #endif
+
+            /*
+             * If we have a match (any bit set) then we can
+             * return the pointer match using ctz to get
+             * the index.
+             */
+            if (bitfield)
+                return &p.p2->children[__builtin_ctz(bitfield)];
             break;
         }
 
@@ -260,7 +259,7 @@ static int leaf_matches(const art_leaf *n, const unsigned char *key, int key_len
  * @return NULL if the item was not found, otherwise
  * the value pointer is returned.
  */
-void* art_search(const art_tree *t, const unsigned char *key, int key_len, int *pvalue_len) {
+void* art_search(const art_tree *t, const unsigned char *key, int key_len) {
     art_node **child;
     art_node *n = t->root;
     int prefix_len, depth = 0;
@@ -270,9 +269,7 @@ void* art_search(const art_tree *t, const unsigned char *key, int key_len, int *
             n = (art_node*)LEAF_RAW(n);
             // Check if the expanded path matches
             if (!leaf_matches((art_leaf*)n, key, key_len, depth)) {
-                art_leaf *l = (art_leaf*) n;
-                *pvalue_len = l->value_len;
-                return l->value;
+                return ((art_leaf*)n)->value;
             }
             return NULL;
         }
@@ -359,13 +356,11 @@ art_leaf* art_maximum(art_tree *t) {
     return maximum((art_node*)t->root);
 }
 
-static art_leaf* make_leaf(const unsigned char *key, int key_len, void *value, int value_len) {
-    art_leaf *l = (art_leaf*)malloc(sizeof(art_leaf)+key_len+value_len);
+static art_leaf* make_leaf(const unsigned char *key, int key_len, void *value) {
+    art_leaf *l = (art_leaf*)calloc(1, sizeof(art_leaf)+key_len);
+    l->value = value;
     l->key_len = key_len;
     memcpy(l->key, key, key_len);
-    l->value = l->key + key_len;
-    memcpy(l->value, value, value_len);
-    l->value_len = value_len;
     return l;
 }
 
@@ -415,8 +410,7 @@ static void add_child48(art_node48 *n, art_node **ref, unsigned char c, void *ch
 static void add_child16(art_node16 *n, art_node **ref, unsigned char c, void *child) {
     if (n->n.num_children < 16) {
         unsigned mask = (1 << n->n.num_children) - 1;
-
-        unsigned idx;
+        
         // support non-x86 architectures
         #ifdef __i386__
             __m128i cmp;
@@ -427,8 +421,6 @@ static void add_child16(art_node16 *n, art_node **ref, unsigned char c, void *ch
 
             // Use a mask to ignore children that don't exist
             unsigned bitfield = _mm_movemask_epi8(cmp) & mask;
-            if (bitfield)
-                idx = __builtin_ctz(bitfield);
         #else
         #ifdef __amd64__
             __m128i cmp;
@@ -439,22 +431,23 @@ static void add_child16(art_node16 *n, art_node **ref, unsigned char c, void *ch
 
             // Use a mask to ignore children that don't exist
             unsigned bitfield = _mm_movemask_epi8(cmp) & mask;
-            if (bitfield)
-                idx = __builtin_ctz(bitfield);
         #else
+            // Compare the key to all 16 stored keys
             unsigned bitfield = 0;
-            for (int i=0;i < n->n.num_children; i++) {
-                if (n->keys[i] == c) {
-                    idx = i;
-                    bitfield = 1;
-                    break;
-                }
+            for (short i = 0; i < 16; ++i) {
+                if (c < n->keys[i])
+                    bitfield |= (1 << i);
             }
+
+            // Use a mask to ignore children that don't exist
+            bitfield &= mask;    
         #endif
         #endif
 
         // Check if less than any
+        unsigned idx;
         if (bitfield) {
+            idx = __builtin_ctz(bitfield);
             memmove(n->keys+idx+1,n->keys+idx,n->n.num_children-idx);
             memmove(n->children+idx+1,n->children+idx,
                     (n->n.num_children-idx)*sizeof(void*));
@@ -553,10 +546,10 @@ static int prefix_mismatch(const art_node *n, const unsigned char *key, int key_
     return idx;
 }
 
-static void* recursive_insert(art_node *n, art_node **ref, const unsigned char *key, int key_len, void *value, int value_len, int depth, int *old) {
+static void* recursive_insert(art_node *n, art_node **ref, const unsigned char *key, int key_len, void *value, int depth, int *old, int replace) {
     // If we are at a NULL node, inject a leaf
     if (!n) {
-        *ref = (art_node*)SET_LEAF(make_leaf(key, key_len, value, value_len));
+        *ref = (art_node*)SET_LEAF(make_leaf(key, key_len, value));
         return NULL;
     }
 
@@ -568,7 +561,7 @@ static void* recursive_insert(art_node *n, art_node **ref, const unsigned char *
         if (!leaf_matches(l, key, key_len, depth)) {
             *old = 1;
             void *old_val = l->value;
-            l->value = value;
+            if(replace) l->value = value;
             return old_val;
         }
 
@@ -576,7 +569,7 @@ static void* recursive_insert(art_node *n, art_node **ref, const unsigned char *
         art_node4 *new_node = (art_node4*)alloc_node(NODE4);
 
         // Create a new leaf
-        art_leaf *l2 = make_leaf(key, key_len, value, value_len);
+        art_leaf *l2 = make_leaf(key, key_len, value);
 
         // Determine longest prefix
         int longest_prefix = longest_common_prefix(l, l2, depth);
@@ -619,7 +612,7 @@ static void* recursive_insert(art_node *n, art_node **ref, const unsigned char *
         }
 
         // Insert the new leaf
-        art_leaf *l = make_leaf(key, key_len, value, value_len);
+        art_leaf *l = make_leaf(key, key_len, value);
         add_child4(new_node, ref, key[depth+prefix_diff], SET_LEAF(l));
         return NULL;
     }
@@ -629,27 +622,43 @@ RECURSE_SEARCH:;
     // Find a child to recurse to
     art_node **child = find_child(n, key[depth]);
     if (child) {
-        return recursive_insert(*child, child, key, key_len, value, value_len, depth+1, old);
+        return recursive_insert(*child, child, key, key_len, value, depth+1, old, replace);
     }
 
     // No child, node goes within us
-    art_leaf *l = make_leaf(key, key_len, value, value_len);
+    art_leaf *l = make_leaf(key, key_len, value);
     add_child(n, ref, key[depth], SET_LEAF(l));
     return NULL;
 }
 
 /**
- * Inserts a new value into the ART tree
- * @arg t The tree
- * @arg key The key
- * @arg key_len The length of the key
- * @arg value Opaque value.
- * @return NULL if the item was newly inserted, otherwise
+ * inserts a new value into the art tree
+ * @arg t the tree
+ * @arg key the key
+ * @arg key_len the length of the key
+ * @arg value opaque value.
+ * @return null if the item was newly inserted, otherwise
  * the old value pointer is returned.
  */
-void* art_insert(art_tree *t, const unsigned char *key, int key_len, void *value, int value_len) {
+void* art_insert(art_tree *t, const unsigned char *key, int key_len, void *value) {
     int old_val = 0;
-    void *old = recursive_insert(t->root, &t->root, key, key_len, value, value_len, 0, &old_val);
+    void *old = recursive_insert(t->root, &t->root, key, key_len, value, 0, &old_val, 1);
+    if (!old_val) t->size++;
+    return old;
+}
+
+/**
+ * inserts a new value into the art tree (no replace)
+ * @arg t the tree
+ * @arg key the key
+ * @arg key_len the length of the key
+ * @arg value opaque value.
+ * @return null if the item was newly inserted, otherwise
+ * the old value pointer is returned.
+ */
+void* art_insert_no_replace(art_tree *t, const unsigned char *key, int key_len, void *value) {
+    int old_val = 0;
+    void *old = recursive_insert(t->root, &t->root, key, key_len, value, 0, &old_val, 0);
     if (!old_val) t->size++;
     return old;
 }

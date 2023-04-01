@@ -5,6 +5,7 @@
 #include <cmath>
 #include <string>
 #include <vector>
+#include <set>
 #include <map>
 #include "univix_util.h"
 #include "art.h"
@@ -190,6 +191,7 @@ int64_t load_file(unordered_map<string, string>& m, uint8_t *data_buf) {
     char *buf;
     int ctr = 0;
     int64_t ret = 0;
+    set<string> keyset;
     fp = fopen(IMPORT_FILE, "r");
     if (fp == NULL)
         perror("Error opening file");
@@ -204,43 +206,47 @@ int64_t load_file(unordered_map<string, string>& m, uint8_t *data_buf) {
             ctr = 0;
             int len = strlen(key);
             if (len > 0 && len <= KEY_LEN) {
-                //if (m[key].length() > 0)
-                //    cout << key << ":" << value << endl;
-                if (buf == value) {
-                    if (USE_HASHTABLE)
-                        m.insert(pair<string, string>(key, value));
-                    else {
-                        ret += write_vint32(data_buf + ret, len);
-                        memcpy(data_buf + ret, key, len);
-                        ret += len;
-                        data_buf[ret++] = 0;
-                        len = strlen(value);
-                        ret += write_vint32(data_buf + ret, len);
-                        memcpy(data_buf + ret, value, len);
-                        ret += len;
+                if (keyset.find(string(key)) == keyset.end()) {
+                    keyset.insert(string(key));
+                    //if (m[key].length() > 0)
+                    //    cout << key << ":" << value << endl;
+                    if (buf == value) {
+                        if (USE_HASHTABLE)
+                            m.insert(pair<string, string>(key, value));
+                        else {
+                            ret += write_vint32(data_buf + ret, len);
+                            memcpy(data_buf + ret, key, len);
+                            ret += len;
+                            data_buf[ret++] = 0;
+                            len = strlen(value);
+                            ret += write_vint32(data_buf + ret, len);
+                            memcpy(data_buf + ret, value, len);
+                            ret += len;
+                            data_buf[ret++] = 0;
+                        }
+                    } else {
+                        sprintf(value, "%ld", NUM_ENTRIES);
+                        //util::ptr_toBytes(NUM_ENTRIES, (uint8_t *) value);
+                        //value[4] = 0;
+                        if (USE_HASHTABLE)
+                            m.insert(pair<string, string>(key, value));
+                        else {
+                            ret += write_vint32(data_buf + ret, len);
+                            memcpy(data_buf + ret, key, len);
+                            ret += len;
+                            data_buf[ret++] = 0;
+                            len = strlen(value);
+                            ret += write_vint32(data_buf + ret, len);
+                            memcpy(data_buf + ret, value, len);
+                            ret += len;
+                            data_buf[ret++] = 0;
+                        }
                     }
-                } else {
-                    sprintf(value, "%ld", NUM_ENTRIES);
-                    //util::ptr_toBytes(NUM_ENTRIES, (uint8_t *) value);
-                    //value[4] = 0;
-                    if (USE_HASHTABLE)
-                        m.insert(pair<string, string>(key, value));
-                    else {
-                        ret += write_vint32(data_buf + ret, len);
-                        memcpy(data_buf + ret, key, len);
-                        ret += len;
-                        data_buf[ret++] = 0;
-                        len = strlen(value);
-                        ret += write_vint32(data_buf + ret, len);
-                        memcpy(data_buf + ret, value, len);
-                        ret += len;
-                        data_buf[ret++] = 0;
-                    }
+                    if (NUM_ENTRIES % 100000 == 0)
+                        cout << "Key:'" << key << "'" << "\t" << "Value:'" << value
+                                << "'" << endl;
+                    NUM_ENTRIES++;
                 }
-                if (NUM_ENTRIES % 100000 == 0)
-                    cout << "Key:'" << key << "'" << "\t" << "Value:'" << value
-                            << "'" << endl;
-                NUM_ENTRIES++;
             }
             key[0] = 0;
             value[0] = 0;
@@ -263,6 +269,7 @@ int64_t load_file(unordered_map<string, string>& m, uint8_t *data_buf) {
             ret += write_vint32(data_buf + ret, len);
             memcpy(data_buf + ret, value, len);
             ret += len;
+            data_buf[ret++] = 0;
         }
         NUM_ENTRIES++;
     }
@@ -1285,12 +1292,12 @@ int main4() {
 int main6() {
     art_tree at;
     art_tree_init(&at);
-    art_insert(&at, (const uint8_t *) "arun", 5, (void *) "Hello", 5);
-    art_insert(&at, (const uint8_t *) "aruna", 6, (void *) "World", 5);
+    art_insert(&at, (const uint8_t *) "arun", 5, (void *) "Hello");
+    art_insert(&at, (const uint8_t *) "aruna", 6, (void *) "World");
     //art_insert(&at, (const uint8_t *) "absorb", 6, (void *) "ART", 5);
     int len;
-    cout << (char*) art_search(&at, (uint8_t *) "arun", 5, &len) << endl;
-    cout << (char*) art_search(&at, (uint8_t *) "aruna", 6, &len) << endl;
+    cout << (char*) art_search(&at, (uint8_t *) "arun", 5) << endl;
+    cout << (char*) art_search(&at, (uint8_t *) "aruna", 6) << endl;
     //art_search(&at, (uint8_t *) "absorb", 6, &len);
     return 1;
 }
@@ -1741,8 +1748,7 @@ int main(int argc, char *argv[]) {
         for (; it1 != m.end(); ++it1) {
             //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
             art_insert(&at, (unsigned char*) it1->first.c_str(),
-                    it1->first.length(), (void *) it1->second.c_str(),
-                    it1->second.length());
+                    it1->first.length(), (void *) it1->second.c_str());
             ctr++;
         }
     } else {
@@ -1751,7 +1757,7 @@ int main(int argc, char *argv[]) {
             uint32_t key_len = read_vint32(data_buf + pos, &vlen);
             pos += vlen;
             uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
-            art_insert(&at, data_buf + pos, key_len, data_buf + pos + key_len + vlen + 1, value_len);
+            art_insert(&at, data_buf + pos, key_len, data_buf + pos + key_len + vlen + 1);
             pos += key_len + value_len + vlen + 1;
             ctr++;
         }
@@ -1779,13 +1785,13 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
-    dfox *lx;
+    basix *lx;
     if (TEST_IDX1)
     {
     ctr = 0;
     
     //lx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
-    //lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new stager(OUT_FILE1, CACHE_SIZE); // not working
     //lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
@@ -1794,7 +1800,7 @@ int main(int argc, char *argv[]) {
     // lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    lx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //lx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new rb_tree(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);  // not working
     it1 = m.begin();
@@ -1878,10 +1884,9 @@ int main(int argc, char *argv[]) {
         for (; it1 != m.end(); ++it1) {
             int len;
             char *value = (char *) art_search(&at,
-                    (unsigned char*) it1->first.c_str(), it1->first.length(),
-                    &len);
-            check_value(it1->first.c_str(), it1->first.length() + 1,
-                    it1->second.c_str(), it1->second.length(), value, len, null_ctr, cmp);
+                    (unsigned char*) it1->first.c_str(), it1->first.length());
+            check_value(it1->first.c_str(), it1->first.length(),
+                    it1->second.c_str(), it1->second.length(), value, it1->second.length(), null_ctr, cmp);
             ctr++;
         }
     } else {
@@ -1891,7 +1896,8 @@ int main(int argc, char *argv[]) {
             uint32_t key_len = read_vint32(data_buf + pos, &vlen);
             pos += vlen;
             uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
-            char *value = (char *) art_search(&at, data_buf + pos, key_len, &len);
+            char *value = (char *) art_search(&at, data_buf + pos, key_len);
+            len = strlen(value);
             check_value((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + vlen + 1, value_len, value, len, null_ctr, cmp);
             pos += key_len + value_len + vlen + 1;

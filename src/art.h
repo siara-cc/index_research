@@ -11,7 +11,7 @@ extern "C" {
 #define NODE48  3
 #define NODE256 4
 
-#define MAX_PREFIX_LEN 9
+#define MAX_PREFIX_LEN 10
 
 #if defined(__GNUC__) && !defined(__clang__)
 # if __STDC_VERSION__ >= 199901L && 402 == (__GNUC__ * 100 + __GNUC_MINOR__)
@@ -31,9 +31,9 @@ typedef int(*art_callback)(void *data, const unsigned char *key, uint32_t key_le
  * of all the various node sizes
  */
 typedef struct {
+    uint32_t partial_len;
     uint8_t type;
     uint8_t num_children;
-    uint32_t partial_len;
     unsigned char partial[MAX_PREFIX_LEN];
 } art_node;
 
@@ -79,7 +79,6 @@ typedef struct {
  */
 typedef struct {
     void *value;
-    uint32_t value_len;
     uint32_t key_len;
     unsigned char key[];
 } art_leaf;
@@ -130,15 +129,26 @@ inline uint64_t art_size(art_tree *t) {
 #endif
 
 /**
- * Inserts a new value into the ART tree
- * @arg t The tree
- * @arg key The key
- * @arg key_len The length of the key
- * @arg value Opaque value.
- * @return NULL if the item was newly inserted, otherwise
+ * inserts a new value into the art tree
+ * @arg t the tree
+ * @arg key the key
+ * @arg key_len the length of the key
+ * @arg value opaque value.
+ * @return null if the item was newly inserted, otherwise
  * the old value pointer is returned.
  */
-void* art_insert(art_tree *t, const unsigned char *key, int key_len, void *value, int value_len);
+void* art_insert(art_tree *t, const unsigned char *key, int key_len, void *value);
+
+/**
+ * inserts a new value into the art tree (not replacing)
+ * @arg t the tree
+ * @arg key the key
+ * @arg key_len the length of the key
+ * @arg value opaque value.
+ * @return null if the item was newly inserted, otherwise
+ * the old value pointer is returned.
+ */
+void* art_insert_no_replace(art_tree *t, const unsigned char *key, int key_len, void *value);
 
 /**
  * Deletes a value from the ART tree
@@ -158,7 +168,7 @@ void* art_delete(art_tree *t, const unsigned char *key, int key_len);
  * @return NULL if the item was not found, otherwise
  * the value pointer is returned.
  */
-void* art_search(const art_tree *t, const unsigned char *key, int key_len, int *pvalue_len);
+void* art_search(const art_tree *t, const unsigned char *key, int key_len);
 
 /**
  * Returns the minimum valued leaf
@@ -203,4 +213,3 @@ int art_iter_prefix(art_tree *t, const unsigned char *prefix, int prefix_len, ar
 #endif
 
 #endif
-
