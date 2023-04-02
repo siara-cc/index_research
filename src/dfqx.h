@@ -17,7 +17,7 @@
 #define DFQX_HDR_SIZE 9
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class dfqx: public bpt_trie_handler<dfqx> {
+class dfqx: public bpt_trie_handler {
 private:
     void init_consts() {
 
@@ -77,21 +77,23 @@ public:
     dfqx(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-                bpt_trie_handler<dfqx>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+                bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
         init_consts();
+        set_current_block_root();
     }
 
     dfqx(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-      bpt_trie_handler<dfqx>(block_sz, block, is_leaf) {
+      bpt_trie_handler(block_sz, block, is_leaf) {
         init_stats();
         init_consts();
+        set_current_block(block);
     }
 
-    inline void set_current_block_root() {
+    void set_current_block_root() {
         set_current_block(root_block);
     }
 
-    inline void set_current_block(uint8_t *m) {
+    void set_current_block(uint8_t *m) {
         current_block = m;
         trie = current_block + DFQX_HDR_SIZE;
 #if BPT_9_BIT_PTR == 1
@@ -106,7 +108,7 @@ public:
 
     //static uint8_t first_bit_offset4[16];
     //static uint8_t bit_count_16[16];
-    inline uint8_t *skip_children(uint8_t *t, int& count) {
+    uint8_t *skip_children(uint8_t *t, int& count) {
         while (count & xFF) {
             uint8_t tc = *t++;
             count -= tc & x01;
@@ -192,7 +194,7 @@ public:
         return -1; // dummy - will never reach here
     }
 
-    inline uint8_t *get_child_ptr_pos(int search_result) {
+    uint8_t *get_child_ptr_pos(int search_result) {
         if (search_result < 0) {
             search_result++;
             search_result = ~search_result;
@@ -200,11 +202,11 @@ public:
         return current_block + get_ptr(search_result);
     }
 
-    inline uint8_t *get_ptr_pos() {
+    uint8_t *get_ptr_pos() {
         return trie + get_trie_len();
     }
 
-    inline int get_header_size() {
+    int get_header_size() {
         return DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES;
     }
 
@@ -316,7 +318,7 @@ public:
         add_data(0);
     }
 
-    void add_data(int search_result) {
+    uint8_t *add_data(int search_result) {
 
         insert_current();
 
@@ -330,6 +332,8 @@ public:
         memcpy(current_block + kv_last_pos + key_left + 2, value, value_len);
 
         ins_ptr(search_result, kv_last_pos);
+
+        return NULL;
 
     }
 
@@ -471,7 +475,7 @@ public:
         }
     }
 
-    void insert_current() {
+    uint16_t insert_current() {
         uint8_t key_char;
         uint8_t mask;
 
@@ -600,6 +604,8 @@ public:
 
         if (BPT_MAX_KEY_LEN < key_len)
             BPT_MAX_KEY_LEN = key_len;
+
+        return 0;
 
     }
 

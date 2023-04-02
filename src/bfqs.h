@@ -25,7 +25,7 @@
 #define BFQS_HDR_SIZE 9
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class bfqs: public bpt_trie_handler<bfqs> {
+class bfqs: public bpt_trie_handler {
 public:
     uint8_t need_counts[10];
     uint8_t switch_map[8];
@@ -36,31 +36,31 @@ public:
     bfqs(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-                bpt_trie_handler<bfqs>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+                bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
         memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x06\x00\x00\x00", 10);
         memcpy(switch_map, "\x00\x01\x02\x03\x00\x01\x00\x01", 8);
         memcpy(shift_mask, "\x00\x00\x03\x03\x0F\x0F\x3F\x3F", 8);
     }
 
     bfqs(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-      bpt_trie_handler<bfqs>(block_sz, block, is_leaf) {
+      bpt_trie_handler(block_sz, block, is_leaf) {
         init_stats();
         memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x06\x00\x00\x00", 10);
         memcpy(switch_map, "\x00\x01\x02\x03\x00\x01\x00\x01", 8);
         memcpy(shift_mask, "\x00\x00\x03\x03\x0F\x0F\x3F\x3F", 8);
     }
 
-    inline void set_current_block_root() {
+    void set_current_block_root() {
         current_block = root_block;
         trie = current_block + BFQS_HDR_SIZE;
     }
 
-    inline void set_current_block(uint8_t *m) {
+    void set_current_block(uint8_t *m) {
         current_block = m;
         trie = current_block + BFQS_HDR_SIZE;
     }
 
-    inline uint8_t *get_last_ptr() {
+    uint8_t *get_last_ptr() {
         //key_pos = 0;
         while ((last_leaf_child & xAA) > (last_leaf_child & x55)) {
                 last_t += BIT_COUNT_LF_CH(last_leaf_child & xAA) + 1;
@@ -96,7 +96,7 @@ public:
         return 0;
     }
 
-    inline void set_prefix_last(uint8_t key_char, uint8_t *t, uint8_t pfx_rem_len) {
+    void set_prefix_last(uint8_t key_char, uint8_t *t, uint8_t pfx_rem_len) {
         if (key_char > *t) {
             t += pfx_rem_len;
             while (!(*t & x02))
@@ -234,15 +234,15 @@ public:
         return -1;
     }
 
-    inline uint8_t *get_child_ptr_pos(int search_result) {
+    uint8_t *get_child_ptr_pos(int search_result) {
         return last_t - current_block < get_kv_last_pos() ? get_last_ptr() : last_t;
     }
 
-    inline uint8_t *get_ptr_pos() {
+    uint8_t *get_ptr_pos() {
         return trie + get_trie_len();
     }
 
-    inline int get_header_size() {
+    int get_header_size() {
         return BFQS_HDR_SIZE;
     }
 
@@ -674,7 +674,7 @@ public:
         add_data(0);
     }
 
-    void add_data(int search_result) {
+    uint8_t *add_data(int search_result) {
 
         int ptr = insert_current();
 
@@ -688,6 +688,8 @@ public:
         current_block[kv_last_pos + key_left + 1] = value_len;
         memcpy(current_block + kv_last_pos + key_left + 2, value, value_len);
         set_filled_size(filled_size() + 1);
+
+        return current_block + ptr;
 
     }
 
@@ -865,7 +867,7 @@ public:
 
     }
 
-    int insert_current() {
+    uint16_t insert_current() {
         int ret;
 
         switch (insert_state) {

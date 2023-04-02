@@ -12,7 +12,7 @@
 #define LX_DATA_AREA 0
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class linex : public bplus_tree_handler<linex> {
+class linex : public bplus_tree_handler {
 private:
     int linear_search() {
         int idx = 0;
@@ -74,13 +74,14 @@ public:
     linex(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-       bplus_tree_handler<linex>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+       bplus_tree_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
         init_current_block();
     }
 
     linex(uint32_t block_sz, uint8_t *block, bool ls_leaf) :
-      bplus_tree_handler<linex>(block_sz, block, ls_leaf) {
+      bplus_tree_handler(block_sz, block, ls_leaf) {
         init_stats();
+        set_current_block(block);
     }
 
     void add_first_data() {
@@ -88,7 +89,7 @@ public:
         add_data(0);
     }
 
-    void add_data(int search_result) {
+    uint8_t *add_data(int search_result) {
         int prev_plen = 0;
         int filled_sz = filled_size();
         set_filled_size(filled_sz + 1);
@@ -145,6 +146,8 @@ public:
 
         if (BPT_MAX_KEY_LEN < key_len)
             BPT_MAX_KEY_LEN = key_len;
+
+        return NULL;
 
     }
 
@@ -270,7 +273,7 @@ public:
         return LX_BLK_HDR_SIZE;
     }
 
-    inline uint8_t *get_ptr_pos() {
+    uint8_t *get_ptr_pos() {
         return NULL;
     }
 
@@ -287,7 +290,7 @@ public:
     }
 
     void init_current_block() {
-        bplus_tree_handler<linex>::init_current_block();
+        bplus_tree_handler::init_current_block();
         set_kv_last_pos(LX_BLK_HDR_SIZE);
     }
 

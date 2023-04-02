@@ -13,9 +13,9 @@
 #include "sqlite.h"
 #include "basix.h"
 #include "basix3.h"
-#include "dfox.h"
+//#include "dfox.h"
 #include "dfos.h"
-#include "octp.h"
+//#include "octp.h"
 #include "dfqx.h"
 #include "bft_cl.h"
 #include "dft.h"
@@ -293,8 +293,7 @@ double timedifference(uint32_t t0, uint32_t t1) {
     return ret;
 }
 
-template<class T>
-void print(bplus_tree_handler<T> *dx, const char *key, int key_len) {
+void print(bplus_tree_handler *dx, const char *key, int key_len) {
     int len = VALUE_LEN;
     char value[VALUE_LEN + 1];
     bool is_found = dx->get(key, key_len, &len, value);

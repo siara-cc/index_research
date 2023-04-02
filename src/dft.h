@@ -12,7 +12,7 @@
 #define DFT_HDR_SIZE 9
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class dft : public bpt_trie_handler<dft> {
+class dft : public bpt_trie_handler {
 public:
     char need_counts[10];
     int last_sibling_pos;
@@ -21,30 +21,32 @@ public:
     dft(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-                bpt_trie_handler<dft>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+                bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
 #if DFT_UNIT_SIZE == 4
         memcpy(need_counts, "\x00\x04\x04\x00\x04\x00\x00\x00\x00\x00", 10);
 #else
         memcpy(need_counts, "\x00\x03\x03\x00\x03\x00\x00\x00\x00\x00", 10);
 #endif
+        set_current_block_root();
     }
 
     dft(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-      bpt_trie_handler<dft>(block_sz, block, is_leaf) {
+      bpt_trie_handler(block_sz, block, is_leaf) {
         init_stats();
 #if DFT_UNIT_SIZE == 4
         memcpy(need_counts, "\x00\x04\x04\x00\x04\x00\x00\x00\x00\x00", 10);
 #else
         memcpy(need_counts, "\x00\x03\x03\x00\x03\x00\x00\x00\x00\x00", 10);
 #endif
+        set_current_block(block);
     }
 
-    inline void set_current_block_root() {
+    void set_current_block_root() {
         current_block = root_block;
         trie = current_block + DFT_HDR_SIZE;
     }
 
-    inline void set_current_block(uint8_t *m) {
+    void set_current_block(uint8_t *m) {
         current_block = m;
         trie = current_block + DFT_HDR_SIZE;
     }
@@ -140,15 +142,15 @@ public:
         return -1;
     }
 
-    inline int get_header_size() {
+    int get_header_size() {
         return DFT_HDR_SIZE;
     }
 
-    inline uint8_t *get_ptr_pos() {
+    uint8_t *get_ptr_pos() {
         return NULL;
     }
 
-    inline uint8_t *get_child_ptr_pos(int search_result) {
+    uint8_t *get_child_ptr_pos(int search_result) {
         if (trie_pos++) {
             while (trie_pos > trie) {
                 trie_pos -= DFT_UNIT_SIZE;
@@ -416,7 +418,7 @@ public:
         add_data(0);
     }
 
-    void add_data(int search_result) {
+    uint8_t *add_data(int search_result) {
 
         int ptr = insert_current();
 
@@ -439,6 +441,8 @@ public:
         memcpy(current_block + kv_last_pos + key_left + 2, value, value_len);
         set_filled_size(filled_size() + 1);
 
+        return NULL;
+
     }
 
     bool is_full(int search_result) {
@@ -460,7 +464,7 @@ public:
         return false;
     }
 
-    int insert_current() {
+    uint16_t insert_current() {
         uint8_t key_char;
         int ret, ptr, pos;
         ret = pos = 0;

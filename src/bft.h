@@ -28,7 +28,7 @@ public:
 };
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class bft : public bpt_trie_handler<bft> {
+class bft : public bpt_trie_handler {
 public:
     uint8_t *last_t;
     uint8_t *split_buf;
@@ -49,7 +49,7 @@ public:
     }
 
     bft(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-      bpt_trie_handler<bft>(block_sz, block, is_leaf) {
+      bpt_trie_handler(block_sz, block, is_leaf) {
         init_stats();
  #if DFT_UNIT_SIZE == 4
         memcpy(need_counts, "\x00\x04\x04\x00\x04\x00\x00\x00\x00\x00", 10);
@@ -63,12 +63,12 @@ public:
             delete split_buf;
     }
 
-    inline void set_current_block_root() {
+    void set_current_block_root() {
         current_block = root_block;
         trie = current_block + BFT_HDR_SIZE;
     }
 
-    inline void set_current_block(uint8_t *m) {
+    void set_current_block(uint8_t *m) {
         current_block = m;
         trie = current_block + BFT_HDR_SIZE;
     }
@@ -173,15 +173,15 @@ public:
         return -1;
     }
 
-    inline uint8_t *get_ptr_pos() {
+    uint8_t *get_ptr_pos() {
         return NULL;
     }
 
-    inline uint8_t *get_child_ptr_pos(int search_result) {
+    uint8_t *get_child_ptr_pos(int search_result) {
         return last_t;
     }
 
-    inline int get_header_size() {
+    int get_header_size() {
         return BFT_HDR_SIZE;
     }
 
@@ -265,7 +265,7 @@ public:
         get_trie_len()++;
     #else
         util::set_int(trie + get_trie_len(), p);
-        get_trie_len() += 2;
+        change_trie_len(2);
     #endif
     }
 
@@ -302,7 +302,7 @@ public:
             t -= 3;
     #else
             t += (*t & x7F);
-            get_trie_len() -= 4;
+            change_trie_len(-4);
             memmove(delete_start, delete_start + 4, get_trie_len());
             t -= 4;
     #endif
@@ -314,7 +314,7 @@ public:
         add_data(0);
     }
 
-    void add_data(int search_result) {
+    uint8_t *add_data(int search_result) {
 
         int ptr = insert_current();
 
@@ -336,6 +336,8 @@ public:
         current_block[kv_last_pos + key_left + 1] = value_len;
         memcpy(current_block + kv_last_pos + key_left + 2, value, value_len);
         set_filled_size(filled_size() + 1);
+
+        return current_block + ptr;
 
     }
 
@@ -464,7 +466,7 @@ public:
         return next_ptr(s);
     }
 
-    int insert_current() {
+    uint16_t insert_current() {
         uint8_t key_char;
         int ret, ptr, pos;
         ret = pos = 0;
@@ -478,7 +480,7 @@ public:
     #if BFT_UNIT_SIZE == 3
             ins_at(trie_pos, key_char, x40, 0);
     #else
-            ins_at(trie_pos, key_char, x80, 0, 0);
+            ins_b4(trie_pos, key_char, x80, 0, 0);
     #endif
             ret = trie_pos - trie + 2;
             break;
@@ -490,7 +492,7 @@ public:
     #if BFT_UNIT_SIZE == 3
             ins_at(orig_pos, key_char, x00, 0);
     #else
-            ins_at(orig_pos, key_char, x00, 0, 0);
+            ins_b4(orig_pos, key_char, x00, 0, 0);
     #endif
             ret = orig_pos - trie + 2;
             break;

@@ -51,7 +51,7 @@
 #define DEFAULT_LEAF_BLOCK_SIZE 4096
 #endif
 
-#define descendant static_cast<T*>(this)
+#define descendant this
 
 union page_ptr {
     unsigned long page;
@@ -79,8 +79,7 @@ class bptree_iter_ctx {
         }
 };
 
-template<class T> // CRTP
-class bplus_tree_handler {
+class bplus_tree_handler : public chg_iface {
 protected:
     long total_size;
     int num_levels;
@@ -93,6 +92,154 @@ protected:
     int is_block_given;
     int root_page_num;
     bool is_closed;
+    virtual void init_derived() {
+    }
+    virtual void cleanup() {
+    }
+    virtual void set_current_block_root() = 0;
+    virtual void set_current_block(uint8_t *m) {
+        current_block = m;
+    }
+    virtual int search_current_block(bptree_iter_ctx *ctx = NULL) = 0;
+    virtual uint8_t *get_ptr_pos() = 0;
+    virtual uint8_t *get_child_ptr_pos(int search_result) = 0;
+    virtual bool is_full(int search_result) = 0;
+    virtual void add_first_data() = 0;
+    virtual uint8_t *add_data(int search_result) = 0;
+    virtual uint8_t *split(uint8_t *first_key, int *first_len_ptr) = 0;
+    virtual uint8_t *find_split_source(int search_result) = 0;
+    virtual void set_leaf(char is_leaf) {
+        if (is_leaf) {
+            current_block[0] = (current_block[0] & 0x60) | BPT_LEAF0_LVL | 0x80;
+        } else
+            current_block[0] &= 0x7F;
+    }
+    virtual void init_current_block() {
+        //memset(current_block, '\0', BFOS_NODE_SIZE);
+        //cout << "Tree init block" << endl;
+        if (!is_block_given) {
+            descendant->set_filled_size(0);
+            BPT_MAX_KEY_LEN = 0;
+            descendant->set_kv_last_pos(
+                descendant->is_leaf() ? leaf_block_size : parent_block_size);
+        }
+    }
+    virtual void set_filled_size(int filled_size) {
+        util::set_int(BPT_FILLED_SIZE, filled_size);
+    }
+    virtual void set_kv_last_pos(int val) {
+        if (val == 0)
+           val = 65535;
+        util::set_int(BPT_LAST_DATA_PTR, val);
+    }
+    virtual void set_changed(bool is_changed) {
+        if (is_changed)
+            current_block[0] |= 0x40;
+        else
+            current_block[0] &= 0xBF;
+    }
+    virtual void copy_value(uint8_t *val, int *vlen) {
+        if (vlen != NULL)
+            *vlen = key_at[key_at_len];
+        memcpy(val, key_at + key_at_len + 1, *vlen);
+    }
+    virtual int get_child_page(uint8_t *ptr) {
+        ptr += (*ptr + 1);
+        return (to_demote_blocks ? util::bytes_to_ptr(ptr, *ptr - 1) : util::bytes_to_ptr(ptr));
+    }
+    virtual int get_first_key_len() {
+        return 255;
+    }
+    virtual int get_level(uint8_t *block, int block_size) {
+        return block[0] & 0x1F;
+    }
+    virtual void set_level(uint8_t *block, int block_size, int lvl) {
+        block[0] = (block[0] & 0xE0) + lvl;
+    }
+    virtual int compare_first_key(const uint8_t *key1, int k_len1,
+                         const uint8_t *key2, int k_len2) {
+        return util::compare(key1, k_len1, key2, k_len2);
+    }
+    #define BPT_BLK_TYPE_INTERIOR 0
+    #define BPT_BLK_TYPE_LEAF 128
+    #define BPT_BLK_TYPE_OVFL 255
+    virtual uint8_t *allocate_block(int size, int type, int lvl) {
+        uint8_t *new_page;
+        if (cache_size > 0) {
+            new_page = cache->get_new_page(current_block);
+            *new_page = 0x40; // Set changed so it gets written next time
+        } else
+            new_page = (uint8_t *) util::aligned_alloc(size);
+        util::set_int(new_page + 3, size - (size == 65536 ? 1 : 0));
+        util::set_int(new_page + 1, 0);
+        if (type != BPT_BLK_TYPE_OVFL) {
+            if (type == BPT_BLK_TYPE_INTERIOR)
+                *new_page = 0x40 + lvl;
+            else
+                *new_page = 0xC0 + lvl;
+        }
+        new_page[5] = 1;
+        return new_page;
+    }
+    virtual void add_first_kv_to_root(uint8_t *first_key, int first_len, 
+            unsigned long old_block_addr, unsigned long new_block_addr) {
+        uint8_t addr[15];
+        key = (uint8_t *) "";
+        key_len = 1;
+        value = (uint8_t *) addr;
+        value_len = util::ptr_to_bytes(old_block_addr, addr);
+        if (to_demote_blocks) {
+            addr[value_len++] = 0;
+        }
+        //printf("value: %d, value_len1:%d\n", old_page, value_len);
+        descendant->add_first_data();
+        key = (uint8_t *) first_key;
+        key_len = first_len;
+        value = (uint8_t *) addr;
+        value_len = util::ptr_to_bytes(new_block_addr, addr);
+        if (to_demote_blocks) {
+            addr[value_len++] = 0;
+        }
+        //printf("value: %d, value_len2:%d\n", new_page, value_len);
+        int search_result = ~descendant->search_current_block();
+        descendant->add_data(search_result);
+    }
+    virtual int prepare_kv_to_add_to_parent(uint8_t *first_key, int first_len, unsigned long new_block_addr, uint8_t *addr) {
+        key = (uint8_t *) first_key;
+        key_len = first_len;
+        value = (uint8_t *) addr;
+        value_len = util::ptr_to_bytes(new_block_addr, addr);
+        //printf("value: %d, value_len3:%d\n", new_page, value_len);
+        int search_result = descendant->search_current_block();
+        if (to_demote_blocks) {
+            uint8_t *split_count = descendant->find_split_source(search_result);
+            if (split_count != NULL) {
+                if (*split_count < 254)
+                    (*split_count)++;
+                //if (*split_count == 255)
+                //    *split_count = 1;
+                /*if (*split_count == 254)
+                    *split_count = 192;
+                if (*split_count == 255)
+                    *split_count = 64;*/
+                addr[value_len++] = *split_count;
+            } else {
+                addr[value_len++] = 0;
+            }
+        }
+        return search_result;
+    }
+    virtual void update_data() {
+        if (descendant->is_leaf()) {
+            uint8_t *value_at = this->key_at;
+            value_at += this->key_at_len;
+            if (*value_at == this->value_len)
+                memcpy((uint8_t *) value_at + 1, this->value, this->value_len);
+            descendant->set_changed(1);
+        } else {
+            std::cout << "search_result >=0 for parent" << std::endl;
+        }
+    }
 
 public:
     lru_cache *cache;
@@ -133,7 +280,7 @@ public:
         to_demote_blocks = false;
         if (cache_size > 0) {
             cache = new lru_cache(leaf_block_size, cache_size, filename,
-                    &descendant->is_block_changed, &descendant->set_block_changed,
+                    this,
                     start_page_num, util::aligned_alloc);
             root_block = current_block = cache->get_disk_page_in_cache(start_page_num);
             if (cache->is_empty()) {
@@ -143,7 +290,7 @@ public:
         } else {
             root_block = current_block = (uint8_t *) util::aligned_alloc(leaf_block_size);
             descendant->set_leaf(1);
-            descendant->set_current_block(root_block);
+            set_current_block(root_block);
             descendant->init_current_block();
         }
     }
@@ -156,13 +303,13 @@ public:
         root_block = current_block = block;
         if (should_init) {
             descendant->set_leaf(is_leaf ? 1 : 0);
-            descendant->set_current_block(block);
+            set_current_block(block);
             descendant->init_current_block();
         } else
-            descendant->set_current_block(block);
+            set_current_block(block);
     }
 
-    ~bplus_tree_handler() {
+    virtual ~bplus_tree_handler() {
         if (!is_closed)
             close();
     }
@@ -173,17 +320,6 @@ public:
             delete cache;
         else if (!is_block_given)
             free(root_block);
-    }
-
-    void init_current_block() {
-        //memset(current_block, '\0', BFOS_NODE_SIZE);
-        //cout << "Tree init block" << endl;
-        if (!is_block_given) {
-            descendant->set_filled_size(0);
-            BPT_MAX_KEY_LEN = 0;
-            descendant->set_kv_last_pos(
-                descendant->is_leaf() ? leaf_block_size : parent_block_size);
-        }
     }
 
     void init_stats() {
@@ -204,12 +340,6 @@ public:
         if (vlen != NULL)
             *vlen = key_at[key_at_len];
         return (uint8_t *) key_at + key_at_len + 1;
-    }
-
-    void copy_value(uint8_t *val, int *vlen) {
-        if (vlen != NULL)
-            *vlen = key_at[key_at_len];
-        memcpy(val, key_at + key_at_len + 1, *vlen);
     }
 
     uint8_t *get_current_block() {
@@ -254,7 +384,6 @@ public:
     }
 
     uint8_t *skip_children(uint8_t *t, uint8_t count);
-    int search_current_block();
     void set_prefix_last(uint8_t key_char, uint8_t *t, uint8_t pfx_rem_len);
 
     inline uint8_t *get_key(int pos, int *plen) {
@@ -318,39 +447,12 @@ public:
         return (uint8_t *) (to_demote_blocks ? util::bytes_to_ptr(ptr, *ptr - 1) : util::bytes_to_ptr(ptr));
     }
 
-    inline int get_child_page(uint8_t *ptr) {
-        ptr += (*ptr + 1);
-        return (to_demote_blocks ? util::bytes_to_ptr(ptr, *ptr - 1) : util::bytes_to_ptr(ptr));
-    }
-
     inline int filled_size() {
         return util::get_int(BPT_FILLED_SIZE);
     }
 
     inline int get_kv_last_pos() {
         return util::get_int(BPT_LAST_DATA_PTR);
-    }
-
-    #define BPT_BLK_TYPE_INTERIOR 0
-    #define BPT_BLK_TYPE_LEAF 128
-    #define BPT_BLK_TYPE_OVFL 255
-    uint8_t *allocate_block(int size, int type, int lvl) {
-        uint8_t *new_page;
-        if (cache_size > 0) {
-            new_page = cache->get_new_page(current_block);
-            *new_page = 0x40; // Set changed so it gets written next time
-        } else
-            new_page = (uint8_t *) util::aligned_alloc(size);
-        util::set_int(new_page + 3, size - (size == 65536 ? 1 : 0));
-        util::set_int(new_page + 1, 0);
-        if (type != BPT_BLK_TYPE_OVFL) {
-            if (type == BPT_BLK_TYPE_INTERIOR)
-                *new_page = 0x40 + lvl;
-            else
-                *new_page = 0xC0 + lvl;
-        }
-        new_page[5] = 1;
-        return new_page;
     }
 
     bool put_string(std::string& key, std::string& value) {
@@ -401,23 +503,6 @@ public:
         if (is_ctx_given)
             delete ctx;
         return false;
-    }
-
-    int get_level(uint8_t *block, int block_size) {
-        return block[0] & 0x1F;
-    }
-
-    void set_level(uint8_t *block, int block_size, int lvl) {
-        block[0] = (block[0] & 0xE0) + lvl;
-    }
-
-    int compare_first_key(const uint8_t *key1, int k_len1,
-                         const uint8_t *key2, int k_len2) {
-        return util::compare(key1, k_len1, key2, k_len2);
-    }
-
-    int get_first_key_len() {
-        return 255;
     }
 
     void recursive_update(int search_result, bptree_iter_ctx *ctx, int prev_level) {
@@ -485,80 +570,9 @@ public:
         }
     }
 
-    void add_first_kv_to_root(uint8_t *first_key, int first_len, 
-            unsigned long old_block_addr, unsigned long new_block_addr) {
-        uint8_t addr[15];
-        key = (uint8_t *) "";
-        key_len = 1;
-        value = (uint8_t *) addr;
-        value_len = util::ptr_to_bytes(old_block_addr, addr);
-        if (to_demote_blocks) {
-            addr[value_len++] = 0;
-        }
-        //printf("value: %d, value_len1:%d\n", old_page, value_len);
-        descendant->add_first_data();
-        key = (uint8_t *) first_key;
-        key_len = first_len;
-        value = (uint8_t *) addr;
-        value_len = util::ptr_to_bytes(new_block_addr, addr);
-        if (to_demote_blocks) {
-            addr[value_len++] = 0;
-        }
-        //printf("value: %d, value_len2:%d\n", new_page, value_len);
-        int search_result = ~descendant->search_current_block();
-        descendant->add_data(search_result);
-    }
-
-    int prepare_kv_to_add_to_parent(uint8_t *first_key, int first_len, unsigned long new_block_addr, uint8_t *addr) {
-        key = (uint8_t *) first_key;
-        key_len = first_len;
-        value = (uint8_t *) addr;
-        value_len = util::ptr_to_bytes(new_block_addr, addr);
-        //printf("value: %d, value_len3:%d\n", new_page, value_len);
-        int search_result = descendant->search_current_block();
-        if (to_demote_blocks) {
-            uint8_t *split_count = descendant->find_split_source(search_result);
-            if (split_count != NULL) {
-                if (*split_count < 254)
-                    (*split_count)++;
-                //if (*split_count == 255)
-                //    *split_count = 1;
-                /*if (*split_count == 254)
-                    *split_count = 192;
-                if (*split_count == 255)
-                    *split_count = 64;*/
-                addr[value_len++] = *split_count;
-            } else {
-                addr[value_len++] = 0;
-            }
-        }
-        return search_result;
-    }
-
-    void update_data() {
-        if (descendant->is_leaf()) {
-            uint8_t *value_at = this->key_at;
-            value_at += this->key_at_len;
-            if (*value_at == this->value_len)
-                memcpy((uint8_t *) value_at + 1, this->value, this->value_len);
-            descendant->set_changed(1);
-        } else {
-            std::cout << "search_result >=0 for parent" << std::endl;
-        }
-    }
-
-    bool is_full(int search_result);
-    void add_first_data();
-    void add_data(int search_result);
-    void insert_current();
-
     void set_value(const uint8_t *val, int len) {
         value = val;
         value_len = len;
-    }
-
-    inline void set_filled_size(int filled_size) {
-        util::set_int(BPT_FILLED_SIZE, filled_size);
     }
 
     inline void ins_ptr(int pos, int kv_pos) {
@@ -653,39 +667,8 @@ public:
         }
     }
 
-    inline void set_leaf(char is_leaf) {
-        if (is_leaf) {
-            current_block[0] = (current_block[0] & 0x60) | BPT_LEAF0_LVL | 0x80;
-        } else
-            current_block[0] &= 0x7F;
-    }
-
-    void set_changed(bool is_changed) {
-        if (is_changed)
-            current_block[0] |= 0x40;
-        else
-            current_block[0] &= 0xBF;
-    }
-
     bool is_changed() {
         return current_block[0] & 0x40;
-    }
-
-    static void set_block_changed(uint8_t *block, int block_size, bool is_changed) {
-        if (is_changed)
-            block[0] |= 0x40;
-        else
-            block[0] &= 0xBF;
-    }
-
-    static bool is_block_changed(uint8_t *block, int block_size) {
-        return block[0] & 0x40;
-    }
-
-    inline void set_kv_last_pos(int val) {
-        if (val == 0)
-           val = 65535;
-        util::set_int(BPT_LAST_DATA_PTR, val);
     }
 
     inline void ins_bit(uint32_t *ui32, int pos, int kv_pos) {
@@ -770,22 +753,21 @@ public:
 
 };
 
-template<class T>
-class bpt_trie_handler: public bplus_tree_handler<T> {
+class bpt_trie_handler: public virtual bplus_tree_handler {
 
 protected:
     int max_trie_len_node;
     int max_trie_len_leaf;
 
-    bpt_trie_handler<T>(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
+    bpt_trie_handler(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-       bplus_tree_handler<T>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+       bplus_tree_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
         init_stats();
     }
 
-    bpt_trie_handler<T>(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-       bplus_tree_handler<T>(block_sz, block, is_leaf) {
+    bpt_trie_handler(uint32_t block_sz, uint8_t *block, bool is_leaf) :
+       bplus_tree_handler(block_sz, block, is_leaf) {
         init_stats();
         descendant->set_current_block(block);
     }
@@ -796,22 +778,22 @@ protected:
 
     inline void update_split_stats() {
         if (descendant->is_leaf()) {
-            bplus_tree_handler<T>::max_key_count_leaf += descendant->filled_size();
+            bplus_tree_handler::max_key_count_leaf += descendant->filled_size();
             max_trie_len_leaf += get_trie_len();
-            bplus_tree_handler<T>::block_count_leaf++;
+            bplus_tree_handler::block_count_leaf++;
         } else {
-            bplus_tree_handler<T>::max_key_count_node += descendant->filled_size();
+            bplus_tree_handler::max_key_count_node += descendant->filled_size();
             max_trie_len_node += get_trie_len();
-            bplus_tree_handler<T>::block_count_node++;
+            bplus_tree_handler::block_count_node++;
         }
     }
 
     void set_trie_len(int len) {
-        util::set_int(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR, len);
+        util::set_int(bplus_tree_handler::BPT_TRIE_LEN_PTR, len);
     }
 
     void change_trie_len(int delta) {
-        util::set_int(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR, get_trie_len() + delta);
+        util::set_int(bplus_tree_handler::BPT_TRIE_LEN_PTR, get_trie_len() + delta);
     }
 
     inline void del_at(uint8_t *ptr) {
@@ -895,6 +877,22 @@ protected:
         change_trie_len(need_count);
     }
 
+    virtual void init_derived() = 0;
+    virtual void cleanup() = 0;
+    virtual void set_current_block_root() = 0;
+    virtual void set_current_block(uint8_t *m) {
+        current_block = m;
+    }
+    virtual int search_current_block(bptree_iter_ctx *ctx = NULL) = 0;
+    virtual uint8_t *get_ptr_pos() = 0;
+    virtual uint8_t *get_child_ptr_pos(int search_result) = 0;
+    virtual bool is_full(int search_result) = 0;
+    virtual void add_first_data() = 0;
+    virtual uint8_t *add_data(int search_result) = 0;
+    virtual uint16_t insert_current() = 0;
+    virtual uint8_t *split(uint8_t *first_key, int *first_len_ptr) = 0;
+    virtual uint8_t *find_split_source(int search_result) = 0;
+
 public:
     uint8_t *trie;
     uint8_t *trie_pos;
@@ -931,28 +929,28 @@ public:
     static const uint8_t xFE = 0xFE;
     static const uint8_t xFF = 0xFF;
     static const int x100 = 0x100;
-    ~bpt_trie_handler() {}
+    virtual ~bpt_trie_handler() {}
     void print_stats(long num_entries) {
-        bplus_tree_handler<T>::print_stats(num_entries);
+        bplus_tree_handler::print_stats(num_entries);
         std::cout << "Trie Len:" << get_trie_len();
         std::cout << ", Trie Len:";
         std::cout << (long) (max_trie_len_node
-                / (bplus_tree_handler<T>::block_count_node ? bplus_tree_handler<T>::block_count_node : 1));
+                / (bplus_tree_handler::block_count_node ? bplus_tree_handler::block_count_node : 1));
         std::cout << ", ";
-        std::cout << (long) (max_trie_len_leaf / bplus_tree_handler<T>::block_count_leaf);
+        std::cout << (long) (max_trie_len_leaf / bplus_tree_handler::block_count_leaf);
         std::cout << std::endl;
     }
-    void init_current_block() {
+    virtual void init_current_block() {
         //cout << "Trie init block" << endl;
-        bplus_tree_handler<T>::init_current_block();
-        *(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR) = 0;
+        bplus_tree_handler::init_current_block();
+        *(bplus_tree_handler::BPT_TRIE_LEN_PTR) = 0;
         set_trie_len(0);
-        bplus_tree_handler<T>::BPT_MAX_PFX_LEN = 1;
+        bplus_tree_handler::BPT_MAX_PFX_LEN = 1;
         key_pos = 1;
         insert_state = INSERT_EMPTY;
     }
     int get_trie_len() {
-        return util::get_int(bplus_tree_handler<T>::BPT_TRIE_LEN_PTR);
+        return util::get_int(bplus_tree_handler::BPT_TRIE_LEN_PTR);
     }
 
 

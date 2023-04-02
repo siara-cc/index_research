@@ -15,24 +15,26 @@
 #endif
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class basix : public bplus_tree_handler<basix> {
+class basix : public bplus_tree_handler {
 public:
     basix(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-        bplus_tree_handler<basix>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+        bplus_tree_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+        set_current_block_root();
     }
 
     basix(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-      bplus_tree_handler<basix>(block_sz, block, is_leaf) {
+      bplus_tree_handler(block_sz, block, is_leaf) {
         init_stats();
+        set_current_block(block);
     }
 
-    inline void set_current_block_root() {
+    void set_current_block_root() {
         set_current_block(root_block);
     }
 
-    inline void set_current_block(uint8_t *m) {
+    void set_current_block(uint8_t *m) {
         current_block = m;
 #if BPT_9_BIT_PTR == 1
 #if BPT_INT64MAP == 1
@@ -71,7 +73,7 @@ public:
         return ~filled_sz;
     }
 
-    inline uint8_t *get_child_ptr_pos(int search_result) {
+    uint8_t *get_child_ptr_pos(int search_result) {
         if (search_result < 0) {
             search_result++;
             search_result = ~search_result;
@@ -79,11 +81,11 @@ public:
         return current_block + get_ptr(search_result);
     }
 
-    inline uint8_t *get_ptr_pos() {
+    uint8_t *get_ptr_pos() {
         return current_block + BLK_HDR_SIZE;
     }
 
-    inline int get_header_size() {
+    int get_header_size() {
         return BLK_HDR_SIZE;
     }
 

@@ -12,29 +12,31 @@
 #define MAX_KEY_LEN current_block[6]
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class basix3 : public bplus_tree_handler<basix3> {
+class basix3 : public bplus_tree_handler {
 public:
     int pos;
     basix3(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-        bplus_tree_handler<basix3>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+        bplus_tree_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+        set_current_block_root();
     }
 
     basix3(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-      bplus_tree_handler<basix3>(block_sz, block, is_leaf) {
+      bplus_tree_handler(block_sz, block, is_leaf) {
         init_stats();
+        set_current_block(block);
     }
 
-    inline void set_current_block_root() {
+    void set_current_block_root() {
         set_current_block(root_block);
     }
 
-    inline void set_current_block(uint8_t *m) {
+    void set_current_block(uint8_t *m) {
         current_block = m;
     }
 
-    inline uint8_t *get_key(int pos, int *plen) {
+    uint8_t *get_key(int pos, int *plen) {
         uint8_t *kv_idx = current_block + get_ptr(pos);
         *plen = *kv_idx;
         return kv_idx + 1;
@@ -58,7 +60,7 @@ public:
         return ~filled_sz;
     }
 
-    inline uint8_t *get_child_ptr_pos(int search_result) {
+    uint8_t *get_child_ptr_pos(int search_result) {
         if (search_result < 0) {
             search_result++;
             search_result = ~search_result;
@@ -66,7 +68,7 @@ public:
         return current_block + get_ptr(search_result);
     }
 
-    inline int get_header_size() {
+    int get_header_size() {
         return BASIX3_HDR_SIZE;
     }
 
@@ -195,7 +197,7 @@ public:
         return b;
     }
 
-    void add_data(int search_result) {
+    uint8_t *add_data(int search_result) {
 
         if (search_result < 0)
             search_result = ~search_result;
@@ -210,6 +212,7 @@ public:
         ins_ptr(search_result, kv_last_pos);
         if (MAX_KEY_LEN < key_len)
             MAX_KEY_LEN = key_len;
+        return ptr;
 
     }
 
@@ -219,28 +222,28 @@ public:
         add_data(0);
     }
 
-    inline uint32_t get_kv_last_pos() {
+    uint32_t get_kv_last_pos() {
         return util::get_int3(BPT_LAST_DATA_PTR);
     }
 
-    inline void set_kv_last_pos(uint32_t val) {
+    void set_kv_last_pos(uint32_t val) {
         util::set_int3(BPT_LAST_DATA_PTR, val);
     }
 
-    inline uint8_t *get_ptr_pos() {
+    uint8_t *get_ptr_pos() {
         return current_block + BASIX3_HDR_SIZE;
     }
 
-    inline uint32_t get_ptr(int pos) {
+    uint32_t get_ptr(int pos) {
         return util::get_int3(get_ptr_pos() + (pos * 3));
     }
 
-    inline void set_ptr(int pos, uint32_t ptr) {
+    void set_ptr(int pos, uint32_t ptr) {
         uint8_t *kv_idx = get_ptr_pos() + (pos * 3);
         return util::set_int3(kv_idx, ptr);
     }
 
-    inline void ins_ptr(int pos, uint32_t kv_pos) {
+    void ins_ptr(int pos, uint32_t kv_pos) {
         int filled_sz = filled_size();
         uint8_t *kv_idx = get_ptr_pos() + (pos * 3);
         memmove(kv_idx + 3, kv_idx, (filled_sz - pos) * 3);
@@ -248,7 +251,7 @@ public:
         set_filled_size(filled_sz + 1);
     }
 
-    inline void del_ptr(int pos) {
+    void del_ptr(int pos) {
         int filled_sz = filled_size() - 1;
         uint8_t *kv_idx = get_ptr_pos() + (pos * 3);
         memmove(kv_idx, kv_idx + 3, (filled_sz - pos) * 3);

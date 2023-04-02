@@ -9,7 +9,7 @@ void rb_tree::add_first_data() {
     add_data(0);
 }
 
-void rb_tree::add_data(int search_result) {
+uint8_t *rb_tree::add_data(int search_result) {
 
     //idx = -1; // !!!!!
 
@@ -44,7 +44,7 @@ void rb_tree::add_data(int search_result) {
                         key_at_len);
                 if (comp_result == 0) {
                     //set_value(n, value);
-                    return;
+                    return NULL;
                 } else if (comp_result < 0) {
                     if (get_left(n) == 0) {
                         set_left(n, inserted_node);
@@ -69,6 +69,7 @@ void rb_tree::add_data(int search_result) {
         }
     }
     insert_case1(inserted_node);
+    return NULL;
 
 }
 
