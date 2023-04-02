@@ -34,7 +34,7 @@
 #endif
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class rb_tree : public bplus_tree_handler {
+class rb_tree : public bplus_tree_handler<rb_tree> {
 private:
     int binary_search(const uint8_t *key, int key_len);
     inline int get_left(int n);
@@ -65,16 +65,14 @@ public:
     rb_tree(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-       bplus_tree_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+       bplus_tree_handler<rb_tree>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
         gen_tree::generate_lists();
         init_buf();
-        set_current_block_root();
     }
 
     rb_tree(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-      bplus_tree_handler(block_sz, block, is_leaf) {
+      bplus_tree_handler<rb_tree>(block_sz, block, is_leaf) {
         init_stats();
-        set_current_block(block);
     }
 
     void init_derived() {
@@ -95,7 +93,7 @@ public:
     void set_current_block_root();
     void set_current_block(uint8_t *m);
     int search_current_block(bptree_iter_ctx *ctx = NULL);
-    uint8_t *add_data(int search_result);
+    void add_data(int search_result);
     void add_first_data();
     uint8_t *get_key(int pos, int *plen);
     uint8_t *get_first_key(int *plen);

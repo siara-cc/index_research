@@ -41,7 +41,7 @@ public:
 };
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class bft : public bpt_trie_handler {
+class bft : public bpt_trie_handler<bft> {
 public:
     uint8_t *last_t;
     int last_t_pos;
@@ -58,7 +58,7 @@ public:
     }
 
     bft(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-      bpt_trie_handler(block_sz, block, is_leaf) {
+      bpt_trie_handler<bft>(block_sz, block, is_leaf) {
         init_stats();
         memcpy(need_counts, "\x00\x04\x04\x00\x04\x00\x08\x03\x00\x00", 10);
     }
@@ -68,12 +68,12 @@ public:
             delete split_buf;
     }
 
-    void set_current_block_root() {
+    inline void set_current_block_root() {
         current_block = root_block;
         trie = current_block + BFT_HDR_SIZE;
     }
 
-    void set_current_block(uint8_t *m) {
+    inline void set_current_block(uint8_t *m) {
         current_block = m;
         trie = current_block + BFT_HDR_SIZE;
     }
@@ -166,7 +166,7 @@ public:
         return -1;
     }
 
-    uint8_t *get_ptr_pos() {
+    inline uint8_t *get_ptr_pos() {
         return NULL;
     }
 
@@ -212,11 +212,11 @@ public:
         return current_block + ptr;
     }
 
-    uint8_t *get_child_ptr_pos(int search_result) {
+    inline uint8_t *get_child_ptr_pos(int search_result) {
         return last_t == key_at ? last_t - 1 : get_last_ptr(last_t);
     }
 
-    int get_header_size() {
+    inline int get_header_size() {
         return BFT_HDR_SIZE;
     }
 
@@ -314,7 +314,7 @@ public:
         add_data(4);
     }
 
-    uint8_t *add_data(int search_result) {
+    void add_data(int search_result) {
 
         if (search_result < 0)
             search_result = ~search_result;
@@ -331,8 +331,6 @@ public:
         current_block[kv_last_pos + key_left + 1] = value_len;
         memcpy(current_block + kv_last_pos + key_left + 2, value, value_len);
         set_filled_size(filled_size() + 1);
-
-        return current_block + ptr;
 
     }
 
@@ -545,7 +543,7 @@ public:
         return find_last_child_rec(orig_pos, sib_len, len_of_sib_len, count);
     }
 
-    uint16_t insert_current() {
+    int insert_current() {
         uint8_t key_char;
         int ret, len;
         ret = 0;

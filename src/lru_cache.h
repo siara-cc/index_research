@@ -17,7 +17,6 @@
 #include <time.h>
 #include <brotli/encode.h>
 //#include <snappy.h>
-#include "bplus_tree_handler.h"
 
 #define USE_FOPEN 1
 
@@ -73,8 +72,6 @@ protected:
     cache_stats stats;
     long max_pages_to_flush;
     void *(*malloc_fn)(size_t);
-    // bool (*const iface->is_block_changed)(uint8_t *, int);
-    // void (*const set_changed_fn)(uint8_t *, int, bool);
     void write_pages(std::set<int>& pages_to_write) {
         // time_point<steady_clock> start;
         // start = steady_clock::now();

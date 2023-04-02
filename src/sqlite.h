@@ -26,7 +26,7 @@ enum {SQLT_RES_SEEK_ERR = -6, SQLT_RES_READ_ERR = -7,
   SQLT_RES_NEED_1_PK = -14, SQLT_RES_NO_SPACE = -15};
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class sqlite : public bplus_tree_handler {
+class sqlite : public bplus_tree_handler<sqlite> {
 
     private:
         int U,X,M;
@@ -515,18 +515,16 @@ class sqlite : public bplus_tree_handler {
                 int parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
                 const char *fname = NULL) : column_count (total_col_count), pk_count (pk_col_count),
                     column_names (col_names), table_name (tbl_name),
-                    bplus_tree_handler(leaf_block_sz, parent_block_sz, cache_sz, fname, 1, true) {
+                    bplus_tree_handler<sqlite>(leaf_block_sz, parent_block_sz, cache_sz, fname, 1, true) {
             init();
-            set_current_block_root();
         }
 
         sqlite(uint32_t block_sz, uint8_t *block, bool is_leaf, bool should_init)
-                : bplus_tree_handler(block_sz, block, is_leaf, should_init) {
+                : bplus_tree_handler<sqlite>(block_sz, block, is_leaf, should_init) {
             U = leaf_block_size - page_resv_bytes;
             X = ((U-12)*64/255)-23;
             M = ((U-12)*32/255)-23;
             master_block = NULL;
-            set_current_block(block);
         }
 
         ~sqlite() {
@@ -545,11 +543,11 @@ class sqlite : public bplus_tree_handler {
                 free(master_block);
         }
 
-        void set_current_block_root() {
+        inline void set_current_block_root() {
             set_current_block(root_block);
         }
 
-        void set_current_block(uint8_t *m) {
+        inline void set_current_block(uint8_t *m) {
             current_block = m;
             blk_hdr_len = (current_block[0] == 10 || current_block[0] == 13 ? 8 : 12);
         }
@@ -571,7 +569,7 @@ class sqlite : public bplus_tree_handler {
             return ((leaf_block_size-page_resv_bytes-12)*64/255)-23+5;
         }
 
-        int get_header_size() {
+        inline int get_header_size() {
             return blk_hdr_len;
         }
 
@@ -840,7 +838,7 @@ class sqlite : public bplus_tree_handler {
             return 0;
         }
 
-        uint8_t *add_data(int search_result) {
+        void add_data(int search_result) {
 
             // P is length of payload or record length
             int P, hdr_len;
@@ -876,8 +874,6 @@ class sqlite : public bplus_tree_handler {
 
             // if (BPT_MAX_KEY_LEN < key_len)
             //     BPT_MAX_KEY_LEN = key_len;
-
-            return ptr;
 
         }
 
@@ -971,7 +967,7 @@ class sqlite : public bplus_tree_handler {
             block[block_size - page_resv_bytes] = (block[block_size - page_resv_bytes] & 0xE0) + lvl;
         }
 
-        uint8_t *get_value_at(int *vlen) {
+        inline uint8_t *get_value_at(int *vlen) {
             int8_t vint_len;
             uint8_t *data_ptr = key_at + util::read_vint32(key_at, &vint_len);
             int hdr_vint_len = vint_len;
@@ -1005,7 +1001,7 @@ class sqlite : public bplus_tree_handler {
             } while (len > 0 && ovfl_page > 0);
         }
 
-        uint8_t *get_child_ptr_pos(int search_result) {
+        inline uint8_t *get_child_ptr_pos(int search_result) {
             if (search_result < 0)
                 search_result = ~search_result;
             if (search_result == filled_size())
@@ -1017,12 +1013,12 @@ class sqlite : public bplus_tree_handler {
             return current_block + blk_hdr_len;
         }
 
-        uint8_t *get_child_ptr(uint8_t *ptr) {
+        inline uint8_t *get_child_ptr(uint8_t *ptr) {
             uint64_t ret = util::read_uint32(ptr);
             return (uint8_t *) ret;
         }
 
-        int get_child_page(uint8_t *ptr) {
+        inline int get_child_page(uint8_t *ptr) {
             return util::read_uint32(ptr) - 1;
         }
 
@@ -1161,7 +1157,7 @@ class sqlite : public bplus_tree_handler {
             return block[block_size - page_resv_bytes] & 0x40;
         }
 
-        bool is_leaf() {
+        inline bool is_leaf() {
             return current_block[0] > 9;
         }
 

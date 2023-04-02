@@ -29,44 +29,42 @@
 #endif
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class dfox : public bpt_trie_handler {
+class dfox : public bpt_trie_handler<dfox> {
 public:
     uint8_t need_counts[10];
     uint8_t *last_t;
     dfox(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-                bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+                bpt_trie_handler<dfox>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
 #if DX_SIBLING_PTR_SIZE == 1
         memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x07\x00\x00\x00", 10);
 #else
         memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x08\x00\x00\x00", 10);
 #endif
-        set_current_block_root();
     }
 
     dfox(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-      bpt_trie_handler(block_sz, block, is_leaf) {
+      bpt_trie_handler<dfox>(block_sz, block, is_leaf) {
         init_stats();
 #if DX_SIBLING_PTR_SIZE == 1
         memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x07\x00\x00\x00", 10);
 #else
         memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x08\x00\x00\x00", 10);
 #endif
-        set_current_block(block);
     }
 
-    void set_current_block_root() {
+    inline void set_current_block_root() {
         current_block = root_block;
         trie = current_block + DFOX_HDR_SIZE;
     }
 
-    void set_current_block(uint8_t *m) {
+    inline void set_current_block(uint8_t *m) {
         current_block = m;
         trie = current_block + DFOX_HDR_SIZE;
     }
 
-    uint8_t *skip_children(uint8_t *t, uint8_t count) {
+    inline uint8_t *skip_children(uint8_t *t, uint8_t count) {
         while (count) {
             uint8_t tc = *t++;
             switch (tc & x03) {
@@ -187,26 +185,26 @@ public:
         return -1;
     }
 
-    int get_ptr(uint8_t *t) {
+    inline int get_ptr(uint8_t *t) {
         return ((*t >> 2) << 8) + t[1];
     }
 
-    uint8_t *get_key(uint8_t *t, int *plen) {
+    inline uint8_t *get_key(uint8_t *t, int *plen) {
         uint8_t *kv_idx = current_block + get_ptr(t);
         *plen = kv_idx[0];
         kv_idx++;
         return kv_idx;
     }
 
-    int get_header_size() {
+    inline int get_header_size() {
         return DFOX_HDR_SIZE;
     }
 
-    uint8_t *get_ptr_pos() {
+    inline uint8_t *get_ptr_pos() {
         return NULL;
     }
 
-    uint8_t *get_child_ptr_pos(int search_result) {
+    inline uint8_t *get_child_ptr_pos(int search_result) {
         return current_block + get_ptr(last_t);
     }
 
@@ -400,11 +398,11 @@ public:
         add_data(3);
     }
 
-    uint8_t *add_data(int search_result) {
+    void add_data(int search_result) {
 
         insert_state = search_result + 1;
 
-        uint8_t *ptr = insert_current_dfox();
+        uint8_t *ptr = insert_current();
 
         int key_left = key_len - key_pos;
         int kv_last_pos = get_kv_last_pos() - (key_left + value_len + 2);
@@ -417,8 +415,6 @@ public:
 
         set_ptr(ptr, kv_last_pos);
         set_filled_size(filled_size() + 1);
-
-        return ptr;
 
     }
 
@@ -616,7 +612,7 @@ public:
         }
     }
 
-    uint8_t *insert_current_dfox() {
+    uint8_t *insert_current() {
         uint8_t key_char, mask;
         int diff;
         uint8_t *ret;
@@ -892,7 +888,7 @@ public:
 
     }
 
-    int ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2) {
+    inline int ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2) {
         int trie_len = DX_GET_TRIE_LEN;
         memmove(ptr + 2, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
@@ -901,7 +897,7 @@ public:
         return 2;
     }
 
-    int ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3) {
+    inline int ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3) {
         int trie_len = DX_GET_TRIE_LEN;
         memmove(ptr + 3, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
@@ -911,7 +907,7 @@ public:
         return 3;
     }
 
-    uint8_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4) {
+    inline uint8_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4) {
         int trie_len = DX_GET_TRIE_LEN;
         memmove(ptr + 4, ptr, trie + trie_len - ptr);
         *ptr++ = b1;

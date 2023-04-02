@@ -18,7 +18,7 @@
 #define SUCCIX_HDR_SIZE 9
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class succix : public bpt_trie_handler {
+class succix : public bpt_trie_handler<succix> {
 public:
     uint8_t *last_t;
     uint8_t *split_buf;
@@ -31,25 +31,23 @@ public:
         bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
         split_buf = (uint8_t *) util::aligned_alloc(leaf_block_size > parent_block_size ?
                 leaf_block_size : parent_block_size);
-        set_current_block_root();
     }
 
     succix(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-      bpt_trie_handler(block_sz, block, is_leaf) {
+      bpt_trie_handler<succix>(block_sz, block, is_leaf) {
         init_stats();
-        set_current_block(block);
     }
 
     ~succix() {
         delete split_buf;
     }
 
-    void set_current_block_root() {
+    inline void set_current_block_root() {
         current_block = root_block;
         trie = current_block + SUCCIX_HDR_SIZE;
     }
 
-    void set_current_block(uint8_t *m) {
+    inline void set_current_block(uint8_t *m) {
         current_block = m;
         trie = current_block + SUCCIX_HDR_SIZE;
     }
@@ -117,15 +115,15 @@ public:
         return -1;
     }
 
-    uint8_t *get_ptr_pos() {
+    inline uint8_t *get_ptr_pos() {
         return NULL;
     }
 
-    uint8_t *get_child_ptr_pos(int16_t search_result) {
+    inline uint8_t *get_child_ptr_pos(int16_t search_result) {
         return last_t;
     }
 
-    int get_header_size() {
+    inline int get_header_size() {
         return SUCCIX_HDR_SIZE;
     }
 

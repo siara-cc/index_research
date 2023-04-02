@@ -35,7 +35,7 @@ public:
 };
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class bfox : public bpt_trie_handler {
+class bfox : public bpt_trie_handler<bfox> {
 public:
     const static uint8_t need_counts[10];
     uint8_t *last_t;
@@ -45,27 +45,25 @@ public:
     bfox(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-        bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
-        set_current_block_root();
+        bpt_trie_handler<bfox>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
     }
 
     bfox(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-      bpt_trie_handler(block_sz, block, is_leaf) {
+      bpt_trie_handler<bfox>(block_sz, block, is_leaf) {
         init_stats();
-        set_current_block(block);
     }
 
-    void set_current_block_root() {
+    inline void set_current_block_root() {
         current_block = root_block;
         trie = current_block + BFOX_HDR_SIZE;
     }
 
-    void set_current_block(uint8_t *m) {
+    inline void set_current_block(uint8_t *m) {
         current_block = m;
         trie = current_block + BFOX_HDR_SIZE;
     }
 
-    uint8_t *get_last_ptr() {
+    inline uint8_t *get_last_ptr() {
         //key_pos = 0;
         do {
             switch (last_child > last_leaf || (last_leaf ^ last_child) <= last_child ? 2 : 1) {
@@ -91,7 +89,7 @@ public:
         return 0;
     }
 
-    void set_prefix_last(uint8_t key_char, uint8_t *t, uint8_t pfx_rem_len) {
+    inline void set_prefix_last(uint8_t key_char, uint8_t *t, uint8_t pfx_rem_len) {
         if (key_char > *t) {
             t += pfx_rem_len;
             while (*t & x01)
@@ -222,15 +220,15 @@ public:
         return -1;
     }
 
-    uint8_t *get_child_ptr_pos(int16_t search_result) {
+    inline uint8_t *get_child_ptr_pos(int16_t search_result) {
         return key_at == last_t ? last_t - 1 : get_last_ptr();
     }
 
-    uint8_t *get_ptr_pos() {
+    inline uint8_t *get_ptr_pos() {
         return NULL;
     }
 
-    int get_header_size() {
+    inline int get_header_size() {
         return BFOX_HDR_SIZE;
     }
 
@@ -722,7 +720,7 @@ public:
 
     }
 
-    void update_ptrs(uint8_t *upto, int diff) {
+    inline void update_ptrs(uint8_t *upto, int diff) {
         uint8_t *t = trie;
         while (t < upto) {
             uint8_t tc = *t++;
@@ -753,13 +751,13 @@ public:
         }
     }
 
-    void del_at(uint8_t *ptr, int16_t count) {
+    inline void del_at(uint8_t *ptr, int16_t count) {
         int16_t trie_len = BS_GET_TRIE_LEN - count;
         BS_SET_TRIE_LEN(trie_len);
         memmove(ptr, ptr + count, trie + trie_len - ptr);
     }
 
-    int16_t ins_at(uint8_t *ptr, uint8_t b) {
+    inline int16_t ins_at(uint8_t *ptr, uint8_t b) {
         int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + 1, ptr, trie + trie_len - ptr);
         *ptr = b;
@@ -767,7 +765,7 @@ public:
         return 1;
     }
 
-    int16_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2) {
+    inline int16_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2) {
         int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + 2, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
@@ -776,7 +774,7 @@ public:
         return 2;
     }
 
-    int16_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3) {
+    inline int16_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3) {
         int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + 3, ptr, trie + trie_len - ptr);
         *ptr++ = b1;
@@ -786,7 +784,7 @@ public:
         return 3;
     }
 
-    uint8_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4) {
+    inline uint8_t ins_at(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4) {
         int16_t trie_len = BS_GET_TRIE_LEN;
         memmove(ptr + 4, ptr, trie + trie_len - ptr);
         *ptr++ = b1;

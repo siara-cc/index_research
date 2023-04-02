@@ -19,7 +19,7 @@
 #define DS_MAX_PTRS 1023
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
-class dfos : public bpt_trie_handler {
+class dfos : public bpt_trie_handler<dfos> {
 public:
     int pos, key_at_pos;
     uint8_t need_counts[10];
@@ -27,26 +27,26 @@ public:
     dfos(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
-                bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+                bpt_trie_handler<dfos>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
         memcpy(need_counts, "\x00\x02\x02\x02\x02\x00\x07\x00\x00\x00", 10);
     }
 
     dfos(uint32_t block_sz, uint8_t *block, bool is_leaf) :
-      bpt_trie_handler(block_sz, block, is_leaf) {
+      bpt_trie_handler<dfos>(block_sz, block, is_leaf) {
         init_stats();
         memcpy(need_counts, "\x00\x02\x02\x02\x02\x00\x07\x00\x00\x00", 10);
     }
 
-    void set_current_block_root() {
+    inline void set_current_block_root() {
         set_current_block(root_block);
     }
 
-    void set_current_block(uint8_t *m) {
+    inline void set_current_block(uint8_t *m) {
         current_block = m;
         trie = current_block + DFOS_HDR_SIZE;
     }
 
-    uint8_t *skip_children(uint8_t *t, uint8_t count) {
+    inline uint8_t *skip_children(uint8_t *t, uint8_t count) {
         while (count) {
             uint8_t tc = *t++;
             switch (tc & x03) {
@@ -168,15 +168,15 @@ public:
         return ~pos;
     }
 
-    int get_header_size() {
+    inline int get_header_size() {
         return DFOS_HDR_SIZE;
     }
 
-    uint8_t *get_ptr_pos() {
+    inline uint8_t *get_ptr_pos() {
         return trie + DS_GET_TRIE_LEN;
     }
 
-    uint8_t *get_child_ptr_pos(int search_result) {
+    inline uint8_t *get_child_ptr_pos(int search_result) {
         if (search_result < 0) {
             search_result++;
             search_result = ~search_result;
@@ -335,7 +335,7 @@ public:
         add_data(0);
     }
 
-    uint8_t *add_data(int search_result) {
+    void add_data(int search_result) {
 
         insert_current();
 
@@ -349,8 +349,6 @@ public:
         memcpy(current_block + kv_last_pos + key_left + 2, value, value_len);
 
         ins_ptr(search_result, kv_last_pos);
-
-        return NULL;
 
     }
 
@@ -539,7 +537,7 @@ public:
         }
     }
 
-    uint16_t insert_current() {
+    void insert_current() {
         uint8_t key_char, mask;
         int diff;
 
@@ -752,8 +750,6 @@ public:
 
         if (BPT_MAX_KEY_LEN < key_len)
             BPT_MAX_KEY_LEN = key_len;
-
-        return 0;
 
     }
 
