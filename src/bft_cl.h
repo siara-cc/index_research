@@ -52,8 +52,8 @@ public:
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
         bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
-        split_buf = (uint8_t *) util::aligned_alloc(leaf_block_size > parent_block_size ?
-                leaf_block_size : parent_block_size);
+        split_buf = (uint8_t *) util::aligned_alloc(block_size > parent_block_size ?
+                block_size : parent_block_size);
         memcpy(need_counts, "\x00\x04\x04\x00\x04\x00\x08\x03\x00\x00", 10);
     }
 
@@ -348,7 +348,7 @@ public:
 
     uint8_t *split(uint8_t *first_key, int *first_len_ptr) {
         int orig_filled_size = filled_size();
-        const int BFT_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
+        const int BFT_NODE_SIZE = is_leaf() ? block_size : parent_block_size;
         uint8_t *b = allocate_block(BFT_NODE_SIZE, is_leaf(), current_block[0] & 0x1F);
         bft new_block(BFT_NODE_SIZE, b, is_leaf());
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;

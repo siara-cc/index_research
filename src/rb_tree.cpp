@@ -74,7 +74,7 @@ void rb_tree::add_data(int search_result) {
 
 uint8_t *rb_tree::split(uint8_t *first_key, int *first_len_ptr) {
     int filled_up2 = filled_upto();
-    const int RB_TREE_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
+    const int RB_TREE_NODE_SIZE = is_leaf() ? block_size : parent_block_size;
     uint8_t *b = allocate_block(RB_TREE_NODE_SIZE, is_leaf(), current_block[0] & 0x1F);
     rb_tree new_block(RB_TREE_NODE_SIZE, b, is_leaf());
     int data_end_pos = util::get_int(current_block + DATA_END_POS);
@@ -241,7 +241,7 @@ int rb_tree::filled_upto() {
 
 bool rb_tree::is_full(int search_result) {
     int kv_len = key_len + value_len + 9; // 3 int pointer, 1 uint8_t key len, 1 uint8_t value len, 1 flag
-    int RB_TREE_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
+    int RB_TREE_NODE_SIZE = is_leaf() ? block_size : parent_block_size;
     int space_left = RB_TREE_NODE_SIZE - util::get_int(current_block + DATA_END_POS);
     space_left -= RB_TREE_HDR_SIZE;
     if (space_left <= kv_len)

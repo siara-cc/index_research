@@ -101,7 +101,7 @@ public:
     }
 
     void make_space() {
-        int block_size = (is_leaf() ? leaf_block_size : parent_block_size);
+        int block_size = (is_leaf() ? block_size : parent_block_size);
         int orig_filled_size = filled_size();
         if (orig_filled_size == 0) {
             set_kv_last_pos(block_size == 65536 ? 65535 : block_size);
@@ -249,7 +249,7 @@ public:
 
     uint8_t *split(uint8_t *first_key, int *first_len_ptr) {
         int orig_filled_size = filled_size();
-        uint32_t BASIX_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
+        uint32_t BASIX_NODE_SIZE = is_leaf() ? block_size : parent_block_size;
         int lvl = current_block[0] & 0x1F;
         uint8_t *b = allocate_block(BASIX_NODE_SIZE, is_leaf(), lvl);
         basix new_block(BASIX_NODE_SIZE, b, is_leaf());

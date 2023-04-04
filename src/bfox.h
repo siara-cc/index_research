@@ -39,7 +39,7 @@ class bfox : public bpt_trie_handler<bfox> {
 public:
     const static uint8_t need_counts[10];
     uint8_t *last_t;
-    uint8_t last_bm;
+    uint8_t last_bm, last_child, last_leaf;
     int bit_count;
 
     bfox(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
@@ -154,7 +154,7 @@ public:
                         t++;
                     int ptr_pos = util::get_int(t + bit_count);
                     int sw = (key_pos == key_len ? 0x01 : 0x00) |
-                        (ptr_pos < BPT_TRIE_LEN ? (t[ptr_pos] == 0x02 ? 0x02 : 0x04) : 0x06);
+                        (ptr_pos < get_trie_len() ? (t[ptr_pos] == 0x02 ? 0x02 : 0x04) : 0x06);
                     switch (sw) {
                         case 0x04: // open child
                             break;
@@ -526,7 +526,7 @@ public:
 
     uint8_t *split(uint8_t *first_key, int *first_len_ptr) {
         int16_t orig_filled_size = filled_size();
-        uint32_t BFOX_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
+        uint32_t BFOX_NODE_SIZE = is_leaf() ? block_size : parent_block_size;
         int lvl = current_block[0] & 0x1F;
         uint8_t *b = allocate_block(BFOX_NODE_SIZE, is_leaf(), lvl);
         bfox new_block(BFOX_NODE_SIZE, b, is_leaf());
@@ -639,9 +639,9 @@ public:
     }
 
     void make_space() {
-        int block_size = (is_leaf() ? leaf_block_size : parent_block_size);
+        int block_sz = (is_leaf() ? block_size : parent_block_size);
         int lvl = current_block[0] & 0x1F;
-        const uint16_t data_size = block_size - get_kv_last_pos();
+        const uint16_t data_size = block_sz - get_kv_last_pos();
         uint8_t data_buf[data_size];
         uint16_t new_data_len = 0;
         uint8_t *t = current_block + BFOX_HDR_SIZE;
@@ -674,11 +674,11 @@ public:
                 //       last_t = key_at;
                 // }
                 memcpy(data_buf + data_size - new_data_len, child_ptr_pos, data_len);
-                util::set_int(t, block_size - new_data_len);
+                util::set_int(t, block_sz - new_data_len);
                 t += 2;
             }
         }
-        uint16_t new_kv_last_pos = block_size - new_data_len;
+        uint16_t new_kv_last_pos = block_sz - new_data_len;
         memcpy(current_block + new_kv_last_pos, data_buf + data_size - new_data_len, new_data_len);
         //printf("%d, %d\n", data_size, new_data_len);
         set_kv_last_pos(new_kv_last_pos);

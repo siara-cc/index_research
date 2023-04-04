@@ -29,8 +29,8 @@ public:
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL) :
         bpt_trie_handler(leaf_block_sz, parent_block_sz, cache_sz, fname) {
-        split_buf = (uint8_t *) util::aligned_alloc(leaf_block_size > parent_block_size ?
-                leaf_block_size : parent_block_size);
+        split_buf = (uint8_t *) util::aligned_alloc(block_size > parent_block_size ?
+                block_size : parent_block_size);
     }
 
     succix(uint32_t block_sz, uint8_t *block, bool is_leaf) :
@@ -149,8 +149,8 @@ public:
     }
 
     void append_ptr(int16_t p) {
-        util::set_int(trie + BPT_TRIE_LEN, p);
-        BPT_TRIE_LEN += 2;
+        util::set_int(trie + get_trie_len(), p);
+        get_trie_len() += 2;
     }
 
     void add_first_data() {
@@ -164,8 +164,8 @@ public:
         int16_t ptr = insert_current();
 
         int16_t key_left = key_len - key_pos;
-        int16_t kv_last_pos = get_kVLast_pos() - (key_left + value_len + 2);
-        set_kVLast_pos(kv_last_pos);
+        int16_t kv_last_pos = get_kv_last_pos() - (key_left + value_len + 2);
+        set_kv_last_pos(kv_last_pos);
         util::set_int(trie + ptr, kv_last_pos);
         current_block[kv_last_pos] = key_left;
         if (key_left)
@@ -178,33 +178,33 @@ public:
 
     bool is_full(int16_t search_result) {
         decode_need_count();
-        if (get_kVLast_pos() < (SUCCIX_HDR_SIZE + BPT_TRIE_LEN
+        if (get_kv_last_pos() < (SUCCIX_HDR_SIZE + get_trie_len()
                 + need_count + key_len - key_pos + value_len + 3)) {
             return true;
         }
-        if (BPT_TRIE_LEN > 254 - need_count)
+        if (get_trie_len() > 254 - need_count)
             return true;
         return false;
     }
 
     uint8_t *split(uint8_t *first_key, int16_t *first_len_ptr) {
         int16_t orig_filled_size = filled_size();
-        const uint16_t SUCCIX_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
+        const uint16_t SUCCIX_NODE_SIZE = is_leaf() ? block_size : parent_block_size;
         int lvl = current_block[0] & 0x1F;
         uint8_t *b = allocate_block(SUCCIX_NODE_SIZE, is_leaf(), lvl);
         succix new_block(SUCCIX_NODE_SIZE, b, is_leaf());
-        new_block.set_kVLast_pos(SUCCIX_NODE_SIZE);
+        new_block.set_kv_last_pos(SUCCIX_NODE_SIZE);
         if (!is_leaf())
             new_block.set_leaf(0);
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         new_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
-        succix old_block(SUCCIX_NODE_SIZE, split_buf);
+        succix old_block(SUCCIX_NODE_SIZE, split_buf, is_leaf());
         if (!is_leaf())
             old_block.set_leaf(0);
         old_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;
         old_block.BPT_MAX_PFX_LEN = BPT_MAX_PFX_LEN;
         succix *ins_block = &old_block;
-        int16_t kv_last_pos = get_kVLast_pos();
+        int16_t kv_last_pos = get_kv_last_pos();
         int16_t half_kVLen = SUCCIX_NODE_SIZE - kv_last_pos + 1;
         half_kVLen /= 2;
 
@@ -331,7 +331,7 @@ public:
             p = key_pos;
             min = util::min16(key_len, key_pos + key_at_len);
             orig_pos++;
-            *orig_pos |= ((BPT_TRIE_LEN - (orig_pos - trie - 1)) / 4);
+            *orig_pos |= ((get_trie_len() - (orig_pos - trie - 1)) / 4);
             ptr = util::get_int(orig_pos + 1);
             if (p < min) {
                 util::set_int(orig_pos + 1, 0);
@@ -354,19 +354,19 @@ public:
                     append(c1);
                     append(x00);
                     if (swap) {
-                        pos = BPT_TRIE_LEN;
+                        pos = get_trie_len();
                         append_ptr(ptr);
                     } else {
-                        ret = BPT_TRIE_LEN;
+                        ret = get_trie_len();
                         append_ptr(0);
                     }
                     append(c2);
                     append(SUCCIX_UNIT_SIZE == 3 ? x40 : x80);
                     if (swap) {
-                        ret = BPT_TRIE_LEN;
+                        ret = get_trie_len();
                         append_ptr(0);
                     } else {
-                        pos = BPT_TRIE_LEN;
+                        pos = get_trie_len();
                         append_ptr(ptr);
                     }
                     break;
@@ -379,10 +379,10 @@ public:
                     append(c1);
                     append(SUCCIX_UNIT_SIZE == 3 ? x41 : x81);
                     if (p + 1 == key_len) {
-                        ret = BPT_TRIE_LEN;
+                        ret = get_trie_len();
                         append_ptr(0);
                     } else {
-                        pos = BPT_TRIE_LEN;
+                        pos = get_trie_len();
                         append_ptr(ptr);
                     }
                     break;
@@ -399,11 +399,11 @@ public:
                 append(c2);
                 append(SUCCIX_UNIT_SIZE == 3 ? x40 : x80);
                 if (p == key_len) {
-                    pos = BPT_TRIE_LEN;
+                    pos = get_trie_len();
                     append_ptr(ptr);
                     key_pos--;
                 } else {
-                    ret = BPT_TRIE_LEN;
+                    ret = get_trie_len();
                     append_ptr(0);
                 }
             }
@@ -423,7 +423,7 @@ public:
             key_char = *key;
             append(key_char);
             append(SUCCIX_UNIT_SIZE == 3 ? x40 : x80);
-            ret = BPT_TRIE_LEN;
+            ret = get_trie_len();
             append_ptr(0);
             key_pos = 1;
             break;

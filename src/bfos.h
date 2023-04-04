@@ -595,7 +595,7 @@ public:
 
     uint8_t *split(uint8_t *first_key, int *first_len_ptr) {
         int16_t orig_filled_size = filled_size();
-        uint32_t BFOS_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
+        uint32_t BFOS_NODE_SIZE = is_leaf() ? block_size : parent_block_size;
         int lvl = current_block[0] & 0x1F;
         uint8_t *b = allocate_block(BFOS_NODE_SIZE, is_leaf(), lvl);
         bfos new_block(BFOS_NODE_SIZE, b, is_leaf());
@@ -722,9 +722,9 @@ public:
     }
 
     void make_space() {
-        int block_size = (is_leaf() ? leaf_block_size : parent_block_size);
+        int block_sz = (is_leaf() ? block_size : parent_block_size);
         int lvl = current_block[0] & 0x1F;
-        const uint16_t data_size = block_size - get_kv_last_pos();
+        const uint16_t data_size = block_sz - get_kv_last_pos();
         uint8_t data_buf[data_size];
         uint16_t new_data_len = 0;
         uint8_t *t = current_block + BFOS_HDR_SIZE;
@@ -752,16 +752,16 @@ public:
                 // if (child_ptr_pos == key_at - 1) {
                 //     if (last_t == key_at)
                 //       last_t = 0;
-                //     key_at = current_block + (block_size - new_data_len) + 1;
+                //     key_at = current_block + (block_sz - new_data_len) + 1;
                 //     if (!last_t)
                 //       last_t = key_at;
                 // }
                 memcpy(data_buf + data_size - new_data_len, child_ptr_pos, data_len);
-                util::set_int(t, block_size - new_data_len);
+                util::set_int(t, block_sz - new_data_len);
                 t += 2;
             }
         }
-        uint16_t new_kv_last_pos = block_size - new_data_len;
+        uint16_t new_kv_last_pos = block_sz - new_data_len;
         memcpy(current_block + new_kv_last_pos, data_buf + data_size - new_data_len, new_data_len);
         //printf("%d, %d\n", data_size, new_data_len);
         set_kv_last_pos(new_kv_last_pos);

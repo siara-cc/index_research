@@ -603,7 +603,7 @@ public:
 
     uint8_t *split(uint8_t *first_key, int *first_len_ptr) {
         int orig_filled_size = filled_size();
-        const int OCTP_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
+        const int OCTP_NODE_SIZE = is_leaf() ? block_size : parent_block_size;
         uint8_t *b = allocate_block(OCTP_NODE_SIZE, is_leaf(), current_block[0] & 0x1F);
         octp new_block(OCTP_NODE_SIZE, b, is_leaf());
         new_block.BPT_MAX_KEY_LEN = BPT_MAX_KEY_LEN;

@@ -150,7 +150,7 @@ public:
 
     uint8_t *split(uint8_t *first_key, int *first_len_ptr) {
         int filled_sz = filled_size();
-        const uint32_t LINEX_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
+        const uint32_t LINEX_NODE_SIZE = is_leaf() ? block_size : parent_block_size;
         uint8_t *b = allocate_block(LINEX_NODE_SIZE, is_leaf(), current_block[0] & 0x1F);
         linex new_block(LINEX_NODE_SIZE, b, is_leaf());
         new_block.set_kv_last_pos(LX_BLK_HDR_SIZE);
@@ -247,7 +247,7 @@ public:
     }
 
     bool is_full(int search_result) {
-        int LINEX_NODE_SIZE = is_leaf() ? leaf_block_size : parent_block_size;
+        int LINEX_NODE_SIZE = is_leaf() ? block_size : parent_block_size;
         if ((get_kv_last_pos() + key_len + value_len + 5) >= LINEX_NODE_SIZE)
             return true;
         return false;

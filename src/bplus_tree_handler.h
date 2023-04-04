@@ -115,14 +115,14 @@ public:
 #endif
 #endif
 
-    size_t leaf_block_size, parent_block_size;
+    size_t block_size, parent_block_size;
     int cache_size;
     const char *filename;
     bool to_demote_blocks;
     bplus_tree_handler(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz_mb = 0,
             const char *fname = NULL, int start_page_num = 0, bool whether_btree = false) :
-            leaf_block_size (leaf_block_sz), parent_block_size (parent_block_sz),
+            block_size (leaf_block_sz), parent_block_size (parent_block_sz),
             cache_size (cache_sz_mb & 0xFFFF), filename (fname) {
         descendant->init_derived();
         init_stats();
@@ -132,7 +132,7 @@ public:
         is_btree = whether_btree;
         to_demote_blocks = false;
         if (cache_size > 0) {
-            cache = new lru_cache(leaf_block_size, cache_size, filename,
+            cache = new lru_cache(block_size, cache_size, filename,
                     this,
                     start_page_num, util::aligned_alloc);
             root_block = current_block = cache->get_disk_page_in_cache(start_page_num);
@@ -141,7 +141,7 @@ public:
                 descendant->init_current_block();
             }
         } else {
-            root_block = current_block = (uint8_t *) util::aligned_alloc(leaf_block_size);
+            root_block = current_block = (uint8_t *) util::aligned_alloc(block_size);
             descendant->set_leaf(1);
             descendant->set_current_block(root_block);
             descendant->init_current_block();
@@ -149,7 +149,7 @@ public:
     }
 
     bplus_tree_handler(uint32_t block_sz, uint8_t *block, bool is_leaf, bool should_init = true) :
-            leaf_block_size (block_sz), parent_block_size (block_sz),
+            block_size (block_sz), parent_block_size (block_sz),
             cache_size (0), filename (NULL) {
         is_block_given = 1;
         is_closed = false;
@@ -182,7 +182,7 @@ public:
             descendant->set_filled_size(0);
             BPT_MAX_KEY_LEN = 0;
             descendant->set_kv_last_pos(
-                descendant->is_leaf() ? leaf_block_size : parent_block_size);
+                descendant->is_leaf() ? block_size : parent_block_size);
         }
     }
 
@@ -430,8 +430,8 @@ public:
                 uint8_t *old_block = current_block;
                 uint8_t *new_block = descendant->split(first_key, &first_len);
                 descendant->set_changed(1);
-                int lvl = descendant->get_level(old_block, descendant->is_leaf() ? leaf_block_size : parent_block_size);
-                descendant->set_level(new_block, descendant->is_leaf() ? leaf_block_size : parent_block_size, lvl);
+                int lvl = descendant->get_level(old_block, descendant->is_leaf() ? block_size : parent_block_size);
+                descendant->set_level(new_block, descendant->is_leaf() ? block_size : parent_block_size, lvl);
                 int new_page = 0;
                 if (cache_size > 0)
                     new_page = cache->get_page_count() - 1;
@@ -450,7 +450,7 @@ public:
                     block_count_node++;
                     int old_page = 0;
                     if (cache_size > 0) {
-                        int block_size = descendant->is_leaf() ? leaf_block_size : parent_block_size;
+                        int block_size = descendant->is_leaf() ? block_size : parent_block_size;
                         old_block = descendant->allocate_block(block_size, descendant->is_leaf(), new_lvl);
                         old_page = cache->get_page_count() - 1;
                         memcpy(old_block, root_block, block_size);
@@ -461,7 +461,7 @@ public:
                     descendant->set_leaf(0);
                     descendant->init_current_block();
                     descendant->set_changed(1);
-                    descendant->set_level(current_block, descendant->is_leaf() ? leaf_block_size : parent_block_size, new_lvl);
+                    descendant->set_level(current_block, descendant->is_leaf() ? block_size : parent_block_size, new_lvl);
                     descendant->add_first_kv_to_root(first_key, first_len,
                         cache_size > 0 ? (unsigned long) old_page : (unsigned long) old_block,
                         cache_size > 0 ? (unsigned long) new_page : (unsigned long) new_block);
