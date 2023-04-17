@@ -162,7 +162,7 @@ public:
             descendant->set_current_block(block);
     }
 
-    ~bplus_tree_handler() {
+    virtual ~bplus_tree_handler() {
         if (!is_closed)
             close();
     }
@@ -216,7 +216,7 @@ public:
         return current_block;
     }
 
-    std::string get_string(std::string& key, std::string& not_found_value) {
+    std::string get_string(std::string& key, std::string not_found_value) {
         bool ret = get(key.c_str(), key.length(), NULL, NULL);
         if (ret) {
             uint8_t *val = (uint8_t *) malloc(key_at_len);
@@ -384,21 +384,21 @@ public:
             num_levels = ctx->last_page_lvl + 1;
             if (only_if_not_full) {
                 if (descendant->is_full(~search_result)) {
-                    if (is_ctx_given)
+                    if (!is_ctx_given)
                         delete ctx;
                     return false;
                 }
             }
             recursive_update(search_result, ctx, ctx->last_page_lvl);
             if (search_result >= 0) {
-                if (is_ctx_given)
+                if (!is_ctx_given)
                     delete ctx;
                 descendant->set_changed(1);
                 return true;
             }
         }
         total_size++;
-        if (is_ctx_given)
+        if (!is_ctx_given)
             delete ctx;
         return false;
     }
@@ -450,11 +450,11 @@ public:
                     block_count_node++;
                     int old_page = 0;
                     if (cache_size > 0) {
-                        int block_size = descendant->is_leaf() ? block_size : parent_block_size;
-                        old_block = descendant->allocate_block(block_size, descendant->is_leaf(), new_lvl);
+                        int block_sz = descendant->is_leaf() ? block_size : parent_block_size;
+                        old_block = descendant->allocate_block(block_sz, descendant->is_leaf(), new_lvl);
                         old_page = cache->get_page_count() - 1;
-                        memcpy(old_block, root_block, block_size);
-                        descendant->set_block_changed(old_block, block_size, true);
+                        memcpy(old_block, root_block, block_sz);
+                        descendant->set_block_changed(old_block, block_sz, true);
                     } else
                         root_block = (uint8_t *) util::aligned_alloc(parent_block_size);
                     descendant->set_current_block(root_block);

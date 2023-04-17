@@ -21,6 +21,7 @@
 #include "dft.h"
 #include "bfqs.h"
 #include "bfos.h"
+#include "bfox.h"
 #include "rb_tree.h"
 #include "stager.h"
 #ifdef _MSC_VER
@@ -57,7 +58,7 @@ int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
 int TEST_IDX1 = 1;
-int TEST_IDX2 = 1;
+int TEST_IDX2 = 0;
 
 int ctr = 0;
 
@@ -1358,7 +1359,8 @@ int test_sqlite(const char *file_name) {
 int test(const char *file_name) {
     // bfos *lx = new bfos(16384, 16384);
     //bft *lx = new bft(16384, 16384);
-    bft *lx = new bft(512, 512);
+    //bft *lx = new bft(512, 512);
+    sqlite *lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, 10, file_name);
     int val_len = 4;
     char val[200];
     const char *data[] = {"bon", "jour"
@@ -1563,18 +1565,18 @@ int test(const char *file_name) {
             all_ok = false;
         }
     }
-    bft_iterator_status bft_iter(lx->trie, 0, lx->get_trie_len());
-    uint8_t key[100];
-    int ptr;
-    do {
-        ptr = lx->next_ptr(bft_iter, key, len);
-        if (ptr) {
-            memcpy(key + len, lx->current_block + ptr + 1, lx->current_block[ptr]);
-            len += lx->current_block[ptr];
-            key[len] = 0;
-            cout << "Key: " << key << endl;
-        }
-    } while (ptr);
+    // bft_iterator_status bft_iter(lx->trie, 0, lx->get_trie_len());
+    // uint8_t key[100];
+    // int ptr;
+    // do {
+    //     ptr = lx->next_ptr(bft_iter, key, len);
+    //     if (ptr) {
+    //         memcpy(key + len, lx->current_block + ptr + 1, lx->current_block[ptr]);
+    //         len += lx->current_block[ptr];
+    //         key[len] = 0;
+    //         cout << "Key: " << key << endl;
+    //     }
+    // } while (ptr);
     lx->print_stats(lx->size());
     if (all_ok)
         cout << "All ok" << endl;
@@ -1785,7 +1787,7 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
-    bfos *lx;
+    sqlite *lx;
     if (TEST_IDX1)
     {
     ctr = 0;
@@ -1794,10 +1796,10 @@ int main(int argc, char *argv[]) {
     //lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new stager(OUT_FILE1, CACHE_SIZE); // not working
-    //lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
     //lx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //lx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
@@ -1842,6 +1844,7 @@ int main(int argc, char *argv[]) {
     //dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working only with int16_t
+    //dx = new bfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working only with int16_t
     //dx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);

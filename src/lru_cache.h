@@ -280,7 +280,7 @@ public:
         memset(&stats, '\0', sizeof(stats));
         calc_flush_count();
     }
-    ~lru_cache() {
+    virtual ~lru_cache() {
         flush_pages_in_seq(0);
         std::set<int> pages_to_write;
         for (size_t ll = 0; ll < cache_size_in_pages; ll++) {
