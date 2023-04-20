@@ -59,14 +59,14 @@ public:
             else {
                 if (ctx) {
                     ctx->found_page_idx = ctx->last_page_lvl;
-                    ctx->found_page_pos = middle;
+                    ctx->found_page_pos[ctx->last_page_lvl] = middle;
                 }
                 return middle;
             }
         }
         if (ctx) {
             ctx->found_page_idx = ctx->last_page_lvl;
-            ctx->found_page_pos = ~filled_sz;
+            ctx->found_page_pos[ctx->last_page_lvl] = ~filled_sz;
         }
         return ~filled_sz;
     }
@@ -93,8 +93,8 @@ public:
     }
 
     void remove_found_entry(bptree_iter_ctx *ctx) {
-        if (ctx->found_page_pos != -1) {
-            del_ptr(ctx->found_page_pos);
+        if (ctx->found_page_pos[ctx->last_page_lvl] != -1) {
+            del_ptr(ctx->found_page_pos[ctx->last_page_lvl]);
             set_changed(1);
         }
         total_size--;
@@ -362,6 +362,58 @@ public:
     }
 
     void cleanup() {
+    }
+
+    uint8_t *next_rec(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len) {
+        if (ctx->found_page_pos[ctx->last_page_lvl] < 0)
+            ctx->found_page_pos[ctx->last_page_lvl] = ~ctx->found_page_pos[ctx->last_page_lvl];
+        uint8_t *target_block;
+        if (cache_size > 0)
+            target_block = cache->get_disk_page_in_cache(ctx->pages[ctx->last_page_lvl].page);
+        else
+            target_block = ctx->pages[ctx->last_page_lvl].ptr;
+        int filled_sz = util::get_int(target_block + 1);
+        uint8_t *ret;
+        int next_pos;
+        if (ctx->found_page_pos[ctx->last_page_lvl] < filled_sz) {
+            next_pos = ctx->found_page_pos[ctx->last_page_lvl];
+            ret = target_block + util::get_int(target_block + BLK_HDR_SIZE + (next_pos << 1));
+            ctx->found_page_pos[ctx->last_page_lvl]++;
+        } else {
+            int lvl = ctx->last_page_lvl - 1;
+            do {
+                if (ctx->found_page_pos[lvl] < 0)
+                    ctx->found_page_pos[lvl] = ~ctx->found_page_pos[lvl];
+                ctx->found_page_pos[lvl]++;
+                if (cache_size > 0)
+                    target_block = cache->get_disk_page_in_cache(ctx->pages[lvl].page);
+                else
+                    target_block = ctx->pages[lvl].ptr;
+                filled_sz = util::get_int(target_block + 1);
+                next_pos = ctx->found_page_pos[lvl];
+                lvl--;
+            } while (lvl >= 0 && next_pos >= filled_sz);
+            if (lvl < 0 && next_pos >= filled_sz)
+                return NULL;
+            lvl++;
+            while (lvl < ctx->last_page_lvl) {
+                next_pos = ctx->found_page_pos[lvl];
+                uint8_t *child_ptr_loc = target_block + util::get_int(target_block + BLK_HDR_SIZE + (next_pos << 1));
+                lvl++;
+                if (cache_size > 0) {
+                    ctx->pages[lvl].page = get_child_page(child_ptr_loc);
+                    target_block = cache->get_disk_page_in_cache(ctx->pages[lvl].page);
+                } else {
+                    ctx->pages[lvl].ptr = get_child_ptr(child_ptr_loc);
+                    target_block = ctx->pages[lvl].ptr;
+                }
+                ctx->found_page_pos[lvl] = 0;
+            }
+            next_pos = 0;
+            ret = target_block + util::get_int(target_block + BLK_HDR_SIZE + (next_pos << 1));
+            ctx->found_page_pos[lvl] = 1;
+        }
+        return ret;
     }
 
 };

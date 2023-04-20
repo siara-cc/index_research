@@ -872,7 +872,7 @@ public:
         key_char = key[key_pos - 1];
         mask = x01 << (key_char & x07);
         switch (insert_state) {
-        case INSERT_AFTER:
+        case INSERT_AFTER: {
             *orig_pos &= xFB;
             trie_pos = orig_pos + 1;
             uint8_t children = (*orig_pos & x02 ? *trie_pos++ : 0);
@@ -882,7 +882,7 @@ public:
             update_ptrs(trie_pos, 4);
             ins_b4(trie_pos, ((key_char & xF8) | x05), mask, 0, 0);
             ret = trie_pos - trie + 2;
-            break;
+            break; }
         case INSERT_BEFORE:
             update_ptrs(orig_pos, 4);
             ins_b4(orig_pos, (key_char & xF8) | 0x01, mask, 0, 0);
@@ -1181,6 +1181,10 @@ public:
     }
 
     uint8_t *find_split_source(int search_result) {
+        return NULL;
+    }
+
+    uint8_t *next_rec(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len) {
         return NULL;
     }
 

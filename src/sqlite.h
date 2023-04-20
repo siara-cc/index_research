@@ -742,14 +742,14 @@ class sqlite : public bplus_tree_handler<sqlite>, public sqlite_common {
                 else {
                     if (ctx) {
                         ctx->found_page_idx = ctx->last_page_lvl;
-                        ctx->found_page_pos = middle;
+                        ctx->found_page_pos[ctx->last_page_lvl] = middle;
                     }
                     return middle;
                 }
             }
             if (ctx) {
                 ctx->found_page_idx = ctx->last_page_lvl;
-                ctx->found_page_pos = ~filled_sz;
+                ctx->found_page_pos[ctx->last_page_lvl] = ~filled_sz;
             }
             return ~filled_sz;
         }
@@ -824,6 +824,9 @@ class sqlite : public bplus_tree_handler<sqlite>, public sqlite_common {
             }
         }
 
+        uint8_t *next_rec(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len) {
+            return NULL;
+        }
 
 };
 

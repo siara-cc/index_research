@@ -62,13 +62,13 @@ union page_ptr {
 class bptree_iter_ctx {
     public:
         page_ptr pages[MAX_LVL_COUNT];
-        int found_page_pos;
+        int found_page_pos[MAX_LVL_COUNT];
         int8_t last_page_lvl;
         int8_t found_page_idx;
         void init(unsigned long page, uint8_t *ptr, int cache_size) {
             last_page_lvl = 0;
             found_page_idx = 0;
-            found_page_pos = -1;
+            found_page_pos[last_page_lvl] = -1;
             set(page, ptr, cache_size);
         }
         void set(unsigned long page, uint8_t *ptr, int cache_size) {
@@ -287,12 +287,14 @@ public:
 
     int traverse_to_leaf(bptree_iter_ctx *ctx = NULL) {
         uint8_t prev_lvl_split_count = 0;
+        int search_result;
         while (!descendant->is_leaf()) {
+            search_result = descendant->search_current_block(ctx);
             if (ctx) {
                 ctx->set(current_page, current_block, cache_size);
+                ctx->found_page_pos[ctx->last_page_lvl] = search_result;
                 ctx->last_page_lvl++;
             }
-            int search_result = descendant->search_current_block(ctx);
             if (search_result >= 0 && is_btree)
                 return search_result;
             uint8_t *child_ptr_loc = descendant->get_child_ptr_pos(search_result);
@@ -310,7 +312,12 @@ public:
             //    cout << "Split count not matching: " << (int) prev_lvl_split_count << " " << (int) current_block[5] << " " << (int) (current_block[0] & 0x1F) << endl;
             //}
         }
-        return descendant->search_current_block(ctx);
+        search_result = descendant->search_current_block(ctx);
+        if (ctx) {
+            ctx->set(current_page, current_block, cache_size);
+            ctx->found_page_pos[ctx->last_page_lvl] = search_result;
+        }
+        return search_result;
     }
 
     inline uint8_t *get_child_ptr(uint8_t *ptr) {
@@ -754,7 +761,18 @@ public:
         return max_key_len;
     }
     cache_stats get_cache_stats() {
+        if (cache_size <= 0) {
+            cache_stats stats;
+            memset(&stats, '\0', sizeof(stats));
+            return stats;
+        }
         return cache->get_cache_stats();
+    }
+
+    uint8_t *next(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len) {
+        // if (ctx->found_page_pos[ctx->last_page_lvl] == 32767)
+        //     return NULL;
+        return descendant->next_rec(ctx, val_buf, val_buf_len);
     }
 
 };

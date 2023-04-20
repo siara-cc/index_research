@@ -111,6 +111,7 @@ public:
     uint8_t *get_ptr_pos();
     int get_header_size();
     void init_buf();
+    uint8_t *next_rec(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len);
 };
 
 #endif

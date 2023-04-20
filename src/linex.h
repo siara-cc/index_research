@@ -301,6 +301,10 @@ public:
         return NULL;
     }
 
+    uint8_t *next_rec(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len) {
+        return NULL;
+    }
+
 };
 
 #endif

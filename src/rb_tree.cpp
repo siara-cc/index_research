@@ -546,3 +546,7 @@ uint8_t *rb_tree::get_child_ptr_pos(int search_result) {
 uint8_t *rb_tree::get_ptr_pos() {
     return NULL;
 }
+
+uint8_t *rb_tree::next_rec(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len) {
+    return NULL;
+}
