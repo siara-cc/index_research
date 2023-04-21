@@ -11,6 +11,20 @@
 
 #define page_resv_bytes 5
 
+class change_fns_sqlite : public chg_iface {
+    public:
+        virtual void set_block_changed(uint8_t *block, int block_sz, bool is_changed) {
+            if (is_changed)
+                block[block_sz - page_resv_bytes] |= 0x40;
+            else
+                block[block_sz - page_resv_bytes] &= 0xBF;
+        }
+        virtual bool is_block_changed(uint8_t *block, int block_sz) {
+            return block[block_sz - page_resv_bytes] & 0x40;
+        }
+        virtual ~change_fns_sqlite() {}
+};
+
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class sqlite : public bplus_tree_handler<sqlite>, public sqlite_common {
 
@@ -215,6 +229,7 @@ class sqlite : public bplus_tree_handler<sqlite>, public sqlite_common {
         }
 
         void init_derived() {
+            change_fns = new change_fns_sqlite();
         }
 
         void cleanup() {
@@ -398,10 +413,10 @@ class sqlite : public bplus_tree_handler<sqlite>, public sqlite_common {
             uint8_t *new_page;
             if (cache_size > 0) {
                 new_page = cache->get_new_page(current_block);
-                set_block_changed(new_page, size, true);
+                change_fns->set_block_changed(new_page, size, true);
                 if ((cache->file_page_count - 1) * block_size == 1073741824UL) {
                     new_page = cache->get_new_page(current_block);
-                    set_block_changed(new_page, size, true);
+                    change_fns->set_block_changed(new_page, size, true);
                 }
             } else
                 new_page = (uint8_t *) util::aligned_alloc(size);
@@ -763,17 +778,6 @@ class sqlite : public bplus_tree_handler<sqlite>, public sqlite_common {
 
         bool is_changed() {
             return current_block[block_size - page_resv_bytes] & 0x40;
-        }
-
-        void set_block_changed(uint8_t *block, int block_sz, bool is_changed) {
-            if (is_changed)
-                block[block_sz - page_resv_bytes] |= 0x40;
-            else
-                block[block_sz - page_resv_bytes] &= 0xBF;
-        }
-
-        bool is_block_changed(uint8_t *block, int block_sz) {
-            return block[block_sz - page_resv_bytes] & 0x40;
         }
 
         inline bool is_leaf() {

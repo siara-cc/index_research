@@ -56,17 +56,8 @@ public:
                 first = middle + 1;
             else if (cmp > 0)
                 filled_sz = middle;
-            else {
-                if (ctx) {
-                    ctx->found_page_idx = ctx->last_page_lvl;
-                    ctx->found_page_pos[ctx->last_page_lvl] = middle;
-                }
+            else
                 return middle;
-            }
-        }
-        if (ctx) {
-            ctx->found_page_idx = ctx->last_page_lvl;
-            ctx->found_page_pos[ctx->last_page_lvl] = ~filled_sz;
         }
         return ~filled_sz;
     }

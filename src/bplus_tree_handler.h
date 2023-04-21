@@ -58,11 +58,11 @@ union page_ptr {
     uint8_t *ptr;
 };
 
-#define MAX_LVL_COUNT 10
+#define BPT_MAX_LVL_COUNT 15
 class bptree_iter_ctx {
     public:
-        page_ptr pages[MAX_LVL_COUNT];
-        int found_page_pos[MAX_LVL_COUNT];
+        page_ptr pages[BPT_MAX_LVL_COUNT];
+        int found_page_pos[BPT_MAX_LVL_COUNT];
         int8_t last_page_lvl;
         int8_t found_page_idx;
         void init(unsigned long page, uint8_t *ptr, int cache_size) {
@@ -79,8 +79,22 @@ class bptree_iter_ctx {
         }
 };
 
+class chg_iface_default : public chg_iface {
+  public:
+    virtual void set_block_changed(uint8_t *block, int block_sz, bool is_changed) {
+        if (is_changed)
+            block[0] |= 0x40;
+        else
+            block[0] &= 0xBF;
+    }
+    virtual bool is_block_changed(uint8_t *block, int block_sz) {
+        return block[0] & 0x40;
+    }
+    virtual ~chg_iface_default() {}
+};
+
 template<class T> // CRTP
-class bplus_tree_handler : public chg_iface {
+class bplus_tree_handler {
 protected:
     long total_size;
     int num_levels;
@@ -93,6 +107,7 @@ protected:
     int is_block_given;
     int root_page_num;
     bool is_closed;
+    chg_iface *change_fns;
 
 public:
     lru_cache *cache;
@@ -124,16 +139,19 @@ public:
             const char *fname = NULL, int start_page_num = 0, bool whether_btree = false) :
             block_size (leaf_block_sz), parent_block_size (parent_block_sz),
             cache_size (cache_sz_mb & 0xFFFF), filename (fname) {
+        change_fns = NULL;
         descendant->init_derived();
         init_stats();
         is_closed = false;
         is_block_given = 0;
         root_page_num = start_page_num;
         is_btree = whether_btree;
+        if (change_fns == NULL)
+            change_fns = new chg_iface_default();
         to_demote_blocks = false;
         if (cache_size > 0) {
             cache = new lru_cache(block_size, cache_size, filename,
-                    this,
+                    this->change_fns,
                     start_page_num, util::aligned_alloc);
             root_block = current_block = cache->get_disk_page_in_cache(start_page_num);
             if (cache->is_empty()) {
@@ -171,8 +189,10 @@ public:
         descendant->cleanup();
         if (cache_size > 0)
             delete cache;
-        else if (!is_block_given)
+        else if (!is_block_given) {
             free(root_block);
+            delete change_fns;
+        }
     }
 
     void init_current_block() {
@@ -461,7 +481,7 @@ public:
                         old_block = descendant->allocate_block(block_sz, descendant->is_leaf(), new_lvl);
                         old_page = cache->get_page_count() - 1;
                         memcpy(old_block, root_block, block_sz);
-                        descendant->set_block_changed(old_block, block_sz, true);
+                        change_fns->set_block_changed(old_block, block_sz, true);
                     } else
                         root_block = (uint8_t *) util::aligned_alloc(parent_block_size);
                     descendant->set_current_block(root_block);

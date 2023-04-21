@@ -10,12 +10,11 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <cstring>
 #include <time.h>
-#include <brotli/encode.h>
+//#include <brotli/encode.h>
 //#include <snappy.h>
 
 #define USE_FOPEN 1
@@ -38,15 +37,9 @@ typedef struct {
 
 class chg_iface {
   public:
-    virtual void set_block_changed(uint8_t *block, int block_size, bool is_changed) {
-        if (is_changed)
-            block[0] |= 0x40;
-        else
-            block[0] &= 0xBF;
-    }
-    virtual bool is_block_changed(uint8_t *block, int block_size) {
-        return block[0] & 0x40;
-    }
+    virtual void set_block_changed(uint8_t *block, int block_sz, bool is_changed) = 0;
+    virtual bool is_block_changed(uint8_t *block, int block_sz) = 0;
+    virtual ~chg_iface() {}
 };
 
 class lru_cache {
@@ -62,7 +55,7 @@ protected:
     size_t disk_to_cache_map_size;
     dbl_lnklst *llarr;
     std::set<int> new_pages;
-    char filename[100];
+    std::string filename;
 #if USE_FOPEN == 1
     FILE *fp;
 #else
@@ -73,8 +66,6 @@ protected:
     long max_pages_to_flush;
     void *(*malloc_fn)(size_t);
     void write_pages(std::set<int>& pages_to_write) {
-        // time_point<steady_clock> start;
-        // start = steady_clock::now();
         for (std::set<int>::iterator it = pages_to_write.begin(); it != pages_to_write.end(); it++) {
             uint8_t *block = &page_cache[page_size * disk_to_cache_map[*it]->cache_loc];
             iface->set_block_changed(block, page_size, false);
@@ -219,7 +210,7 @@ public:
         cache_size_in_pages = cache_size_kb * 1024 / page_size;
         cache_occupied_size = 0;
         lnklst_first_entry = lnklst_last_entry = NULL;
-        strcpy(filename, fname);
+        filename = fname;
         page_cache = (uint8_t *) alloc_fn(pg_size * cache_size_in_pages);
         root_block = (uint8_t *) alloc_fn(pg_size);
         llarr = (dbl_lnklst *) alloc_fn(cache_size_in_pages * sizeof(dbl_lnklst));
