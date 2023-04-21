@@ -355,6 +355,7 @@ public:
     bool is_full(int search_result) {
         decode_need_count(search_result);
         int ptr_size = filled_size() + 1;
+        ptr_size <<= 1;
         if (get_kv_last_pos() < (DFOS_HDR_SIZE + DS_GET_TRIE_LEN
                         + need_count + ptr_size + key_len - key_pos + value_len + 3))
             return true;
