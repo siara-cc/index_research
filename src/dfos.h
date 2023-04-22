@@ -548,12 +548,12 @@ public:
         case INSERT_AFTER:
             *orig_pos &= xFB;
             trie_pos = orig_pos + 2 + ((*orig_pos & x02) ? DS_GET_SIBLING_OFFSET(orig_pos + 2) : 0);
-            ins_atWith_ptrs(trie_pos, ((key_char & xF8) | x04), mask);
+            ins_b2_with_ptrs(trie_pos, ((key_char & xF8) | x04), mask);
             if (key_pos > 1)
                 update_skip_lens(orig_pos - 1, trie_pos - 1, 2);
             break;
         case INSERT_BEFORE:
-            ins_atWith_ptrs(orig_pos, key_char & xF8, mask);
+            ins_b2_with_ptrs(orig_pos, key_char & xF8, mask);
             if (key_pos > 1)
                 update_skip_lens(orig_pos, orig_pos + 1, 2);
             break;
@@ -573,7 +573,7 @@ public:
             c = *trie_pos;
             cmp_rel = ((c ^ key_char) > x07 ? (c < key_char ? 0 : 1) : 2);
             if (cmp_rel == 0)
-                ins_atWith_ptrs(key_at, (key_char & xF8) | 0x04, 1 << (key_char & x07));
+                ins_b2_with_ptrs(key_at, (key_char & xF8) | 0x04, 1 << (key_char & x07));
             if (diff == 1)
                 trie_pos = orig_pos;
             b = (cmp_rel == 2 ? x04 : x00) | (cmp_rel == 1 ? x00 : x02);
@@ -616,7 +616,7 @@ public:
                 orig_pos[2 + DS_SIBLING_PTR_SIZE] |= mask;
                 orig_pos[1]++;
             } else {
-                ins_atWith_ptrs(orig_pos + 1, BIT_COUNT(orig_pos[1]) + 1, x00, x00, mask);
+                ins_b4_with_ptrs(orig_pos + 1, BIT_COUNT(orig_pos[1]) + 1, x00, x00, mask);
                 trie_pos += (2 + DS_SIBLING_PTR_SIZE);
                 *orig_pos |= x02;
             }
@@ -754,13 +754,13 @@ public:
 
     }
 
-    void ins_atWith_ptrs(uint8_t *ptr, const uint8_t *s, uint8_t len) {
+    void ins_bytes_with_ptrs(uint8_t *ptr, const uint8_t *s, uint8_t len) {
         memmove(ptr + len, ptr, trie + DS_GET_TRIE_LEN + filled_size() * 2 - ptr);
         memcpy(ptr, s, len);
         DS_SET_TRIE_LEN(DS_GET_TRIE_LEN + len);
     }
 
-    uint8_t ins_atWith_ptrs(uint8_t *ptr, uint8_t b1, uint8_t b2) {
+    uint8_t ins_b2_with_ptrs(uint8_t *ptr, uint8_t b1, uint8_t b2) {
         memmove(ptr + 2, ptr, trie + DS_GET_TRIE_LEN + filled_size() * 2 - ptr);
         *ptr++ = b1;
         *ptr = b2;
@@ -768,16 +768,7 @@ public:
         return 2;
     }
 
-    uint8_t ins_atWith_ptrs(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3) {
-        memmove(ptr + 3, ptr, trie + DS_GET_TRIE_LEN + filled_size() * 2 - ptr);
-        *ptr++ = b1;
-        *ptr++ = b2;
-        *ptr = b3;
-        DS_SET_TRIE_LEN(DS_GET_TRIE_LEN + 3);
-        return 3;
-    }
-
-    uint8_t ins_atWith_ptrs(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4) {
+    uint8_t ins_b4_with_ptrs(uint8_t *ptr, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4) {
         memmove(ptr + 4, ptr, trie + DS_GET_TRIE_LEN + filled_size() * 2 - ptr);
         *ptr++ = b1;
         *ptr++ = b2;
