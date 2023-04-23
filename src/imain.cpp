@@ -14,7 +14,7 @@
 #include "basix.h"
 #include "basix3.h"
 #include "dfox.h"
-#include "dfos.h"
+#include "dfost.h"
 #include "octp.h"
 #include "dfqx.h"
 #include "bft_cl.h"
@@ -1360,7 +1360,8 @@ int test(const char *file_name) {
     // bfos *lx = new bfos(16384, 16384);
     //bft *lx = new bft(16384, 16384);
     //bft *lx = new bft(512, 512);
-    sqlite *lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, 10, file_name);
+    dfos *lx = new dfos(512, 512);
+    //sqlite *lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, 10, file_name);
     int val_len = 4;
     char val[200];
     const char *data[] = {"bon", "jour"
