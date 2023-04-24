@@ -16,7 +16,6 @@
 #define DS_SET_TRIE_LEN(x) util::set_int(BPT_TRIE_LEN_PTR, x)
 #define DS_GET_SIBLING_OFFSET(x) (util::get_int(x) & 0x3FFF)
 #define DS_SET_SIBLING_OFFSET(x, off) util::set_int(x, off + (((*x) & 0xC0) << 8))
-#define DS_MAX_PTRS 1023
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class dfos : public bpt_trie_handler<dfos> {
@@ -362,15 +361,44 @@ public:
 
     }
 
+    void make_space() {
+        int block_sz = (is_leaf() ? block_size : parent_block_size);
+        int lvl = current_block[0] & 0x1F;
+        const uint16_t data_size = block_sz - get_kv_last_pos();
+        uint8_t data_buf[data_size];
+        uint16_t new_data_len = 0;
+        int idx = 0;
+        int filled_sz = filled_size();
+        while (idx < filled_sz) {
+            uint16_t src_idx = get_ptr(idx);
+            uint8_t *ptr_pos = current_block + src_idx;
+            uint16_t data_len = *ptr_pos;
+            data_len++;
+            data_len += ptr_pos[data_len];
+            data_len++;
+            new_data_len += data_len;
+            memcpy(data_buf + data_size - new_data_len, ptr_pos, data_len);
+            set_ptr(idx, block_sz - new_data_len);
+            idx++;
+        }
+        uint16_t new_kv_last_pos = block_sz - new_data_len;
+        memcpy(current_block + new_kv_last_pos, data_buf + data_size - new_data_len, new_data_len);
+        //printf("%d, %d\n", data_size, new_data_len);
+        set_kv_last_pos(new_kv_last_pos);
+        search_current_block();
+    }
+
     bool is_full(int search_result) {
         decode_need_count(search_result);
         int ptr_size = filled_size() + 1;
         ptr_size <<= 1;
         if (get_kv_last_pos() < (DFOS_HDR_SIZE + DS_GET_TRIE_LEN
-                        + need_count + ptr_size + key_len - key_pos + value_len + 3))
-            return true;
-        if (filled_size() >= DS_MAX_PTRS)
-            return true;
+                        + need_count + ptr_size + key_len - key_pos + value_len + 3)) {
+            make_space();
+            if (get_kv_last_pos() < (DFOS_HDR_SIZE + DS_GET_TRIE_LEN
+                            + need_count + ptr_size + key_len - key_pos + value_len + 3))
+                return true;
+        }
         return false;
     }
 
