@@ -399,7 +399,7 @@ public:
         int16_t data_len;
         brk_kv_pos = data_len = 0;
         char ctr = x08;
-        int tp[BPT_MAX_PFX_LEN];
+        int tp[BPT_MAX_PFX_LEN + 1];
         uint8_t *t = trie;
         uint8_t tc, child, leaf;
         tc = child = leaf = 0;
@@ -542,19 +542,24 @@ public:
             int16_t p, min;
             uint8_t c1, c2;
             uint8_t *child_pos;
-            child_pos = orig_pos + 1;
-            if (*orig_pos & x02) {
-                *child_pos |= mask;
-            } else {
-                ins_b1_with_ptrs(child_pos, mask);
-                trie_pos++;
-                *orig_pos |= x02;
-            }
             c1 = c2 = key_char;
             p = key_pos;
             min = util::min16(key_len, key_pos + key_at_len);
-            if (p < min) {
-                child_pos[1] &= ~mask; // leaf_pos
+            child_pos = orig_pos + 1;
+            if (*orig_pos & x02) {
+                *child_pos |= mask;
+                    if (p < min)
+                        child_pos[1] &= ~mask; // leaf_pos
+            } else {
+                if (p < min && *child_pos == mask) {
+                    *orig_pos &= 0xFE;
+                } else {
+                    ins_b1_with_ptrs(child_pos, mask);
+                    trie_pos++;
+                    if (p < min)
+                        child_pos[1] &= ~mask; // leaf_pos
+                }
+                *orig_pos |= x02;
             }
 #if DS_MIDDLE_PREFIX == 1
             need_count -= 7;
