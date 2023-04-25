@@ -14,8 +14,6 @@
 
 #define DS_GET_TRIE_LEN util::get_int(BPT_TRIE_LEN_PTR)
 #define DS_SET_TRIE_LEN(x) util::set_int(BPT_TRIE_LEN_PTR, x)
-#define DS_GET_SIBLING_OFFSET(x) (util::get_int(x) & 0x3FFF)
-#define DS_SET_SIBLING_OFFSET(x, off) util::set_int(x, off + (((*x) & 0xC0) << 8))
 
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class dfos : public bpt_trie_handler<dfos> {
@@ -48,13 +46,14 @@ public:
     inline uint8_t *skip_children(uint8_t *t, int count) {
         while (count) {
             uint8_t tc = *t++;
-            if (tc & x01) {
-                t += (tc >> 1);
+            if ((tc & x03) == 0) {
+                t += (tc >> 2);
                 continue;
             }
             if (tc & x02)
                 count += BIT_COUNT(*t++);
-            pos += BIT_COUNT(*t++);
+            if (tc & x01)
+                pos += BIT_COUNT(*t++);
             if (tc & x04)
                 count--;
         }
@@ -71,7 +70,7 @@ public:
             uint8_t trie_char = *t;
             int to_skip;
 #if DS_MIDDLE_PREFIX == 1
-            switch ((trie_char & x01) ? 3 : ((key_char ^ trie_char) > x07 ?
+            switch (((trie_char & x03) == 0) ? 3 : ((key_char ^ trie_char) > x07 ?
                     (key_char > trie_char ? 0 : 2) : 1)) {
 #else
             switch ((key_char ^ trie_char) > x07 ?
@@ -79,13 +78,12 @@ public:
 #endif
             case 0:
                 orig_pos = t++;
-                to_skip = (trie_char & x02 ? BIT_COUNT(*t++) : x00);
-                pos += BIT_COUNT(*t++);
+                to_skip = (trie_char & x02 ? BIT_COUNT(*t++) : 0);
+                pos += (trie_char & x01 ? BIT_COUNT(*t++) : 0);
                 t = skip_children(t, to_skip);
                 if (trie_char & x04) {
                     trie_pos = t;
                     insert_state = INSERT_AFTER;
-                    need_count = 3;
                     return ~pos;
                 }
                 break;
@@ -94,7 +92,7 @@ public:
                 uint16_t to_skip;
                 orig_pos = t++;
                 r_children = (trie_char & x02 ? *t++ : x00);
-                r_leaves = *t++;
+                r_leaves = (trie_char & x01 ? *t++ : x00);
                 key_char &= x07;
                 r_mask = ~(xFF << key_char);
                 pos += BIT_COUNT(r_leaves & r_mask);
@@ -107,7 +105,6 @@ public:
                 case 0:
                     trie_pos = t;
                     insert_state = INSERT_LEAF;
-                    need_count = 3;
                     return ~pos;
                 case 1:
                     break;
@@ -144,7 +141,7 @@ public:
             case 3:
                 uint8_t pfx_len;
                 orig_pos = t++;
-                pfx_len = (trie_char >> 1);
+                pfx_len = (trie_char >> 2);
                 do {
                     if (key_char != *t || key_pos == key_len) {
                         trie_pos = t;
@@ -153,7 +150,6 @@ public:
                             key_at_pos = t - trie_pos;
                         }
                         insert_state = INSERT_CONVERT;
-                        need_count = 6;
                         return ~pos;
                     }
                     t++;
@@ -164,7 +160,6 @@ public:
             case 2:
                 trie_pos = t;
                 insert_state = INSERT_BEFORE;
-                need_count = 3;
                 return ~pos;
             }
         } while (1);
@@ -193,7 +188,7 @@ public:
                 if (tc & x04) {
                     key_pos--;
                     tc = trie[tp[key_pos]];
-                    while (tc & x01) {
+                    while ((tc & x03) == 0) {
                         key_pos--;
                         tc = trie[tp[key_pos]];
                     }
@@ -204,8 +199,8 @@ public:
                 } else {
                     tp[key_pos] = t - trie;
                     tc = *t++;
-                    if (tc & x01) {
-                        uint8_t len = tc >> 1;
+                    if ((tc & x03) == 0) {
+                        uint8_t len = tc >> 2;
                         for (int i = 0; i < len; i++)
                             tp[key_pos + i] = t - trie - 1;
                         memcpy(first_key + key_pos, t, len);
@@ -242,12 +237,12 @@ public:
         uint8_t *t = 0;
         uint8_t children = 0;
         for (int idx = 0; idx <= brk_key_len; idx++) {
-            if (trie[tp[idx]] & x01)
+            if ((trie[tp[idx]] & x03) == 0)
                 continue;
             uint8_t offset = first_key[idx] & 0x07;
             t = trie + tp[idx];
             uint8_t tc = *t;
-            *t++ = (tc | x04);
+            *t++ = (tc | x05);
             children = 0;
             if (tc & x02) {
                 children = *t;
@@ -285,8 +280,8 @@ public:
                 tot_del += count;
             }
             uint8_t tc = *t;
-            if (tc & x01) {
-                uint8_t len = tc >> 1;
+            if ((tc & x03) == 0) {
+                uint8_t len = tc >> 2;
                 idx += len;
                 delete_start = t + 1 + len;
                 t = trie + tp[idx] - tot_del;
@@ -315,29 +310,6 @@ public:
         }
         set_trie_len(orig_trie_len - tot_del);
         memmove(trie + get_trie_len(), trie + orig_trie_len, filled_size() << 1);
-    }
-
-    void update_skip_lens(uint8_t *loop_upto, uint8_t *covering_upto, int diff) {
-        uint8_t *t = trie;
-        while (t <= loop_upto) {
-            uint8_t tc = *t++;
-            if (tc & x01) {
-                t += (tc >> 1);
-                continue;
-            }
-            t++;
-            if (tc & x02) {
-                if ((t + DS_GET_SIBLING_OFFSET(t)) > covering_upto) {
-                    // can be improved
-                    DS_SET_SIBLING_OFFSET(t, DS_GET_SIBLING_OFFSET(t) + diff);
-                    (*(t - 1))++;
-                    if (*(t - 1) == 0)
-                        (*t) += 0x40;
-                    t += (2 + DS_SIBLING_PTR_SIZE);
-                } else
-                    t += DS_GET_SIBLING_OFFSET(t);
-            }
-        }
     }
 
     void add_first_data() {
@@ -505,52 +477,6 @@ public:
         return new_block.current_block;
     }
 
-    void move_ptr_list(int orig_trie_len) {
-        memmove(trie + DS_GET_TRIE_LEN, trie + orig_trie_len, filled_size() << 1);
-    }
-
-    void consolidate_initial_prefix(uint8_t *t) {
-        t += DFOS_HDR_SIZE;
-        uint8_t *t_reader = t;
-        uint8_t count = 0;
-        if (*t & x01) {
-            count = (*t >> 1);
-            t_reader += count;
-            t_reader++;
-        }
-        uint8_t *t_writer = t_reader + (*t & x01 ? 0 : 1);
-        uint8_t trie_len_diff = 0;
-        while ((*t_reader & x01) || ((*t_reader & x02) && (*t_reader & x04)
-                && BIT_COUNT(t_reader[2 + DS_SIBLING_PTR_SIZE]) == 1
-                && BIT_COUNT(t_reader[3 + DS_SIBLING_PTR_SIZE]) == 0)) {
-            if (*t_reader & x01) {
-                uint8_t len = *t_reader >> 1;
-                if (count + len > 127)
-                    break;
-                memcpy(t_writer, ++t_reader, len);
-                t_writer += len;
-                t_reader += len;
-                count += len;
-                trie_len_diff++;
-            } else {
-                if (count > 126)
-                    break;
-                *t_writer++ = (*t_reader & xF8) + BIT_COUNT(t_reader[2 + DS_SIBLING_PTR_SIZE] - 1);
-                t_reader += 4 + DS_SIBLING_PTR_SIZE;
-                count++;
-                trie_len_diff += 3 + DS_SIBLING_PTR_SIZE;
-            }
-        }
-        if (t_reader > t_writer) {
-            memmove(t_writer, t_reader, DS_GET_TRIE_LEN - (t_reader - t) + filled_size() * 2);
-            if (!(*t & x01))
-                trie_len_diff--;
-            *t = (count << 1) + 1;
-            DS_SET_TRIE_LEN(DS_GET_TRIE_LEN - trie_len_diff);
-            //cout << (int) (*t >> 1) << endl;
-        }
-    }
-
     void insert_current() {
         uint8_t key_char, mask;
         int diff;
@@ -560,10 +486,10 @@ public:
         switch (insert_state) {
         case INSERT_AFTER:
             *orig_pos &= xFB;
-            ins_b2_with_ptrs(trie_pos, ((key_char & xF8) | x04), mask);
+            ins_b2_with_ptrs(trie_pos, ((key_char & xF8) | x05), mask);
             break;
         case INSERT_BEFORE:
-            ins_b2_with_ptrs(trie_pos, key_char & xF8, mask);
+            ins_b2_with_ptrs(trie_pos, key_char & xF8 | x01, mask);
             break;
         case INSERT_LEAF:
             trie_pos = orig_pos + (*orig_pos & x02 ? 2 : 1);
@@ -577,18 +503,18 @@ public:
             // 3 possible relationships between key_char and *trie_pos, 4 possible positions of trie_pos
             cmp_rel = ((*trie_pos ^ key_char) > x07 ? (*trie_pos < key_char ? 0 : 1) : 2);
             if (cmp_rel == 0)
-                ins_b2_with_ptrs(trie_pos + key_at_pos, (key_char & xF8) | 0x04, 1 << (key_char & x07));
+                ins_b2_with_ptrs(trie_pos + key_at_pos, (key_char & xF8) | 0x05, 1 << (key_char & x07));
             diff--;
             c = *trie_pos;
             if (diff == 0)
                 trie_pos = orig_pos;
-            b = (cmp_rel == 2 ? x04 : x00) | (cmp_rel == 1 ? x00 : x02);
-            need_count = (*orig_pos >> 1) - 1 - diff; // save original count
+            b = (cmp_rel == 2 ? x05 : x01) | (cmp_rel == 1 ? x01 : x02);
+            need_count = (*orig_pos >> 2) - 1 - diff; // save original count
             *trie_pos++ = ((cmp_rel == 0 ? c : key_char) & xF8) | b;
             b = (cmp_rel == 1 ? (diff ? 4 : 3) : (diff ? 2 : 1));
             if (diff) {
                 trie_pos = orig_pos + diff + 2;
-                *orig_pos = (diff << 1) | x01;
+                *orig_pos = (diff << 2) | x00;
             }
             if (need_count)
                 b++;
@@ -598,13 +524,13 @@ public:
             if (diff && cmp_rel != 1)
                 *trie_pos++ = (cmp_rel == 0 ? 0 : (1 << (key_char & x07)));
             if (cmp_rel == 1) {
-                *trie_pos++ = (c & xF8) | x06;
+                *trie_pos++ = (c & xF8) | x07;
                 *trie_pos++ = 1 << (c & x07);
                 *trie_pos++ = 0;
             } else if (diff == 0)
                 *trie_pos++ = ((cmp_rel == 0) ? 0 : (1 << ((cmp_rel == 2 ? key_char : c) & x07)));
             if (need_count)
-                *trie_pos = (need_count << 1) | x01;
+                *trie_pos = (need_count << 2) | x00;
             break;
 #endif
         case INSERT_THREAD:
@@ -630,7 +556,7 @@ public:
             if (p + need_count == min && need_count)
                 need_count--;
             if (need_count) {
-                ins_pfx_with_ptrs(trie_pos, (need_count << 1) | x01, key + key_pos, need_count);
+                ins_pfx_with_ptrs(trie_pos, (need_count << 2) | x00, key + key_pos, need_count);
                 trie_pos += need_count;
                 trie_pos++;
                 p += need_count;
@@ -648,19 +574,19 @@ public:
                 switch ((c1 ^ c2) > x07 ?
                         0 : (c1 == c2 ? (p + 1 == min ? 3 : 2) : 1)) {
                 case 0:
-                    trie_pos += ins_b4_with_ptrs(trie_pos, c1 & xF8, x01 << (c1 & x07),
-                            (c2 & xF8) | x04, x01 << (c2 & x07));
+                    trie_pos += ins_b4_with_ptrs(trie_pos, c1 & xF8 | x01, x01 << (c1 & x07),
+                            (c2 & xF8) | x05, x01 << (c2 & x07));
                     break;
                 case 1:
-                    trie_pos += ins_b2_with_ptrs(trie_pos, (c1 & xF8) | x04,
+                    trie_pos += ins_b2_with_ptrs(trie_pos, (c1 & xF8) | x05,
                             (x01 << (c1 & x07)) | (x01 << (c2 & x07)));
                     break;
                 case 2:
                     trie_pos += ins_b3_with_ptrs(trie_pos,
-                                    (c1 & xF8) | x06, x01 << (c1 & x07), 0);
+                            (c1 & xF8) | x07, x01 << (c1 & x07), 0);
                     break;
                 case 3:
-                    trie_pos += ins_b3_with_ptrs(trie_pos, (c1 & xF8) | x06,
+                    trie_pos += ins_b3_with_ptrs(trie_pos, (c1 & xF8) | x07,
                             x01 << (c1 & x07), x01 << (c1 & x07));
                     break;
                 }
@@ -672,7 +598,7 @@ public:
             key_pos = p + 1;
             if (c1 == c2) {
                 c2 = (p == key_len ? key_at[diff] : key[p]);
-                ins_b2_with_ptrs(trie_pos, (c2 & xF8) | x04, (x01 << (c2 & x07)));
+                ins_b2_with_ptrs(trie_pos, (c2 & xF8) | x05, (x01 << (c2 & x07)));
                 if (p == key_len)
                     key_pos--;
             }
@@ -689,7 +615,7 @@ public:
             }
             break;
         case INSERT_EMPTY:
-            trie[0] = (key_char & xF8) | x04;
+            trie[0] = (key_char & xF8) | x05;
             trie[1] = mask;
             DS_SET_TRIE_LEN(2);
             break;
