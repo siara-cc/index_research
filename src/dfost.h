@@ -8,9 +8,7 @@
 #include "bplus_tree_handler.h"
 
 #define DS_SIBLING_PTR_SIZE 2
-#define DS_MIDDLE_PREFIX 1
 #define DFOS_HDR_SIZE 9
-//#define MID_KEY_LEN current_block[DS_MAX_PTR_BITMAP_BYTES+6]
 
 #define DS_GET_TRIE_LEN util::get_int(BPT_TRIE_LEN_PTR)
 #define DS_SET_TRIE_LEN(x) util::set_int(BPT_TRIE_LEN_PTR, x)
@@ -49,7 +47,7 @@ public:
         while (count) {
             uint8_t tc = *t++;
             if (tc & x01) {
-                t += (tc >> 1);
+                t += (tc >> 3);
                 continue;
             }
             if (tc & x02)
@@ -70,81 +68,86 @@ public:
         do {
             uint8_t trie_char = *t;
             int to_skip;
-#if DS_MIDDLE_PREFIX == 1
-            switch ((trie_char & x01) ? 3 : ((key_char ^ trie_char) > x07 ?
-                    (key_char > trie_char ? 0 : 2) : 1)) {
-#else
-            switch ((key_char ^ trie_char) > x07 ?
-                    (key_char > trie_char ? 0 : 2) : 1) {
-#endif
+            // nnnnn tc0 - octets, t=terminator, c=child
+            // nnnnn l01 - prefix, l=0 then prefix len=n, else see next byte
+            // nnnnn 011 - n+next=sibling count, n+2+3=sibling size
+            // nnnn0 111 - n = leaf len
+            // nnnn1 111 - n = data type
+            switch ((trie_char & x01) == x00 ? 0 : ((trie_char & x03) == x01 ? 1 :
+                   ((trie_char & x07) == x03 ? 2 : ((trie_char & x0F) == x07 ? 3 :
+                   ((trie_char & x0F) == x0F ? 4 : 5))))) {
             case 0:
-                orig_pos = t++;
-                to_skip = (trie_char & x02 ? BIT_COUNT(*t++) : x00);
-                pos += BIT_COUNT(*t++);
-                t = skip_children(t, to_skip);
-                if (trie_char & x04) {
+                switch ((key_char ^ trie_char) > x07 ? (key_char > trie_char ? 0 : 2) : 1) {
+                case 0:
+                    orig_pos = t++;
+                    to_skip = (trie_char & x02 ? BIT_COUNT(*t++) : x00);
+                    pos += BIT_COUNT(*t++);
+                    t = skip_children(t, to_skip);
+                    if (trie_char & x04) {
+                        trie_pos = t;
+                        insert_state = INSERT_AFTER;
+                        need_count = 3;
+                        return ~pos;
+                    }
+                    break;
+                case 1:
+                    uint8_t r_leaves, r_children, r_mask;
+                    uint16_t to_skip;
+                    orig_pos = t++;
+                    r_children = (trie_char & x02 ? *t++ : x00);
+                    r_leaves = *t++;
+                    key_char &= x07;
+                    r_mask = ~(xFF << key_char);
+                    pos += BIT_COUNT(r_leaves & r_mask);
+                    to_skip = BIT_COUNT(r_children & r_mask);
+                    t = skip_children(t, to_skip);
+                    r_mask = (x01 << key_char);
+                    switch (r_leaves & r_mask ?
+                            (r_children & r_mask ? (key_pos == key_len ? 3 : 4) : 2) :
+                            (r_children & r_mask ? (key_pos == key_len ? 0 : 1) : 0)) {
+                    case 0:
+                        trie_pos = t;
+                        insert_state = INSERT_LEAF;
+                        need_count = 3;
+                        return ~pos;
+                    case 1:
+                        break;
+                    case 2:
+                        int16_t cmp;
+                        key_at = get_key(pos, &key_at_len);
+                        cmp = util::compare(key + key_pos, key_len - key_pos,
+                                key_at, key_at_len);
+                        if (cmp == 0)
+                            return pos;
+                        key_at_pos = pos;
+                        if (cmp > 0)
+                            pos++;
+                        else
+                            cmp = -cmp;
+                        trie_pos = t;
+                        insert_state = INSERT_THREAD;
+                        need_count = cmp + 6;
+                        return ~pos;
+                    case 3:
+                        key_at = get_key(pos, &key_at_len);
+                        return pos;
+                    case 4:
+                        pos++;
+                        break;
+                    }
+                    key_char = key[key_pos++];
+                    break;
+                case 2:
                     trie_pos = t;
-                    insert_state = INSERT_AFTER;
+                    insert_state = INSERT_BEFORE;
                     need_count = 3;
                     return ~pos;
                 }
                 break;
             case 1:
-                uint8_t r_leaves, r_children, r_mask;
-                uint16_t to_skip;
-                orig_pos = t++;
-                r_children = (trie_char & x02 ? *t++ : x00);
-                r_leaves = *t++;
-                key_char &= x07;
-                r_mask = ~(xFF << key_char);
-                pos += BIT_COUNT(r_leaves & r_mask);
-                to_skip = BIT_COUNT(r_children & r_mask);
-                t = skip_children(t, to_skip);
-                r_mask = (x01 << key_char);
-                switch (r_leaves & r_mask ?
-                        (r_children & r_mask ? (key_pos == key_len ? 3 : 4) : 2) :
-                        (r_children & r_mask ? (key_pos == key_len ? 0 : 1) : 0)) {
-                case 0:
-                    trie_pos = t;
-                    insert_state = INSERT_LEAF;
-                    need_count = 3;
-                    return ~pos;
-                case 1:
-                    break;
-                case 2:
-                    int16_t cmp;
-                    key_at = get_key(pos, &key_at_len);
-                    cmp = util::compare(key + key_pos, key_len - key_pos,
-                            key_at, key_at_len);
-                    if (cmp == 0)
-                        return pos;
-                    key_at_pos = pos;
-                    if (cmp > 0)
-                        pos++;
-                    else
-                        cmp = -cmp;
-                    trie_pos = t;
-                    insert_state = INSERT_THREAD;
-#if DS_MIDDLE_PREFIX == 1
-                    need_count = cmp + 6;
-#else
-                    need_count = (cmp * 3) + 4;
-#endif
-                    return ~pos;
-                case 3:
-                    key_at = get_key(pos, &key_at_len);
-                    return pos;
-                case 4:
-                    pos++;
-                    break;
-                }
-                key_char = key[key_pos++];
-                break;
-#if DS_MIDDLE_PREFIX == 1
-            case 3:
                 uint8_t pfx_len;
                 orig_pos = t++;
-                pfx_len = (trie_char >> 1);
+                pfx_len = (trie_char >> 3);
                 do {
                     if (key_char != *t || key_pos == key_len) {
                         trie_pos = t;
@@ -159,13 +162,7 @@ public:
                     t++;
                     key_char = key[key_pos++];
                 } while (--pfx_len);
-                continue;
-#endif
-            case 2:
-                trie_pos = t;
-                insert_state = INSERT_BEFORE;
-                need_count = 3;
-                return ~pos;
+                break;
             }
         } while (1);
         return ~pos;
@@ -205,7 +202,7 @@ public:
                     tp[key_pos] = t - trie;
                     tc = *t++;
                     if (tc & x01) {
-                        uint8_t len = tc >> 1;
+                        uint8_t len = tc >> 3;
                         for (int i = 0; i < len; i++)
                             tp[key_pos + i] = t - trie - 1;
                         memcpy(first_key + key_pos, t, len);
@@ -286,7 +283,7 @@ public:
             }
             uint8_t tc = *t;
             if (tc & x01) {
-                uint8_t len = tc >> 1;
+                uint8_t len = tc >> 3;
                 idx += len;
                 delete_start = t + 1 + len;
                 t = trie + tp[idx] - tot_del;
@@ -500,7 +497,6 @@ public:
             trie_pos = orig_pos + (*orig_pos & x02 ? 2 : 1);
             *trie_pos |= mask;
             break;
-#if DS_MIDDLE_PREFIX == 1
         case INSERT_CONVERT:
             uint8_t b, c;
             char cmp_rel;
@@ -514,12 +510,12 @@ public:
             if (diff == 0)
                 trie_pos = orig_pos;
             b = (cmp_rel == 2 ? x04 : x00) | (cmp_rel == 1 ? x00 : x02);
-            need_count = (*orig_pos >> 1) - 1 - diff; // save original count
+            need_count = (*orig_pos >> 3) - 1 - diff; // save original count
             *trie_pos++ = ((cmp_rel == 0 ? c : key_char) & xF8) | b;
             b = (cmp_rel == 1 ? (diff ? 4 : 3) : (diff ? 2 : 1));
             if (diff) {
                 trie_pos = orig_pos + diff + 2;
-                *orig_pos = (diff << 1) | x01;
+                *orig_pos = (diff << 3) | x01;
             }
             if (need_count)
                 b++;
@@ -535,9 +531,8 @@ public:
             } else if (diff == 0)
                 *trie_pos++ = ((cmp_rel == 0) ? 0 : (1 << ((cmp_rel == 2 ? key_char : c) & x07)));
             if (need_count)
-                *trie_pos = (need_count << 1) | x01;
+                *trie_pos = (need_count << 3) | x01;
             break;
-#endif
         case INSERT_THREAD:
             int16_t p, min;
             uint8_t c1, c2;
@@ -556,18 +551,16 @@ public:
             if (p < min) {
                 child_pos[1] &= ~mask; // leaf_pos
             }
-#if DS_MIDDLE_PREFIX == 1
             need_count -= 7;
             if (p + need_count == min && need_count)
                 need_count--;
             if (need_count) {
-                ins_pfx_with_ptrs(trie_pos, (need_count << 1) | x01, key + key_pos, need_count);
+                ins_pfx_with_ptrs(trie_pos, (need_count << 3) | x01, key + key_pos, need_count);
                 trie_pos += need_count;
                 trie_pos++;
                 p += need_count;
                 count1 += need_count;
             }
-#endif
             while (p < min) {
                 c1 = key[p];
                 c2 = key_at[p - key_pos];
