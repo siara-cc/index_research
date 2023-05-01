@@ -75,6 +75,11 @@ public:
         init_stats();
     }
 
+    rb_tree(const char *filename, int blk_size, int page_resv_bytes) :
+       bplus_tree_handler<rb_tree>(filename, blk_size, page_resv_bytes) {
+        init_stats();
+    }
+
     void init_derived() {
     }
     void cleanup() {

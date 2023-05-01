@@ -66,6 +66,11 @@ public:
 #endif
     }
 
+    octp(const char *filename, int blk_size, int page_resv_bytes) :
+       bpt_trie_handler<octp>(filename, blk_size, page_resv_bytes) {
+        init_stats();
+    }
+
     inline void set_current_block_root() {
         current_block = root_block;
         trie = current_block + OCTP_HDR_SIZE;

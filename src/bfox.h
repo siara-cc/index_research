@@ -677,27 +677,24 @@ public:
                 t += (tc >> 1);
                 continue;
             }
-            uint8_t child = 0;
-            if (tc & 0x02)
-                child = *t++;
-            uint8_t leaves = *t++;
-            t += BX_BIT_COUNT_CH(child);
-            int leaf_count = BIT_COUNT(leaves);
-            while (leaf_count--) {
-                int leaf_pos = util::get_int(t);
-                uint8_t *child_ptr_pos = current_block + leaf_pos;
+            int count = 0;
+            do {
+                tc = *t++;
+                count += (tc & x02 ? BIT_COUNT(*t++) : 0);
+                count += BIT_COUNT(*t++);
+            } while ((tc & x04) == 0);
+            while (count--) {
+                int pos = util::get_int(t);
+                if (pos < get_trie_len()) {
+                    t += 2;
+                    continue;
+                }
+                uint8_t *child_ptr_pos = current_block + pos;
                 uint16_t data_len = *child_ptr_pos;
                 data_len++;
                 data_len += child_ptr_pos[data_len];
                 data_len++;
                 new_data_len += data_len;
-                // if (child_ptr_pos == key_at - 1) {
-                //     if (last_t == key_at)
-                //       last_t = 0;
-                //     key_at = current_block + (block_sz - new_data_len) + 1;
-                //     if (!last_t)
-                //       last_t = key_at;
-                // }
                 memcpy(data_buf + data_size - new_data_len, child_ptr_pos, data_len);
                 util::set_int(t, block_sz - new_data_len);
                 t += 2;

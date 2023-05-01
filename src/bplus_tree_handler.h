@@ -9,6 +9,8 @@
 #include <iostream>
 #endif
 #include <stdint.h>
+#include <vector>
+#include "common.h"
 #include "univix_util.h"
 #include "lru_cache.h"
 
@@ -24,6 +26,16 @@
 #define BPT_LEAF0_LVL 14
 #define BPT_STAGING_LVL 15
 #define BPT_PARENT0_LVL 16
+
+enum {BPT_RES_OK = 0, BPT_RES_ERR = -1, BPT_RES_INV_PAGE_SZ = -2, 
+  BPT_RES_TOO_LONG = -3, BPT_RES_WRITE_ERR = -4, BPT_RES_FLUSH_ERR = -5};
+
+enum {BPT_RES_SEEK_ERR = -6, BPT_RES_READ_ERR = -7,
+  BPT_RES_INVALID_SIG = -8, BPT_RES_MALFORMED = -9,
+  BPT_RES_NOT_FOUND = -10, BPT_RES_NOT_FINALIZED = -11,
+  BPT_RES_TYPE_MISMATCH = -12, BPT_RES_INV_CHKSUM = -13,
+  BPT_RES_NEED_1_PK = -14, BPT_RES_NO_SPACE = -15,
+  BPT_RES_CLOSED = -16};
 
 #define INSERT_AFTER 1
 #define INSERT_BEFORE 2
@@ -789,6 +801,125 @@ public:
         return cache->get_cache_stats();
     }
 
+    std::vector<uint8_t*> cur_pages;
+    std::vector<uint8_t*> prev_pages;
+    std::vector<int> prev_page_nos;
+    uint32_t last_page_no;
+    long recs_appended;
+    int pg_resv_bytes; // ??
+    FILE *append_fp;
+    bplus_tree_handler(const char *filename, int blk_size, int page_resv_bytes) {
+        block_size = blk_size;
+        pg_resv_bytes = page_resv_bytes;
+        append_fp = common::open_fp(filename);
+        last_page_no = 0;
+        uint8_t *current_block = new uint8_t[block_size];
+        cur_pages.push_back(current_block);
+        prev_pages.push_back(NULL);
+        prev_page_nos.push_back(0);
+        descendant->set_current_block(current_block);
+        descendant->init_current_block();
+        is_closed = false;
+        recs_appended = 0;
+    }
+
+    void flush_last_blocks() {
+        uint32_t new_page_no = 0;
+        for (int i = 0; i < cur_pages.size(); i++) {
+            uint8_t *last_block = cur_pages[i];
+            new_page_no = ++last_page_no;
+            if (i == cur_pages.size() - 1) {
+                write_page(last_block, 0, block_size);
+            } else {
+                write_page(last_block, new_page_no * block_size, block_size);
+            }
+            delete last_block;
+            if (prev_pages[i] != NULL)
+                delete prev_pages[i];
+        }
+    }
+
+    void write_completed_page(int page_idx, uint8_t *k, int k_len,
+            uint8_t *prev_key, int prev_key_len, uint8_t v, int v_len) {
+        uint8_t *target_block = cur_pages[page_idx];
+        uint32_t completed_page = ++last_page_no;
+        write_page(cur_pages[page_idx], completed_page * block_size, block_size);
+        uint8_t *new_block = prev_pages[page_idx] == NULL ? new uint8_t[block_size] : prev_pages[page_idx];
+        prev_pages[page_idx] = cur_pages[page_idx];
+        prev_page_nos[page_idx] = completed_page;
+        cur_pages[page_idx] = new_block;
+        new_block[0] = target_block[0];
+        descendant->set_current_block(new_block);
+        descendant->set_filled_size(0);
+        int blk_size = block_size - pg_resv_bytes;
+        descendant->set_kv_last_pos(blk_size == 65536 ? 65535 : blk_size);
+        descendant->add_first_data();
+        int cmp = util::compare(prev_key, prev_key_len, k, k_len);
+        cmp = (cmp < 0 ? -cmp : cmp);
+        key = k;
+        key_len = descendant->is_leaf() ? cmp + 1 : k_len;
+        uint8_t addr[15];
+        value = (uint8_t *) addr;
+        value_len = util::ptr_to_bytes(completed_page - 1, addr);
+        page_idx++;
+        if (page_idx < cur_pages.size()) {
+            target_block = cur_pages[page_idx];
+            descendant->set_current_block(target_block);
+            if (descendant->filled_size() == 0)
+                descendant->add_first_data();
+            else if (descendant->is_full(0))
+                write_completed_page(page_idx, k, k_len, prev_key, prev_key_len, v, v_len);
+            else {
+                int search_result = descendant->search_current_block();
+                descendant->add_data(search_result);
+            }
+        } else {
+            uint8_t *new_root_block = new uint8_t[block_size];
+            descendant->set_current_block(new_root_block);
+            set_filled_size(0);
+            set_kv_last_pos(blk_size == 65536 ? 65535 : blk_size);
+            key = "";
+            k_len = 1;
+            add_first_data();
+            cur_pages.push_back(new_root_block);
+            prev_pages.push_back(0);
+            prev_page_nos.push_back(0);
+        }
+    }
+
+    int append_rec(uint8_t *k, int k_len, uint8_t *v, int v_len) {
+        if (is_closed)
+            throw BPT_RES_CLOSED;
+        int res = BPT_RES_NO_SPACE;
+        uint8_t *target_block = cur_pages[0];
+        uint32_t page_idx = 0;
+        key = k;
+        key_len = k_len;
+        value = v;
+        value_len = v_len;
+        static uint8_t prev_key[block_size];
+        static int prev_key_len;
+        descendant->set_current_block(target_block);
+        if (descendant->filled_size() == 0)
+            descendant->add_first_data();
+        else if (descendant->is_full(0))
+            write_completed_page(page_idx, k, k_len, prev_key, prev_key_len, v, v_len);
+        else {
+            int search_result = descendant->search_current_block();
+            descendant->add_data(search_result);
+        }
+        memcpy(prev_key, k, k_len);
+        prev_key_len = k_len;
+        recs_appended++;
+        return BPT_RES_OK;
+    }
+
+    void close_appends() {
+        //flush_last_blocks();
+        close_fp(append_fp);
+        is_closed = true;
+    }
+
     uint8_t *next(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len) {
         // if (ctx->found_page_pos[ctx->last_page_lvl] == 32767)
         //     return NULL;
@@ -815,6 +946,11 @@ protected:
        bplus_tree_handler<T>(block_sz, block, is_leaf) {
         init_stats();
         descendant->set_current_block(block);
+    }
+
+    bpt_trie_handler<T>(const char *filename, int blk_size, int page_resv_bytes) :
+       bplus_tree_handler<T>(filename, blk_size, page_resv_bytes) {
+        init_stats();
     }
 
     void init_stats() {

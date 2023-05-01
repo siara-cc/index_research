@@ -83,6 +83,11 @@ public:
         init_stats();
     }
 
+    linex(const char *filename, int blk_size, int page_resv_bytes) :
+       bplus_tree_handler<linex>(filename, blk_size, page_resv_bytes) {
+        init_stats();
+    }
+
     void add_first_data() {
         set_kv_last_pos(LX_BLK_HDR_SIZE);
         add_data(0);

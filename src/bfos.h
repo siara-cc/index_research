@@ -82,6 +82,11 @@ public:
 #endif
     }
 
+    bfos(const char *filename, int blk_size, int page_resv_bytes) :
+       bpt_trie_handler<bfos>(filename, blk_size, page_resv_bytes) {
+        init_stats();
+    }
+
     void set_current_block_root() {
         current_block = root_block;
         trie = current_block + BFOS_HDR_SIZE;

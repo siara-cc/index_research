@@ -37,6 +37,11 @@ public:
         memcpy(need_counts, "\x00\x02\x02\x02\x02\x00\x07\x00\x00\x00", 10);
     }
 
+    dfos(const char *filename, int blk_size, int page_resv_bytes) :
+       bpt_trie_handler<dfos>(filename, blk_size, page_resv_bytes) {
+        init_stats();
+    }
+
     inline void set_current_block_root() {
         set_current_block(root_block);
     }

@@ -38,6 +38,11 @@ public:
         init_stats();
     }
 
+    succix(const char *filename, int blk_size, int page_resv_bytes) :
+       bpt_trie_handler<succix>(filename, blk_size, page_resv_bytes) {
+        init_stats();
+    }
+
     ~succix() {
         delete split_buf;
     }
@@ -150,7 +155,7 @@ public:
 
     void append_ptr(int16_t p) {
         util::set_int(trie + get_trie_len(), p);
-        get_trie_len() += 2;
+        set_trie_len(get_trie_len() + 2);
     }
 
     void add_first_data() {
@@ -214,7 +219,7 @@ public:
         int16_t idx;
         uint8_t ins_key[BPT_MAX_PFX_LEN], old_first_key[BPT_MAX_PFX_LEN];
         int16_t ins_key_len, old_first_len;
-        succix_iterator_status s(trie, 0); //BPT_MAX_PFX_LEN);
+        bpt_iterator_status s(trie, 0); //BPT_MAX_PFX_LEN);
         for (idx = 0; idx < orig_filled_size; idx++) {
             int16_t src_idx = next_ptr(s);
             int16_t kv_len = current_block[src_idx];

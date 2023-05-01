@@ -70,12 +70,10 @@ public:
             int to_skip;
             // nnnnn tc0 - octets, t=terminator, c=child
             // nnnnn l01 - prefix, l=0 then prefix len=n, else see next byte
-            // nnnnn 011 - n+next=sibling count, n+2+3=sibling size
-            // nnnn0 111 - n = leaf len
-            // nnnn1 111 - n = data type
+            // nnnnn 011 - n = leaf len
+            // nnnnn 111 - n = data type
             switch ((trie_char & x01) == x00 ? 0 : ((trie_char & x03) == x01 ? 1 :
-                   ((trie_char & x07) == x03 ? 2 : ((trie_char & x0F) == x07 ? 3 :
-                   ((trie_char & x0F) == x0F ? 4 : 5))))) {
+                   ((trie_char & x07) == x03 ? 2 : 3))) {
             case 0:
                 switch ((key_char ^ trie_char) > x07 ? (key_char > trie_char ? 0 : 2) : 1) {
                 case 0:

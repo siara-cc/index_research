@@ -58,6 +58,11 @@ public:
 #endif
    }
 
+    bft(const char *filename, int blk_size, int page_resv_bytes) :
+       bpt_trie_handler<bft>(filename, blk_size, page_resv_bytes) {
+        init_stats();
+    }
+
     ~bft() {
         if (!is_block_given)
             delete split_buf;

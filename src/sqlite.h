@@ -9,10 +9,12 @@
 #include "bplus_tree_handler.h"
 #include "sqlite_common.h"
 
-#define page_resv_bytes 5
-
 class change_fns_sqlite : public chg_iface {
     public:
+        int page_resv_bytes;
+        change_fns_sqlite(int pg_resv_bytes) {
+            page_resv_bytes = pg_resv_bytes;
+        }
         virtual void set_block_changed(uint8_t *block, int block_sz, bool is_changed) {
             if (is_changed)
                 block[block_sz - page_resv_bytes] |= 0x40;
@@ -30,6 +32,7 @@ class sqlite : public bplus_tree_handler<sqlite>, public sqlite_common {
 
     private:
         int U,X,M;
+        const static int page_resv_bytes = 5;
         // Returns type of column based on given value and length
         // See https://www.sqlite.org/fileformat.html#record_format
         uint32_t derive_col_type_or_len(int type, const void *val, int len) {
@@ -225,11 +228,16 @@ class sqlite : public bplus_tree_handler<sqlite>, public sqlite_common {
             master_block = NULL;
         }
 
+        sqlite(const char *filename, int blk_size, int page_resv_bytes) :
+        bplus_tree_handler<sqlite>(filename, blk_size, page_resv_bytes) {
+            init_stats();
+        }
+
         ~sqlite() {
         }
 
         void init_derived() {
-            change_fns = new change_fns_sqlite();
+            change_fns = new change_fns_sqlite(page_resv_bytes);
         }
 
         void cleanup() {

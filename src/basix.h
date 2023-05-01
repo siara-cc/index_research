@@ -28,6 +28,11 @@ public:
         init_stats();
     }
 
+    basix(const char *filename, int blk_size, int page_resv_bytes) :
+       bplus_tree_handler<basix>(filename, blk_size, page_resv_bytes) {
+        init_stats();
+    }
+
     inline void set_current_block_root() {
         set_current_block(root_block);
     }

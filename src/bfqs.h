@@ -50,6 +50,11 @@ public:
         memcpy(shift_mask, "\x00\x00\x03\x03\x0F\x0F\x3F\x3F", 8);
     }
 
+    bfqs(const char *filename, int blk_size, int page_resv_bytes) :
+       bpt_trie_handler<bfqs>(filename, blk_size, page_resv_bytes) {
+        init_stats();
+    }
+
     inline void set_current_block_root() {
         current_block = root_block;
         trie = current_block + BFQS_HDR_SIZE;
