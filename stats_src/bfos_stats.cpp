@@ -230,7 +230,7 @@ int main(int argc, char *argv[]) {
       ix = new bfos(page_size, page_size);
     process_block(buf, page_size, stats, ix);
     if ((*buf & 0x80) == 0)
-      process_block(ix->getCurrentBlock(), page_size, ptr_stats, NULL);
+      process_block(ix->get_current_block(), page_size, ptr_stats, NULL);
     print_block_stats(stats.block_stats, ptr_stats.block_stats, (*buf & 0x80) == 0x80, "");
     if ((*buf & 0x80) == 0)
       delete ix;

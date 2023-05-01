@@ -795,6 +795,9 @@ public:
 
     uint8_t *add_data(int search_result) {
 
+        if (search_result < 0)
+            search_result = ~search_result;
+
         insert_state = search_result + 1;
 
         uint16_t ptr = insert_current();
