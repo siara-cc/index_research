@@ -215,7 +215,7 @@ public:
                     else
                         last_t = key_at;
 #if BS_MIDDLE_PREFIX == 1
-                    need_count = cmp + 8 + BS_CHILD_PTR_SIZE;
+                    need_count = cmp + 12 + BS_CHILD_PTR_SIZE;
 #else
                     need_count = (cmp * (3 + BS_CHILD_PTR_SIZE)) + 8;
 #endif
@@ -730,10 +730,11 @@ public:
         int block_sz = (is_leaf() ? block_size : parent_block_size);
         int lvl = current_block[0] & 0x1F;
         const uint16_t data_size = block_sz - get_kv_last_pos();
-        uint8_t data_buf[data_size];
+        uint8_t *data_buf = new uint8_t[block_sz];
         uint16_t new_data_len = 0;
         uint8_t *t = current_block + BFOS_HDR_SIZE;
         uint8_t *upto = t + get_trie_len();
+        //printf("%d, %d\n", data_size, get_trie_len());
         while (t < upto) {
             uint8_t tc = *t++;
             if (tc & 0x01) {
@@ -748,28 +749,30 @@ public:
             int leaf_count = BIT_COUNT(leaves);
             while (leaf_count--) {
                 int leaf_pos = util::get_int(t);
-                uint8_t *child_ptr_pos = current_block + leaf_pos;
-                uint16_t data_len = *child_ptr_pos;
+                uint8_t *data_pos = current_block + leaf_pos;
+                uint16_t data_len = *data_pos;
                 data_len++;
-                data_len += child_ptr_pos[data_len];
+                data_len += data_pos[data_len];
                 data_len++;
                 new_data_len += data_len;
-                // if (child_ptr_pos == key_at - 1) {
+                // if (data_pos == key_at - 1) {
                 //     if (last_t == key_at)
                 //       last_t = 0;
                 //     key_at = current_block + (block_sz - new_data_len) + 1;
                 //     if (!last_t)
                 //       last_t = key_at;
                 // }
-                memcpy(data_buf + data_size - new_data_len, child_ptr_pos, data_len);
+                memcpy(data_buf + data_size - new_data_len, data_pos, data_len);
                 util::set_int(t, block_sz - new_data_len);
                 t += 2;
             }
         }
         uint16_t new_kv_last_pos = block_sz - new_data_len;
+        //printf("%d, %d, %d\n", data_size, new_data_len, get_trie_len());
+        //printf("%d\n", new_data_len);
         memcpy(current_block + new_kv_last_pos, data_buf + data_size - new_data_len, new_data_len);
-        //printf("%d, %d\n", data_size, new_data_len);
         set_kv_last_pos(new_kv_last_pos);
+        free(data_buf);
         search_current_block();
     }
 
@@ -1007,7 +1010,7 @@ public:
                   ret = pos;
               }
 #if BS_MIDDLE_PREFIX == 1
-              need_count -= (9 + BS_CHILD_PTR_SIZE);
+              need_count -= (13 + BS_CHILD_PTR_SIZE);
 #else
               need_count -= 8;
               need_count /= (3 + BS_CHILD_PTR_SIZE);

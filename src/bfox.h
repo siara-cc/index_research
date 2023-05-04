@@ -56,6 +56,11 @@ public:
         memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x08\x00\x00\x00", 10);
     }
 
+    bfox(const char *filename, int blk_size, int page_resv_bytes) :
+       bpt_trie_handler<bfox>(filename, blk_size, page_resv_bytes) {
+        init_stats();
+    }
+
     void set_current_block_root() {
         current_block = root_block;
         trie = current_block + BFOX_HDR_SIZE;
@@ -711,9 +716,9 @@ public:
         decode_need_count(search_result);
         if (get_kv_last_pos() < (BFOX_HDR_SIZE + get_trie_len()
                 + need_count + key_len - key_pos + value_len + 3)) {
-            make_space();
-            if (get_kv_last_pos() < (BFOX_HDR_SIZE + get_trie_len()
-                + need_count + key_len - key_pos + value_len + 3))
+            // make_space();
+            // if (get_kv_last_pos() < (BFOX_HDR_SIZE + get_trie_len()
+            //     + need_count + key_len - key_pos + value_len + 3))
               return true;
         }
         return false;

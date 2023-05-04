@@ -148,10 +148,10 @@ public:
     const char *filename;
     bool to_demote_blocks;
     bplus_tree_handler(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
-            uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz_mb = 0,
+            uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz_kb = 0,
             const char *fname = NULL, int start_page_num = 0, bool whether_btree = false) :
             block_size (leaf_block_sz), parent_block_size (parent_block_sz),
-            cache_size (cache_sz_mb & 0xFFFF), filename (fname) {
+            cache_size (cache_sz_kb), filename (fname) {
         change_fns = NULL;
         descendant->init_derived();
         init_stats();
@@ -820,7 +820,7 @@ public:
     int pg_resv_bytes; // ??
     FILE *append_fp;
     bplus_tree_handler(const char *filename, int blk_size, int page_resv_bytes) {
-        block_size = blk_size;
+        block_size = parent_block_size = blk_size;
         pg_resv_bytes = page_resv_bytes;
         is_closed = false;
         is_append = true;
@@ -833,9 +833,13 @@ public:
         prev_page_nos.push_back(0);
         first_keys.push_back(std::string());
         descendant->set_current_block(current_block);
+        descendant->set_leaf(1);
         descendant->init_current_block();
+        descendant->set_filled_size(0);
+        descendant->set_kv_last_pos(blk_size == 65536 ? 65535 : blk_size);
         common::write_page(append_fp, current_block, 0, block_size);
         recs_appended = 0;
+        prev_key_len = 0;
     }
 
     void flush_last_blocks() {
@@ -848,6 +852,7 @@ public:
             } else {
                 common::write_page(append_fp, last_block, new_page_no * block_size, block_size);
             }
+            fflush(append_fp);
             delete last_block;
             if (prev_pages[i] != NULL)
                 delete prev_pages[i];
@@ -855,14 +860,22 @@ public:
             if (i < cur_pages.size()) {
                 std::string first_key = first_keys[i - 1];
                 key = (uint8_t *) first_key.c_str();
-                key_len = first_key.size();
+                key_len = first_key.length();
                 uint8_t addr[15];
                 value = (uint8_t *) addr;
                 value_len = util::ptr_to_bytes(new_page_no, addr);
                 last_block = cur_pages[i];
                 descendant->set_current_block(last_block);
                 int search_result = descendant->search_current_block();
-                descendant->add_data(search_result);
+                if (search_result < 0) {
+                    search_result = ~search_result;
+                    if (descendant->is_full(search_result)) {
+                        write_completed_page(i, key, key_len, NULL, 0, value, value_len);
+                        i--;
+                    } else {
+                        descendant->add_data(search_result);
+                    }
+                }
             }
         }
     }
@@ -878,49 +891,69 @@ public:
         cur_pages[page_idx] = new_block;
         new_block[0] = target_block[0];
         descendant->set_current_block(new_block);
+        descendant->init_current_block();
         descendant->set_filled_size(0);
         int blk_size = block_size - pg_resv_bytes;
         descendant->set_kv_last_pos(blk_size == 65536 ? 65535 : blk_size);
+        key = k;
+        key_len = k_len;
+        value = v;
+        value_len = v_len;
         descendant->add_first_data();
         uint8_t addr[15];
         value = (uint8_t *) addr;
         value_len = util::ptr_to_bytes(completed_page, addr);
         page_idx++;
         if (page_idx < cur_pages.size()) {
-            target_block = cur_pages[page_idx];
-            descendant->set_current_block(target_block);
-            if (descendant->filled_size() == 0)
+            uint8_t *parent_block = cur_pages[page_idx];
+            std::string first_key = first_keys[page_idx - 1];
+            key = (uint8_t *) first_key.c_str();
+            key_len = first_key.length();
+            descendant->set_current_block(parent_block);
+            if (descendant->filled_size() == 0) {
                 descendant->add_first_data();
-            else if (descendant->is_full(0)) {
-                std::string first_key = first_keys[page_idx - 1];
-                write_completed_page(page_idx, k, k_len, (uint8_t *) first_key.c_str(), first_key.size(), value, value_len);
             } else {
                 int search_result = descendant->search_current_block();
-                descendant->add_data(search_result);
+                if (search_result < 0) {
+                    search_result = ~search_result;
+                    if (descendant->is_full(search_result)) {
+                        // std::cout << "Parent page completed" << std::endl;
+                        write_completed_page(page_idx, key, key_len, NULL, 0, value, value_len);
+                    } else {
+                        // std::cout << "Parent entry added:[" << first_key << "]" << std::endl;
+                        descendant->add_data(search_result);
+                    }
+                }
             }
         } else {
             uint8_t *new_root_block = new uint8_t[block_size];
             descendant->set_current_block(new_root_block);
-            set_filled_size(0);
-            set_kv_last_pos(blk_size == 65536 ? 65535 : blk_size);
-            key = addr + 14;
-            addr[14] = 0;
-            k_len = 1;
+            descendant->set_leaf(0);
+            descendant->init_current_block();
+            descendant->set_filled_size(0);
+            descendant->set_kv_last_pos(blk_size == 65536 ? 65535 : blk_size);
+            key = addr + 10;
+            addr[10] = 0;
+            key_len = 1;
             descendant->add_first_data();
             cur_pages.push_back(new_root_block);
             prev_pages.push_back(0);
             prev_page_nos.push_back(0);
             first_keys.push_back(std::string());
+                        // std::cout << "Root parent created" << std::endl;
         }
+        descendant->set_current_block(new_block);
         if (is_leaf()) {
             int cmp = util::compare(prev_key, prev_key_len, k, k_len);
             cmp = (cmp < 0 ? -cmp : cmp);
-            first_keys[page_idx - 1] = std::string((char *) key, (size_t) cmp + 1);
+            first_keys[page_idx - 1] = std::string((char *) k, (size_t) cmp + 1);
         } else {
             first_keys[page_idx - 1] = std::string((char *) k, (size_t) k_len);
         }
     }
 
+    uint8_t prev_key[256];
+    int prev_key_len;
     int append_rec(uint8_t *k, int k_len, uint8_t *v, int v_len) {
         if (is_closed)
             throw BPT_RES_CLOSED;
@@ -931,16 +964,19 @@ public:
         key_len = k_len;
         value = v;
         value_len = v_len;
-        static uint8_t prev_key[255];
-        static int prev_key_len;
         descendant->set_current_block(target_block);
-        if (descendant->filled_size() == 0)
+        if (descendant->filled_size() == 0) {
             descendant->add_first_data();
-        else if (descendant->is_full(0))
-            write_completed_page(page_idx, k, k_len, prev_key, prev_key_len, v, v_len);
-        else {
+        } else {
             int search_result = descendant->search_current_block();
-            descendant->add_data(search_result);
+            if (search_result < 0) {
+                search_result = ~search_result;
+                if (descendant->is_full(search_result)) {
+                    write_completed_page(page_idx, key, key_len, prev_key, prev_key_len, value, value_len);
+                } else {
+                    descendant->add_data(search_result);
+                }
+            }
         }
         memcpy(prev_key, k, k_len);
         prev_key_len = k_len;
