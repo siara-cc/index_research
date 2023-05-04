@@ -946,10 +946,12 @@ public:
         if (is_leaf()) {
             int cmp = util::compare(prev_key, prev_key_len, k, k_len);
             cmp = (cmp < 0 ? -cmp : cmp);
-            first_keys[page_idx - 1] = std::string((char *) k, (size_t) cmp + 1);
-        } else {
-            first_keys[page_idx - 1] = std::string((char *) k, (size_t) k_len);
+            cmp += 2;
+            if (cmp > k_len)
+                cmp = k_len;
+            k_len = cmp;
         }
+        first_keys[page_idx - 1] = std::string((char *) k, (size_t) k_len);
     }
 
     uint8_t prev_key[256];

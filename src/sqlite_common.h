@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "util.h"
+#include "univix_util.h"
 
 const int8_t col_data_lens[] = {0, 1, 2, 3, 4, 6, 8, 8, 0, 0};
 
