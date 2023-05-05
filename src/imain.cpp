@@ -2686,7 +2686,7 @@ int main(int argc, char *argv[]) {
     //getchar();
     }
 
-    dfos *dx;
+    basix *dx;
     if (TEST_IDX2)
     {
     ctr = 0;
@@ -2920,6 +2920,8 @@ int main(int argc, char *argv[]) {
     //getchar();
     }
 
+    if (TEST_ART)
+        art_tree_destroy(&at);
     if (TEST_IDX1)
         delete lx;
     if (TEST_IDX2)

@@ -136,14 +136,14 @@ public:
         ptr_size <<= 1;
     #endif
         if (get_kv_last_pos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2)) {
-            if (!is_leaf() && to_demote_blocks)
-                demote_blocks();
-            if (*current_block & 0x20) {
-                make_space();
-                *current_block &= 0xDF;
-                if (get_kv_last_pos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
-                    return true;
-            } else
+            // if (!is_leaf() && to_demote_blocks)
+            //     demote_blocks();
+            // if (*current_block & 0x20) {
+            //     make_space();
+            //     *current_block &= 0xDF;
+            //     if (get_kv_last_pos() <= (BLK_HDR_SIZE + ptr_size + key_len + value_len + 2))
+            //         return true;
+            // } else
             	return true;
         }
     #if BPT_9_BIT_PTR == 1

@@ -68,7 +68,7 @@ public:
 #if BS_CHILD_PTR_SIZE == 1
         memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x07\x00\x00\x00", 10);
 #else
-        memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x08\x00\x00\x00", 10);
+        memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x09\x00\x00\x00", 10);
 #endif
     }
 
@@ -78,7 +78,7 @@ public:
 #if BS_CHILD_PTR_SIZE == 1
         memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x07\x00\x00\x00", 10);
 #else
-        memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x08\x00\x00\x00", 10);
+        memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x09\x00\x00\x00", 10);
 #endif
     }
 
@@ -215,7 +215,7 @@ public:
                     else
                         last_t = key_at;
 #if BS_MIDDLE_PREFIX == 1
-                    need_count = cmp + 12 + BS_CHILD_PTR_SIZE;
+                    need_count = cmp + 13 + BS_CHILD_PTR_SIZE;
 #else
                     need_count = (cmp * (3 + BS_CHILD_PTR_SIZE)) + 8;
 #endif
@@ -264,6 +264,9 @@ public:
 
     uint8_t *get_ptr_pos() {
         return NULL;
+    }
+
+    void free_blocks() {
     }
 
     int get_header_size() {
@@ -732,7 +735,7 @@ public:
         const uint16_t data_size = block_sz - get_kv_last_pos();
         uint8_t *data_buf = new uint8_t[block_sz];
         uint16_t new_data_len = 0;
-        uint8_t *t = current_block + BFOS_HDR_SIZE;
+        uint8_t *t = trie;
         uint8_t *upto = t + get_trie_len();
         //printf("%d, %d\n", data_size, get_trie_len());
         while (t < upto) {
@@ -748,20 +751,17 @@ public:
             t += BS_BIT_COUNT_CH(child);
             int leaf_count = BIT_COUNT(leaves);
             while (leaf_count--) {
-                int leaf_pos = util::get_int(t);
+                uint16_t leaf_pos = util::get_int(t);
+                if (leaf_pos > block_sz)
+                    std::cout << "leaf_pos > block_sz" << std::endl;
                 uint8_t *data_pos = current_block + leaf_pos;
-                uint16_t data_len = *data_pos;
+                uint16_t data_len = data_pos[0];
                 data_len++;
                 data_len += data_pos[data_len];
                 data_len++;
                 new_data_len += data_len;
-                // if (data_pos == key_at - 1) {
-                //     if (last_t == key_at)
-                //       last_t = 0;
-                //     key_at = current_block + (block_sz - new_data_len) + 1;
-                //     if (!last_t)
-                //       last_t = key_at;
-                // }
+                if (new_data_len > block_sz)
+                    std::cout << "new_data_len > block_sz" << std::endl;
                 memcpy(data_buf + data_size - new_data_len, data_pos, data_len);
                 util::set_int(t, block_sz - new_data_len);
                 t += 2;
@@ -779,10 +779,10 @@ public:
     bool is_full(int search_result) {
         decode_need_count(search_result);
         if (get_kv_last_pos() < (BFOS_HDR_SIZE + get_trie_len()
-                + need_count + key_len - key_pos + value_len + 3)) {
+                + need_count + key_len - key_pos + value_len + 14)) {
             make_space();
             if (get_kv_last_pos() < (BFOS_HDR_SIZE + get_trie_len()
-                + need_count + key_len - key_pos + value_len + 3))
+                + need_count + key_len - key_pos + value_len + 14))
               return true;
         }
 #if BS_CHILD_PTR_SIZE == 1
@@ -960,7 +960,7 @@ public:
                   break;
               }
               if (need_count)
-                  *trie_pos = (need_count << 1) | x01;
+                  *trie_pos++ = (need_count << 1) | x01;
             break;
     #endif
         case INSERT_THREAD:
@@ -1010,7 +1010,7 @@ public:
                   ret = pos;
               }
 #if BS_MIDDLE_PREFIX == 1
-              need_count -= (13 + BS_CHILD_PTR_SIZE);
+              need_count -= (14 + BS_CHILD_PTR_SIZE);
 #else
               need_count -= 8;
               need_count /= (3 + BS_CHILD_PTR_SIZE);

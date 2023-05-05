@@ -83,11 +83,14 @@ class bptree_iter_ctx {
             found_page_pos[last_page_lvl] = -1;
             set(page, ptr, cache_size);
         }
-        void set(unsigned long page, uint8_t *ptr, int cache_size) {
+        void set(int8_t lvl, unsigned long page, uint8_t *ptr, int cache_size) {
             if (cache_size > 0)
-                pages[last_page_lvl].page = page;
+                pages[lvl].page = page;
             else
-                pages[last_page_lvl].ptr = ptr;
+                pages[lvl].ptr = ptr;
+        }
+        void set(unsigned long page, uint8_t *ptr, int cache_size) {
+            set(last_page_lvl, page, ptr, cache_size);
         }
 };
 
@@ -205,11 +208,12 @@ public:
         if (is_append) {
             descendant->flush_last_blocks();
             common::close_fp(append_fp);
+            delete new_page_for_append;
         } else {
             if (cache_size > 0)
                 delete cache;
             else if (!is_block_given) {
-                free(root_block);
+                descendant->free_blocks();
                 delete change_fns;
             }
         }
@@ -232,6 +236,54 @@ public:
         num_levels = block_count_leaf = 1;
         count1 = count2 = 0;
         max_key_len = 0;
+    }
+
+    int8_t traverse_first_blocks(bptree_iter_ctx& ctx, int8_t lvl, int found_idx) {
+        do {
+            uint8_t *child_ptr_loc = descendant->get_child_ptr_pos(found_idx);
+            uint8_t *child_page_ptr = descendant->get_child_ptr(child_ptr_loc);
+            descendant->set_current_block(child_page_ptr);
+            if (!descendant->is_leaf()) {
+                lvl++;
+                ctx.found_page_pos[lvl] = 0;
+                ctx.set(lvl, 0, child_page_ptr, 0);
+            }
+            found_idx = 0;
+        } while (!descendant->is_leaf());
+        return lvl;
+    }
+
+    void free_blocks() {
+        bptree_iter_ctx ctx;
+        descendant->set_current_block(root_block);
+        if (descendant->is_leaf())
+            return;
+        ctx.init(0, root_block, 0);
+        ctx.found_page_pos[ctx.last_page_lvl] = 0;
+        ctx.last_page_lvl = traverse_first_blocks(ctx, 0, 0);
+        int8_t cur_lvl = ctx.last_page_lvl;
+        do {
+            uint8_t *internal_page = ctx.pages[cur_lvl].ptr;
+            descendant->set_current_block(internal_page);
+            for (int i = 0; i < descendant->filled_size(); i++) {
+                uint8_t *child_ptr_loc = descendant->get_child_ptr_pos(i);
+                uint8_t *child_page_ptr = descendant->get_child_ptr(child_ptr_loc);
+                free(child_page_ptr);
+            }
+            if (cur_lvl == ctx.last_page_lvl)
+                free(internal_page);
+            while (--cur_lvl >= 0) {
+                internal_page = ctx.pages[cur_lvl].ptr;
+                descendant->set_current_block(internal_page);
+                int found_idx = ctx.found_page_pos[cur_lvl] + 1;
+                ctx.found_page_pos[cur_lvl] = found_idx;
+                if (found_idx < descendant->filled_size()) {
+                    cur_lvl = traverse_first_blocks(ctx, cur_lvl, found_idx);
+                    break;
+                }
+                free(internal_page);
+            }
+        } while (cur_lvl >= 0);
     }
 
     inline uint8_t *get_value_at(uint8_t *key_ptr, int *vlen) {
@@ -812,13 +864,12 @@ public:
     }
 
     std::vector<uint8_t*> cur_pages;
-    std::vector<uint8_t*> prev_pages;
-    std::vector<int> prev_page_nos;
     std::vector<std::string> first_keys;
     uint32_t last_page_no;
     long recs_appended;
     int pg_resv_bytes; // ??
     FILE *append_fp;
+    uint8_t *new_page_for_append;
     bplus_tree_handler(const char *filename, int blk_size, int page_resv_bytes) {
         block_size = parent_block_size = blk_size;
         pg_resv_bytes = page_resv_bytes;
@@ -829,9 +880,8 @@ public:
         last_page_no = 0;
         uint8_t *current_block = new uint8_t[block_size];
         cur_pages.push_back(current_block);
-        prev_pages.push_back(NULL);
-        prev_page_nos.push_back(0);
         first_keys.push_back(std::string());
+        new_page_for_append = new uint8_t[block_size];
         descendant->set_current_block(current_block);
         descendant->set_leaf(1);
         descendant->init_current_block();
@@ -852,10 +902,6 @@ public:
             } else {
                 common::write_page(append_fp, last_block, new_page_no * block_size, block_size);
             }
-            fflush(append_fp);
-            delete last_block;
-            if (prev_pages[i] != NULL)
-                delete prev_pages[i];
             i++;
             if (i < cur_pages.size()) {
                 std::string first_key = first_keys[i - 1];
@@ -878,6 +924,9 @@ public:
                 }
             }
         }
+        fflush(append_fp);
+        for (int i = 0; i < cur_pages.size(); i++)
+            delete cur_pages[i];
     }
 
     void write_completed_page(int page_idx, const uint8_t *k, int k_len,
@@ -885,10 +934,7 @@ public:
         uint8_t *target_block = cur_pages[page_idx];
         uint32_t completed_page = ++last_page_no;
         common::write_page(append_fp, cur_pages[page_idx], completed_page * block_size, block_size);
-        uint8_t *new_block = prev_pages[page_idx] == NULL ? new uint8_t[block_size] : prev_pages[page_idx];
-        prev_pages[page_idx] = cur_pages[page_idx];
-        prev_page_nos[page_idx] = completed_page;
-        cur_pages[page_idx] = new_block;
+        uint8_t *new_block = new_page_for_append;
         new_block[0] = target_block[0];
         descendant->set_current_block(new_block);
         descendant->init_current_block();
@@ -900,6 +946,7 @@ public:
         value = v;
         value_len = v_len;
         descendant->add_first_data();
+        memcpy(cur_pages[page_idx], new_block, block_size);
         uint8_t addr[15];
         value = (uint8_t *) addr;
         value_len = util::ptr_to_bytes(completed_page, addr);
@@ -917,10 +964,8 @@ public:
                 if (search_result < 0) {
                     search_result = ~search_result;
                     if (descendant->is_full(search_result)) {
-                        // std::cout << "Parent page completed" << std::endl;
                         write_completed_page(page_idx, key, key_len, NULL, 0, value, value_len);
                     } else {
-                        // std::cout << "Parent entry added:[" << first_key << "]" << std::endl;
                         descendant->add_data(search_result);
                     }
                 }
@@ -937,10 +982,7 @@ public:
             key_len = 1;
             descendant->add_first_data();
             cur_pages.push_back(new_root_block);
-            prev_pages.push_back(0);
-            prev_page_nos.push_back(0);
             first_keys.push_back(std::string());
-                        // std::cout << "Root parent created" << std::endl;
         }
         descendant->set_current_block(new_block);
         if (is_leaf()) {
