@@ -15,11 +15,12 @@
 #include <cstring>
 #include <time.h>
 #include <common.h>
+#include <unordered_map>
 
 #define USE_FOPEN 1
 
 typedef struct dbl_lnklst_st {
-    int disk_page;
+    size_t disk_page;
     int cache_loc;
     struct dbl_lnklst_st *prev;
     struct dbl_lnklst_st *next;
@@ -50,10 +51,10 @@ protected:
     dbl_lnklst *lnklst_first_entry;
     dbl_lnklst *lnklst_last_entry;
     dbl_lnklst *lnklst_last_free;
-    dbl_lnklst **disk_to_cache_map;
+    std::unordered_map<size_t, dbl_lnklst*> disk_to_cache_map;
     size_t disk_to_cache_map_size;
     dbl_lnklst *llarr;
-    std::set<int> new_pages;
+    std::set<size_t> new_pages;
     std::string filename;
 #if USE_FOPEN == 1
     FILE *fp;
@@ -64,8 +65,10 @@ protected:
     cache_stats stats;
     long max_pages_to_flush;
     void *(*malloc_fn)(size_t);
-    void write_pages(std::set<int>& pages_to_write) {
-        for (std::set<int>::iterator it = pages_to_write.begin(); it != pages_to_write.end(); it++) {
+    void write_pages(std::set<size_t>& pages_to_write) {
+        if (options != 0)
+            return;
+        for (std::set<size_t>::iterator it = pages_to_write.begin(); it != pages_to_write.end(); it++) {
             uint8_t *block = &page_cache[page_size * disk_to_cache_map[*it]->cache_loc];
             iface->set_block_changed(block, page_size, false);
             //if (page_size < 65537 && block[5] < 255)
@@ -75,59 +78,6 @@ protected:
             write_page(block, file_pos, page_size);
             stats.pages_written++;
         }
-/*
-if (page_size == 4096) {
-        cout << "Block write: " << duration<double>(steady_clock::now()-start).count() << endl;
-        char new_filename[strlen(filename) + 15];
-        sprintf(new_filename, "%s.f%ld", filename, stats.cache_flush_count);
-        start = steady_clock::now();
-        uint8_t *append_buf = (uint8_t *) malloc(pages_to_write.size() * page_size);
-        int block_loc = 0;
-        string compressed_str;
-        uint8_t c_out[page_size];
-        size_t c_size;
-        for (set<int>::iterator it = pages_to_write.begin(); it != pages_to_write.end(); it++) {
-            uint8_t *block = &page_cache[page_size * disk_to_cache_map[*it]->cache_loc];
-            int first_part_size = 6 + util::get_int(block + 1) * 2;
-            util::set_int(append_buf + block_loc, first_part_size);
-            memcpy(append_buf + block_loc + 2, block, first_part_size);
-            int kv_last_pos = util::get_int(block + 3);
-            int second_part_size = page_size - kv_last_pos;
-            util::set_int(append_buf + block_loc + first_part_size + 2, second_part_size);
-            memcpy(append_buf + block_loc + first_part_size + 4, block + kv_last_pos, second_part_size);
-            //snappy::Compress((char *) append_buf + block_loc, first_part_size + second_part_size + 4, &compressed_str);
-            //memcpy(append_buf + block_loc, compressed_str.c_str(), compressed_str.length());
-            //block_loc += compressed_str.size();
-            if (Brotli_encoder_compress(BROTLI_DEFAULT_QUALITY, BROTLI_DEFAULT_WINDOW, BROTLI_DEFAULT_MODE, 
-                first_part_size + second_part_size + 4, append_buf + block_loc, &c_size, c_out)) {
-               memcpy(append_buf + block_loc, compressed_str.c_str(), compressed_str.length());
-               block_loc += compressed_str.size();
-            } else
-                cout << "Compression failure" << endl;
-            //block_loc += first_part_size + second_part_size + 4;
-        }
-
- #if USE_FOPEN == 1
-        FILE *file_appender = fopen(new_filename, "a");
- #else
-        int file_appender = open(fname, O_APPEND | O_CREAT | O_LARGEFILE, 0644);
-        if (file_appender == -1)
-          throw errno;
- #endif
- #if USE_FOPEN == 1
-            int write_count = fwrite(append_buf, 1, block_loc, file_appender);
- #else
-            int write_count = write(file_appender, pages_to_write.size() * page_size, bytes);
- #endif
-            if (write_count != block_loc) {
-                printf("Short write a: %d\n", write_count);
-                throw EIO;
-            }
-        fclose(file_appender);
-        free(append_buf);
-        cout << "Append write: " << duration<double>(steady_clock::now()-start).count() << ", orig: " << pages_to_write.size() * page_size << ", cmprsd: " << block_loc << endl;
-}
-*/
     }
     void calc_flush_count() {
         if (stats.total_cache_req == 0) {
@@ -141,10 +91,12 @@ if (page_size == 4096) {
            stats.last_pages_to_flush = 2;
     }
     void flush_pages_in_seq(uint8_t *block_to_keep) {
+        if (options != 0)
+            return;
         if (lnklst_last_entry == NULL)
             return;
         stats.cache_flush_count++;
-        std::set<int> pages_to_write(new_pages);
+        std::set<size_t> pages_to_write(new_pages);
         calc_flush_count();
         int pages_to_check = stats.last_pages_to_flush * 3;
         dbl_lnklst *cur_entry = lnklst_last_entry;
@@ -181,16 +133,16 @@ if (page_size == 4096) {
         }
     }
     void check_map_size() {
-        if (disk_to_cache_map_size <= file_page_count) {
-            //cout << "Expanding cache at: " << file_page_count << endl;
-            dbl_lnklst **temp = disk_to_cache_map;
-            size_t old_size = disk_to_cache_map_size;
-            disk_to_cache_map_size = file_page_count + 1000;
-            disk_to_cache_map = (dbl_lnklst **) malloc_fn(disk_to_cache_map_size * sizeof(dbl_lnklst *));
-            memset(disk_to_cache_map, '\0', disk_to_cache_map_size * sizeof(dbl_lnklst *));
-            memcpy(disk_to_cache_map, temp, old_size * sizeof(dbl_lnklst*));
-            free(temp);
-        }
+        // if (disk_to_cache_map_size <= file_page_count) {
+        //     //cout << "Expanding cache at: " << file_page_count << endl;
+        //     dbl_lnklst **temp = disk_to_cache_map;
+        //     size_t old_size = disk_to_cache_map_size;
+        //     disk_to_cache_map_size = file_page_count + 1000;
+        //     disk_to_cache_map = (dbl_lnklst **) malloc_fn(disk_to_cache_map_size * sizeof(dbl_lnklst *));
+        //     memset(disk_to_cache_map, '\0', disk_to_cache_map_size * sizeof(dbl_lnklst *));
+        //     memcpy(disk_to_cache_map, temp, old_size * sizeof(dbl_lnklst*));
+        //     free(temp);
+        // }
     }
 
 public:
@@ -243,9 +195,9 @@ public:
         if (file_page_count > 0)
            file_page_count /= page_size;
         //cout << "File page count: " << file_page_count << endl;
-        disk_to_cache_map_size = std::max(file_page_count + 1000, (size_t) cache_size_in_pages);
-        disk_to_cache_map = (dbl_lnklst **) alloc_fn(disk_to_cache_map_size * sizeof(dbl_lnklst *));
-        memset(disk_to_cache_map, '\0', disk_to_cache_map_size * sizeof(dbl_lnklst *));
+        //disk_to_cache_map_size = std::max(file_page_count + 1000, (size_t) cache_size_in_pages);
+        // disk_to_cache_map = (dbl_lnklst **) alloc_fn(disk_to_cache_map_size * sizeof(dbl_lnklst *));
+        // memset(disk_to_cache_map, '\0', disk_to_cache_map_size * sizeof(dbl_lnklst *));
         empty = 0;
 #if USE_FOPEN == 1
         fseek(fp, skip_page_count * page_size, SEEK_SET);
@@ -274,14 +226,19 @@ public:
     }
     virtual ~lru_cache() {
         flush_pages_in_seq(0);
-        std::set<int> pages_to_write;
-        for (size_t ll = 0; ll < cache_size_in_pages; ll++) {
-            if (llarr[ll].disk_page == 0)
-              continue;
-            uint8_t *block = &page_cache[page_size * llarr[ll].cache_loc];
-            if (iface->is_block_changed(block, page_size)) // is it changed
-                pages_to_write.insert(llarr[ll].disk_page);
+        std::set<size_t> pages_to_write;
+        for (std::unordered_map<size_t, dbl_lnklst*>::iterator it = disk_to_cache_map.begin(); it != disk_to_cache_map.end(); it++) {
+            uint8_t *block = &page_cache[page_size * it->second->cache_loc];
+            if (block[0] & 0x02) // is it changed
+                pages_to_write.insert(it->first);
         }
+        // for (size_t ll = 0; ll < cache_size_in_pages; ll++) {
+        //     if (llarr[ll].disk_page == 0)
+        //       continue;
+        //     uint8_t *block = &page_cache[page_size * llarr[ll].cache_loc];
+        //     if (iface->is_block_changed(block, page_size)) // is it changed
+        //         pages_to_write.insert(llarr[ll].disk_page);
+        // }
         write_pages(pages_to_write);
         free(page_cache);
         write_page(root_block, skip_page_count * page_size, page_size);
@@ -292,7 +249,7 @@ public:
 #endif
         free(root_block);
         free(llarr);
-        free(disk_to_cache_map);
+        //free(disk_to_cache_map);
         // cout << "cache requests: " << " " << stats.total_cache_req 
         //      << ", Misses: " << stats.total_cache_misses
         //      << ", Flush#: " << stats.cache_flush_count << endl;
@@ -304,6 +261,7 @@ public:
         else {
             bytes = file_pos & 0xFFFF;
             file_pos = (file_pos >> 16);
+            //std::cout << "File pos: " << file_pos << ", len: " << bytes << std::endl;
         }
 #if USE_FOPEN == 1
         if (!fseek(fp, file_pos, SEEK_SET)) {
@@ -315,12 +273,13 @@ public:
                 }
             } else {
                 std::string out_str;
-                common::decompress(CMPR_TYPE_SNAPPY, block, read_count, out_str);
-                if (out_str.length() != pg_sz) {
+                size_t dsize = common::decompress(options, block, read_count, out_str, pg_sz);
+                if (dsize != pg_sz) {
                     std::cout << "Uncompressed length not matching page_size" << std::endl;
                 }
-                memcpy(block, out_str.c_str(), out_str.length());
-                read_count = out_str.length();
+                memcpy(block, out_str.c_str(), dsize);
+                //printf("%2x,%2x,%2x,%2x,%2x\n", block[0], block[1], block[2], block[3], block[4]);
+                read_count = dsize;
             }
             return read_count;
         } else {
@@ -341,6 +300,8 @@ public:
         return 0;
     }
     void write_page(uint8_t *block, off_t file_pos, size_t bytes, bool is_new = true) {
+        if (options != 0)
+            return;
         //if (is_new)
         //  fseek(fp, 0, SEEK_END);
         //else
@@ -358,14 +319,15 @@ public:
             throw EIO;
         }
     }
-    uint8_t *get_disk_page_in_cache(int disk_page, uint8_t *block_to_keep = NULL, bool is_new = false) {
+    uint8_t *get_disk_page_in_cache(unsigned long disk_page, uint8_t *block_to_keep = NULL, bool is_new = false) {
         if (disk_page < skip_page_count)
             std::cout << "WARNING: asking disk_page: " << disk_page << std::endl;
         if (disk_page == skip_page_count)
             return root_block;
         int cache_pos = 0;
-        int removed_disk_page = 0;
-        if (disk_to_cache_map[disk_page] == NULL) {
+        size_t removed_disk_page = 0;
+        //if (disk_to_cache_map[disk_page] == NULL) {
+        if (disk_to_cache_map.find(disk_page) == disk_to_cache_map.end()) {
             if (cache_occupied_size < cache_size_in_pages) {
                 dbl_lnklst *new_entry = &llarr[cache_occupied_size]; // new dbl_lnklst();
                 new_entry->disk_page = disk_page;
@@ -444,7 +406,7 @@ public:
                 //if (!is_new)
                   move_to_front(entry_to_move);
                 entry_to_move->disk_page = disk_page;
-                disk_to_cache_map[removed_disk_page] = NULL;
+                disk_to_cache_map.erase(removed_disk_page);
                 disk_to_cache_map[disk_page] = entry_to_move;
                 stats.total_cache_misses++;
                 stats.total_cache_req++;

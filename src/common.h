@@ -1,12 +1,13 @@
-#ifndef SIARA_COMMON
-#define SIARA_COMMON
+#ifndef SIARA_IDX_RSRCH_COMMON
+#define SIARA_IDX_RSRCH_COMMON
 
 #include <string>
 #include <stdlib.h>
 #include <stdint.h>
 #include <iostream>
 #include <snappy.h>
-//#include <brotli/encode.h>
+#include <brotli/encode.h>
+#include <brotli/decode.h>
 
 class common {
 
@@ -55,21 +56,49 @@ class common {
                 fclose(fp);
         }
 
+        #define CMPR_TYPE_NONE 0
         #define CMPR_TYPE_SNAPPY 1
         #define CMPR_TYPE_LZ4 2
         #define CMPR_TYPE_DEFLATE 3
+        #define CMPR_TYPE_BROTLI 4
+        #define CMPR_TYPE_LZMA 5
+        #define CMPR_TYPE_BZ2 6
         static size_t compress(int8_t type, uint8_t *input_block, size_t sz, std::string& compressed_str) {
+            size_t c_size;
             switch (type) {
                 case CMPR_TYPE_SNAPPY:
                     return snappy::Compress((char *) input_block, sz, &compressed_str);
+                case CMPR_TYPE_BROTLI:
+                    c_size = sz * 2;
+                    compressed_str.resize(c_size);
+                    if (BrotliEncoderCompress(BROTLI_DEFAULT_QUALITY, BROTLI_DEFAULT_WINDOW, BROTLI_DEFAULT_MODE,
+                        sz, input_block, &c_size, (uint8_t *) compressed_str.c_str())) {
+                            compressed_str.resize(c_size);
+                            return c_size;
+                    } else {
+                        std::cout << "Brotli compress return 0" << std::endl;
+                        compressed_str.resize(0);
+                    }
+                    break;
             }
             return 0;
         }
 
-        static size_t decompress(int8_t type, uint8_t *input_str, size_t sz, std::string& out_str) {
+        static size_t decompress(int8_t type, uint8_t *input_str, size_t sz, std::string& out_str, int out_size) {
+            size_t c_size;
             switch (type) {
                 case CMPR_TYPE_SNAPPY:
                     return snappy::Uncompress((char *) input_str, sz, &out_str) ? out_str.length() : 0;
+                case CMPR_TYPE_BROTLI:
+                    out_str.resize(out_size);
+                    c_size = out_size;
+                    if (BrotliDecoderDecompress(sz, input_str, &c_size, (uint8_t *) out_str.c_str())) {
+                        out_str.resize(c_size);
+                        return c_size;
+                    } else {
+                        std::cout << "Brotli decompress return 0" << std::endl;
+                        out_str.resize(0);
+                    }
             }
             return 0;
         }

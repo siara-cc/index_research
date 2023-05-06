@@ -419,7 +419,7 @@ public:
         return (uint8_t *) (to_demote_blocks ? util::bytes_to_ptr(ptr, *ptr - 1) : util::bytes_to_ptr(ptr));
     }
 
-    inline int get_child_page(uint8_t *ptr) {
+    inline unsigned long get_child_page(uint8_t *ptr) {
         ptr += (*ptr + 1);
         return (to_demote_blocks ? util::bytes_to_ptr(ptr, *ptr - 1) : util::bytes_to_ptr(ptr));
     }
@@ -897,16 +897,16 @@ public:
     }
 
     size_t append_page(uint8_t *block, uint32_t page_no) {
-        size_t new_page_off;
+        size_t new_page_off = page_no * block_size;
         if (options == 0)
-            common::write_page(append_fp, block, page_no * block_size, block_size);
+            common::write_page(append_fp, block, new_page_off, block_size);
         else {
             new_page_off = bytes_appended;
             std::string out_str;
-            common::compress(options, block, block_size, out_str);
-            common::write_page(append_fp, (const uint8_t *) out_str.c_str(), new_page_off, out_str.length());
-            bytes_appended += out_str.length();
-            new_page_off = (new_page_off << 16) + out_str.length();
+            size_t csize = common::compress(options, block, block_size, out_str);
+            common::write_page(append_fp, (const uint8_t *) out_str.c_str(), new_page_off, csize);
+            bytes_appended += csize;
+            new_page_off = (new_page_off << 16) + csize;
         }
         return new_page_off;
     }
@@ -998,8 +998,9 @@ public:
             descendant->init_current_block();
             descendant->set_filled_size(0);
             descendant->set_kv_last_pos(blk_size == 65536 ? 65535 : blk_size);
-            key = addr + 10;
-            addr[10] = 0;
+            uint8_t empty_key[2];
+            empty_key[0] = 0; empty_key[1] = 0;
+            key = empty_key;
             key_len = 1;
             descendant->add_first_data();
             cur_pages.push_back(new_root_block);
@@ -1067,7 +1068,7 @@ protected:
     bpt_trie_handler<T>(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL, const uint8_t opts = 0) :
-       bplus_tree_handler<T>(leaf_block_sz, parent_block_sz, cache_sz, fname, opts) {
+       bplus_tree_handler<T>(leaf_block_sz, parent_block_sz, cache_sz, fname, 0, false, opts) {
         init_stats();
     }
 
