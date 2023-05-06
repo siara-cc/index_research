@@ -64,8 +64,8 @@ public:
 
     rb_tree(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL) :
-       bplus_tree_handler<rb_tree>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+            const char *fname = NULL, const uint8_t opts = 0) :
+       bplus_tree_handler<rb_tree>(leaf_block_sz, parent_block_sz, cache_sz, fname, opts) {
         gen_tree::generate_lists();
         init_buf();
     }
@@ -75,8 +75,8 @@ public:
         init_stats();
     }
 
-    rb_tree(const char *filename, int blk_size, int page_resv_bytes) :
-       bplus_tree_handler<rb_tree>(filename, blk_size, page_resv_bytes) {
+    rb_tree(const char *filename, int blk_size, int page_resv_bytes, const uint8_t opts) :
+       bplus_tree_handler<rb_tree>(filename, blk_size, page_resv_bytes, opts) {
         init_stats();
     }
 

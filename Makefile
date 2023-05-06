@@ -4,6 +4,7 @@ CXX = g++
 CXXFLAGS = -pthread -std=c++11 -march=native
 OBJS = build/rb_tree.o build/imain.o build/art.o build/univix_util.o build/bloom.o
 INCLUDES = -I./hdr -I./src -I../bloom/src
+L_FLAGS = -lsnappy
 
 opt: CXXFLAGS += -O3 -funroll-loops -DNDEBUG
 opt: imain
@@ -12,7 +13,7 @@ debug: CXXFLAGS += -g -O0 -fno-inline
 debug: imain
 
 imain: $(OBJS) src/imain.cpp
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $(OBJS) -o build/imain
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(OBJS) -o build/imain $(L_FLAGS)
 
 clean:
 	rm -rf build/*

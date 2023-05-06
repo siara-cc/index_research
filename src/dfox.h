@@ -35,8 +35,8 @@ public:
     uint8_t *last_t;
     dfox(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL) :
-                bpt_trie_handler<dfox>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+            const char *fname = NULL, const uint8_t opts = 0) :
+                bpt_trie_handler<dfox>(leaf_block_sz, parent_block_sz, cache_sz, fname, opts) {
 #if DX_SIBLING_PTR_SIZE == 1
         memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x07\x00\x00\x00", 10);
 #else
@@ -54,8 +54,8 @@ public:
 #endif
     }
 
-    dfox(const char *filename, int blk_size, int page_resv_bytes) :
-       bpt_trie_handler<dfox>(filename, blk_size, page_resv_bytes) {
+    dfox(const char *filename, int blk_size, int page_resv_bytes, const uint8_t opts) :
+       bpt_trie_handler<dfox>(filename, blk_size, page_resv_bytes, opts) {
         init_stats();
     }
 

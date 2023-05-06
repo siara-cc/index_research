@@ -148,13 +148,15 @@ public:
 
     size_t block_size, parent_block_size;
     int cache_size;
+    uint8_t options;
     const char *filename;
     bool to_demote_blocks;
     bplus_tree_handler(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz_kb = 0,
-            const char *fname = NULL, int start_page_num = 0, bool whether_btree = false) :
+            const char *fname = NULL, int start_page_num = 0, bool whether_btree = false,
+            const uint8_t opts = 0) :
             block_size (leaf_block_sz), parent_block_size (parent_block_sz),
-            cache_size (cache_sz_kb), filename (fname) {
+            cache_size (cache_sz_kb), filename (fname), options (opts) {
         change_fns = NULL;
         descendant->init_derived();
         init_stats();
@@ -168,8 +170,7 @@ public:
         to_demote_blocks = false;
         if (cache_size > 0) {
             cache = new lru_cache(block_size, cache_size, filename,
-                    this->change_fns,
-                    start_page_num, util::aligned_alloc);
+                    this->change_fns, start_page_num, options, util::aligned_alloc);
             root_block = current_block = cache->get_disk_page_in_cache(start_page_num);
             if (cache->is_empty()) {
                 descendant->set_leaf(1);
@@ -867,12 +868,14 @@ public:
     std::vector<std::string> first_keys;
     uint32_t last_page_no;
     long recs_appended;
+    size_t bytes_appended;
     int pg_resv_bytes; // ??
     FILE *append_fp;
     uint8_t *new_page_for_append;
-    bplus_tree_handler(const char *filename, int blk_size, int page_resv_bytes) {
+    bplus_tree_handler(const char *filename, int blk_size, int page_resv_bytes, uint8_t opts) {
         block_size = parent_block_size = blk_size;
         pg_resv_bytes = page_resv_bytes;
+        options = opts;
         is_closed = false;
         is_append = true;
         is_block_given = false;
@@ -889,18 +892,35 @@ public:
         descendant->set_kv_last_pos(blk_size == 65536 ? 65535 : blk_size);
         common::write_page(append_fp, current_block, 0, block_size);
         recs_appended = 0;
+        bytes_appended = block_size;
         prev_key_len = 0;
+    }
+
+    size_t append_page(uint8_t *block, uint32_t page_no) {
+        size_t new_page_off;
+        if (options == 0)
+            common::write_page(append_fp, block, page_no * block_size, block_size);
+        else {
+            new_page_off = bytes_appended;
+            std::string out_str;
+            common::compress(options, block, block_size, out_str);
+            common::write_page(append_fp, (const uint8_t *) out_str.c_str(), new_page_off, out_str.length());
+            bytes_appended += out_str.length();
+            new_page_off = (new_page_off << 16) + out_str.length();
+        }
+        return new_page_off;
     }
 
     void flush_last_blocks() {
         uint32_t new_page_no = 0;
+        size_t new_page_off = 0;
         for (int i = 0; i < cur_pages.size();) {
             uint8_t *last_block = cur_pages[i];
             new_page_no = ++last_page_no;
             if (i == cur_pages.size() - 1) {
                 common::write_page(append_fp, last_block, 0, block_size);
             } else {
-                common::write_page(append_fp, last_block, new_page_no * block_size, block_size);
+                new_page_off = append_page(last_block, new_page_no);
             }
             i++;
             if (i < cur_pages.size()) {
@@ -909,7 +929,7 @@ public:
                 key_len = first_key.length();
                 uint8_t addr[15];
                 value = (uint8_t *) addr;
-                value_len = util::ptr_to_bytes(new_page_no, addr);
+                value_len = util::ptr_to_bytes(options == 0 ? new_page_no : new_page_off, addr);
                 last_block = cur_pages[i];
                 descendant->set_current_block(last_block);
                 int search_result = descendant->search_current_block();
@@ -933,7 +953,8 @@ public:
             const uint8_t *prev_key, int prev_key_len, const uint8_t *v, int v_len) {
         uint8_t *target_block = cur_pages[page_idx];
         uint32_t completed_page = ++last_page_no;
-        common::write_page(append_fp, cur_pages[page_idx], completed_page * block_size, block_size);
+        size_t completed_page_off = append_page(cur_pages[page_idx], completed_page);
+        //common::write_page(append_fp, cur_pages[page_idx], completed_page * block_size, block_size);
         uint8_t *new_block = new_page_for_append;
         new_block[0] = target_block[0];
         descendant->set_current_block(new_block);
@@ -949,7 +970,7 @@ public:
         memcpy(cur_pages[page_idx], new_block, block_size);
         uint8_t addr[15];
         value = (uint8_t *) addr;
-        value_len = util::ptr_to_bytes(completed_page, addr);
+        value_len = util::ptr_to_bytes(options == 0 ? completed_page : completed_page_off, addr);
         page_idx++;
         if (page_idx < cur_pages.size()) {
             uint8_t *parent_block = cur_pages[page_idx];
@@ -1045,8 +1066,8 @@ protected:
 
     bpt_trie_handler<T>(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-            const char *fname = NULL) :
-       bplus_tree_handler<T>(leaf_block_sz, parent_block_sz, cache_sz, fname) {
+            const char *fname = NULL, const uint8_t opts = 0) :
+       bplus_tree_handler<T>(leaf_block_sz, parent_block_sz, cache_sz, fname, opts) {
         init_stats();
     }
 
@@ -1056,8 +1077,8 @@ protected:
         descendant->set_current_block(block);
     }
 
-    bpt_trie_handler<T>(const char *filename, int blk_size, int page_resv_bytes) :
-       bplus_tree_handler<T>(filename, blk_size, page_resv_bytes) {
+    bpt_trie_handler<T>(const char *filename, int blk_size, int page_resv_bytes, const uint8_t opts) :
+       bplus_tree_handler<T>(filename, blk_size, page_resv_bytes, opts) {
         init_stats();
     }
 

@@ -214,9 +214,10 @@ class sqlite : public bplus_tree_handler<sqlite>, public sqlite_common {
                 const std::string& col_names, const std::string& tbl_name = {},
                 int leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
                 int parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
-                const char *fname = NULL) : column_count (total_col_count), pk_count (pk_col_count),
+                const char *fname = NULL, const uint8_t opts = 0)
+                  : column_count (total_col_count), pk_count (pk_col_count),
                     column_names (col_names), table_name (tbl_name),
-                    bplus_tree_handler<sqlite>(leaf_block_sz, parent_block_sz, cache_sz, fname, 1, true) {
+                    bplus_tree_handler<sqlite>(leaf_block_sz, parent_block_sz, cache_sz, fname, 1, true, opts) {
             init();
         }
 
@@ -228,8 +229,8 @@ class sqlite : public bplus_tree_handler<sqlite>, public sqlite_common {
             master_block = NULL;
         }
 
-        sqlite(const char *filename, int blk_size, int page_resv_bytes) :
-        bplus_tree_handler<sqlite>(filename, blk_size, page_resv_bytes) {
+        sqlite(const char *filename, int blk_size, int page_resv_bytes, const uint8_t opts)
+                : bplus_tree_handler<sqlite>(filename, blk_size, page_resv_bytes, opts) {
             init_stats();
         }
 

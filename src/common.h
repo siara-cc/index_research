@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <iostream>
+#include <snappy.h>
+//#include <brotli/encode.h>
 
 class common {
 
@@ -24,7 +26,7 @@ class common {
             return 0;
         }
 
-        static void write_page(FILE *fp, uint8_t block[], off_t file_pos, size_t bytes) {
+        static void write_page(FILE *fp, const uint8_t block[], off_t file_pos, size_t bytes) {
             if (fseek(fp, file_pos, SEEK_SET))
                 fseek(fp, 0, SEEK_END);
             int write_count = fwrite(block, 1, bytes, fp);
@@ -53,6 +55,24 @@ class common {
                 fclose(fp);
         }
 
+        #define CMPR_TYPE_SNAPPY 1
+        #define CMPR_TYPE_LZ4 2
+        #define CMPR_TYPE_DEFLATE 3
+        static size_t compress(int8_t type, uint8_t *input_block, size_t sz, std::string& compressed_str) {
+            switch (type) {
+                case CMPR_TYPE_SNAPPY:
+                    return snappy::Compress((char *) input_block, sz, &compressed_str);
+            }
+            return 0;
+        }
+
+        static size_t decompress(int8_t type, uint8_t *input_str, size_t sz, std::string& out_str) {
+            switch (type) {
+                case CMPR_TYPE_SNAPPY:
+                    return snappy::Uncompress((char *) input_str, sz, &out_str) ? out_str.length() : 0;
+            }
+            return 0;
+        }
 
 };
 

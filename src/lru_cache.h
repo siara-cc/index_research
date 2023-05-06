@@ -14,8 +14,7 @@
 #include <errno.h>
 #include <cstring>
 #include <time.h>
-//#include <brotli/encode.h>
-//#include <snappy.h>
+#include <common.h>
 
 #define USE_FOPEN 1
 
@@ -199,10 +198,12 @@ public:
     int cache_size_in_pages;
     uint8_t *page_cache;
     chg_iface *iface;
+    uint8_t options;
     lru_cache(int pg_size, int cache_size_kb, const char *fname,
-            chg_iface *_iface,
-            int init_page_count = 0, void *(*alloc_fn)(size_t) = NULL) {
+            chg_iface *_iface, int init_page_count = 0,
+            const uint8_t opts = 0, void *(*alloc_fn)(size_t) = NULL) {
         iface = _iface;
+        options = opts;
         if (alloc_fn == NULL)
             alloc_fn = malloc;
         malloc_fn = alloc_fn;
@@ -297,12 +298,29 @@ public:
         //      << ", Flush#: " << stats.cache_flush_count << endl;
     }
     int read_page(uint8_t *block, off_t file_pos, size_t bytes) {
+        size_t pg_sz = bytes;
+        if (options == 0)
+            file_pos *= bytes;
+        else {
+            bytes = file_pos & 0xFFFF;
+            file_pos = (file_pos >> 16);
+        }
 #if USE_FOPEN == 1
         if (!fseek(fp, file_pos, SEEK_SET)) {
             int read_count = fread(block, 1, bytes, fp);
             //printf("read_count: %d, %d, %d, %d, %ld\n", read_count, page_size, disk_page, (int) page_cache[page_size * cache_pos], ftell(fp));
-            if (read_count != bytes) {
-                perror("read");
+            if (options == 0) {
+                if (read_count != bytes) {
+                    perror("read");
+                }
+            } else {
+                std::string out_str;
+                common::decompress(CMPR_TYPE_SNAPPY, block, read_count, out_str);
+                if (out_str.length() != pg_sz) {
+                    std::cout << "Uncompressed length not matching page_size" << std::endl;
+                }
+                memcpy(block, out_str.c_str(), out_str.length());
+                read_count = out_str.length();
             }
             return read_count;
         } else {
@@ -432,9 +450,7 @@ public:
                 stats.total_cache_req++;
             }
             if (!is_new && new_pages.find(disk_page) == new_pages.end()) {
-                off_t file_pos = page_size;
-                file_pos *= disk_page;
-                if (read_page(&page_cache[page_size * cache_pos], file_pos, page_size) != page_size)
+                if (read_page(&page_cache[page_size * cache_pos], disk_page, page_size) != page_size)
                     std::cout << "Unable to read: " << disk_page << std::endl;
                 stats.pages_read++;
             }
