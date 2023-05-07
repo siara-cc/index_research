@@ -18,7 +18,7 @@ public:
     basix3(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL, const uint8_t opts = 0) :
-        bplus_tree_handler<basix3>(leaf_block_sz, parent_block_sz, cache_sz, fname, opts) {
+        bplus_tree_handler<basix3>(leaf_block_sz, parent_block_sz, cache_sz, fname, 0, false, opts) {
     }
 
     basix3(uint32_t block_sz, uint8_t *block, bool is_leaf) :

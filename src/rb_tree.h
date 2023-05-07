@@ -65,7 +65,7 @@ public:
     rb_tree(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL, const uint8_t opts = 0) :
-       bplus_tree_handler<rb_tree>(leaf_block_sz, parent_block_sz, cache_sz, fname, opts) {
+       bplus_tree_handler<rb_tree>(leaf_block_sz, parent_block_sz, cache_sz, fname, 0, false, opts) {
         gen_tree::generate_lists();
         init_buf();
     }
