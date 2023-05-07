@@ -275,7 +275,7 @@ public:
                 std::string out_str;
                 size_t dsize = common::decompress(options, block, read_count, out_str, pg_sz);
                 if (dsize != pg_sz) {
-                    std::cout << "Uncompressed length not matching page_size" << std::endl;
+                    std::cout << "Uncompressed length not matching page_size: " << dsize << std::endl;
                 }
                 memcpy(block, out_str.c_str(), dsize);
                 //printf("%2x,%2x,%2x,%2x,%2x\n", block[0], block[1], block[2], block[3], block[4]);

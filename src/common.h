@@ -8,6 +8,7 @@
 #include <snappy.h>
 #include <brotli/encode.h>
 #include <brotli/decode.h>
+#include <lz4.h>
 
 class common {
 
@@ -67,7 +68,11 @@ class common {
             size_t c_size;
             switch (type) {
                 case CMPR_TYPE_SNAPPY:
-                    return snappy::Compress((char *) input_block, sz, &compressed_str);
+                    c_size = snappy::MaxCompressedLength(sz);
+                    compressed_str.resize(c_size);
+                    snappy::RawCompress((const char *) input_block, sz, (char *) compressed_str.c_str(), &c_size);
+                    compressed_str.resize(c_size);
+                    return c_size;
                 case CMPR_TYPE_BROTLI:
                     c_size = sz * 2;
                     compressed_str.resize(c_size);
@@ -80,6 +85,12 @@ class common {
                         compressed_str.resize(0);
                     }
                     break;
+                case CMPR_TYPE_LZ4:
+                    c_size = sz * 2;
+                    compressed_str.resize(c_size);
+                    c_size = LZ4_compress_default((const char *) input_block, (char *) compressed_str.c_str(), sz, c_size);
+                    compressed_str.resize(c_size);
+                    return c_size;
             }
             return 0;
         }
@@ -88,7 +99,17 @@ class common {
             size_t c_size;
             switch (type) {
                 case CMPR_TYPE_SNAPPY:
-                    return snappy::Uncompress((char *) input_str, sz, &out_str) ? out_str.length() : 0;
+                    bool res;
+                    if (!snappy::GetUncompressedLength((const char *) input_str, sz, &c_size))
+                        std::cout << "GetUncompressedLength failure" << std::endl;
+                    out_str.resize(c_size + 1);
+                    res = snappy::RawUncompress((const char *) input_str, sz, (char *) out_str.c_str());
+                    if (res) {
+                        out_str.resize(c_size);
+                        return c_size;
+                    } else
+                    	std::cout << "Snappy uncompress failure" << std::endl;
+                    break;
                 case CMPR_TYPE_BROTLI:
                     out_str.resize(out_size);
                     c_size = out_size;
@@ -99,6 +120,12 @@ class common {
                         std::cout << "Brotli decompress return 0" << std::endl;
                         out_str.resize(0);
                     }
+                    break;
+                 case CMPR_TYPE_LZ4:
+                    out_str.resize(out_size);
+                    c_size = out_size;
+                    LZ4_decompress_safe((const char *) input_str, (char *) out_str.c_str(), sz, c_size);
+                    return c_size;
             }
             return 0;
         }

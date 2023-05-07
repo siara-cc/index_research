@@ -779,10 +779,10 @@ public:
     bool is_full(int search_result) {
         decode_need_count(search_result);
         if (get_kv_last_pos() < (BFOS_HDR_SIZE + get_trie_len()
-                + need_count + key_len - key_pos + value_len + 14)) {
+                + need_count + key_len - key_pos + value_len + 30)) {
             make_space();
             if (get_kv_last_pos() < (BFOS_HDR_SIZE + get_trie_len()
-                + need_count + key_len - key_pos + value_len + 14))
+                + need_count + key_len - key_pos + value_len + 30))
               return true;
         }
 #if BS_CHILD_PTR_SIZE == 1

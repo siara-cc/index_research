@@ -372,10 +372,10 @@ public:
         int ptr_size = filled_size() + 1;
         ptr_size <<= 1;
         if (get_kv_last_pos() < (DFOS_HDR_SIZE + DS_GET_TRIE_LEN
-                        + need_count + ptr_size + key_len - key_pos + value_len + 4)) {
+                        + need_count + ptr_size + key_len - key_pos + value_len + 10)) {
             make_space();
             if (get_kv_last_pos() < (DFOS_HDR_SIZE + DS_GET_TRIE_LEN
-                            + need_count + ptr_size + key_len - key_pos + value_len + 4))
+                            + need_count + ptr_size + key_len - key_pos + value_len + 10))
                 return true;
         }
         return false;
