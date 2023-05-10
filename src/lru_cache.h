@@ -272,12 +272,13 @@ public:
                     perror("read");
                 }
             } else {
-                std::string out_str;
-                size_t dsize = common::decompress(options, block, read_count, out_str, pg_sz);
+                uint8_t *cmpr_out_buf = new uint8_t[page_size];
+                size_t dsize = common::decompress(options, block, read_count, cmpr_out_buf, pg_sz);
                 if (dsize != pg_sz) {
                     std::cout << "Uncompressed length not matching page_size: " << dsize << std::endl;
                 }
-                memcpy(block, out_str.c_str(), dsize);
+                memcpy(block, cmpr_out_buf, dsize);
+                delete [] cmpr_out_buf;
                 //printf("%2x,%2x,%2x,%2x,%2x\n", block[0], block[1], block[2], block[3], block[4]);
                 read_count = dsize;
             }

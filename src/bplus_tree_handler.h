@@ -905,11 +905,13 @@ public:
             common::write_page(append_fp, block, new_page_off, block_size);
         else {
             new_page_off = bytes_appended;
-            std::string out_str;
-            size_t csize = common::compress(options, block, block_size, out_str);
-            common::write_page(append_fp, (const uint8_t *) out_str.c_str(), new_page_off, csize);
+            uint8_t *cmpr_out_buf = new uint8_t[65536];
+            size_t csize = common::compress(options, block, block_size, cmpr_out_buf);
+            common::write_page(append_fp, (const uint8_t *) cmpr_out_buf, new_page_off, csize);
+            fflush(append_fp);
             bytes_appended += csize;
             new_page_off = (new_page_off << 16) + csize;
+            delete [] cmpr_out_buf;
         }
         return new_page_off;
     }

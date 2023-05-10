@@ -64,67 +64,56 @@ class common {
         #define CMPR_TYPE_BROTLI 4
         #define CMPR_TYPE_LZMA 5
         #define CMPR_TYPE_BZ2 6
-        static size_t compress(int8_t type, uint8_t *input_block, size_t sz, std::string& compressed_str) {
-            size_t c_size;
+        static size_t compress(int8_t type, const uint8_t *input_block, size_t sz, uint8_t *out_buf) {
+            size_t c_size = 65536;
             switch (type) {
                 case CMPR_TYPE_SNAPPY:
-                    c_size = snappy::MaxCompressedLength(sz);
-                    compressed_str.resize(c_size);
-                    snappy::RawCompress((const char *) input_block, sz, (char *) compressed_str.c_str(), &c_size);
-                    compressed_str.resize(c_size);
+                    snappy::RawCompress((const char *) input_block, sz, (char *) out_buf, &c_size);
                     return c_size;
                 case CMPR_TYPE_BROTLI:
-                    c_size = sz * 2;
-                    compressed_str.resize(c_size);
                     if (BrotliEncoderCompress(BROTLI_DEFAULT_QUALITY, BROTLI_DEFAULT_WINDOW, BROTLI_DEFAULT_MODE,
-                        sz, input_block, &c_size, (uint8_t *) compressed_str.c_str())) {
-                            compressed_str.resize(c_size);
+                                        sz, input_block, &c_size, out_buf)) {
                             return c_size;
                     } else {
                         std::cout << "Brotli compress return 0" << std::endl;
-                        compressed_str.resize(0);
                     }
                     break;
                 case CMPR_TYPE_LZ4:
-                    c_size = sz * 2;
-                    compressed_str.resize(c_size);
-                    c_size = LZ4_compress_default((const char *) input_block, (char *) compressed_str.c_str(), sz, c_size);
-                    compressed_str.resize(c_size);
+                    c_size = LZ4_compress_default((const char *) input_block, (char *) out_buf, sz, c_size);
                     return c_size;
             }
             return 0;
         }
 
-        static size_t decompress(int8_t type, uint8_t *input_str, size_t sz, std::string& out_str, int out_size) {
+        static size_t decompress(int8_t type, const uint8_t *input_str, size_t sz, uint8_t *out_buf, int out_size) {
             size_t c_size;
             switch (type) {
                 case CMPR_TYPE_SNAPPY:
-                    bool res;
-                    if (!snappy::GetUncompressedLength((const char *) input_str, sz, &c_size))
-                        std::cout << "GetUncompressedLength failure" << std::endl;
-                    out_str.resize(c_size + 1);
-                    res = snappy::RawUncompress((const char *) input_str, sz, (char *) out_str.c_str());
-                    if (res) {
-                        out_str.resize(c_size);
+                    c_size = 0;
+                    if (!snappy::GetUncompressedLength((const char *) input_str, sz, &c_size)) {
+                    	std::cout << "Snappy GetUncompressedLength failure" << std::endl;
+                        return 0;
+                    }
+                    if (c_size != out_size) {
+                    	std::cout << "Snappy GetUncompressedLength mismatch: " << c_size << ", " << out_size << std::endl;
+                        return 0;
+                    }
+                    if (snappy::RawUncompress((const char *) input_str, sz, (char *) out_buf))
                         return c_size;
-                    } else
+                    else
                     	std::cout << "Snappy uncompress failure" << std::endl;
                     break;
                 case CMPR_TYPE_BROTLI:
-                    out_str.resize(out_size);
                     c_size = out_size;
-                    if (BrotliDecoderDecompress(sz, input_str, &c_size, (uint8_t *) out_str.c_str())) {
-                        out_str.resize(c_size);
+                    if (BrotliDecoderDecompress(sz, input_str, &c_size, out_buf)) {
                         return c_size;
                     } else {
                         std::cout << "Brotli decompress return 0" << std::endl;
-                        out_str.resize(0);
                     }
                     break;
                  case CMPR_TYPE_LZ4:
-                    out_str.resize(out_size);
                     c_size = out_size;
-                    LZ4_decompress_safe((const char *) input_str, (char *) out_str.c_str(), sz, c_size);
+                    LZ4_decompress_safe((const char *) input_str, (char *) out_buf, sz, c_size);
                     return c_size;
             }
             return 0;
