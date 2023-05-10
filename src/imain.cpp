@@ -2686,12 +2686,12 @@ int main(int argc, char *argv[]) {
     //getchar();
     }
 
-    basix *dx;
+    dfos *dx;
     if (TEST_IDX2)
     {
     ctr = 0;
     //dx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
-    dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
+    //dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new stager(OUT_FILE2, CACHE_SIZE);
     //dx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
@@ -2702,7 +2702,7 @@ int main(int argc, char *argv[]) {
     //dx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //dx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
+    dx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new rb_tree(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     it1 = m.begin();
     start = get_time_val();

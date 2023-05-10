@@ -1053,10 +1053,10 @@ public:
         return BPT_RES_OK;
     }
 
-    uint8_t *next(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len) {
+    int next(bptree_iter_ctx *ctx, uint8_t *key_buf, uint8_t *val_buf = NULL, int *val_buf_len = NULL) {
         // if (ctx->found_page_pos[ctx->last_page_lvl] == 32767)
         //     return NULL;
-        return descendant->next_rec(ctx, val_buf, val_buf_len);
+        return descendant->next_rec(ctx, key_buf, val_buf, val_buf_len);
     }
 
 };

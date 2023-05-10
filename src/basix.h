@@ -360,7 +360,16 @@ public:
     void cleanup() {
     }
 
-    uint8_t *next_rec(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len) {
+    int copy_key_and_val(uint8_t *rec, uint8_t *key_buf, uint8_t *val_buf, int *val_buf_len) {
+        memcpy(key_buf, rec + 1, *rec);
+        if (val_buf != NULL)
+            memcpy(val_buf, rec + *rec + 2, rec[*rec + 1]);
+        if (val_buf_len != NULL)
+            *val_buf_len = rec[*rec + 1];
+        return *rec;
+    }
+
+    int next_rec(bptree_iter_ctx *ctx, uint8_t *key_buf, uint8_t *val_buf, int *val_buf_len) {
         if (ctx->found_page_pos[ctx->last_page_lvl] < 0)
             ctx->found_page_pos[ctx->last_page_lvl] = ~ctx->found_page_pos[ctx->last_page_lvl];
         uint8_t *target_block;
@@ -369,11 +378,12 @@ public:
         else
             target_block = ctx->pages[ctx->last_page_lvl].ptr;
         int filled_sz = util::get_int(target_block + 1);
-        uint8_t *ret;
+        int ret;
         int next_pos;
         if (ctx->found_page_pos[ctx->last_page_lvl] < filled_sz) {
             next_pos = ctx->found_page_pos[ctx->last_page_lvl];
-            ret = target_block + util::get_int(target_block + BLK_HDR_SIZE + (next_pos << 1));
+            uint8_t *rec = target_block + util::get_int(target_block + BLK_HDR_SIZE + (next_pos << 1));
+            ret = copy_key_and_val(rec, key_buf, val_buf, val_buf_len);
             ctx->found_page_pos[ctx->last_page_lvl]++;
         } else {
             int lvl = ctx->last_page_lvl - 1;
@@ -390,7 +400,7 @@ public:
                 lvl--;
             } while (lvl >= 0 && next_pos >= filled_sz);
             if (lvl < 0 && next_pos >= filled_sz)
-                return NULL;
+                return -1;
             lvl++;
             while (lvl < ctx->last_page_lvl) {
                 next_pos = ctx->found_page_pos[lvl];
@@ -406,7 +416,8 @@ public:
                 ctx->found_page_pos[lvl] = 0;
             }
             next_pos = 0;
-            ret = target_block + util::get_int(target_block + BLK_HDR_SIZE + (next_pos << 1));
+            uint8_t *rec = target_block + util::get_int(target_block + BLK_HDR_SIZE + (next_pos << 1));
+            ret = copy_key_and_val(rec, key_buf, val_buf, val_buf_len);
             ctx->found_page_pos[lvl] = 1;
         }
         return ret;

@@ -15,6 +15,29 @@
 #define DS_GET_SIBLING_OFFSET(x) (util::get_int(x) & 0x3FFF)
 #define DS_SET_SIBLING_OFFSET(x, off) util::set_int(x, off + (((*x) & 0xC0) << 8))
 
+class dfos_iter_ctx : public bptree_iter_ctx {
+    public:
+        char ctr;
+        uint16_t tp[256];
+        uint8_t *t, *trie;
+        uint8_t tc, child, leaf;
+        int key_pos;
+        dfos_iter_ctx() {
+            t = trie = NULL;
+        }
+        void init_current_block(uint8_t *block) {
+            if (trie != block + DFOS_HDR_SIZE) {
+                ctr = 0x08;
+                t = trie = block + DFOS_HDR_SIZE;
+                tc = child = leaf = 0;
+                key_pos = 0;
+            }
+        }
+        void set_current_block(uint8_t *block) {
+            trie = block + DFOS_HDR_SIZE;
+        }
+};
+
 // CRTP see https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 class dfos : public bpt_trie_handler<dfos> {
 public:
@@ -188,57 +211,57 @@ public:
         return current_block + get_ptr(search_result);
     }
 
-    uint8_t *next_key(uint8_t *first_key, int *tp, uint8_t *t, char& ctr, uint8_t& tc, uint8_t& child, uint8_t& leaf) {
+    uint8_t *next_key(uint8_t *first_key, dfos_iter_ctx& ctx) {
         do {
-            while (ctr > x07) {
-                if (tc & x04) {
-                    key_pos--;
-                    tc = trie[tp[key_pos]];
-                    while (tc & x01) {
-                        key_pos--;
-                        tc = trie[tp[key_pos]];
+            while (ctx.ctr > x07) {
+                if (ctx.tc & x04) {
+                    ctx.key_pos--;
+                    ctx.tc = ctx.trie[ctx.tp[ctx.key_pos]];
+                    while (ctx.tc & x01) {
+                        ctx.key_pos--;
+                        ctx.tc = ctx.trie[ctx.tp[ctx.key_pos]];
                     }
-                    child = (tc & x02 ? trie[tp[key_pos] + 1] : 0);
-                    leaf = trie[tp[key_pos] + (tc & x02 ? 2 : 1)];
-                    ctr = first_key[key_pos] & 0x07;
-                    ctr++;
+                    ctx.child = (ctx.tc & x02 ? ctx.trie[ctx.tp[ctx.key_pos] + 1] : 0);
+                    ctx.leaf = ctx.trie[ctx.tp[ctx.key_pos] + (ctx.tc & x02 ? 2 : 1)];
+                    ctx.ctr = first_key[ctx.key_pos] & 0x07;
+                    ctx.ctr++;
                 } else {
-                    tp[key_pos] = t - trie;
-                    tc = *t++;
-                    if (tc & x01) {
-                        uint8_t len = tc >> 1;
+                    ctx.tp[ctx.key_pos] = ctx.t - ctx.trie;
+                    ctx.tc = *ctx.t++;
+                    if (ctx.tc & x01) {
+                        uint8_t len = ctx.tc >> 1;
                         for (int i = 0; i < len; i++)
-                            tp[key_pos + i] = t - trie - 1;
-                        memcpy(first_key + key_pos, t, len);
-                        t += len;
-                        key_pos += len;
-                        tp[key_pos] = t - trie;
-                        tc = *t++;
+                            ctx.tp[ctx.key_pos + i] = ctx.t - ctx.trie - 1;
+                        memcpy(first_key + ctx.key_pos, ctx.t, len);
+                        ctx.t += len;
+                        ctx.key_pos += len;
+                        ctx.tp[ctx.key_pos] = ctx.t - ctx.trie;
+                        ctx.tc = *ctx.t++;
                     }
-                    child = (tc & x02 ? *t++ : 0);
-                    leaf = *t++;
-                    ctr = 0;
+                    ctx.child = (ctx.tc & x02 ? *ctx.t++ : 0);
+                    ctx.leaf = *ctx.t++;
+                    ctx.ctr = 0;
                 }
             }
-            first_key[key_pos] = (tc & xF8) | ctr;
-            uint8_t mask = x01 << ctr;
-            if (leaf & mask) {
-                leaf &= ~mask;
-                if (0 == (child & mask))
-                    ctr++;
-                return t;
+            first_key[ctx.key_pos] = (ctx.tc & xF8) | ctx.ctr;
+            uint8_t mask = x01 << ctx.ctr;
+            if (ctx.leaf & mask) {
+                ctx.leaf &= ~mask;
+                if (0 == (ctx.child & mask))
+                    ctx.ctr++;
+                return ctx.t;
             }
-            if (child & mask) {
-                key_pos++;
-                ctr = x08;
-                tc = 0;
+            if (ctx.child & mask) {
+                ctx.key_pos++;
+                ctx.ctr = x08;
+                ctx.tc = 0;
             }
-            ctr++;
+            ctx.ctr++;
         } while (1); // (t - trie) < BPT_TRIE_LEN);
-        return t;
+        return ctx.t;
     }
 
-    void delete_trie_last_half(int brk_key_len, uint8_t *first_key, int *tp) {
+    void delete_trie_last_half(int brk_key_len, uint8_t *first_key, uint16_t *tp) {
         uint16_t orig_trie_len = get_trie_len();
         uint8_t *t = 0;
         uint8_t children = 0;
@@ -273,7 +296,7 @@ public:
         return count;
     }
 
-    void delete_trie_first_half(int brk_key_len, uint8_t *first_key, int *tp) {
+    void delete_trie_first_half(int brk_key_len, uint8_t *first_key, uint16_t *tp) {
         int tot_del = 0;
         uint16_t orig_trie_len = get_trie_len();
         uint8_t *delete_start = trie;
@@ -403,12 +426,8 @@ public:
         int16_t brk_kv_pos;
         int16_t data_len;
         brk_kv_pos = data_len = 0;
-        char ctr = x08;
-        int tp[BPT_MAX_PFX_LEN + 1];
-        uint8_t *t = trie;
-        uint8_t tc, child, leaf;
-        tc = child = leaf = 0;
-        key_pos = 0;
+        dfos_iter_ctx ctx;
+        ctx.init_current_block(current_block);
         // (1) move all data to new_block in order
         int16_t idx;
         for (idx = 0; idx < orig_filled_size; idx++) {
@@ -425,26 +444,25 @@ public:
                 new_block.set_ptr(idx, kv_last_pos);
             kv_last_pos += kv_len;
             if (brk_idx == -1) {
-                t = next_key(first_key, tp, t, ctr, tc, child, leaf);
+                ctx.t = next_key(first_key, ctx);
                 if (data_len > half_kVLen || idx == (orig_filled_size / 2)) {
                     data_len = 0;
                     brk_idx = idx + 1;
                     brk_kv_pos = kv_last_pos;
-                    delete_trie_last_half(key_pos, first_key, tp);
-                    new_block.key_pos = key_pos;
-                    t = new_block.trie + (t - trie);
-                    t = new_block.next_key(first_key, tp, t, ctr, tc, child, leaf);
-                    key_pos = new_block.key_pos;
+                    delete_trie_last_half(ctx.key_pos, first_key, ctx.tp);
+                    ctx.set_current_block(new_block.current_block);
+                    ctx.t = new_block.trie + (ctx.t - trie);
+                    ctx.t = next_key(first_key, ctx);
                     src_idx = get_ptr(idx + 1);
-                    key_pos++;
+                    ctx.key_pos++;
                     if (is_leaf())
-                        *first_len_ptr = key_pos;
+                        *first_len_ptr = ctx.key_pos;
                     else {
-                        memcpy(first_key + key_pos, current_block + src_idx + 1, current_block[src_idx]);
-                        *first_len_ptr = key_pos + current_block[src_idx];
+                        memcpy(first_key + ctx.key_pos, current_block + src_idx + 1, current_block[src_idx]);
+                        *first_len_ptr = ctx.key_pos + current_block[src_idx];
                     }
-                    key_pos--;
-                    new_block.delete_trie_first_half(key_pos, first_key, tp);
+                    ctx.key_pos--;
+                    new_block.delete_trie_first_half(ctx.key_pos, first_key, ctx.tp);
                 }
             }
         }
@@ -690,8 +708,72 @@ public:
     void cleanup() {
     }
 
-    uint8_t *next_rec(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len) {
-        return NULL;
+    int copy_key_and_val(uint8_t *rec, int pfx_len, uint8_t *key_buf, uint8_t *val_buf, int *val_buf_len) {
+        memcpy(key_buf + pfx_len, rec + 1, *rec);
+        if (val_buf != NULL)
+            memcpy(val_buf, rec + *rec + 2, rec[*rec + 1]);
+        if (val_buf_len != NULL)
+            *val_buf_len = rec[*rec + 1];
+        return *rec + pfx_len;
+    }
+
+    int next_rec(bptree_iter_ctx *orig_ctx, uint8_t *key_buf, uint8_t *val_buf, int *val_buf_len) {
+        dfos_iter_ctx *ctx = (dfos_iter_ctx *) orig_ctx;
+        if (ctx->found_page_pos[ctx->last_page_lvl] < 0)
+            ctx->found_page_pos[ctx->last_page_lvl] = ~ctx->found_page_pos[ctx->last_page_lvl];
+        uint8_t *target_block;
+        if (cache_size > 0)
+            target_block = cache->get_disk_page_in_cache(ctx->pages[ctx->last_page_lvl].page);
+        else
+            target_block = ctx->pages[ctx->last_page_lvl].ptr;
+        ctx->init_current_block(target_block);
+        int filled_sz = util::get_int(target_block + 1);
+        int ret;
+        int next_pos;
+        if (ctx->found_page_pos[ctx->last_page_lvl] < filled_sz) {
+            next_pos = ctx->found_page_pos[ctx->last_page_lvl];
+            uint8_t *rec = target_block + util::get_int(target_block + DFOS_HDR_SIZE + util::get_int(target_block + 6) + (next_pos << 1));
+            next_key(key_buf, *ctx);
+            ret = copy_key_and_val(rec, ctx->key_pos + 1, key_buf, val_buf, val_buf_len);
+            ctx->found_page_pos[ctx->last_page_lvl]++;
+        } else {
+            int lvl = ctx->last_page_lvl - 1;
+            do {
+                if (ctx->found_page_pos[lvl] < 0)
+                    ctx->found_page_pos[lvl] = ~ctx->found_page_pos[lvl];
+                ctx->found_page_pos[lvl]++;
+                if (cache_size > 0)
+                    target_block = cache->get_disk_page_in_cache(ctx->pages[lvl].page);
+                else
+                    target_block = ctx->pages[lvl].ptr;
+                filled_sz = util::get_int(target_block + 1);
+                next_pos = ctx->found_page_pos[lvl];
+                lvl--;
+            } while (lvl >= 0 && next_pos >= filled_sz);
+            if (lvl < 0 && next_pos >= filled_sz)
+                return -1;
+            lvl++;
+            while (lvl < ctx->last_page_lvl) {
+                next_pos = ctx->found_page_pos[lvl];
+                uint8_t *child_ptr_loc = target_block + util::get_int(target_block + DFOS_HDR_SIZE + util::get_int(target_block + 6) + (next_pos << 1));
+                lvl++;
+                if (cache_size > 0) {
+                    ctx->pages[lvl].page = get_child_page(child_ptr_loc);
+                    target_block = cache->get_disk_page_in_cache(ctx->pages[lvl].page);
+                } else {
+                    ctx->pages[lvl].ptr = get_child_ptr(child_ptr_loc);
+                    target_block = ctx->pages[lvl].ptr;
+                }
+                ctx->found_page_pos[lvl] = 0;
+            }
+            next_pos = 0;
+            ctx->init_current_block(target_block);
+            next_key(key_buf, *ctx);
+            uint8_t *rec = target_block + util::get_int(target_block + DFOS_HDR_SIZE + util::get_int(target_block + 6) + (next_pos << 1));
+            ret = copy_key_and_val(rec, ctx->key_pos + 1, key_buf, val_buf, val_buf_len);
+            ctx->found_page_pos[lvl] = 1;
+        }
+        return ret;
     }
 
 };
