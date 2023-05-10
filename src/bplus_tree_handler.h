@@ -188,6 +188,7 @@ public:
             block_size (block_sz), parent_block_size (block_sz),
             cache_size (0), filename (NULL) {
         is_block_given = 1;
+        change_fns = NULL;
         is_closed = false;
         is_append = false;
         root_block = current_block = block;
@@ -215,8 +216,9 @@ public:
                 delete cache;
             else if (!is_block_given) {
                 descendant->free_blocks();
-                delete change_fns;
             }
+            if (change_fns != NULL)
+                delete change_fns;
         }
         is_closed = true;
     }
@@ -879,6 +881,7 @@ public:
         is_closed = false;
         is_append = true;
         is_block_given = false;
+        change_fns = NULL;
         append_fp = common::open_fp(filename);
         last_page_no = 0;
         uint8_t *current_block = new uint8_t[block_size];
