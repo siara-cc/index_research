@@ -266,14 +266,13 @@ public:
 #if USE_FOPEN == 1
         if (!fseek(fp, file_pos, SEEK_SET)) {
             int read_count = fread(block, 1, bytes, fp);
+            if (read_count != bytes) {
+                perror("read");
+            }
             //printf("read_count: %d, %d, %d, %d, %ld\n", read_count, page_size, disk_page, (int) page_cache[page_size * cache_pos], ftell(fp));
-            if (options == 0) {
-                if (read_count != bytes) {
-                    perror("read");
-                }
-            } else {
-                uint8_t *cmpr_out_buf = new uint8_t[page_size];
-                size_t dsize = common::decompress(options, block, read_count, cmpr_out_buf, pg_sz);
+            if (options != 0) {
+                uint8_t *cmpr_out_buf = new uint8_t[65536];
+                size_t dsize = common::decompress_block(options, block, read_count, cmpr_out_buf, pg_sz);
                 if (dsize != pg_sz) {
                     std::cout << "Uncompressed length not matching page_size: " << dsize << std::endl;
                 }

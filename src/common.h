@@ -9,6 +9,7 @@
 #include <brotli/encode.h>
 #include <brotli/decode.h>
 #include <lz4.h>
+#include <zlib.h>
 
 class common {
 
@@ -64,7 +65,7 @@ class common {
         #define CMPR_TYPE_BROTLI 4
         #define CMPR_TYPE_LZMA 5
         #define CMPR_TYPE_BZ2 6
-        static size_t compress(int8_t type, const uint8_t *input_block, size_t sz, uint8_t *out_buf) {
+        static size_t compress_block(int8_t type, const uint8_t *input_block, size_t sz, uint8_t *out_buf) {
             size_t c_size = 65536;
             switch (type) {
                 case CMPR_TYPE_SNAPPY:
@@ -81,11 +82,18 @@ class common {
                 case CMPR_TYPE_LZ4:
                     c_size = LZ4_compress_default((const char *) input_block, (char *) out_buf, sz, c_size);
                     return c_size;
+                case CMPR_TYPE_DEFLATE:
+                    int result = compress(out_buf, &c_size, input_block, sz);
+                    if (result != Z_OK) {
+                        std::cout << "Uncompress failure: " << result << std::endl;
+                        return 0;
+                    }
+                    return c_size;
             }
             return 0;
         }
 
-        static size_t decompress(int8_t type, const uint8_t *input_str, size_t sz, uint8_t *out_buf, int out_size) {
+        static size_t decompress_block(int8_t type, const uint8_t *input_str, size_t sz, uint8_t *out_buf, int out_size) {
             size_t c_size;
             switch (type) {
                 case CMPR_TYPE_SNAPPY:
@@ -114,6 +122,13 @@ class common {
                  case CMPR_TYPE_LZ4:
                     c_size = out_size;
                     LZ4_decompress_safe((const char *) input_str, (char *) out_buf, sz, c_size);
+                    return c_size;
+                case CMPR_TYPE_DEFLATE:
+                    int result = uncompress(out_buf, &c_size, input_str, sz);
+                    if (result != Z_OK) {
+                        std::cout << "Uncompress failure: " << result << std::endl;
+                        return 0;
+                    }
                     return c_size;
             }
             return 0;

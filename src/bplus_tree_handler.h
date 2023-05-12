@@ -906,8 +906,9 @@ public:
         else {
             new_page_off = bytes_appended;
             uint8_t *cmpr_out_buf = new uint8_t[65536];
-            size_t csize = common::compress(options, block, block_size, cmpr_out_buf);
+            size_t csize = common::compress_block(options, block, block_size, cmpr_out_buf);
             common::write_page(append_fp, (const uint8_t *) cmpr_out_buf, new_page_off, csize);
+            //std::cout << new_page_off << ", " << csize << std::endl;
             fflush(append_fp);
             bytes_appended += csize;
             new_page_off = (new_page_off << 16) + csize;
@@ -942,7 +943,6 @@ public:
                     search_result = ~search_result;
                     if (descendant->is_full(search_result)) {
                         write_completed_page(i, key, key_len, NULL, 0, value, value_len);
-                        i--;
                     } else {
                         descendant->add_data(search_result);
                     }
