@@ -223,6 +223,27 @@ public:
         is_closed = true;
     }
 
+    void close_append_for_read() {
+        descendant->flush_last_blocks();
+        delete new_page_for_append;
+        change_fns = NULL;
+        descendant->init_derived();
+        init_stats();
+        is_closed = false;
+        is_append = false;
+        is_block_given = 0;
+        root_page_num = 0;
+        is_btree = false;
+        if (change_fns == NULL)
+            change_fns = new chg_iface_default();
+        if (cache_size > 0) {
+            cache = new lru_cache(block_size, cache_size, filename,
+                    this->change_fns, 0, options, util::aligned_alloc, append_fp);
+            root_block = current_block = cache->get_disk_page_in_cache(0);
+            descendant->set_current_block(root_block);
+        }
+    }
+
     void init_current_block() {
         //memset(current_block, '\0', BFOS_NODE_SIZE);
         //cout << "Tree init block" << endl;
@@ -874,7 +895,7 @@ public:
     int pg_resv_bytes; // ??
     FILE *append_fp;
     uint8_t *new_page_for_append;
-    bplus_tree_handler(const char *filename, int blk_size, int page_resv_bytes, uint8_t opts) {
+    bplus_tree_handler(const char *fname, int blk_size, int page_resv_bytes, uint8_t opts, int cache_sz = 0) {
         block_size = parent_block_size = blk_size;
         pg_resv_bytes = page_resv_bytes;
         options = opts;
@@ -882,7 +903,9 @@ public:
         is_append = true;
         is_block_given = false;
         change_fns = NULL;
-        append_fp = common::open_fp(filename);
+        cache_size = cache_sz;
+        filename = fname;
+        append_fp = common::open_fp(fname);
         last_page_no = 0;
         uint8_t *current_block = new uint8_t[block_size];
         cur_pages.push_back(current_block);
@@ -950,6 +973,7 @@ public:
             }
         }
         fflush(append_fp);
+        fsync(fileno(append_fp));
         for (int i = 0; i < cur_pages.size(); i++)
             delete cur_pages[i];
     }
@@ -1083,8 +1107,8 @@ protected:
         descendant->set_current_block(block);
     }
 
-    bpt_trie_handler<T>(const char *filename, int blk_size, int page_resv_bytes, const uint8_t opts) :
-       bplus_tree_handler<T>(filename, blk_size, page_resv_bytes, opts) {
+    bpt_trie_handler<T>(const char *filename, int blk_size, int page_resv_bytes, const uint8_t opts, int cache_sz = 0) :
+       bplus_tree_handler<T>(filename, blk_size, page_resv_bytes, opts, cache_sz) {
         init_stats();
     }
 

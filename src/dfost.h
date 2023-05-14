@@ -57,8 +57,8 @@ public:
         memcpy(need_counts, "\x00\x02\x02\x02\x02\x00\x07\x00\x00\x00", 10);
     }
 
-    dfos(const char *filename, int blk_size, int page_resv_bytes, const uint8_t opts) :
-       bpt_trie_handler<dfos>(filename, blk_size, page_resv_bytes, opts) {
+    dfos(const char *filename, int blk_size, int page_resv_bytes, const uint8_t opts, int cache_sz = 0) :
+       bpt_trie_handler<dfos>(filename, blk_size, page_resv_bytes, opts, cache_sz) {
         init_stats();
     }
 

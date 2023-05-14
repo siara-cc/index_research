@@ -153,7 +153,7 @@ public:
     uint8_t options;
     lru_cache(int pg_size, int cache_size_kb, const char *fname,
             chg_iface *_iface, int init_page_count = 0,
-            const uint8_t opts = 0, void *(*alloc_fn)(size_t) = NULL) {
+            const uint8_t opts = 0, void *(*alloc_fn)(size_t) = NULL, FILE *given_fp = NULL) {
         iface = _iface;
         options = opts;
         if (alloc_fn == NULL)
@@ -174,7 +174,7 @@ public:
         struct stat file_stat;
         memset(&file_stat, '\0', sizeof(file_stat));
 #if USE_FOPEN == 1
-        fp = fopen(fname, "r+b");
+        fp = (given_fp == NULL ? fopen(fname, "r+b") : given_fp);
         if (fp == NULL) {
           fp = fopen(fname, "wb");
           if (fp == NULL)
@@ -184,12 +184,14 @@ public:
           if (fp == NULL)
             throw errno;
         }
+        posix_fadvise(fileno(fp), 0, 0, POSIX_FADV_RANDOM);
         lstat(fname, &file_stat);
 #else
-        fd = open(fname, O_RDWR | O_CREAT | O_LARGEFILE, 0644);
+        fd = (given_fp == NULL ? open(fname, O_RDWR | O_CREAT | O_LARGEFILE, 0644) : fileno(given_fp));
         if (fd == -1)
           throw errno;
         fstat(fd, &file_stat);
+        posix_fadvise(fd, 0, 0, POSIX_FADV_RANDOM);
 #endif
         file_page_count = file_stat.st_size;
         if (file_page_count > 0)
@@ -211,8 +213,8 @@ public:
             empty = 1;
         }
 #else
-        lseek(fd, skip_page_count * page_size, SEEK_SET);
-        if (read(fd, root_block, page_size) != page_size) {
+        //lseek(fd, skip_page_count * page_size, SEEK_SET);
+        if (pread(fd, root_block, page_size, skip_page_count * page_size) != page_size) {
             file_page_count = skip_page_count + 1;
             if (write(fd, root_block, page_size) != page_size)
               throw EIO;
@@ -263,41 +265,42 @@ public:
             file_pos = (file_pos >> 16);
             //std::cout << "File pos: " << file_pos << ", len: " << bytes << std::endl;
         }
+        size_t read_count = 0;
 #if USE_FOPEN == 1
         if (!fseek(fp, file_pos, SEEK_SET)) {
-            int read_count = fread(block, 1, bytes, fp);
+            read_count = fread(block, 1, bytes, fp);
             if (read_count != bytes) {
                 perror("read");
             }
             //printf("read_count: %d, %d, %d, %d, %ld\n", read_count, page_size, disk_page, (int) page_cache[page_size * cache_pos], ftell(fp));
-            if (options != 0) {
-                uint8_t *cmpr_out_buf = new uint8_t[65536];
-                size_t dsize = common::decompress_block(options, block, read_count, cmpr_out_buf, pg_sz);
-                if (dsize != pg_sz) {
-                    std::cout << "Uncompressed length not matching page_size: " << dsize << std::endl;
-                }
-                memcpy(block, cmpr_out_buf, dsize);
-                delete [] cmpr_out_buf;
-                //printf("%2x,%2x,%2x,%2x,%2x\n", block[0], block[1], block[2], block[3], block[4]);
-                read_count = dsize;
-            }
-            return read_count;
         } else {
             std::cout << "file_pos: " << file_pos << errno << std::endl;
+            return 0;
         }
 #else
-        if (lseek(fd, file_pos, SEEK_SET) != -1) {
-            int read_count = read(fd, block, bytes);
+        // lseek(fd, file_pos, SEEK_SET) != -1) {
+            read_count = pread(fd, block, bytes, file_pos);
             //printf("read_count: %d, %d, %d, %d, %ld\n", read_count, page_size, disk_page, (int) page_cache[page_size * cache_pos], ftell(fp));
             if (read_count != bytes) {
                 perror("read");
             }
-            return read_count;
-        } else {
-            cout << "file_pos: " << file_pos << errno << endl;
-        }
+        //} else {
+        //    std::cout << "file_pos: " << file_pos << errno << std::endl;
+        //    return 0;
+        //}
 #endif
-        return 0;
+        if (options != 0) {
+            uint8_t *cmpr_out_buf = new uint8_t[65536];
+            size_t dsize = common::decompress_block(options, block, read_count, cmpr_out_buf, pg_sz);
+            if (dsize != pg_sz) {
+                std::cout << "Uncompressed length not matching page_size: " << dsize << std::endl;
+            }
+            memcpy(block, cmpr_out_buf, dsize);
+            delete [] cmpr_out_buf;
+            //printf("%2x,%2x,%2x,%2x,%2x\n", block[0], block[1], block[2], block[3], block[4]);
+            read_count = dsize;
+        }
+        return read_count;
     }
     void write_page(uint8_t *block, off_t file_pos, size_t bytes, bool is_new = true) {
         if (options != 0)
@@ -412,8 +415,9 @@ public:
                 stats.total_cache_req++;
             }
             if (!is_new && new_pages.find(disk_page) == new_pages.end()) {
-                if (read_page(&page_cache[page_size * cache_pos], disk_page, page_size) != page_size)
-                    std::cout << "Unable to read: " << disk_page << std::endl;
+                size_t read_ret = read_page(&page_cache[page_size * cache_pos], disk_page, page_size);
+                if (read_ret != page_size)
+                    std::cout << "Unable to read: " << disk_page << ", " << read_ret << std::endl;
                 stats.pages_read++;
             }
         } else {
