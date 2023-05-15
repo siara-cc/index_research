@@ -309,9 +309,98 @@ public:
         return NULL;
     }
 
-    uint8_t *next_rec(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len) {
-        return NULL;
-    }
+    // int append_rec(uint8_t *k, int k_len, uint8_t *v, int v_len) {
+    //     if (is_closed)
+    //         throw BPT_RES_CLOSED;
+    //     int res = BPT_RES_NO_SPACE;
+    //     uint8_t *target_block = cur_pages[0];
+    //     uint32_t page_idx = 0;
+    //     key = k;
+    //     key_len = k_len;
+    //     value = v;
+    //     value_len = v_len;
+    //     descendant->set_current_block(target_block);
+    //     if (descendant->filled_size() == 0) {
+    //         descendant->add_first_data();
+    //     } else {
+    //         int search_result = descendant->search_current_block();
+    //         if (search_result < 0) {
+    //             search_result = ~search_result;
+    //             if (descendant->is_full(search_result)) {
+    //                 write_completed_page(page_idx, key, key_len, prev_key, prev_key_len, value, value_len);
+    //             } else {
+    //                 descendant->add_data(search_result);
+    //             }
+    //         }
+    //     }
+    //     memcpy(prev_key, k, k_len);
+    //     prev_key_len = k_len;
+    //     recs_appended++;
+    //     return BPT_RES_OK;
+    // }
+
+    // int copy_key_and_val(uint8_t *rec, uint8_t *key_buf, uint8_t *val_buf, int *val_buf_len) {
+    //     memcpy(key_buf, rec + 1, *rec);
+    //     if (val_buf != NULL)
+    //         memcpy(val_buf, rec + *rec + 2, rec[*rec + 1]);
+    //     if (val_buf_len != NULL)
+    //         *val_buf_len = rec[*rec + 1];
+    //     return *rec;
+    // }
+
+    // int next_rec(bptree_iter_ctx *ctx, uint8_t *key_buf, uint8_t *val_buf, int *val_buf_len) {
+    //     if (ctx->found_page_pos[ctx->last_page_lvl] < 0)
+    //         ctx->found_page_pos[ctx->last_page_lvl] = ~ctx->found_page_pos[ctx->last_page_lvl];
+    //     uint8_t *target_block;
+    //     if (cache_size > 0)
+    //         target_block = cache->get_disk_page_in_cache(ctx->pages[ctx->last_page_lvl].page);
+    //     else
+    //         target_block = ctx->pages[ctx->last_page_lvl].ptr;
+    //     int filled_sz = util::get_int(target_block + 1);
+    //     int ret;
+    //     int next_pos;
+    //     if (ctx->found_page_pos[ctx->last_page_lvl] < filled_sz) {
+    //         next_pos = ctx->found_page_pos[ctx->last_page_lvl];
+    //         uint8_t *rec = target_block + util::get_int(target_block + BLK_HDR_SIZE + (next_pos << 1));
+    //         ret = copy_key_and_val(rec, key_buf, val_buf, val_buf_len);
+    //         ctx->found_page_pos[ctx->last_page_lvl]++;
+    //     } else {
+    //         int lvl = ctx->last_page_lvl - 1;
+    //         do {
+    //             if (ctx->found_page_pos[lvl] < 0)
+    //                 ctx->found_page_pos[lvl] = ~ctx->found_page_pos[lvl];
+    //             ctx->found_page_pos[lvl]++;
+    //             if (cache_size > 0)
+    //                 target_block = cache->get_disk_page_in_cache(ctx->pages[lvl].page);
+    //             else
+    //                 target_block = ctx->pages[lvl].ptr;
+    //             filled_sz = util::get_int(target_block + 1);
+    //             next_pos = ctx->found_page_pos[lvl];
+    //             lvl--;
+    //         } while (lvl >= 0 && next_pos >= filled_sz);
+    //         if (lvl < 0 && next_pos >= filled_sz)
+    //             return -1;
+    //         lvl++;
+    //         while (lvl < ctx->last_page_lvl) {
+    //             next_pos = ctx->found_page_pos[lvl];
+    //             uint8_t *child_ptr_loc = target_block + util::get_int(target_block + BLK_HDR_SIZE + (next_pos << 1));
+    //             lvl++;
+    //             if (cache_size > 0) {
+    //                 ctx->pages[lvl].page = get_child_page(child_ptr_loc);
+    //                 target_block = cache->get_disk_page_in_cache(ctx->pages[lvl].page);
+    //             } else {
+    //                 ctx->pages[lvl].ptr = get_child_ptr(child_ptr_loc);
+    //                 target_block = ctx->pages[lvl].ptr;
+    //             }
+    //             ctx->found_page_pos[lvl] = 0;
+    //         }
+    //         next_pos = 0;
+    //         uint8_t *rec = target_block + util::get_int(target_block + BLK_HDR_SIZE + (next_pos << 1));
+    //         ret = copy_key_and_val(rec, key_buf, val_buf, val_buf_len);
+    //         ctx->found_page_pos[lvl] = 1;
+    //     }
+    //     return ret;
+    // }
 
 };
 

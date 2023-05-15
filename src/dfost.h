@@ -770,6 +770,7 @@ public:
                 ctx->found_page_pos[lvl] = 0;
             }
             next_pos = 0;
+            ctx->trie = ctx->t = NULL;
             ctx->init_current_block(target_block);
             next_key(key_buf, *ctx);
             uint8_t *rec = target_block + util::get_int(target_block + DFOS_HDR_SIZE + util::get_int(target_block + 6) + (next_pos << 1));
