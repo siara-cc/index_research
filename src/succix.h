@@ -128,6 +128,9 @@ public:
         return last_t;
     }
 
+    void free_blocks() {
+    }
+
     inline int get_header_size() {
         return SUCCIX_HDR_SIZE;
     }

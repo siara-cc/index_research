@@ -19,6 +19,10 @@
 
 #define USE_FOPEN 1
 
+#ifdef __APPLE__ // Only include for macOS
+    #define POSIX_FADV_RANDOM 4 // Define the value for macOS
+#endif
+
 typedef struct dbl_lnklst_st {
     size_t disk_page;
     int cache_loc;
@@ -184,14 +188,22 @@ public:
           if (fp == NULL)
             throw errno;
         }
+#ifdef __APPLE__
+        fcntl(fileno(fp), F_RDAHEAD, POSIX_FADV_RANDOM);
+#else
         posix_fadvise(fileno(fp), 0, 0, POSIX_FADV_RANDOM);
+#endif
         lstat(fname, &file_stat);
 #else
         fd = (given_fp == NULL ? open(fname, O_RDWR | O_CREAT | O_LARGEFILE, 0644) : fileno(given_fp));
         if (fd == -1)
           throw errno;
         fstat(fd, &file_stat);
+#ifdef __APPLE__
+        fcntl(fd, F_RDAHEAD, POSIX_FADV_RANDOM);
+#else
         posix_fadvise(fd, 0, 0, POSIX_FADV_RANDOM);
+#endif
 #endif
         file_page_count = file_stat.st_size;
         if (file_page_count > 0)

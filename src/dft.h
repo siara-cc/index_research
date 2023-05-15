@@ -145,6 +145,9 @@ public:
         return -1;
     }
 
+    void free_blocks() {
+    }
+
     inline int get_header_size() {
         return DFT_HDR_SIZE;
     }

@@ -1217,6 +1217,18 @@ protected:
         change_trie_len(need_count);
     }
 
+    // void add_right_data(int ptr) {
+    //     int16_t key_left = key_len - key_pos;
+    //     uint16_t kv_last_pos = get_kv_last_pos() - (key_left + value_len + 2);
+    //     set_kv_last_pos(kv_last_pos);
+    //     util::set_int(trie + ptr, kv_last_pos);
+    //     current_block[kv_last_pos] = key_left;
+    //     if (key_left)
+    //         memcpy(current_block + kv_last_pos + 1, key + key_pos, key_left);
+    //     current_block[kv_last_pos + key_left + 1] = value_len;
+    //     memcpy(current_block + kv_last_pos + key_left + 2, value, value_len);
+    // }
+
 public:
     uint8_t *trie;
     uint8_t *trie_pos;

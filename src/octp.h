@@ -278,6 +278,9 @@ public:
         return NULL;
     }
 
+    void free_blocks() {
+    }
+
     inline int get_header_size() {
         return OCTP_HDR_SIZE;
     }

@@ -271,6 +271,9 @@ public:
         return key_at + 1;
     }
 
+    void free_blocks() {
+    }
+
     int get_header_size() {
         return LX_BLK_HDR_SIZE;
     }

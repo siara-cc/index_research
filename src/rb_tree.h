@@ -114,6 +114,7 @@ public:
     using bplus_tree_handler::put;
     uint8_t *get_child_ptr(int pos);
     uint8_t *get_ptr_pos();
+    void free_blocks();
     int get_header_size();
     void init_buf();
     uint8_t *next_rec(bptree_iter_ctx *ctx, uint8_t *val_buf, int *val_buf_len);

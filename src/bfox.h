@@ -258,6 +258,9 @@ public:
         return NULL;
     }
 
+    void free_blocks() {
+    }
+
     int get_header_size() {
         return BFOX_HDR_SIZE;
     }

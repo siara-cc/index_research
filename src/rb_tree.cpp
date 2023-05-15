@@ -1,6 +1,9 @@
 #include "rb_tree.h"
 #include <math.h>
 
+void rb_tree::free_blocks() {
+}
+
 int rb_tree::get_header_size() {
     return RB_TREE_HDR_SIZE;
 }

@@ -186,6 +186,9 @@ public:
         return last_t;
     }
 
+    void free_blocks() {
+    }
+
     inline int get_header_size() {
         return BFT_HDR_SIZE;
     }
@@ -270,7 +273,7 @@ public:
         get_trie_len()++;
     #else
         util::set_int(trie + get_trie_len(), p);
-        get_trie_len() += 2;
+        change_trie_len(2);
     #endif
     }
 
@@ -307,7 +310,7 @@ public:
             t -= 3;
     #else
             t += (*t & x7F);
-            get_trie_len() -= 4;
+            change_trie_len(-4);
             memmove(delete_start, delete_start + 4, get_trie_len());
             t -= 4;
     #endif
@@ -483,7 +486,7 @@ public:
     #if BFT_UNIT_SIZE == 3
             ins_at(trie_pos, key_char, x40, 0);
     #else
-            ins_at(trie_pos, key_char, x80, 0, 0);
+            ins_b4(trie_pos, key_char, x80, 0, 0);
     #endif
             ret = trie_pos - trie + 2;
             break;
@@ -495,7 +498,7 @@ public:
     #if BFT_UNIT_SIZE == 3
             ins_at(orig_pos, key_char, x00, 0);
     #else
-            ins_at(orig_pos, key_char, x00, 0, 0);
+            ins_b4(orig_pos, key_char, x00, 0, 0);
     #endif
             ret = orig_pos - trie + 2;
             break;

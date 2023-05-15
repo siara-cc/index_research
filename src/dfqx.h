@@ -209,6 +209,9 @@ public:
         return trie + get_trie_len();
     }
 
+    void free_blocks() {
+    }
+
     inline int get_header_size() {
         return DFQX_HDR_SIZE + DQ_MAX_PTR_BITMAP_BYTES;
     }

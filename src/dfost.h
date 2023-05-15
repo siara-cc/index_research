@@ -195,6 +195,9 @@ public:
         return ~pos;
     }
 
+    void free_blocks() {
+    }
+
     inline int get_header_size() {
         return DFOS_HDR_SIZE;
     }

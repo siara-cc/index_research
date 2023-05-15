@@ -277,6 +277,9 @@ class sqlite : public bplus_tree_handler<sqlite>, public sqlite_common {
             return ((block_size-page_resv_bytes-12)*64/255)-23+5;
         }
 
+        void free_blocks() {
+        }
+
         inline int get_header_size() {
             return blk_hdr_len;
         }

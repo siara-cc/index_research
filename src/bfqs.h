@@ -247,6 +247,9 @@ public:
         return trie + get_trie_len();
     }
 
+    void free_blocks() {
+    }
+
     inline int get_header_size() {
         return BFQS_HDR_SIZE;
     }

@@ -201,6 +201,9 @@ public:
         return kv_idx;
     }
 
+    void free_blocks() {
+    }
+
     inline int get_header_size() {
         return DFOX_HDR_SIZE;
     }

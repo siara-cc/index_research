@@ -124,6 +124,7 @@ class common {
                     LZ4_decompress_safe((const char *) input_str, (char *) out_buf, sz, c_size);
                     return c_size;
                 case CMPR_TYPE_DEFLATE:
+                    c_size = out_size;
                     int result = uncompress(out_buf, &c_size, input_str, sz);
                     if (result != Z_OK) {
                         std::cout << "Uncompress failure: " << result << std::endl;

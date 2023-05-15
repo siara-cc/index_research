@@ -221,6 +221,9 @@ public:
         return last_t == key_at ? last_t - 1 : get_last_ptr(last_t);
     }
 
+    void free_blocks() {
+    }
+
     inline int get_header_size() {
         return BFT_HDR_SIZE;
     }

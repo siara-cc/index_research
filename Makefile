@@ -4,9 +4,9 @@ CXX = g++
 CXXFLAGS = -pthread -std=c++11 -march=native
 OBJS = build/rb_tree.o build/imain.o build/art.o build/univix_util.o build/bloom.o
 INCLUDES = -I./hdr -I./src -I../bloom/src
-L_FLAGS = -lsnappy -llz4 -lbrotlienc -lbrotlidec
+L_FLAGS = -lsnappy -llz4 -lbrotlienc -lbrotlidec -lz
 
-opt: CXXFLAGS += -O3 -funroll-loops -DNDEBUG
+opt: CXXFLAGS += -g -O3 -funroll-loops -DNDEBUG
 opt: imain
 
 debug: CXXFLAGS += -g -O0 -fno-inline
