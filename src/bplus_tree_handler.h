@@ -209,7 +209,7 @@ public:
         descendant->cleanup();
         if (is_append) {
             descendant->flush_last_blocks();
-            common::close_fp(append_fp);
+            common::close_fd(append_fd);
             delete new_page_for_append;
         } else {
             if (cache_size > 0)
@@ -238,7 +238,7 @@ public:
             change_fns = new chg_iface_default();
         if (cache_size > 0) {
             cache = new lru_cache(block_size, cache_size, filename,
-                    this->change_fns, 0, options, util::aligned_alloc, append_fp);
+                    this->change_fns, 0, options, util::aligned_alloc, append_fd);
             root_block = current_block = cache->get_disk_page_in_cache(0);
             descendant->set_current_block(root_block);
         }
@@ -893,7 +893,7 @@ public:
     long recs_appended;
     size_t bytes_appended;
     int pg_resv_bytes; // ??
-    FILE *append_fp;
+    int append_fd;
     uint8_t *new_page_for_append;
     bplus_tree_handler(const char *fname, int blk_size, int page_resv_bytes, uint8_t opts, int cache_sz = 0) {
         block_size = parent_block_size = blk_size;
@@ -905,7 +905,9 @@ public:
         change_fns = NULL;
         cache_size = cache_sz;
         filename = fname;
-        append_fp = common::open_fp(fname);
+        to_demote_blocks = false;
+        append_fd = common::open_fd(fname);
+        common::set_fadvise(append_fd, POSIX_FADV_WILLNEED);
         last_page_no = 0;
         uint8_t *current_block = new uint8_t[block_size];
         cur_pages.push_back(current_block);
@@ -916,7 +918,7 @@ public:
         descendant->init_current_block();
         descendant->set_filled_size(0);
         descendant->set_kv_last_pos(blk_size == 65536 ? 65535 : blk_size);
-        common::write_page(append_fp, current_block, 0, block_size);
+        common::write_bytes(append_fd, current_block, 0, block_size);
         recs_appended = 0;
         bytes_appended = block_size;
         prev_key_len = 0;
@@ -925,14 +927,13 @@ public:
     size_t append_page(uint8_t *block, uint32_t page_no) {
         size_t new_page_off = page_no * block_size;
         if (options == 0)
-            common::write_page(append_fp, block, new_page_off, block_size);
+            common::write_bytes(append_fd, block, new_page_off, block_size);
         else {
             new_page_off = bytes_appended;
             uint8_t *cmpr_out_buf = new uint8_t[65536];
             size_t csize = common::compress_block(options, block, block_size, cmpr_out_buf);
-            common::write_page(append_fp, (const uint8_t *) cmpr_out_buf, new_page_off, csize);
+            common::write_bytes(append_fd, (const uint8_t *) cmpr_out_buf, new_page_off, csize);
             //std::cout << new_page_off << ", " << csize << std::endl;
-            fflush(append_fp);
             bytes_appended += csize;
             new_page_off = (new_page_off << 16) + csize;
             delete [] cmpr_out_buf;
@@ -947,7 +948,7 @@ public:
             uint8_t *last_block = cur_pages[i];
             new_page_no = ++last_page_no;
             if (i == cur_pages.size() - 1) {
-                common::write_page(append_fp, last_block, 0, block_size);
+                common::write_bytes(append_fd, last_block, 0, block_size);
             } else {
                 new_page_off = append_page(last_block, new_page_no);
             }
@@ -972,8 +973,7 @@ public:
                 }
             }
         }
-        fflush(append_fp);
-        fsync(fileno(append_fp));
+        fsync(append_fd);
         for (int i = 0; i < cur_pages.size(); i++)
             delete cur_pages[i];
     }

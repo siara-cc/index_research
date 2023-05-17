@@ -2686,18 +2686,18 @@ int main(int argc, char *argv[]) {
     //getchar();
     }
 
-    linex *dx;
+    bfos *dx;
     if (TEST_IDX2)
     {
     ctr = 0;
-    dx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
+    //dx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new stager(OUT_FILE2, CACHE_SIZE);
     //dx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new bft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
     //dx = new dft(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2);
-    //dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working only with int16_t
+    dx = new bfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working only with int16_t
     //dx = new bfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working only with int16_t
     //dx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working
     //dx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE2); // working

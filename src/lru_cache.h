@@ -2,12 +2,6 @@
 #define LRUCACHE_H
 #include <set>
 #include <iostream>
-#define _FILE_OFFSET_BITS 64
-#ifndef _LARGEFILE64_SOURCE
-#define _LARGEFILE64_SOURCE
-#endif
-#include <stdio.h>
-#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <stdlib.h>
@@ -16,12 +10,6 @@
 #include <time.h>
 #include <common.h>
 #include <unordered_map>
-
-#define USE_FOPEN 1
-
-#ifdef __APPLE__ // Only include for macOS
-    #define POSIX_FADV_RANDOM 4 // Define the value for macOS
-#endif
 
 typedef struct dbl_lnklst_st {
     size_t disk_page;
@@ -60,11 +48,7 @@ protected:
     dbl_lnklst *llarr;
     std::set<size_t> new_pages;
     std::string filename;
-#if USE_FOPEN == 1
-    FILE *fp;
-#else
     int fd;
-#endif
     uint8_t empty;
     cache_stats stats;
     long max_pages_to_flush;
@@ -79,7 +63,7 @@ protected:
             //    block[5]++;
             off_t file_pos = page_size;
             file_pos *= *it;
-            write_page(block, file_pos, page_size);
+            common::write_bytes(fd, block, file_pos, page_size);
             stats.pages_written++;
         }
     }
@@ -157,7 +141,7 @@ public:
     uint8_t options;
     lru_cache(int pg_size, int cache_size_kb, const char *fname,
             chg_iface *_iface, int init_page_count = 0,
-            const uint8_t opts = 0, void *(*alloc_fn)(size_t) = NULL, FILE *given_fp = NULL) {
+            const uint8_t opts = 0, void *(*alloc_fn)(size_t) = NULL, int given_fd = -1) {
         iface = _iface;
         options = opts;
         if (alloc_fn == NULL)
@@ -177,34 +161,11 @@ public:
         max_pages_to_flush = cache_size_in_pages / 2;
         struct stat file_stat;
         memset(&file_stat, '\0', sizeof(file_stat));
-#if USE_FOPEN == 1
-        fp = (given_fp == NULL ? fopen(fname, "r+b") : given_fp);
-        if (fp == NULL) {
-          fp = fopen(fname, "wb");
-          if (fp == NULL)
-            throw errno;
-          fclose(fp);
-          fp = fopen(fname, "r+b");
-          if (fp == NULL)
-            throw errno;
-        }
-#ifdef __APPLE__
-        fcntl(fileno(fp), F_RDAHEAD, POSIX_FADV_RANDOM);
-#else
-        posix_fadvise(fileno(fp), 0, 0, POSIX_FADV_RANDOM);
-#endif
-        lstat(fname, &file_stat);
-#else
-        fd = (given_fp == NULL ? open(fname, O_RDWR | O_CREAT | O_LARGEFILE, 0644) : fileno(given_fp));
+        fd = (given_fd == -1 ? common::open_fd(fname) : given_fd);
         if (fd == -1)
           throw errno;
         fstat(fd, &file_stat);
-#ifdef __APPLE__
-        fcntl(fd, F_RDAHEAD, POSIX_FADV_RANDOM);
-#else
-        posix_fadvise(fd, 0, 0, POSIX_FADV_RANDOM);
-#endif
-#endif
+        common::set_fadvise(fd, POSIX_FADV_RANDOM);
         file_page_count = file_stat.st_size;
         if (file_page_count > 0)
            file_page_count /= page_size;
@@ -213,26 +174,13 @@ public:
         // disk_to_cache_map = (dbl_lnklst **) alloc_fn(disk_to_cache_map_size * sizeof(dbl_lnklst *));
         // memset(disk_to_cache_map, '\0', disk_to_cache_map_size * sizeof(dbl_lnklst *));
         empty = 0;
-#if USE_FOPEN == 1
-        fseek(fp, skip_page_count * page_size, SEEK_SET);
-        if (fread(root_block, 1, page_size, fp) != page_size) {
-            // Just fill arbitrary data before root
-            for (int i = file_page_count; i < skip_page_count; i++)
-                write_page(root_block, i * page_size, page_size);
-            file_page_count = skip_page_count + 1;
-            // write root block
-            write_page(root_block, skip_page_count * page_size, page_size);
-            empty = 1;
-        }
-#else
         //lseek(fd, skip_page_count * page_size, SEEK_SET);
-        if (pread(fd, root_block, page_size, skip_page_count * page_size) != page_size) {
+        if (common::read_bytes(fd, root_block, skip_page_count * page_size, page_size) != page_size) {
             file_page_count = skip_page_count + 1;
-            if (write(fd, root_block, page_size) != page_size)
+            if (common::write_bytes(fd, root_block, 0, page_size) != page_size)
               throw EIO;
             empty = 1;
         }
-#endif
         stats.pages_read++;
         lnklst_last_free = NULL;
         memset(&stats, '\0', sizeof(stats));
@@ -255,12 +203,8 @@ public:
         // }
         write_pages(pages_to_write);
         free(page_cache);
-        write_page(root_block, skip_page_count * page_size, page_size);
-#if USE_FOPEN == 1
-        fclose(fp);
-#else
+        common::write_bytes(fd, root_block, skip_page_count * page_size, page_size);
         close(fd);
-#endif
         free(root_block);
         free(llarr);
         //free(disk_to_cache_map);
@@ -277,41 +221,21 @@ public:
             file_pos = (file_pos >> 16);
             //std::cout << "File pos: " << file_pos << ", len: " << bytes << std::endl;
         }
-        size_t read_count = 0;
-#if USE_FOPEN == 1
-        if (!fseek(fp, file_pos, SEEK_SET)) {
-            read_count = fread(block, 1, bytes, fp);
-            if (read_count != bytes) {
-                perror("read");
-            }
-            //printf("read_count: %d, %d, %d, %d, %ld\n", read_count, page_size, disk_page, (int) page_cache[page_size * cache_pos], ftell(fp));
-        } else {
-            std::cout << "file_pos: " << file_pos << errno << std::endl;
-            return 0;
+        uint8_t *read_buf = new uint8_t[65536];
+        size_t read_count = read_count = common::read_bytes(fd, read_buf, file_pos, bytes);
+        if (read_count != bytes) {
+            perror("read");
+            printf("read_count: %lu, %lu\n", read_count, bytes);
         }
-#else
-        // lseek(fd, file_pos, SEEK_SET) != -1) {
-            read_count = pread(fd, block, bytes, file_pos);
-            //printf("read_count: %d, %d, %d, %d, %ld\n", read_count, page_size, disk_page, (int) page_cache[page_size * cache_pos], ftell(fp));
-            if (read_count != bytes) {
-                perror("read");
-            }
-        //} else {
-        //    std::cout << "file_pos: " << file_pos << errno << std::endl;
-        //    return 0;
-        //}
-#endif
         if (options != 0) {
-            uint8_t *cmpr_out_buf = new uint8_t[65536];
-            size_t dsize = common::decompress_block(options, block, read_count, cmpr_out_buf, pg_sz);
+            size_t dsize = common::decompress_block(options, read_buf, read_count, block, pg_sz);
             if (dsize != pg_sz) {
                 std::cout << "Uncompressed length not matching page_size: " << dsize << std::endl;
             }
-            memcpy(block, cmpr_out_buf, dsize);
-            delete [] cmpr_out_buf;
             //printf("%2x,%2x,%2x,%2x,%2x\n", block[0], block[1], block[2], block[3], block[4]);
             read_count = dsize;
         }
+        delete [] read_buf;
         return read_count;
     }
     void write_page(uint8_t *block, off_t file_pos, size_t bytes, bool is_new = true) {
@@ -320,19 +244,7 @@ public:
         //if (is_new)
         //  fseek(fp, 0, SEEK_END);
         //else
-#if USE_FOPEN == 1
-        if (fseek(fp, file_pos, SEEK_SET))
-            fseek(fp, 0, SEEK_END);
-        int write_count = fwrite(block, 1, bytes, fp);
-#else
-        if (lseek(fd, file_pos, SEEK_SET) == -1)
-            lseek(fd, 0, SEEK_END);
-        int write_count = write(fd, block, bytes);
-#endif
-        if (write_count != bytes) {
-            printf("Short write: %d\n", write_count);
-            throw EIO;
-        }
+        common::write_bytes(fd, block, file_pos, bytes);
     }
     uint8_t *get_disk_page_in_cache(unsigned long disk_page, uint8_t *block_to_keep = NULL, bool is_new = false) {
         if (disk_page < skip_page_count)

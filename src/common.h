@@ -2,6 +2,7 @@
 #define SIARA_IDX_RSRCH_COMMON
 
 #include <string>
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <iostream>
@@ -11,51 +12,63 @@
 #include <lz4.h>
 #include <zlib.h>
 
+#define _FILE_OFFSET_BITS 64
+#ifndef _LARGEFILE64_SOURCE
+#define _LARGEFILE64_SOURCE
+#endif
+#include <fcntl.h>
+
+#ifdef __APPLE__
+    #define O_LARGEFILE 0
+    #define POSIX_FADV_RANDOM 4
+    #define POSIX_FADV_WILLNEED 3
+#endif
+
 class common {
 
     public:
 
-        static int read_page(FILE *fp, uint8_t *block, off_t file_pos, size_t bytes) {
-            if (!fseek(fp, file_pos, SEEK_SET)) {
-                int read_count = fread(block, 1, bytes, fp);
-                //printf("read_count: %d, %d, %d, %d, %ld\n", read_count, page_size, disk_page, (int) page_cache[page_size * cache_pos], ftell(fp));
-                if (read_count != bytes) {
-                    perror("read");
-                }
-                return read_count;
-            } else {
-                std::cout << "file_pos: " << file_pos << errno << std::endl;
-            }
-            return 0;
+        static int open_fd(const char *filename) {
+            int fd = open(filename, O_RDWR | O_CREAT | O_LARGEFILE, 0644);
+            if (fd == -1)
+                throw errno;
+            return fd;
         }
 
-        static void write_page(FILE *fp, const uint8_t block[], off_t file_pos, size_t bytes) {
-            if (fseek(fp, file_pos, SEEK_SET))
-                fseek(fp, 0, SEEK_END);
-            int write_count = fwrite(block, 1, bytes, fp);
+        static void close_fd(int fd) {
+            if (fd != -1)
+                close(fd);
+        }
+
+        static size_t read_bytes(int fd, uint8_t *block, off_t file_pos, size_t bytes) {
+            //printf("Read: %lld, %lu\n", file_pos, bytes);
+            size_t read_count = pread(fd, block, bytes, file_pos);
+            return read_count;
+        }
+
+        static size_t write_bytes(int fd, const uint8_t block[], off_t file_pos, size_t bytes) {
+            //printf("Write: %lld, %lu\n", file_pos, bytes);
+            size_t write_count = pwrite(fd, block, bytes, file_pos);
             if (write_count != bytes) {
-                printf("Short write: %d\n", write_count);
+                printf("Write mismatch: %lu, %lu\n", write_count, bytes);
                 throw EIO;
             }
+            return write_count;
         }
 
-        static FILE *open_fp(const char *filename) {
-            FILE *fp = fopen(filename, "r+b");
-            if (fp == NULL) {
-                fp = fopen(filename, "wb");
-                if (fp == NULL)
-                    throw errno;
-                fclose(fp);
-                fp = fopen(filename, "r+b");
-                if (fp == NULL)
-                    throw errno;
+        static void set_fadvise(int fd, int advise) {
+#ifdef __APPLE__
+            switch (advise) {
+                case POSIX_FADV_RANDOM:
+                    fcntl(fd, F_RDAHEAD, advise);
+                    break;
+                case POSIX_FADV_WILLNEED:
+                    fcntl(fd, F_RDADVISE, (void*)0);
+                    break;
             }
-            return fp;
-        }
-
-        static void close_fp(FILE *fp) {
-            if (fp != NULL)
-                fclose(fp);
+#else
+            posix_fadvise(fd, 0, 0, advise);
+#endif
         }
 
         #define CMPR_TYPE_NONE 0
@@ -94,10 +107,9 @@ class common {
         }
 
         static size_t decompress_block(int8_t type, const uint8_t *input_str, size_t sz, uint8_t *out_buf, int out_size) {
-            size_t c_size;
+            size_t c_size = out_size;
             switch (type) {
                 case CMPR_TYPE_SNAPPY:
-                    c_size = 0;
                     if (!snappy::GetUncompressedLength((const char *) input_str, sz, &c_size)) {
                     	std::cout << "Snappy GetUncompressedLength failure" << std::endl;
                         return 0;
@@ -112,7 +124,6 @@ class common {
                     	std::cout << "Snappy uncompress failure" << std::endl;
                     break;
                 case CMPR_TYPE_BROTLI:
-                    c_size = out_size;
                     if (BrotliDecoderDecompress(sz, input_str, &c_size, out_buf)) {
                         return c_size;
                     } else {
@@ -120,11 +131,9 @@ class common {
                     }
                     break;
                  case CMPR_TYPE_LZ4:
-                    c_size = out_size;
                     LZ4_decompress_safe((const char *) input_str, (char *) out_buf, sz, c_size);
                     return c_size;
                 case CMPR_TYPE_DEFLATE:
-                    c_size = out_size;
                     int result = uncompress(out_buf, &c_size, input_str, sz);
                     if (result != Z_OK) {
                         std::cout << "Uncompress failure: " << result << std::endl;
