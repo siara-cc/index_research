@@ -214,15 +214,16 @@ public:
     }
     int read_page(uint8_t *block, off_t file_pos, size_t bytes) {
         size_t pg_sz = bytes;
+        uint8_t *read_buf;
         if (options == 0)
             file_pos *= bytes;
         else {
             bytes = file_pos & 0xFFFF;
             file_pos = (file_pos >> 16);
+            read_buf = new uint8_t[65536];
             //std::cout << "File pos: " << file_pos << ", len: " << bytes << std::endl;
         }
-        uint8_t *read_buf = new uint8_t[65536];
-        size_t read_count = read_count = common::read_bytes(fd, read_buf, file_pos, bytes);
+        size_t read_count = read_count = common::read_bytes(fd, options == 0 ? block : read_buf, file_pos, bytes);
         if (read_count != bytes) {
             perror("read");
             printf("read_count: %lu, %lu\n", read_count, bytes);
@@ -234,8 +235,8 @@ public:
             }
             //printf("%2x,%2x,%2x,%2x,%2x\n", block[0], block[1], block[2], block[3], block[4]);
             read_count = dsize;
+            delete [] read_buf;
         }
-        delete [] read_buf;
         return read_count;
     }
     void write_page(uint8_t *block, off_t file_pos, size_t bytes, bool is_new = true) {

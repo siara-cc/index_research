@@ -65,26 +65,27 @@ public:
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL, const uint8_t opts = 0) :
                 bpt_trie_handler<bfos>(leaf_block_sz, parent_block_sz, cache_sz, fname, opts) {
-#if BS_CHILD_PTR_SIZE == 1
-        memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x07\x00\x00\x00", 10);
-#else
-        memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x09\x00\x00\x00", 10);
-#endif
+        set_need_counts();
     }
 
     bfos(uint32_t block_sz, uint8_t *block, bool is_leaf) :
       bpt_trie_handler<bfos>(block_sz, block, is_leaf) {
         init_stats();
+        set_need_counts();
+    }
+
+    bfos(const char *filename, int blk_size, int page_resv_bytes, const uint8_t opts, int cache_sz = 0) :
+       bpt_trie_handler<bfos>(filename, blk_size, page_resv_bytes, opts, cache_sz) {
+        init_stats();
+        set_need_counts();
+    }
+
+    void set_need_counts() {
 #if BS_CHILD_PTR_SIZE == 1
         memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x07\x00\x00\x00", 10);
 #else
         memcpy(need_counts, "\x00\x04\x04\x02\x04\x00\x09\x00\x00\x00", 10);
 #endif
-    }
-
-    bfos(const char *filename, int blk_size, int page_resv_bytes, const uint8_t opts) :
-       bpt_trie_handler<bfos>(filename, blk_size, page_resv_bytes, opts) {
-        init_stats();
     }
 
     void set_current_block_root() {
@@ -779,10 +780,10 @@ public:
     bool is_full(int search_result) {
         decode_need_count(search_result);
         if (get_kv_last_pos() < (BFOS_HDR_SIZE + get_trie_len()
-                + need_count + key_len - key_pos + value_len + 30)) {
+                + need_count + key_len - key_pos + value_len + 3)) {
             make_space();
             if (get_kv_last_pos() < (BFOS_HDR_SIZE + get_trie_len()
-                + need_count + key_len - key_pos + value_len + 30))
+                + need_count + key_len - key_pos + value_len + 3))
               return true;
         }
 #if BS_CHILD_PTR_SIZE == 1

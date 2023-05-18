@@ -48,18 +48,23 @@ public:
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
             const char *fname = NULL, const uint8_t opts = 0) :
                 bpt_trie_handler<dfos>(leaf_block_sz, parent_block_sz, cache_sz, fname, opts) {
-        memcpy(need_counts, "\x00\x02\x02\x02\x02\x00\x07\x00\x00\x00", 10);
+        memcpy(need_counts, "\x00\x02\x02\x00\x02\x00\x07\x00\x00\x00", 10);
     }
 
     dfos(uint32_t block_sz, uint8_t *block, bool is_leaf) :
       bpt_trie_handler<dfos>(block_sz, block, is_leaf) {
         init_stats();
-        memcpy(need_counts, "\x00\x02\x02\x02\x02\x00\x07\x00\x00\x00", 10);
+        set_need_counts();
     }
 
     dfos(const char *filename, int blk_size, int page_resv_bytes, const uint8_t opts, int cache_sz = 0) :
        bpt_trie_handler<dfos>(filename, blk_size, page_resv_bytes, opts, cache_sz) {
         init_stats();
+        set_need_counts();
+    }
+
+    void set_need_counts() {
+        memcpy(need_counts, "\x00\x02\x02\x00\x02\x00\x07\x00\x00\x00", 10);
     }
 
     inline void set_current_block_root() {
@@ -113,7 +118,7 @@ public:
                     if (trie_char & x04) {
                         trie_pos = t;
                         insert_state = INSERT_AFTER;
-                        need_count = 3;
+                        need_count = 2;
                         return ~pos;
                     }
                     break;
@@ -135,7 +140,6 @@ public:
                     case 0:
                         trie_pos = t;
                         insert_state = INSERT_LEAF;
-                        need_count = 3;
                         return ~pos;
                     case 1:
                         break;
@@ -167,7 +171,6 @@ public:
                 case 2:
                     trie_pos = t;
                     insert_state = INSERT_BEFORE;
-                    need_count = 3;
                     return ~pos;
                 }
                 break;
@@ -183,7 +186,6 @@ public:
                             key_at_pos = t - trie_pos;
                         }
                         insert_state = INSERT_CONVERT;
-                        need_count = 6;
                         return ~pos;
                     }
                     t++;
@@ -365,7 +367,45 @@ public:
 
     }
 
+    void consolidate_initial_prefix(uint8_t *t) {
+        t += DFOS_HDR_SIZE;
+        uint8_t *t_reader = t;
+        uint8_t count = 0;
+        if (*t & x01) {
+            count = (*t >> 1);
+            t_reader += count;
+            t_reader++;
+        }
+        uint8_t *t_writer = t_reader + (*t & x01 ? 0 : 1);
+        while ((*t_reader & x01) || ((*t_reader & x02) && (*t_reader & x04)
+                && BIT_COUNT(t_reader[1]) == 1
+                && BIT_COUNT(t_reader[2]) == 0)) {
+            if (*t_reader & x01) {
+                uint8_t len = *t_reader >> 1;
+                if (count + len > 127)
+                    break;
+                memcpy(t_writer, ++t_reader, len);
+                t_writer += len;
+                t_reader += len;
+                count += len;
+            } else {
+                if (count > 126)
+                    break;
+                *t_writer++ = (*t_reader & xF8) + BIT_COUNT(t_reader[1] - 1);
+                t_reader += 3;
+                count++;
+            }
+        }
+        if (t_reader > t_writer) {
+            memmove(t_writer, t_reader, get_trie_len() - (t_reader - t) + filled_size() * 2);
+            *t = (count << 1) + 1;
+            change_trie_len((t_writer - t_reader));
+            //std::cout << (int) (*t >> 1) << std::endl;
+        }
+    }
+
     void make_space() {
+        consolidate_initial_prefix(current_block);
         int block_sz = (is_leaf() ? block_size : parent_block_size);
         int lvl = current_block[0] & 0x1F;
         const uint16_t data_size = block_sz - get_kv_last_pos();
@@ -398,10 +438,10 @@ public:
         int ptr_size = filled_size() + 1;
         ptr_size <<= 1;
         if (get_kv_last_pos() < (DFOS_HDR_SIZE + DS_GET_TRIE_LEN
-                        + need_count + ptr_size + key_len - key_pos + value_len + 10)) {
+                        + need_count + ptr_size + key_len - key_pos + value_len + 3)) {
             make_space();
             if (get_kv_last_pos() < (DFOS_HDR_SIZE + DS_GET_TRIE_LEN
-                            + need_count + ptr_size + key_len - key_pos + value_len + 10))
+                            + need_count + ptr_size + key_len - key_pos + value_len + 3))
                 return true;
         }
         return false;

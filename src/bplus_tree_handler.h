@@ -228,7 +228,6 @@ public:
         delete new_page_for_append;
         change_fns = NULL;
         descendant->init_derived();
-        init_stats();
         is_closed = false;
         is_append = false;
         is_block_given = 0;
@@ -548,7 +547,7 @@ public:
         if (search_result < 0) {
             search_result = ~search_result;
             if (descendant->is_full(search_result)) {
-                update_split_stats();
+                descendant->update_split_stats();
                 uint8_t first_key[descendant->get_first_key_len()]; // is max_pfx_len sufficient?
                 int first_len;
                 uint8_t *old_block = current_block;
@@ -844,18 +843,18 @@ public:
         std::cout << ", ";
         std::cout << (long) block_count_leaf;
         std::cout << std::endl;
-        std::cout << "Avg Block Count:";
+        std::cout << "Avg Key# in Block:";
         std::cout << (long) (num_entries / block_count_leaf);
         std::cout << " = ";
         std::cout << (long) num_entries;
-        std::cout << " / ";
+        std::cout << " (Total Key#) / ";
         std::cout << (long) block_count_leaf;
-        std::cout << std::endl;
-        std::cout << "Avg Max Count:";
+        std::cout << " (Leaf#)" << std::endl;
+        std::cout << "Avg Max# (Node, Leaf): ";
         std::cout << (long) (max_key_count_node / (block_count_node ? block_count_node : 1));
         std::cout << ", ";
         std::cout << (long) (max_key_count_leaf / block_count_leaf);
-        std::cout << ", ";
+        std::cout << ", Max key len: ";
         std::cout << (long) max_key_len;
         std::cout << std::endl;
     }
@@ -890,7 +889,6 @@ public:
     std::vector<uint8_t*> cur_pages;
     std::vector<std::string> first_keys;
     uint32_t last_page_no;
-    long recs_appended;
     size_t bytes_appended;
     int pg_resv_bytes; // ??
     int append_fd;
@@ -906,6 +904,7 @@ public:
         cache_size = cache_sz;
         filename = fname;
         to_demote_blocks = false;
+        init_stats();
         append_fd = common::open_fd(fname);
         common::set_fadvise(append_fd, POSIX_FADV_WILLNEED);
         last_page_no = 0;
@@ -919,7 +918,6 @@ public:
         descendant->set_filled_size(0);
         descendant->set_kv_last_pos(blk_size == 65536 ? 65535 : blk_size);
         common::write_bytes(append_fd, current_block, 0, block_size);
-        recs_appended = 0;
         bytes_appended = block_size;
         prev_key_len = 0;
     }
@@ -949,8 +947,13 @@ public:
             new_page_no = ++last_page_no;
             if (i == cur_pages.size() - 1) {
                 common::write_bytes(append_fd, last_block, 0, block_size);
+                block_count_node++;
             } else {
                 new_page_off = append_page(last_block, new_page_no);
+                if (*last_block & 0x80)
+                    block_count_leaf++;
+                else
+                    block_count_node++;
             }
             i++;
             if (i < cur_pages.size()) {
@@ -967,12 +970,14 @@ public:
                     search_result = ~search_result;
                     if (descendant->is_full(search_result)) {
                         write_completed_page(i, key, key_len, NULL, 0, value, value_len);
+                        descendant->update_split_stats();
                     } else {
                         descendant->add_data(search_result);
                     }
                 }
             }
         }
+        num_levels = cur_pages.size();
         fsync(append_fd);
         for (int i = 0; i < cur_pages.size(); i++)
             delete cur_pages[i];
@@ -1015,6 +1020,7 @@ public:
                     search_result = ~search_result;
                     if (descendant->is_full(search_result)) {
                         write_completed_page(page_idx, key, key_len, NULL, 0, value, value_len);
+                        descendant->update_split_stats();
                     } else {
                         descendant->add_data(search_result);
                     }
@@ -1059,6 +1065,8 @@ public:
         key_len = k_len;
         value = v;
         value_len = v_len;
+        if (max_key_len < k_len)
+            max_key_len = k_len;
         descendant->set_current_block(target_block);
         if (descendant->filled_size() == 0) {
             descendant->add_first_data();
@@ -1068,6 +1076,7 @@ public:
                 search_result = ~search_result;
                 if (descendant->is_full(search_result)) {
                     write_completed_page(page_idx, key, key_len, prev_key, prev_key_len, value, value_len);
+                    descendant->update_split_stats();
                 } else {
                     descendant->add_data(search_result);
                 }
@@ -1075,7 +1084,7 @@ public:
         }
         memcpy(prev_key, k, k_len);
         prev_key_len = k_len;
-        recs_appended++;
+        total_size++;
         return BPT_RES_OK;
     }
 
@@ -1091,8 +1100,8 @@ template<class T>
 class bpt_trie_handler: public bplus_tree_handler<T> {
 
 protected:
-    int max_trie_len_node;
-    int max_trie_len_leaf;
+    unsigned long avg_trie_len_node;
+    unsigned long avg_trie_len_leaf;
 
     bpt_trie_handler<T>(uint32_t leaf_block_sz = DEFAULT_LEAF_BLOCK_SIZE,
             uint32_t parent_block_sz = DEFAULT_PARENT_BLOCK_SIZE, int cache_sz = 0,
@@ -1110,22 +1119,6 @@ protected:
     bpt_trie_handler<T>(const char *filename, int blk_size, int page_resv_bytes, const uint8_t opts, int cache_sz = 0) :
        bplus_tree_handler<T>(filename, blk_size, page_resv_bytes, opts, cache_sz) {
         init_stats();
-    }
-
-    void init_stats() {
-        max_trie_len_leaf = max_trie_len_node = 0;
-    }
-
-    inline void update_split_stats() {
-        if (descendant->is_leaf()) {
-            bplus_tree_handler<T>::max_key_count_leaf += descendant->filled_size();
-            max_trie_len_leaf += get_trie_len();
-            bplus_tree_handler<T>::block_count_leaf++;
-        } else {
-            bplus_tree_handler<T>::max_key_count_node += descendant->filled_size();
-            max_trie_len_node += get_trie_len();
-            bplus_tree_handler<T>::block_count_node++;
-        }
     }
 
     void set_trie_len(int len) {
@@ -1266,14 +1259,25 @@ public:
     static const uint8_t xFF = 0xFF;
     static const int x100 = 0x100;
     ~bpt_trie_handler() {}
+    void init_stats() {
+        avg_trie_len_leaf = avg_trie_len_node = 0;
+    }
+    inline void update_split_stats() {
+        bplus_tree_handler<T>::update_split_stats();
+        if (descendant->is_leaf()) {
+            avg_trie_len_leaf += get_trie_len();
+        } else {
+            avg_trie_len_node += get_trie_len();
+        }
+    }
     void print_stats(long num_entries) {
         bplus_tree_handler<T>::print_stats(num_entries);
-        std::cout << "Trie Len:" << get_trie_len();
-        std::cout << ", Trie Len:";
-        std::cout << (long) (max_trie_len_node
+        std::cout << "Root Trie Len:" << get_trie_len();
+        std::cout << ", Avg Trie Len:";
+        std::cout << (long) (avg_trie_len_node
                 / (bplus_tree_handler<T>::block_count_node ? bplus_tree_handler<T>::block_count_node : 1));
         std::cout << ", ";
-        std::cout << (long) (max_trie_len_leaf / bplus_tree_handler<T>::block_count_leaf);
+        std::cout << (long) (avg_trie_len_leaf / bplus_tree_handler<T>::block_count_leaf);
         std::cout << std::endl;
     }
     void init_current_block() {
