@@ -31,6 +31,9 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 
+#include "../../squeezed-trie/src/squeezed.h"
+#include "../../squeezed-trie/src/squeezed_builder.h"
+
 using namespace std;
 
 #define CS_PRINTABLE 1
@@ -57,6 +60,7 @@ char *OUT_FILE2 = NULL;
 int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
+int TEST_SQZD = 1;
 int TEST_IDX1 = 1;
 int TEST_IDX2 = 1;
 
@@ -2639,13 +2643,48 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
-    dfos *lx;
+    squeezed::builder sb;
+    sb.set_print_enabled(true);
+    if (TEST_SQZD)
+    {
+    it1 = m.begin();
+    start = get_time_val();
+    uint8_t dummy[9];
+    //cout << "Ptr size:" << util::ptr_toBytes((unsigned long) lx->root_block, dummy) << endl;
+    if (USE_HASHTABLE) {
+        it1 = m.begin();
+        for (; it1 != m.end(); ++it1) {
+            //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
+            sb.insert((const uint8_t *) it1->first.c_str(), it1->first.length(), (const uint8_t *) it1->second.c_str(),
+                    it1->second.length());
+            ctr++;
+        }
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            sb.insert(data_buf + pos, key_len, data_buf + pos + key_len + vlen + 1, value_len);
+            pos += key_len + value_len + vlen + 1;
+            ctr++;
+        }
+    }
+    if (OUT_FILE1 == NULL)
+        sb.build(string("test.rst"));
+    else
+        sb.build(string(OUT_FILE1) + ".rst");
+    stop = get_time_val();
+    cout << "Squeezed builder insert+build time:" << timedifference(start, stop) << endl;
+    }
+
+    basix *lx;
     if (TEST_IDX1)
     {
     ctr = 0;
     
     //lx = new linex(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);    // staging not working
-    //lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    lx = new basix(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new basix3(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new stager(OUT_FILE1, CACHE_SIZE); // not working
     //lx = new sqlite(2, 1, "key, value", "imain", LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
@@ -2656,7 +2695,7 @@ int main(int argc, char *argv[]) {
     //lx = new bfqs(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new dfqx(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new dfox(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
-    lx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
+    //lx = new dfos(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);
     //lx = new rb_tree(LEAF_PAGE_SIZE, PARENT_PAGE_SIZE, CACHE_SIZE, OUT_FILE1);  // not working
     it1 = m.begin();
     start = get_time_val();
@@ -2791,6 +2830,49 @@ int main(int argc, char *argv[]) {
         cout << "Hashtable Get Time:" << timedifference(start, stop) << ", ";
         cout << "Null:" << null_ctr << ", Cmp:" << cmp << ", ";
         cout << "Size:" << ctr << endl;
+    }
+
+    if (TEST_SQZD)
+    {
+    squeezed::static_dict sd;
+    std::string rst_outfile;
+    if (OUT_FILE1 == NULL)
+        rst_outfile = "test.rst";
+    else {
+        rst_outfile = OUT_FILE1;
+        rst_outfile += ".rst";
+    }
+    sd.load(rst_outfile.c_str());
+    cmp = 0;
+    ctr = 0;
+    null_ctr = 0;
+    it1 = m.begin();
+    start = get_time_val();
+    if (USE_HASHTABLE) {
+        for (; it1 != m.end(); ++it1) {
+            int len = VALUE_LEN;
+            bool is_found = sd.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
+            check_value(it1->first.c_str(), it1->first.length() + 1,
+                    it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
+            ctr++;
+        }
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            int len = VALUE_LEN;
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            bool is_found = sd.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
+            check_value((char *) data_buf + pos, key_len,
+                    (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
+            pos += key_len + value_len + vlen + 1;
+            ctr++;
+        }
+    }
+    stop = get_time_val();
+    cout << "Squeezed Get Time:" << timedifference(start, stop) << ", ";
+    cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
     }
 
     if (TEST_IDX1)
