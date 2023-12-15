@@ -2670,10 +2670,10 @@ int main(int argc, char *argv[]) {
             ctr++;
         }
     }
-    if (OUT_FILE1 == NULL)
-        sb.build(string("test.rst"));
-    else
-        sb.build(string(OUT_FILE1) + ".rst");
+    // if (OUT_FILE1 == NULL)
+    //     sb.build(string("test.rst"));
+    // else
+    //     sb.build(string(OUT_FILE1) + ".rst");
     stop = get_time_val();
     cout << "Squeezed builder insert+build time:" << timedifference(start, stop) << endl;
     }
@@ -2851,7 +2851,8 @@ int main(int argc, char *argv[]) {
     if (USE_HASHTABLE) {
         for (; it1 != m.end(); ++it1) {
             int len = VALUE_LEN;
-            bool is_found = sd.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
+            bool is_found = sb.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
+            //bool is_found = sd.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
             check_value(it1->first.c_str(), it1->first.length() + 1,
                     it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
             ctr++;
@@ -2863,7 +2864,8 @@ int main(int argc, char *argv[]) {
             uint32_t key_len = read_vint32(data_buf + pos, &vlen);
             pos += vlen;
             uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
-            bool is_found = sd.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
+            bool is_found = sb.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
+            //bool is_found = sd.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
             check_value((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
             pos += key_len + value_len + vlen + 1;
