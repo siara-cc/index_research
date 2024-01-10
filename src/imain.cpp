@@ -31,8 +31,8 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 
-#include "../../squeezed-trie/src/squeezed.h"
-#include "../../squeezed-trie/src/squeezed_builder.h"
+#include "../../madras-trie/src/madras_dv1.h"
+#include "../../madras-trie/src/madras_builder_dv1.h"
 
 using namespace std;
 
@@ -60,7 +60,7 @@ char *OUT_FILE2 = NULL;
 int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
-int TEST_SQZD = 1;
+int TEST_MADRAS = 1;
 int TEST_IDX1 = 1;
 int TEST_IDX2 = 1;
 
@@ -2643,9 +2643,9 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
-    squeezed::builder sb;
-    sb.set_print_enabled(true);
-    if (TEST_SQZD)
+    madras_dv1::builder sb;
+    sb.set_print_enabled(false);
+    if (TEST_MADRAS)
     {
     it1 = m.begin();
     start = get_time_val();
@@ -2670,12 +2670,12 @@ int main(int argc, char *argv[]) {
             ctr++;
         }
     }
-    // if (OUT_FILE1 == NULL)
-    //     sb.build(string("test.rst"));
-    // else
-    //     sb.build(string(OUT_FILE1) + ".rst");
+    if (OUT_FILE1 == NULL)
+        sb.build(string("test.rst"));
+    else
+        sb.build(string(OUT_FILE1) + ".rst");
     stop = get_time_val();
-    cout << "Squeezed builder insert+build time:" << timedifference(start, stop) << endl;
+    cout << "Madras builder insert+build time:" << timedifference(start, stop) << endl;
     }
 
     basix *lx;
@@ -2832,9 +2832,9 @@ int main(int argc, char *argv[]) {
         cout << "Size:" << ctr << endl;
     }
 
-    if (TEST_SQZD)
+    if (TEST_MADRAS)
     {
-    squeezed::static_dict sd;
+    madras_dv1::static_dict sd;
     std::string rst_outfile;
     if (OUT_FILE1 == NULL)
         rst_outfile = "test.rst";
@@ -2873,7 +2873,7 @@ int main(int argc, char *argv[]) {
         }
     }
     stop = get_time_val();
-    cout << "Squeezed Get Time:" << timedifference(start, stop) << ", ";
+    cout << "Madras Get Time:" << timedifference(start, stop) << ", ";
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
     }
 
