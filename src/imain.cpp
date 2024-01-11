@@ -2864,8 +2864,8 @@ int main(int argc, char *argv[]) {
             uint32_t key_len = read_vint32(data_buf + pos, &vlen);
             pos += vlen;
             uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
-            bool is_found = sb.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
-            //bool is_found = sd.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
+            // bool is_found = sb.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
+            bool is_found = sd.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
             check_value((char *) data_buf + pos, key_len,
                     (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
             pos += key_len + value_len + vlen + 1;
@@ -2875,6 +2875,51 @@ int main(int argc, char *argv[]) {
     stop = get_time_val();
     cout << "Madras Get Time:" << timedifference(start, stop) << ", ";
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
+
+    // if ((null_ctr > 0 || cmp > 0) && (null_ctr + cmp) < 20) {
+    //     if (USE_HASHTABLE) {
+    //         /*for (; it1 != m.end(); ++it1) {
+    //             int len;
+    //             const char *value = lx->get(it1->first.c_str(), it1->first.length(), &len, value_buf);
+    //             if (value == NULL)
+    //                 printf("Null key: %.*s\n", (int) it1->first.length(), it1->first.c_str());
+    //             else if (memcmp(value_buf, it1->second.c_str(), it1->second.length()) != 0) {
+    //                 printf("Cmp fail: %.*s\nexp: %.*s\nact: %.*s\n", (int) it1->first.length(), it1->first.c_str(), 
+    //                     (int) it1->second.length(), it1->second.c_str(), (int) len, value_buf);
+    //             }
+    //             ctr++;
+    //         }*/
+    //     } else {
+    //         /*for (int64_t pos = 0; pos < data_sz; pos++) {
+    //             int len;
+    //             int8_t vlen;
+    //             uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+    //             pos += vlen;
+    //             uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);  
+    //             const char *value = (const char *) lx->get((const char *) data_buf + pos, key_len, &len, value_buf);
+    //             if (value == NULL)
+    //                 printf("Null key: %.*s\n", (int) key_len, data_buf + pos);
+    //             else if (memcmp(value_buf, data_buf + pos + key_len + vlen, value_len) != 0) {
+    //                 printf("Cmp fail: %.*s\nexp: %.*s\nact: %.*s\n", (int) key_len, data_buf + pos, 
+    //                     (int) value_len, data_buf + pos + key_len + vlen + 1, (int) len, value_buf);
+    //             }
+    //             pos += key_len + value_len + vlen + 1;
+    //             ctr++;
+    //         }*/
+    //         for (int64_t pos = 0; pos < data_sz; pos++) {
+    //             int len;
+    //             int8_t vlen;
+    //             uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+    //             pos += vlen;
+    //             uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+    //             printf("Key: %.*s, val: %.*s\n", (int) key_len, data_buf + pos, 
+    //                     (int) value_len, data_buf + pos + key_len + vlen + 1);
+    //             pos += key_len + value_len + vlen + 1;
+    //             ctr++;
+    //         }
+    //     }
+    // }
+
     }
 
     if (TEST_IDX1)
@@ -2913,51 +2958,7 @@ int main(int argc, char *argv[]) {
     lx->print_num_levels();
     //lx->print_counts();
     cout << "Root filled size:" << lx->filled_size() << endl;
-/*
-    if ((null_ctr > 0 || cmp > 0) && (null_ctr + cmp) < 20) {
-        if (USE_HASHTABLE) {
-            for (; it1 != m.end(); ++it1) {
-                int len;
-                const char *value = lx->get(it1->first.c_str(), it1->first.length(), &len, value_buf);
-                if (value == NULL)
-                    printf("Null key: %.*s\n", (int) it1->first.length(), it1->first.c_str());
-                else if (memcmp(value_buf, it1->second.c_str(), it1->second.length()) != 0) {
-                    printf("Cmp fail: %.*s\nexp: %.*s\nact: %.*s\n", (int) it1->first.length(), it1->first.c_str(), 
-                        (int) it1->second.length(), it1->second.c_str(), (int) len, value_buf);
-                }
-                ctr++;
-            }
-        } else {
-            for (int64_t pos = 0; pos < data_sz; pos++) {
-                int len;
-                int8_t vlen;
-                uint32_t key_len = read_vint32(data_buf + pos, &vlen);
-                pos += vlen;
-                uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);  
-                const char *value = (const char *) lx->get((const char *) data_buf + pos, key_len, &len, value_buf);
-                if (value == NULL)
-                    printf("Null key: %.*s\n", (int) key_len, data_buf + pos);
-                else if (memcmp(value_buf, data_buf + pos + key_len + vlen, value_len) != 0) {
-                    printf("Cmp fail: %.*s\nexp: %.*s\nact: %.*s\n", (int) key_len, data_buf + pos, 
-                        (int) value_len, data_buf + pos + key_len + vlen + 1, (int) len, value_buf);
-                }
-                pos += key_len + value_len + vlen + 1;
-                ctr++;
-            }
-            for (int64_t pos = 0; pos < data_sz; pos++) {
-                int len;
-                int8_t vlen;
-                uint32_t key_len = read_vint32(data_buf + pos, &vlen);
-                pos += vlen;
-                uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
-                printf("Key: %.*s, val: %.*s\n", (int) key_len, data_buf + pos, 
-                        (int) value_len, data_buf + pos + key_len + vlen + 1);
-                pos += key_len + value_len + vlen + 1;
-                ctr++;
-            }
-        }
-    }
-*/
+
     }
 
     if (TEST_IDX2)
