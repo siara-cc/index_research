@@ -6,7 +6,7 @@ OBJS = build/rb_tree.o build/imain.o build/art.o build/univix_util.o build/bloom
 INCLUDES = -I./hdr -I./src -I../bloom/src
 L_FLAGS = -lsnappy -llz4 -lbrotlienc -lbrotlidec -lz
 
-opt: CXXFLAGS += -O3 -funroll-loops -DNDEBUG
+opt: CXXFLAGS += -g -O3 -funroll-loops -DNDEBUG
 opt: imain
 
 debug: CXXFLAGS += -g -O0 -fno-inline
@@ -18,7 +18,7 @@ imain: $(OBJS) src/imain.cpp
 clean:
 	rm -rf build/*
 
-build/imain.o: src/imain.cpp src/*.h ../madras-trie/src/*.h
+build/imain.o: src/imain.cpp src/*.h ../madras-trie/src/*.hpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c src/imain.cpp -o build/imain.o
 
 build/art.o: src/art.cpp src/art.h

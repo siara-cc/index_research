@@ -31,8 +31,8 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 
-#include "../../madras-trie/src/madras_dv1.h"
-#include "../../madras-trie/src/madras_builder_dv1.h"
+#include "../../madras-trie/src/madras_dv1.hpp"
+#include "../../madras-trie/src/madras_builder_dv1.hpp"
 
 using namespace std;
 
@@ -230,7 +230,7 @@ int64_t load_file(unordered_map<string, string>& m, uint8_t *data_buf) {
                             data_buf[ret++] = 0;
                         }
                     } else {
-                        sprintf(value, "%ld", NUM_ENTRIES);
+                        sprintf(value, "%d", rand() % 4194304);
                         //util::ptr_toBytes(NUM_ENTRIES, (uint8_t *) value);
                         //value[4] = 0;
                         if (USE_HASHTABLE)
@@ -2464,8 +2464,10 @@ int main(int argc, char *argv[]) {
             }
         } else {
             IMPORT_FILE = argv[1];
-            if (argc > 2)
+            if (argc > 2) {
                 KEY_LEN = atoi(argv[2]);
+                VALUE_LEN = 16;
+            }
             if (argc > 3 && (argv[3][0] == '0' || argv[3][0] == '1'))
                 USE_HASHTABLE = atoi(argv[3]);
             if (argc > 4)
@@ -2511,7 +2513,7 @@ int main(int argc, char *argv[]) {
     }
 
     int64_t data_alloc_sz = (IMPORT_FILE == NULL ? (KEY_LEN + VALUE_LEN + 8) * NUM_ENTRIES // including \0 at end of key
-            : get_import_file_size() + 110000000); // extra 30mb for 7 + key_len + value_len + \0 for max 11 mil entries
+            : get_import_file_size() + 200000000); // extra 30mb for 7 + key_len + value_len + \0 for max 20 mil entries
     cout << "Data size: " << data_alloc_sz / 1000 << "kb" << endl;
     uint8_t *data_buf = (uint8_t *) malloc(data_alloc_sz);
     int64_t data_sz = 0;
@@ -2670,6 +2672,7 @@ int main(int argc, char *argv[]) {
             ctr++;
         }
     }
+    sb.set_print_enabled(true);
     if (OUT_FILE1 == NULL)
         sb.build(string("test.rst"));
     else
