@@ -18,7 +18,7 @@ imain: $(OBJS) src/imain.cpp
 clean:
 	rm -rf build/*
 
-build/imain.o: src/imain.cpp src/*.h ../madras-trie/src/*.hpp
+build/imain.o: src/imain.cpp src/*.h ../madras-trie/src/*.hpp ../leopard-trie/src/*.hpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c src/imain.cpp -o build/imain.o
 
 build/art.o: src/art.cpp src/art.h

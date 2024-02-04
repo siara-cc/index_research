@@ -33,6 +33,7 @@
 
 #include "../../madras-trie/src/madras_dv1.hpp"
 #include "../../madras-trie/src/madras_builder_dv1.hpp"
+#include "../../leopard-trie/src/leopard.hpp"
 
 using namespace std;
 
@@ -60,7 +61,8 @@ char *OUT_FILE2 = NULL;
 int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
-int TEST_MADRAS = 1;
+int TEST_LEOPARD = 1;
+int TEST_MADRAS = 0;
 int TEST_IDX1 = 1;
 int TEST_IDX2 = 1;
 
@@ -2645,6 +2647,36 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
+    leopard::trie leopard_trie;
+    if (TEST_LEOPARD)
+    {
+    it1 = m.begin();
+    start = get_time_val();
+    uint8_t dummy[9];
+    //cout << "Ptr size:" << util::ptr_toBytes((unsigned long) lx->root_block, dummy) << endl;
+    if (USE_HASHTABLE) {
+        it1 = m.begin();
+        for (; it1 != m.end(); ++it1) {
+            //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
+            leopard_trie.insert((const uint8_t *) it1->first.c_str(), it1->first.length(), (const uint8_t *) it1->second.c_str(),
+                    it1->second.length());
+            ctr++;
+        }
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            leopard_trie.insert(data_buf + pos, key_len, data_buf + pos + key_len + vlen + 1, value_len);
+            pos += key_len + value_len + vlen + 1;
+            ctr++;
+        }
+    }
+    stop = get_time_val();
+    cout << "Leopard trie insert time:" << timedifference(start, stop) << endl;
+    }
+
     madras_dv1::builder sb;
     sb.set_print_enabled(false);
     if (TEST_MADRAS)
@@ -2833,6 +2865,42 @@ int main(int argc, char *argv[]) {
         cout << "Hashtable Get Time:" << timedifference(start, stop) << ", ";
         cout << "Null:" << null_ctr << ", Cmp:" << cmp << ", ";
         cout << "Size:" << ctr << endl;
+    }
+
+    if (TEST_LEOPARD)
+    {
+    cmp = 0;
+    ctr = 0;
+    null_ctr = 0;
+    it1 = m.begin();
+    start = get_time_val();
+    if (USE_HASHTABLE) {
+        for (; it1 != m.end(); ++it1) {
+            int len = VALUE_LEN;
+            bool is_found = leopard_trie.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
+            //bool is_found = sd.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
+            check_value(it1->first.c_str(), it1->first.length() + 1,
+                    it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
+            ctr++;
+        }
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            int len = VALUE_LEN;
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            // bool is_found = sb.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
+            bool is_found = leopard_trie.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
+            check_value((char *) data_buf + pos, key_len,
+                    (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
+            pos += key_len + value_len + vlen + 1;
+            ctr++;
+        }
+    }
+    stop = get_time_val();
+    cout << "Leopard trie Get Time:" << timedifference(start, stop) << ", ";
+    cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
     }
 
     if (TEST_MADRAS)
