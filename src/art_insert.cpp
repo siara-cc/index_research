@@ -61,16 +61,16 @@ int main(int argc, char *argv[]) {
   *cr_pos = 0;
   size_t line_len = cr_pos - line;
   do {
-    if (prev_line_len == line_len && strncmp((const char *) line, (const char *) prev_line, prev_line_len) == 0)
-      continue;
-    art_insert(&at, line, line_len, line);
-    lines.push_back(line);
-    prev_line = line;
-    prev_line_len = line_len;
-    line_count++;
-    if ((line_count % 100000) == 0) {
-      cout << ".";
-      cout.flush();
+    if (prev_line_len != line_len || strncmp((const char *) line, (const char *) prev_line, prev_line_len) != 0) {
+      art_insert(&at, line, line_len, line);
+      lines.push_back(line);
+      prev_line = line;
+      prev_line_len = line_len;
+      line_count++;
+      if ((line_count % 100000) == 0) {
+        cout << ".";
+        cout.flush();
+      }
     }
     line = cr_pos + (cr_pos[1] == '\n' ? 2 : 1);
     cr_pos = (uint8_t *) memchr(line, '\n', file_stat.st_size - (cr_pos - file_buf));
