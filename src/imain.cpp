@@ -31,6 +31,9 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 
+#include <marisa.h>
+#include <sqlite3.h>
+
 #include "../../madras-trie/src/madras_dv1.hpp"
 #include "../../madras-trie/src/madras_builder_dv1.hpp"
 #include "../../leopard-trie/src/leopard.hpp"
@@ -58,13 +61,15 @@ int PARENT_PAGE_SIZE = DEFAULT_PARENT_BLOCK_SIZE;
 int CACHE_SIZE = 0;
 char *OUT_FILE1 = NULL;
 char *OUT_FILE2 = NULL;
-int USE_HASHTABLE = 0;
+int USE_HASHTABLE = 1;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
-int TEST_LEOPARD = 1;
-int TEST_MADRAS = 0;
+int TEST_LEOPARD = 0;
+int TEST_MADRAS = 1;
+int TEST_MARISA = 0;
+int TEST_SQLITE = 1;
 int TEST_IDX1 = 1;
-int TEST_IDX2 = 1;
+int TEST_IDX2 = 0;
 
 int ctr = 0;
 
@@ -2704,13 +2709,109 @@ int main(int argc, char *argv[]) {
             ctr++;
         }
     }
-    sb.set_print_enabled(true);
+    //sb.set_print_enabled(true);
     if (OUT_FILE1 == NULL)
         sb.build(string("test.rst"));
     else
         sb.build(string(OUT_FILE1) + ".rst");
     stop = get_time_val();
     cout << "Madras builder insert+build time:" << timedifference(start, stop) << endl;
+    }
+
+    marisa::Keyset marisa_keyset;
+    marisa::Trie marisa_trie;
+    if (TEST_MARISA)
+    {
+    it1 = m.begin();
+    start = get_time_val();
+    uint8_t dummy[9];
+    //cout << "Ptr size:" << util::ptr_toBytes((unsigned long) lx->root_block, dummy) << endl;
+    if (USE_HASHTABLE) {
+        it1 = m.begin();
+        for (; it1 != m.end(); ++it1) {
+            //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
+            marisa_keyset.push_back(it1->first.c_str(), it1->first.length());
+            ctr++;
+        }
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            marisa_keyset.push_back((const char *) data_buf + pos, key_len);
+            pos += key_len + value_len + vlen + 1;
+            ctr++;
+        }
+    }
+    marisa_trie.build(marisa_keyset);
+    stop = get_time_val();
+    cout << "Marisa push_back+build time:" << timedifference(start, stop) << endl;
+    }
+
+    sqlite3* db;
+    char* errorMessage = nullptr;
+    if (TEST_SQLITE)
+    {
+    ctr = 0;
+    
+    int rc = sqlite3_open(":memory:", &db);
+    if (rc) {
+        std::cerr << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
+        return 1;
+    }
+    const char* createTableSQL = "CREATE TABLE t1 (key PRIMARY KEY, value) without rowid";
+    rc = sqlite3_exec(db, createTableSQL, nullptr, nullptr, &errorMessage);
+    if (rc != SQLITE_OK) {
+        std::cerr << "SQL error: " << errorMessage << std::endl;
+        sqlite3_free(errorMessage);
+        return 1;
+    }
+    const char* insertSQL = "INSERT INTO t1 (key, value) VALUES (?, ?)";
+    sqlite3_stmt* stmt;
+    rc = sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return 1;
+    }
+    sqlite3_exec(db, "PRAGMA synchronous = OFF", NULL, NULL, &errorMessage);
+    sqlite3_exec(db, "PRAGMA count_changes = OFF", NULL, NULL, &errorMessage);
+    sqlite3_exec(db, "PRAGMA journal_mode = MEMORY", NULL, NULL, &errorMessage);
+    sqlite3_exec(db, "PRAGMA temp_store = MEMORY", NULL, NULL, &errorMessage);
+    sqlite3_exec(db, "PRAGMA locking_mode = EXCLUSIVE", NULL, NULL, &errorMessage);
+    sqlite3_exec(db, "BEGIN TRANSACTION", NULL, NULL, &errorMessage);
+
+    it1 = m.begin();
+    start = get_time_val();
+    uint8_t dummy[9];
+    //cout << "Ptr size:" << util::ptr_toBytes((unsigned long) lx->root_block, dummy) << endl;
+    if (USE_HASHTABLE) {
+        it1 = m.begin();
+        for (; it1 != m.end(); ++it1) {
+            sqlite3_bind_blob(stmt, 1, it1->first.c_str(), it1->first.length(), SQLITE_STATIC);
+            sqlite3_bind_blob(stmt, 2, it1->second.c_str(), it1->second.length(), SQLITE_STATIC);
+            rc = sqlite3_step(stmt);
+            rc = sqlite3_reset(stmt);
+            ctr++;
+        }
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            sqlite3_bind_blob(stmt, 1, data_buf + pos, key_len, SQLITE_STATIC);
+            sqlite3_bind_blob(stmt, 2, data_buf + pos + key_len + vlen + 1, value_len, SQLITE_STATIC);
+            rc = sqlite3_step(stmt);
+            rc = sqlite3_reset(stmt);
+            pos += key_len + value_len + vlen + 1;
+            ctr++;
+        }
+    }
+    sqlite3_exec(db, "BEGIN TRANSACTION", NULL, NULL, &errorMessage);
+    sqlite3_finalize(stmt);
+    stop = get_time_val();
+    cout << "Sqlite insert time:" << timedifference(start, stop) << endl;
     }
 
     basix *lx;
@@ -2922,10 +3023,13 @@ int main(int argc, char *argv[]) {
     if (USE_HASHTABLE) {
         for (; it1 != m.end(); ++it1) {
             int len = VALUE_LEN;
-            bool is_found = sb.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
+            bool is_found = sd.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
             //bool is_found = sd.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
-            check_value(it1->first.c_str(), it1->first.length() + 1,
-                    it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
+            if (is_found) {
+                check_value(it1->first.c_str(), it1->first.length() + 1,
+                        it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
+            } else
+                null_ctr++;
             ctr++;
         }
     } else {
@@ -2937,8 +3041,11 @@ int main(int argc, char *argv[]) {
             uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
             // bool is_found = sb.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
             bool is_found = sd.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
-            check_value((char *) data_buf + pos, key_len,
-                    (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
+            if (is_found) {
+                check_value((char *) data_buf + pos, key_len,
+                        (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
+            } else
+                null_ctr++;
             pos += key_len + value_len + vlen + 1;
             ctr++;
         }
@@ -2991,6 +3098,102 @@ int main(int argc, char *argv[]) {
     //     }
     // }
 
+    }
+
+    marisa::Agent agent;
+    if (TEST_MARISA)
+    {
+    cmp = 0;
+    ctr = 0;
+    null_ctr = 0;
+    it1 = m.begin();
+    start = get_time_val();
+    if (USE_HASHTABLE) {
+        for (; it1 != m.end(); ++it1) {
+            int len = VALUE_LEN;
+            agent.set_query(it1->first.c_str(), it1->first.length());
+            bool is_found = marisa_trie.lookup(agent);
+            if (!is_found)
+                null_ctr++;
+            ctr++;
+        }
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            int len = VALUE_LEN;
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            // bool is_found = sb.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
+            agent.set_query((const char *) data_buf + pos, key_len);
+            bool is_found = marisa_trie.lookup(agent);
+            if (!is_found)
+                null_ctr++;
+            pos += key_len + value_len + vlen + 1;
+            ctr++;
+        }
+    }
+    stop = get_time_val();
+    cout << "Marisa Get Time:" << timedifference(start, stop) << ", ";
+    cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
+    }
+
+    if (TEST_SQLITE)
+    {
+    const char* selectSQL = "SELECT value FROM t1 WHERE key = ?";
+    sqlite3_stmt* stmt;
+    int rc = sqlite3_prepare_v2(db, selectSQL, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return 1;
+    }
+    cmp = 0;
+    ctr = 0;
+    null_ctr = 0;
+    it1 = m.begin();
+    start = get_time_val();
+    if (USE_HASHTABLE) {
+        for (; it1 != m.end(); ++it1) {
+            int len = VALUE_LEN;
+            sqlite3_bind_blob(stmt, 1, it1->first.c_str(), it1->first.length(), SQLITE_STATIC);
+            rc = sqlite3_step(stmt);
+            if (rc == SQLITE_ROW) {
+                const void* binaryData = sqlite3_column_blob(stmt, 0);
+                int dataSize = sqlite3_column_bytes(stmt, 0);
+                check_value(it1->first.c_str(), it1->first.length() + 1,
+                        it1->second.c_str(), it1->second.length(),
+                        (const char *) binaryData, dataSize, null_ctr, cmp);
+            } else
+                null_ctr++;
+            int rc = sqlite3_reset(stmt);
+            ctr++;
+        }
+    } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+            int len = VALUE_LEN;
+            int8_t vlen;
+            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            pos += vlen;
+            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            sqlite3_bind_blob(stmt, 1, data_buf + pos, key_len, SQLITE_STATIC);
+            rc = sqlite3_step(stmt);
+            if (rc == SQLITE_ROW) {
+                const void* binaryData = sqlite3_column_blob(stmt, 0);
+                int dataSize = sqlite3_column_bytes(stmt, 0);
+                check_value((char *) data_buf + pos, key_len,
+                        (char *) data_buf + pos + key_len + vlen + 1, value_len,
+                        (const char *) binaryData, dataSize, null_ctr, cmp);
+            } else
+                null_ctr++;
+            rc = sqlite3_reset(stmt);
+            pos += key_len + value_len + vlen + 1;
+            ctr++;
+        }
+    }
+    stop = get_time_val();
+    cout << "Sqlite Get Time:" << timedifference(start, stop) << ", ";
+    cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
+    sqlite3_finalize(stmt);
     }
 
     if (TEST_IDX1)

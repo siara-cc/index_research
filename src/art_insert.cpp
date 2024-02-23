@@ -103,6 +103,7 @@ int main(int argc, char *argv[]) {
     }
     line_count++;
   }
+  printf("\nKeys per sec: %lf\n", line_count / time_taken_in_secs(t) / 1000);
   t = print_time_taken(t, "Time taken for retrieve: ");
   printf("Lines: %d, Errors: %d\n", line_count, err_count);
 
