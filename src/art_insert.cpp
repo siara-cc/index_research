@@ -84,6 +84,8 @@ int main(int argc, char *argv[]) {
   std::cout << std::endl;
   t = print_time_taken(t, "Time taken for insert/append: ");
 
+  uint8_t val_buf[100];
+
   int err_count = 0;
   line_count = 0;
   bool success = false;
@@ -93,7 +95,8 @@ int main(int argc, char *argv[]) {
     uint8_t *res_val = (uint8_t *) art_search(&at, line, line_len);
     if (res_val != NULL) {
       int val_len = line_len > 6 ? 7 : line_len;
-      if (memcmp(line, res_val, val_len) != 0) {
+      memcpy(val_buf, res_val, val_len);
+      if (memcmp(line, val_buf, val_len) != 0) {
         printf("key: [%.*s], val: [%.*s]\n", (int) line_len, line, val_len, res_val);
         err_count++;
       }

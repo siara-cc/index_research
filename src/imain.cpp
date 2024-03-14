@@ -61,10 +61,10 @@ int PARENT_PAGE_SIZE = DEFAULT_PARENT_BLOCK_SIZE;
 int CACHE_SIZE = 0;
 char *OUT_FILE1 = NULL;
 char *OUT_FILE2 = NULL;
-int USE_HASHTABLE = 1;
+int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
-int TEST_LEOPARD = 0;
+int TEST_LEOPARD = 1;
 int TEST_MADRAS = 1;
 int TEST_MARISA = 0;
 int TEST_SQLITE = 1;
@@ -2711,9 +2711,13 @@ int main(int argc, char *argv[]) {
     }
     //sb.set_print_enabled(true);
     if (OUT_FILE1 == NULL)
-        sb.build(string("test.rst"));
-    else
-        sb.build(string(OUT_FILE1) + ".rst");
+        sb.build("test.rst");
+    else {
+        std::string out_file = OUT_FILE1;
+        out_file += ".mdx";
+        sb.build(out_file.c_str());
+    }
+    sb.write_final_val_table();
     stop = get_time_val();
     cout << "Madras builder insert+build time:" << timedifference(start, stop) << endl;
     }
