@@ -12,6 +12,7 @@
 #include "linex.h"
 #include "sqlite.h"
 #include "basix.h"
+#include "hashplus.h"
 #include "basix3.h"
 #include "dfox.h"
 #include "dfost.h"
@@ -64,11 +65,11 @@ char *OUT_FILE2 = NULL;
 int USE_HASHTABLE = 0;
 int TEST_HASHTABLE = 0;
 int TEST_ART = 1;
-int TEST_LEOPARD = 1;
+int TEST_LEOPARD = 0;
 int TEST_MADRAS = 1;
-int TEST_MARISA = 0;
-int TEST_SQLITE = 1;
-int TEST_IDX1 = 1;
+int TEST_MARISA = 1;
+int TEST_SQLITE = 0;
+int TEST_IDX1 = 0;
 int TEST_IDX2 = 0;
 
 int ctr = 0;
@@ -2710,12 +2711,12 @@ int main(int argc, char *argv[]) {
         }
     }
     //sb.set_print_enabled(true);
-    if (OUT_FILE1 == NULL)
-        sb.build("test.rst");
-    else {
+    if (OUT_FILE1 == NULL) {
+        sb.write_kv("test.mdx");
+    } else {
         std::string out_file = OUT_FILE1;
         out_file += ".mdx";
-        sb.build(out_file.c_str());
+        sb.write_kv(out_file.c_str());
     }
     sb.write_final_val_table();
     stop = get_time_val();
@@ -3010,24 +3011,27 @@ int main(int argc, char *argv[]) {
 
     if (TEST_MADRAS)
     {
-    madras_dv1::static_dict sd;
+    madras_dv1::static_trie_map sd;
     std::string rst_outfile;
     if (OUT_FILE1 == NULL)
-        rst_outfile = "test.rst";
+        rst_outfile = "test.mdx";
     else {
         rst_outfile = OUT_FILE1;
-        rst_outfile += ".rst";
+        rst_outfile += ".mdx";
     }
     sd.load(rst_outfile.c_str());
     cmp = 0;
     ctr = 0;
     null_ctr = 0;
+    madras_dv1::input_ctx in_ctx;
     it1 = m.begin();
     start = get_time_val();
     if (USE_HASHTABLE) {
         for (; it1 != m.end(); ++it1) {
-            int len = VALUE_LEN;
-            bool is_found = sd.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
+            in_ctx.key = (const uint8_t *) it1->first.c_str();
+            in_ctx.key_len = it1->first.length();
+            size_t len = VALUE_LEN;
+            bool is_found = sd.get(in_ctx, &len, (uint8_t *) value_buf);
             //bool is_found = sd.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
             if (is_found) {
                 check_value(it1->first.c_str(), it1->first.length() + 1,
@@ -3038,19 +3042,20 @@ int main(int argc, char *argv[]) {
         }
     } else {
         for (int64_t pos = 0; pos < data_sz; pos++) {
-            int len = VALUE_LEN;
+            size_t len = VALUE_LEN;
             int8_t vlen;
-            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+            in_ctx.key = data_buf + pos + 1;
+            in_ctx.key_len = read_vint32(data_buf + pos, &vlen);
             pos += vlen;
-            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+            uint32_t value_len = read_vint32(data_buf + pos + in_ctx.key_len + 1, &vlen);
             // bool is_found = sb.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
-            bool is_found = sd.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
+            bool is_found = sd.get(in_ctx, &len, (uint8_t *) value_buf);
             if (is_found) {
-                check_value((char *) data_buf + pos, key_len,
-                        (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
+                check_value((char *) data_buf + pos, in_ctx.key_len,
+                        (char *) data_buf + pos + in_ctx.key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
             } else
                 null_ctr++;
-            pos += key_len + value_len + vlen + 1;
+            pos += in_ctx.key_len + value_len + vlen + 1;
             ctr++;
         }
     }
