@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include "art.h"
+#include <malloc/malloc.h>
 
 #ifdef __i386__
     #include <emmintrin.h>
@@ -972,4 +973,65 @@ int art_iter_prefix(art_tree *t, const unsigned char *key, int key_len, art_call
         depth++;
     }
     return 0;
+}
+
+// Returns the size in bytes of the subtrie.
+size_t art_size_in_bytes_at(const art_node *n) {
+    if (IS_LEAF(n)) {
+        art_leaf *l = LEAF_RAW(n);
+        return malloc_size(l) - l->key_len; // sizeof(art_leaf) + l->key_len;
+    }
+    size_t size = 0;
+    union {
+        art_node4 *p1;
+        art_node16 *p2;
+        art_node48 *p3;
+        art_node256 *p4;
+    } p;
+    int i, idx;
+    switch (n->type) {
+        case NODE4: {
+            size += malloc_size(n); // sizeof(art_node4);
+            p.p1 = (art_node4*)n;
+            for (i=0;i<n->num_children;i++) {
+                size += art_size_in_bytes_at(p.p1->children[i]);
+            }
+        } break;
+        case NODE16: {
+            size += malloc_size(n); // sizeof(art_node16);
+            p.p2 = (art_node16*)n;
+            for (i=0;i<n->num_children;i++) {
+                size += art_size_in_bytes_at(p.p2->children[i]);
+            }
+        } break;
+        case NODE48: {
+            size += malloc_size(n); // sizeof(art_node48);
+            p.p3 = (art_node48*)n;
+            for (i=0;i<256;i++) {
+                idx = ((art_node48*)n)->keys[i]; 
+                if (!idx) continue; 
+                size += art_size_in_bytes_at(p.p3->children[idx-1]);
+            }
+        } break;
+        case NODE256: {
+            size += malloc_size(n); // sizeof(art_node256);
+            p.p4 = (art_node256*)n;
+            for (i=0;i<256;i++) {
+                if (p.p4->children[i])
+                    size += art_size_in_bytes_at(p.p4->children[i]);
+            }
+        } break;
+        default:
+            assert(false);
+            break;
+    }
+    return size;
+}
+
+size_t art_size_in_bytes(const art_tree *t) {
+    size_t size = sizeof(art_tree);
+    if (t->root != NULL) {
+        size += art_size_in_bytes_at(t->root);
+    }
+    return size;
 }

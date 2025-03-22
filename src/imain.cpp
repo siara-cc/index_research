@@ -48,9 +48,7 @@ using namespace std;
 #define CS_255_RANDOM 5
 #define CS_255_DENSE 6
 
-//char *IMPORT_FILE = "/Users/arun/index_research/Release/w7.txt";
-char *IMPORT_FILE = NULL; //"/Users/arun/index_research/Release/unordered_dbpedia_labels.txt";
-//char *IMPORT_FILE = "/Users/arun/index_research/Release/domain_rank.csv";
+char *IMPORT_FILE = NULL;
 long NUM_ENTRIES = 40;
 int CHAR_SET = 2;
 int KEY_LEN = 8;
@@ -69,8 +67,8 @@ int TEST_LEOPARD = 0;
 int TEST_MADRAS = 1;
 int TEST_MARISA = 1;
 int TEST_SQLITE = 0;
-int TEST_IDX1 = 0;
-int TEST_IDX2 = 0;
+int TEST_IDX1 = 1;
+int TEST_IDX2 = 1;
 
 int ctr = 0;
 
@@ -2711,16 +2709,19 @@ int main(int argc, char *argv[]) {
         }
     }
     //sb.set_print_enabled(true);
+    struct stat fileStat;
     if (OUT_FILE1 == NULL) {
         sb.write_kv("test.mdx");
+        stat("test.mdx", &fileStat);
     } else {
         std::string out_file = OUT_FILE1;
         out_file += ".mdx";
         sb.write_kv(out_file.c_str());
+        stat(out_file.c_str(), &fileStat);
     }
     sb.write_final_val_table();
     stop = get_time_val();
-    cout << "Madras builder insert+build time:" << timedifference(start, stop) << endl;
+    cout << "Madras builder insert+build time:" << timedifference(start, stop) << ", size: " << fileStat.st_size << endl;
     }
 
     marisa::Keyset marisa_keyset;
@@ -2751,7 +2752,7 @@ int main(int argc, char *argv[]) {
     }
     marisa_trie.build(marisa_keyset);
     stop = get_time_val();
-    cout << "Marisa push_back+build time:" << timedifference(start, stop) << endl;
+    cout << "Marisa push_back+build time:" << timedifference(start, stop) << ", size: " << marisa_trie.io_size() << endl;
     }
 
     sqlite3* db;
@@ -2944,7 +2945,7 @@ int main(int argc, char *argv[]) {
     stop = get_time_val();
     cout << "ART Get Time:" << timedifference(start, stop) << ", ";
     cout << "Null:" << null_ctr << ", Cmp:" << cmp << ", ";
-    cout << "ART Size:" << art_size(&at) << endl;
+    cout << "Count:" << art_size(&at) << ", Size: " << art_size_in_bytes(&at) << endl;
     //getchar();
     }
 

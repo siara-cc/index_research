@@ -842,6 +842,8 @@ public:
         std::cout << (long) block_count_node;
         std::cout << ", ";
         std::cout << (long) block_count_leaf;
+        std::cout << ", Size: ";
+        std::cout << (long) (block_count_leaf * block_size) + (block_count_node * parent_block_size);
         std::cout << std::endl;
         std::cout << "Avg Key# in Block:";
         std::cout << (long) (num_entries / block_count_leaf);

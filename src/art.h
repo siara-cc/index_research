@@ -208,6 +208,8 @@ int art_iter(art_tree *t, art_callback cb, void *data);
  */
 int art_iter_prefix(art_tree *t, const unsigned char *prefix, int prefix_len, art_callback cb, void *data);
 
+size_t art_size_in_bytes(const art_tree *t);
+
 #ifdef __cplusplus
 }
 #endif

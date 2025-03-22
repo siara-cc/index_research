@@ -83,6 +83,7 @@ int main(int argc, char *argv[]) {
   } while (cr_pos != NULL);
   std::cout << std::endl;
   t = print_time_taken(t, "Time taken for insert/append: ");
+  printf("ART Size: %lu\n", art_size_in_bytes(&at));
 
   uint8_t val_buf[100];
 
@@ -101,7 +102,7 @@ int main(int argc, char *argv[]) {
         err_count++;
       }
     } else {
-      std::cout << line << std::endl;
+      std::cout << "Not found: " << line << std::endl;
       err_count++;
     }
     line_count++;
@@ -110,6 +111,7 @@ int main(int argc, char *argv[]) {
   t = print_time_taken(t, "Time taken for retrieve: ");
   printf("Lines: %d, Errors: %d\n", line_count, err_count);
 
+  // art_tree_destroy(&at);
   free(file_buf);
 
 }
