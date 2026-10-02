@@ -25,6 +25,7 @@
 #include "bfox.h"
 #include "rb_tree.h"
 #include "stager.h"
+#include "madras_blk.h"
 #ifdef _MSC_VER
 #include <windows.h>
 #endif
@@ -35,9 +36,9 @@
 #include <marisa.h>
 #include <sqlite3.h>
 
-#include "../../madras-trie/src/madras_dv1.hpp"
-#include "../../madras-trie/src/madras_builder_dv1.hpp"
-#include "../../leopard-trie/src/leopard.hpp"
+// #include "../../madras-trie/src/madras_dv1.hpp"
+// #include "../../madras-trie/src/madras_builder_dv1.hpp"
+// #include "../../leopard-trie/src/leopard.hpp"
 
 using namespace std;
 
@@ -69,6 +70,7 @@ int TEST_MARISA = 1;
 int TEST_SQLITE = 0;
 int TEST_IDX1 = 1;
 int TEST_IDX2 = 1;
+int TEST_MADRAS_BLK = 1;
 
 int ctr = 0;
 
@@ -2651,78 +2653,78 @@ int main(int argc, char *argv[]) {
         //getchar();
     }
 
-    leopard::trie leopard_trie;
-    if (TEST_LEOPARD)
-    {
-    it1 = m.begin();
-    start = get_time_val();
-    uint8_t dummy[9];
-    //cout << "Ptr size:" << util::ptr_toBytes((unsigned long) lx->root_block, dummy) << endl;
-    if (USE_HASHTABLE) {
-        it1 = m.begin();
-        for (; it1 != m.end(); ++it1) {
-            //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
-            leopard_trie.insert((const uint8_t *) it1->first.c_str(), it1->first.length(), (const uint8_t *) it1->second.c_str(),
-                    it1->second.length());
-            ctr++;
-        }
-    } else {
-        for (int64_t pos = 0; pos < data_sz; pos++) {
-            int8_t vlen;
-            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
-            pos += vlen;
-            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
-            leopard_trie.insert(data_buf + pos, key_len, data_buf + pos + key_len + vlen + 1, value_len);
-            pos += key_len + value_len + vlen + 1;
-            ctr++;
-        }
-    }
-    stop = get_time_val();
-    cout << "Leopard trie insert time:" << timedifference(start, stop) << endl;
-    }
+    // leopard::trie leopard_trie;
+    // if (TEST_LEOPARD)
+    // {
+    // it1 = m.begin();
+    // start = get_time_val();
+    // uint8_t dummy[9];
+    // //cout << "Ptr size:" << util::ptr_toBytes((unsigned long) lx->root_block, dummy) << endl;
+    // if (USE_HASHTABLE) {
+    //     it1 = m.begin();
+    //     for (; it1 != m.end(); ++it1) {
+    //         //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
+    //         leopard_trie.insert((const uint8_t *) it1->first.c_str(), it1->first.length(), (const uint8_t *) it1->second.c_str(),
+    //                 it1->second.length());
+    //         ctr++;
+    //     }
+    // } else {
+    //     for (int64_t pos = 0; pos < data_sz; pos++) {
+    //         int8_t vlen;
+    //         uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+    //         pos += vlen;
+    //         uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+    //         leopard_trie.insert(data_buf + pos, key_len, data_buf + pos + key_len + vlen + 1, value_len);
+    //         pos += key_len + value_len + vlen + 1;
+    //         ctr++;
+    //     }
+    // }
+    // stop = get_time_val();
+    // cout << "Leopard trie insert time:" << timedifference(start, stop) << endl;
+    // }
 
-    madras_dv1::builder sb;
-    sb.set_print_enabled(false);
-    if (TEST_MADRAS)
-    {
-    it1 = m.begin();
-    start = get_time_val();
-    uint8_t dummy[9];
-    //cout << "Ptr size:" << util::ptr_toBytes((unsigned long) lx->root_block, dummy) << endl;
-    if (USE_HASHTABLE) {
-        it1 = m.begin();
-        for (; it1 != m.end(); ++it1) {
-            //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
-            sb.insert((const uint8_t *) it1->first.c_str(), it1->first.length(), (const uint8_t *) it1->second.c_str(),
-                    it1->second.length());
-            ctr++;
-        }
-    } else {
-        for (int64_t pos = 0; pos < data_sz; pos++) {
-            int8_t vlen;
-            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
-            pos += vlen;
-            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
-            sb.insert(data_buf + pos, key_len, data_buf + pos + key_len + vlen + 1, value_len);
-            pos += key_len + value_len + vlen + 1;
-            ctr++;
-        }
-    }
-    //sb.set_print_enabled(true);
-    struct stat fileStat;
-    if (OUT_FILE1 == NULL) {
-        sb.write_kv("test.mdx");
-        stat("test.mdx", &fileStat);
-    } else {
-        std::string out_file = OUT_FILE1;
-        out_file += ".mdx";
-        sb.write_kv(out_file.c_str());
-        stat(out_file.c_str(), &fileStat);
-    }
-    sb.write_final_val_table();
-    stop = get_time_val();
-    cout << "Madras builder insert+build time:" << timedifference(start, stop) << ", size: " << fileStat.st_size << endl;
-    }
+    // madras_dv1::builder sb;
+    // sb.set_print_enabled(false);
+    // if (TEST_MADRAS)
+    // {
+    // it1 = m.begin();
+    // start = get_time_val();
+    // uint8_t dummy[9];
+    // //cout << "Ptr size:" << util::ptr_toBytes((unsigned long) lx->root_block, dummy) << endl;
+    // if (USE_HASHTABLE) {
+    //     it1 = m.begin();
+    //     for (; it1 != m.end(); ++it1) {
+    //         //cout << it1->first.c_str() << endl; //<< ":" << it1->second.c_str() << endl;
+    //         sb.insert((const uint8_t *) it1->first.c_str(), it1->first.length(), (const uint8_t *) it1->second.c_str(),
+    //                 it1->second.length());
+    //         ctr++;
+    //     }
+    // } else {
+    //     for (int64_t pos = 0; pos < data_sz; pos++) {
+    //         int8_t vlen;
+    //         uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+    //         pos += vlen;
+    //         uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+    //         sb.insert(data_buf + pos, key_len, data_buf + pos + key_len + vlen + 1, value_len);
+    //         pos += key_len + value_len + vlen + 1;
+    //         ctr++;
+    //     }
+    // }
+    // //sb.set_print_enabled(true);
+    // struct stat fileStat;
+    // if (OUT_FILE1 == NULL) {
+    //     sb.write_kv("test.mdx");
+    //     stat("test.mdx", &fileStat);
+    // } else {
+    //     std::string out_file = OUT_FILE1;
+    //     out_file += ".mdx";
+    //     sb.write_kv(out_file.c_str());
+    //     stat(out_file.c_str(), &fileStat);
+    // }
+    // sb.write_final_val_table();
+    // stop = get_time_val();
+    // cout << "Madras builder insert+build time:" << timedifference(start, stop) << ", size: " << fileStat.st_size << endl;
+    // }
 
     marisa::Keyset marisa_keyset;
     marisa::Trie marisa_trie;
@@ -2867,6 +2869,24 @@ int main(int argc, char *argv[]) {
     //getchar();
     }
 
+    // madras_blk is static: built from the in-memory basix index above
+    madras_blk::builder *mbx_bldr = NULL;
+    madras_blk::blk_trie mbx_trie;
+    if (TEST_MADRAS_BLK && TEST_IDX1 && CACHE_SIZE == 0)
+    {
+      start = get_time_val();
+      madras_blk::bldr_options mbx_opts = madras_blk::dflt_opts;
+      mbx_opts.leaf_blk_size = LEAF_PAGE_SIZE;
+      mbx_opts.parent_blk_size = PARENT_PAGE_SIZE;
+      mbx_bldr = new madras_blk::builder(mbx_opts);
+      std::vector<uint8_t>& mbx_out = mbx_bldr->build_from_basix(lx);
+      mbx_trie.load(mbx_out.data(), mbx_out.size());
+      stop = get_time_val();
+      cout << "Madras_blk build time:" << timedifference(start, stop) << ", size: " << mbx_out.size()
+           << ", leaves: " << mbx_trie.get_leaf_count() << ", parents: " << mbx_trie.get_parent_count()
+           << ", tails: " << mbx_bldr->plain_store().tails.size() << ", tail area: " << mbx_bldr->plain_store().area_size << endl;
+    }
+
     bfos *dx;
     if (TEST_IDX2)
     {
@@ -2974,95 +2994,95 @@ int main(int argc, char *argv[]) {
         cout << "Size:" << ctr << endl;
     }
 
-    if (TEST_LEOPARD)
-    {
-    cmp = 0;
-    ctr = 0;
-    null_ctr = 0;
-    it1 = m.begin();
-    start = get_time_val();
-    if (USE_HASHTABLE) {
-        for (; it1 != m.end(); ++it1) {
-            int len = VALUE_LEN;
-            bool is_found = leopard_trie.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
-            //bool is_found = sd.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
-            check_value(it1->first.c_str(), it1->first.length() + 1,
-                    it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
-            ctr++;
-        }
-    } else {
-        for (int64_t pos = 0; pos < data_sz; pos++) {
-            int len = VALUE_LEN;
-            int8_t vlen;
-            uint32_t key_len = read_vint32(data_buf + pos, &vlen);
-            pos += vlen;
-            uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
-            // bool is_found = sb.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
-            bool is_found = leopard_trie.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
-            check_value((char *) data_buf + pos, key_len,
-                    (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
-            pos += key_len + value_len + vlen + 1;
-            ctr++;
-        }
-    }
-    stop = get_time_val();
-    cout << "Leopard trie Get Time:" << timedifference(start, stop) << ", ";
-    cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
-    }
+    // if (TEST_LEOPARD)
+    // {
+    // cmp = 0;
+    // ctr = 0;
+    // null_ctr = 0;
+    // it1 = m.begin();
+    // start = get_time_val();
+    // if (USE_HASHTABLE) {
+    //     for (; it1 != m.end(); ++it1) {
+    //         int len = VALUE_LEN;
+    //         bool is_found = leopard_trie.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
+    //         //bool is_found = sd.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
+    //         check_value(it1->first.c_str(), it1->first.length() + 1,
+    //                 it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
+    //         ctr++;
+    //     }
+    // } else {
+    //     for (int64_t pos = 0; pos < data_sz; pos++) {
+    //         int len = VALUE_LEN;
+    //         int8_t vlen;
+    //         uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+    //         pos += vlen;
+    //         uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+    //         // bool is_found = sb.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
+    //         bool is_found = leopard_trie.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
+    //         check_value((char *) data_buf + pos, key_len,
+    //                 (char *) data_buf + pos + key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
+    //         pos += key_len + value_len + vlen + 1;
+    //         ctr++;
+    //     }
+    // }
+    // stop = get_time_val();
+    // cout << "Leopard trie Get Time:" << timedifference(start, stop) << ", ";
+    // cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
+    // }
 
-    if (TEST_MADRAS)
-    {
-    madras_dv1::static_trie_map sd;
-    std::string rst_outfile;
-    if (OUT_FILE1 == NULL)
-        rst_outfile = "test.mdx";
-    else {
-        rst_outfile = OUT_FILE1;
-        rst_outfile += ".mdx";
-    }
-    sd.load(rst_outfile.c_str());
-    cmp = 0;
-    ctr = 0;
-    null_ctr = 0;
-    madras_dv1::input_ctx in_ctx;
-    it1 = m.begin();
-    start = get_time_val();
-    if (USE_HASHTABLE) {
-        for (; it1 != m.end(); ++it1) {
-            in_ctx.key = (const uint8_t *) it1->first.c_str();
-            in_ctx.key_len = it1->first.length();
-            size_t len = VALUE_LEN;
-            bool is_found = sd.get(in_ctx, &len, (uint8_t *) value_buf);
-            //bool is_found = sd.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
-            if (is_found) {
-                check_value(it1->first.c_str(), it1->first.length() + 1,
-                        it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
-            } else
-                null_ctr++;
-            ctr++;
-        }
-    } else {
-        for (int64_t pos = 0; pos < data_sz; pos++) {
-            size_t len = VALUE_LEN;
-            int8_t vlen;
-            in_ctx.key = data_buf + pos + 1;
-            in_ctx.key_len = read_vint32(data_buf + pos, &vlen);
-            pos += vlen;
-            uint32_t value_len = read_vint32(data_buf + pos + in_ctx.key_len + 1, &vlen);
-            // bool is_found = sb.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
-            bool is_found = sd.get(in_ctx, &len, (uint8_t *) value_buf);
-            if (is_found) {
-                check_value((char *) data_buf + pos, in_ctx.key_len,
-                        (char *) data_buf + pos + in_ctx.key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
-            } else
-                null_ctr++;
-            pos += in_ctx.key_len + value_len + vlen + 1;
-            ctr++;
-        }
-    }
-    stop = get_time_val();
-    cout << "Madras Get Time:" << timedifference(start, stop) << ", ";
-    cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
+    // if (TEST_MADRAS)
+    // {
+    // madras_dv1::static_trie_map sd;
+    // std::string rst_outfile;
+    // if (OUT_FILE1 == NULL)
+    //     rst_outfile = "test.mdx";
+    // else {
+    //     rst_outfile = OUT_FILE1;
+    //     rst_outfile += ".mdx";
+    // }
+    // sd.load(rst_outfile.c_str());
+    // cmp = 0;
+    // ctr = 0;
+    // null_ctr = 0;
+    // madras_dv1::input_ctx in_ctx;
+    // it1 = m.begin();
+    // start = get_time_val();
+    // if (USE_HASHTABLE) {
+    //     for (; it1 != m.end(); ++it1) {
+    //         in_ctx.key = (const uint8_t *) it1->first.c_str();
+    //         in_ctx.key_len = it1->first.length();
+    //         size_t len = VALUE_LEN;
+    //         bool is_found = sd.get(in_ctx, &len, (uint8_t *) value_buf);
+    //         //bool is_found = sd.get((const uint8_t *) it1->first.c_str(), it1->first.length(), &len, (uint8_t *) value_buf);
+    //         if (is_found) {
+    //             check_value(it1->first.c_str(), it1->first.length() + 1,
+    //                     it1->second.c_str(), it1->second.length(), value_buf, len, null_ctr, cmp);
+    //         } else
+    //             null_ctr++;
+    //         ctr++;
+    //     }
+    // } else {
+    //     for (int64_t pos = 0; pos < data_sz; pos++) {
+    //         size_t len = VALUE_LEN;
+    //         int8_t vlen;
+    //         in_ctx.key = data_buf + pos + 1;
+    //         in_ctx.key_len = read_vint32(data_buf + pos, &vlen);
+    //         pos += vlen;
+    //         uint32_t value_len = read_vint32(data_buf + pos + in_ctx.key_len + 1, &vlen);
+    //         // bool is_found = sb.get(data_buf + pos, key_len, &len, (uint8_t *) value_buf);
+    //         bool is_found = sd.get(in_ctx, &len, (uint8_t *) value_buf);
+    //         if (is_found) {
+    //             check_value((char *) data_buf + pos, in_ctx.key_len,
+    //                     (char *) data_buf + pos + in_ctx.key_len + vlen + 1, value_len, value_buf, len, null_ctr, cmp);
+    //         } else
+    //             null_ctr++;
+    //         pos += in_ctx.key_len + value_len + vlen + 1;
+    //         ctr++;
+    //     }
+    // }
+    // stop = get_time_val();
+    // cout << "Madras Get Time:" << timedifference(start, stop) << ", ";
+    // cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
 
     // if ((null_ctr > 0 || cmp > 0) && (null_ctr + cmp) < 20) {
     //     if (USE_HASHTABLE) {
@@ -3108,7 +3128,7 @@ int main(int argc, char *argv[]) {
     //     }
     // }
 
-    }
+    // }
 
     marisa::Agent agent;
     if (TEST_MARISA)
@@ -3243,6 +3263,36 @@ int main(int argc, char *argv[]) {
     //lx->print_counts();
     cout << "Root filled size:" << lx->filled_size() << endl;
 
+    }
+
+    if (TEST_MADRAS_BLK && mbx_bldr != NULL)
+    {
+      cmp = 0;
+      ctr = 0;
+      null_ctr = 0;
+      it1 = m.begin();
+      start = get_time_val();
+      if (USE_HASHTABLE) {
+        for (; it1 != m.end(); ++it1) {
+          if (!mbx_trie.lookup(it1->first.c_str(), it1->first.length()))
+            null_ctr++;
+          ctr++;
+        }
+      } else {
+        for (int64_t pos = 0; pos < data_sz; pos++) {
+          int8_t vlen;
+          uint32_t key_len = read_vint32(data_buf + pos, &vlen);
+          pos += vlen;
+          uint32_t value_len = read_vint32(data_buf + pos + key_len + 1, &vlen);
+          if (!mbx_trie.lookup(data_buf + pos, key_len))
+            null_ctr++;
+          pos += key_len + value_len + vlen + 1;
+          ctr++;
+        }
+      }
+      stop = get_time_val();
+      cout << "Madras_blk Get Time:" << timedifference(start, stop) << ", ";
+      cout << "Null:" << null_ctr << ", Cmp:" << cmp << endl;
     }
 
     if (TEST_IDX2)

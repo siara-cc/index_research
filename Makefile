@@ -1,7 +1,7 @@
 C = gcc
 CXXFLAGS = -pthread -march=native
 CXX = g++
-CXXFLAGS = -pthread -std=c++11 -march=native -DMARISA_USE_POPCNT -mpopcnt -DMARISA_USE_BMI2 -DMARISA_WORD_SIZE=64 -mbmi2 -msse4
+CXXFLAGS = -pthread -std=c++11 -march=native -DMARISA_USE_POPCNT -DMARISA_USE_BMI2 -DMARISA_WORD_SIZE=64
 OBJS = build/rb_tree.o build/imain.o build/art.o build/univix_util.o build/bloom.o
 INCLUDES = -I./hdr -I./src -I../bloom/src
 L_FLAGS = -lsnappy -llz4 -lbrotlienc -lbrotlidec -lz -lmarisa -lsqlite3 -DMARISA_USE_POPCNT -mpopcnt -DMARISA_USE_BMI2 -DMARISA_WORD_SIZE=64 -mbmi2 -msse4
@@ -18,7 +18,7 @@ imain: $(OBJS) src/imain.cpp
 clean:
 	rm -rf build/*
 
-build/imain.o: src/imain.cpp src/*.h ../madras-trie/src/*.hpp ../leopard-trie/src/*.hpp
+build/imain.o: src/imain.cpp src/*.h src/madras_blk/*.hpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c src/imain.cpp -o build/imain.o
 
 build/art.o: src/art.cpp src/art.h
